@@ -55,6 +55,44 @@
 			var grassImage = new Image(); grassImage.src = 'assets2/grass.png';
 			var logoImage = new Image(); logoImage.src = 'assets/sprites/Logo DeSoGhost.png';
 			var logoDesoImage = new Image(); logoDesoImage.src = 'assets/sprites/Logo DeSo.png';
+			var water1Image = new Image(); water1Image.src = 'assets2/water1.png';
+			var water2Image = new Image(); water2Image.src = 'assets2/water2.png';
+			var water3Image = new Image(); water3Image.src = 'assets2/water3.png';
+			var water4Image = new Image(); water4Image.src = 'assets2/water4.png';
+			var water5Image = new Image(); water5Image.src = 'assets2/water5.png';
+			var fire1Image = new Image(); fire1Image.src = 'assets2/fire1.png';
+			var fire2Image = new Image(); fire2Image.src = 'assets2/fire2.png';
+			var fire3Image = new Image(); fire3Image.src = 'assets2/fire3.png';
+			var fire4Image = new Image(); fire4Image.src = 'assets2/fire4.png';
+			var weed1Image = new Image(); weed1Image.src = 'assets2/weed1.png';
+			var weed2Image = new Image(); weed2Image.src = 'assets2/weed2.png';
+			var weed3Image = new Image(); weed3Image.src = 'assets2/weed3.png';
+			var weed4Image = new Image(); weed4Image.src = 'assets2/weed4.png';
+			var monsterImage = new Image(); monsterImage.src = 'assets2/monster.png';
+			var monster1Image = new Image(); monster1Image.src = 'assets2/monster1.png';
+			var monster2Image = new Image(); monster2Image.src = 'assets2/monster2.png';
+			var monsterBulletImage = new Image(); monsterBulletImage.src = 'assets2/monsterBullet.png';
+			var monsterBulletL1Image = new Image(); monsterBulletL1Image.src = 'assets2/monsterBulletL1.png';
+			var monsterBulletL2Image = new Image(); monsterBulletL2Image.src = 'assets2/monsterBulletL2.png';
+			var monsterBulletR1Image = new Image(); monsterBulletR1Image.src = 'assets2/monsterBulletR1.png';
+			var monsterBulletR2Image = new Image(); monsterBulletR2Image.src = 'assets2/monsterBulletR2.png';
+			var explosion1Image = new Image(); explosion1Image.src = 'assets2/explosion1.png';
+			var explosion2Image = new Image(); explosion2Image.src = 'assets2/explosion2.png';
+			var goImage = new Image(); goImage.src = 'assets2/go.png';
+			var dave0Image = new Image(); dave0Image.src = 'assets2/dave0.png';
+			var dave1Image = new Image(); dave1Image.src = 'assets2/dave1.png';
+			var dave2Image = new Image(); dave2Image.src = 'assets2/dave2.png';
+			var dave3Image = new Image(); dave3Image.src = 'assets2/dave3.png';
+			var dave4Image = new Image(); dave4Image.src = 'assets2/dave4.png';
+			var dave5Image = new Image(); dave5Image.src = 'assets2/dave5.png';
+			var dave6Image = new Image(); dave6Image.src = 'assets2/dave6.png';
+			var dave7Image = new Image(); dave7Image.src = 'assets2/dave7.png';
+			var dave8Image = new Image(); dave8Image.src = 'assets2/dave8.png';
+			var cup1Image = new Image(); cup1Image.src = 'assets2/cup1.png';
+			var cup2Image = new Image(); cup2Image.src = 'assets2/cup2.png';
+			var cup3Image = new Image(); cup3Image.src = 'assets2/cup3.png';
+			var cup4Image = new Image(); cup4Image.src = 'assets2/cup4.png';
+			var cup5Image = new Image(); cup5Image.src = 'assets2/cup5.png';
 			
 			var bgMusic = new Audio('assets/sprites/Ghostly Quest 8-Bit.mp3');
 			bgMusic.loop = true;
@@ -684,7 +722,7 @@
 				clearTimeout(g_cutsceneTimer);
 				var gif = document.getElementById("cutsceneGif");
 				gif.style.display = "none";
-				requestAnimationFrame(Game_Loop);
+				ResetGame(1);
 			}
 
 			// --- DESO WEB3 INTEGRATION ---
