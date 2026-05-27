@@ -60,7 +60,7 @@
 			bgMusic.loop = true;
 			var g_musicStarted = false;
 			// Tenta autoplay (pode ser bloqueado pelo navegador sem interação prévia)
-			bgMusic.play().catch(function(e){});
+			var p = bgMusic.play(); if (p !== undefined) { p.catch(function(e){}); }
 			
 			function ToggleMute() {
 				var btn = document.getElementById("muteBtn");
