@@ -969,23 +969,25 @@
 
 			async function CheckVIPStatus(pubKey) {
 				try {
-					var req = await fetch("https://node.deso.org/api/v0/get-users-stateless", {
+					var req = await fetch("https://node.deso.org/api/v0/get-balance-for-creator-coin", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ PublicKeysBase58Check: [pubKey] })
+						body: JSON.stringify({
+							HODLerPublicKeyBase58Check: pubKey,
+							CreatorPublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn"
+						})
 					});
 					var data = await req.json();
-					if (data && data.UserList && data.UserList[0] && data.UserList[0].UsersYouHODL) {
-						var hodl = data.UserList[0].UsersYouHODL;
-						for (var i = 0; i < hodl.length; i++) {
-							if (hodl[i].CreatorPublicKeyBase58Check === "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn") {
-								g_hasCreatorCoin = true;
-								console.log("VIP Access Granted: DangerGhost HODLer!");
-								break;
-							}
-						}
+					if (data && data.BalanceEntryResponse && data.BalanceEntryResponse.BalanceNanos > 0) {
+						g_hasCreatorCoin = true;
+						console.log("VIP Access Granted: DangerGhost HODLer!");
+					} else {
+						g_hasCreatorCoin = false;
 					}
-				} catch(e) { console.log("VIP Check Error", e); }
+				} catch(e) { 
+					console.log("VIP Check Error", e);
+					g_hasCreatorCoin = false;
+				}
 			}
 
 			window.addEventListener('message', function(event) {
