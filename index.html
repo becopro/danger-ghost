@@ -915,8 +915,8 @@
 						body: JSON.stringify({ TransactionHex: signedTxHex })
 					});
 					var data = await res.json();
-					if (data && data.TransactionHex) {
-						if (g_desoPendingTransactionType === "POST") {
+					if (data && data.TxnHashHex) {
+						if (g_desoPendingTransactionType === "POST" || g_desoPendingTransactionType === "SUBMITTING_POST") {
 							g_desoPendingTransactionType = null;
 							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
 							
@@ -930,7 +930,7 @@
 									CreateDeSoNFT(g_desoLastPostHashHex);
 								};
 							}
-						} else if (g_desoPendingTransactionType === "NFT") {
+						} else if (g_desoPendingTransactionType === "NFT" || g_desoPendingTransactionType === "SUBMITTING_NFT") {
 							g_desoPendingTransactionType = null;
 							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
 							
@@ -944,6 +944,16 @@
 					} else {
 						console.error("Broadcast failed", data);
 						alert("Error broadcasting transaction: " + (data.error || "Unknown error"));
+						var btn = document.getElementById("desoPostBtn");
+						if (btn) {
+							if (g_desoPendingTransactionType === "SUBMITTING_POST" || g_desoPendingTransactionType === "POST") {
+								btn.innerText = "APPROVE POST";
+								btn.disabled = false;
+							} else if (g_desoPendingTransactionType === "SUBMITTING_NFT" || g_desoPendingTransactionType === "NFT") {
+								btn.innerText = "APPROVE NFT";
+								btn.disabled = false;
+							}
+						}
 					}
 				} catch(e) { console.error("Submit Tx Error", e); }
 			}
@@ -1014,6 +1024,8 @@
 				}
 				
 				if (data.payload && data.payload.signedTransactionHex) {
+					if (g_desoPendingTransactionType === "POST") g_desoPendingTransactionType = "SUBMITTING_POST";
+					else if (g_desoPendingTransactionType === "NFT") g_desoPendingTransactionType = "SUBMITTING_NFT";
 					SubmitSignedTransaction(data.payload.signedTransactionHex);
 				}
 			});
