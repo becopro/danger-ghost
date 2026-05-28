@@ -801,7 +801,7 @@
 					});
 					var data = await res.json();
 					if (data.TransactionHex) {
-						var btn = document.getElementById("postBtn");
+						var btn = document.getElementById("desoPostBtn");
 						if(btn) { 
 							btn.innerText = "APPROVE NFT"; 
 							btn.disabled = false; 
@@ -811,13 +811,56 @@
 								btn.innerText = "WAITING FOR APPROVAL...";
 								btn.disabled = true;
 								WaitForWindowClose(g_desoIdentityWindow, function() {
-									btn.innerText = "SUCCESS! POSTED & MINTED";
-									alert("🏆 BINGO! Your Win Screenshot was MINTED as a unique NFT directly into your DeSo Wallet! Welcome to Web3.");
+									if (g_desoPendingTransactionType === "NFT") {
+										btn.innerText = "APPROVE NFT";
+										btn.disabled = false;
+									}
 								});
 							};
 						}
 					}
 				} catch(e) { console.error("NFT Error", e); }
+			}
+
+			async function SubmitSignedTransaction(signedTxHex) {
+				try {
+					var res = await fetch("https://node.deso.org/api/v0/submit-transaction", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ TransactionHex: signedTxHex })
+					});
+					var data = await res.json();
+					if (data && data.TransactionHex) {
+						if (g_desoPendingTransactionType === "POST") {
+							g_desoPendingTransactionType = null;
+							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+							
+							var btn = document.getElementById("desoPostBtn");
+							if (btn) {
+								btn.innerText = "MINT NFT";
+								btn.disabled = false;
+								btn.onclick = function() {
+									btn.innerText = "MINTING... PLEASE WAIT";
+									btn.disabled = true;
+									CreateDeSoNFT(g_desoLastPostHashHex);
+								};
+							}
+						} else if (g_desoPendingTransactionType === "NFT") {
+							g_desoPendingTransactionType = null;
+							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+							
+							var btn = document.getElementById("desoPostBtn");
+							if (btn) {
+								btn.innerText = "SUCCESS! POSTED & MINTED";
+								btn.disabled = true;
+							}
+							alert("🏆 BINGO! Your Win Screenshot was MINTED as a unique NFT directly into your DeSo Wallet! Welcome to Web3.");
+						}
+					} else {
+						console.error("Broadcast failed", data);
+						alert("Error broadcasting transaction: " + (data.error || "Unknown error"));
+					}
+				} catch(e) { console.error("Submit Tx Error", e); }
 			}
 
 			function WaitForWindowClose(win, callback) {
@@ -883,6 +926,10 @@
 					g_desoPendingAction = null;
 					ExecuteDeSoPost(data.payload.jwt);
 				}
+				
+				if (data.payload && data.payload.signedTransactionHex) {
+					SubmitSignedTransaction(data.payload.signedTransactionHex);
+				}
 			});
 
 			function LoginDeSo() {
@@ -899,7 +946,7 @@
 				var pName = nameInput.value.trim() || "UNKNOWN";
 				DrawWinScreen(pName); // Estampa o nome
 				
-				var btn = document.getElementById("postBtn");
+				var btn = document.getElementById("desoPostBtn");
 				if(btn) { btn.innerText = "UPLOADING... PLEASE WAIT"; btn.disabled = true; }
 				
 				g_desoPendingAction = 'jwt';
@@ -965,7 +1012,7 @@
 						var postData = await postRes.json();
 						
 						if (postData.TransactionHex && postData.PostHashHex) {
-							var btn = document.getElementById("postBtn");
+							var btn = document.getElementById("desoPostBtn");
 							if(btn) { 
 								btn.innerText = "APPROVE POST"; 
 								btn.disabled = false; 
@@ -977,19 +1024,16 @@
 									btn.innerText = "WAITING FOR APPROVAL...";
 									btn.disabled = true;
 									WaitForWindowClose(g_desoIdentityWindow, function() {
-										btn.innerText = "MINT NFT";
-										btn.disabled = false;
-										btn.onclick = function() {
-											btn.innerText = "MINTING... PLEASE WAIT";
-											btn.disabled = true;
-											CreateDeSoNFT(g_desoLastPostHashHex);
-										};
+										if (g_desoPendingTransactionType === "POST") {
+											btn.innerText = "APPROVE POST";
+											btn.disabled = false;
+										}
 									});
 								};
 							}
 							DrawWinScreen(); 
 						} else {
-							var btn = document.getElementById("postBtn");
+							var btn = document.getElementById("desoPostBtn");
 							if(btn) { btn.innerText = "ERROR! SEE CONSOLE"; }
 							console.error("Unexpected DeSo response", postData);
 							alert("Error: Unexpected DeSo response format. Check console.");
