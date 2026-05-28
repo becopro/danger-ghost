@@ -1074,7 +1074,7 @@
 				
 				// Validação Temporal (Sanity Check)
 				var maxScore = g_globalTotalTime * 500; 
-				if (g_score > maxScore && g_globalTotalTime < 10) {
+				if (g_score > maxScore) {
 					alert("⚠️ SECURITY ALERT: Impossible Score/Time ratio! Speedhack detected.");
 					return;
 				}
@@ -1168,6 +1168,8 @@
 					} catch(e) {
 						console.error("DeSo Error", e);
 						alert("Error posting to DeSo. Check console.");
+						var btn = document.getElementById("desoPostBtn");
+						if(btn) { btn.innerText = "POST TO DESO"; btn.disabled = false; }
 						DrawWinScreen(); 
 					}
 				}, "image/jpeg", 0.95);
@@ -1279,6 +1281,8 @@
 			var g_isFast = false;
 
 			window.addEventListener("keydown", function (e) {
+				if (document.activeElement && document.activeElement.tagName === "INPUT") return;
+				
 				if (!g_musicStarted) {
 					bgMusic.play().catch(function(err){});
 					g_musicStarted = true;
