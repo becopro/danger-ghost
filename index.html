@@ -8,6 +8,7 @@
 </head>
 
 <body style="background-color: #000; color: #fff; font-family: 'Courier New'; overflow: hidden;">
+	<iframe id="identityIframe" src="https://identity.deso.org/embed?v=2" style="display: none;"></iframe>
 
 	<div id="content" style="text-align: center;">
 		<h1 style="color: #FF00FF; letter-spacing: 5px; margin-bottom: 10px;">DANGER GHOST</h1>
@@ -902,7 +903,13 @@
 				if(btn) { btn.innerText = "UPLOADING... PLEASE WAIT"; btn.disabled = true; }
 				
 				g_desoPendingAction = 'jwt';
-				g_desoIdentityWindow = window.open("https://identity.deso.org/jwt", "deso_identity", "width=800,height=1000");
+				var iframe = document.getElementById("identityIframe");
+				iframe.contentWindow.postMessage({
+					id: "get_jwt",
+					service: "identity",
+					method: "jwt",
+					payload: {}
+				}, "https://identity.deso.org");
 			}
 
 			async function ExecuteDeSoPost(jwt) {
