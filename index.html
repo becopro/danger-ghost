@@ -39,6 +39,53 @@
 		</div>
 
 		<script>
+			// --- SHIELD PROTOCOL (ANTI-HACKER / ANTI-DEVTOOLS) ---
+			
+			// 1. Console Blackout (Silence all outputs in production)
+			console.log = function() {};
+			console.warn = function() {};
+			console.error = function() {};
+			console.info = function() {};
+			console.dir = function() {};
+			
+			// 2. Block Right-Click (Context Menu)
+			document.addEventListener('contextmenu', function(e) {
+				e.preventDefault();
+			});
+			
+			// 3. Block Developer Tools Shortcuts
+			document.addEventListener('keydown', function(e) {
+				// F12
+				if (e.keyCode == 123) {
+					e.preventDefault();
+					return false;
+				}
+				// Ctrl+Shift+I (Inspecionar)
+				if (e.ctrlKey && e.shiftKey && e.keyCode == 73) {
+					e.preventDefault();
+					return false;
+				}
+				// Ctrl+Shift+J (Console)
+				if (e.ctrlKey && e.shiftKey && e.keyCode == 74) {
+					e.preventDefault();
+					return false;
+				}
+				// Ctrl+U (Ver Fonte)
+				if (e.ctrlKey && e.keyCode == 85) {
+					e.preventDefault();
+					return false;
+				}
+			});
+			
+			// 4. Debugger Trap (Infinite loop if DevTools opens)
+			setInterval(function() {
+				(function() {
+					return false;
+				}
+				['constructor']('debugger')
+				['call']());
+			}, 100);
+
 			// --- ANTI-CHEAT CAIXA PRETA (IIFE) ---
 			(function() {
 			var g_canvas = document.getElementById("myCanvas");
@@ -740,6 +787,7 @@
 
 			// --- DESO WEB3 INTEGRATION ---
 			var g_desoPublicKey = null;
+			var g_desoUserObj = null;
 			var g_desoIdentityWindow = null;
 			var g_desoPendingAction = null; 
 			var g_desoPendingTransactionHex = null;
@@ -904,6 +952,7 @@
 				if (g_desoPendingAction === 'login' && data.method === "login") {
 					for (var key in data.payload.users) {
 						g_desoPublicKey = key; 
+						g_desoUserObj = data.payload.users[key];
 						break;
 					}
 					if (g_desoPublicKey) {
@@ -951,11 +1000,19 @@
 				
 				g_desoPendingAction = 'jwt';
 				var iframe = document.getElementById("identityIframe");
+				var jwtPayload = {};
+				if (g_desoUserObj) {
+					jwtPayload = {
+						accessLevel: g_desoUserObj.accessLevel,
+						accessLevelHmac: g_desoUserObj.accessLevelHmac,
+						encryptedSeedHex: g_desoUserObj.encryptedSeedHex
+					};
+				}
 				iframe.contentWindow.postMessage({
 					id: "get_jwt",
 					service: "identity",
 					method: "jwt",
-					payload: {}
+					payload: jwtPayload
 				}, "https://identity.deso.org");
 			}
 
