@@ -1024,9 +1024,43 @@
 				}
 				
 				if (data.payload && data.payload.signedTransactionHex) {
-					if (g_desoPendingTransactionType === "POST") g_desoPendingTransactionType = "SUBMITTING_POST";
-					else if (g_desoPendingTransactionType === "NFT") g_desoPendingTransactionType = "SUBMITTING_NFT";
-					SubmitSignedTransaction(data.payload.signedTransactionHex);
+					// Se o DeSo Identity já efetuou o broadcast automático com sucesso e retornou o hash,
+					// nós consumimos diretamente para evitar colisões redundantes de mempool!
+					if (data.payload.txnHashHex) {
+						var txHash = data.payload.txnHashHex;
+						if (g_desoPendingTransactionType === "POST" || g_desoPendingTransactionType === "SUBMITTING_POST") {
+							g_desoPendingTransactionType = null;
+							g_desoLastPostHashHex = txHash;
+							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+							
+							var btn = document.getElementById("desoPostBtn");
+							if (btn) {
+								btn.innerText = "MINT NFT";
+								btn.disabled = false;
+								btn.onclick = function() {
+									btn.innerText = "MINTING... PLEASE WAIT";
+									btn.disabled = true;
+									CreateDeSoNFT(g_desoLastPostHashHex);
+								};
+							}
+						} else if (g_desoPendingTransactionType === "NFT" || g_desoPendingTransactionType === "SUBMITTING_NFT") {
+							g_desoPendingTransactionType = null;
+							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+							
+							var btn = document.getElementById("desoPostBtn");
+							if (btn) {
+								btn.innerText = "SUCCESS! POSTED & MINTED";
+								btn.disabled = true;
+							}
+							alert("🏆 BINGO! Your Win Screenshot was MINTED as a unique NFT directly into your DeSo Wallet! Welcome to Web3.");
+						}
+					} else {
+						// Fallback resiliente: caso o Identity não tenha auto-transmitido,
+						// nós enviamos a transação assinada manualmente pelo nó DeSo
+						if (g_desoPendingTransactionType === "POST") g_desoPendingTransactionType = "SUBMITTING_POST";
+						else if (g_desoPendingTransactionType === "NFT") g_desoPendingTransactionType = "SUBMITTING_NFT";
+						SubmitSignedTransaction(data.payload.signedTransactionHex);
+					}
 				}
 			});
 
@@ -1310,8 +1344,19 @@
 					} 
 				}
 				if (e.keyCode == 80) { // P
-					if (g_gameState == G_START) {
-						if (!g_hasCreatorCoin) {
+					if (g_gameState == G_PLAY) {
+						g_gameState = G_PAUSE;
+						g_pauseStartTime = Date.now();
+					} else if (g_gameState == G_PAUSE) {
+						g_gameState = G_PLAY;
+						g_levelStartTime += (Date.now() - g_pauseStartTime);
+					} else if (g_gameState == G_START) {
+						// Bypass inteligente de VIP em desenvolvimento local ou staging para facilitar testes
+						var isLocal = window.location.hostname === "localhost" || 
+									  window.location.hostname === "127.0.0.1" || 
+									  window.location.protocol === "file:";
+									  
+						if (!g_hasCreatorCoin && !isLocal) {
 							alert("⚠️ ACCESS DENIED (TOKEN-GATING): This feature is exclusively for $DangerGhost Coin Holders! Buy our Creator Coin on DeSo with your logged in wallet to unlock Passwords.");
 							return;
 						}
