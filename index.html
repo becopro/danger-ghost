@@ -969,20 +969,31 @@
 
 			async function CheckVIPStatus(pubKey) {
 				try {
-					var req = await fetch("https://node.deso.org/api/v0/get-balance-for-creator-coin", {
+					var req = await fetch("https://node.deso.org/api/v0/get-hodlers-for-public-key", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
-							HODLerPublicKeyBase58Check: pubKey,
-							CreatorPublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn"
+							PublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn",
+							NumToFetch: 200
 						})
 					});
 					var data = await req.json();
-					if (data && data.BalanceEntryResponse && data.BalanceEntryResponse.BalanceNanos > 0) {
+					var hasCoin = false;
+					if (data && data.Hodlers) {
+						for (var i = 0; i < data.Hodlers.length; i++) {
+							var h = data.Hodlers[i];
+							if (h.HODLerPublicKeyBase58Check === pubKey && h.BalanceNanos > 0) {
+								hasCoin = true;
+								break;
+							}
+						}
+					}
+					if (hasCoin) {
 						g_hasCreatorCoin = true;
 						console.log("VIP Access Granted: DangerGhost HODLer!");
 					} else {
 						g_hasCreatorCoin = false;
+						console.log("VIP Access Denied: Not a DangerGhost HODLer.");
 					}
 				} catch(e) { 
 					console.log("VIP Check Error", e);
