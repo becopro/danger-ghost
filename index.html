@@ -1257,7 +1257,7 @@
 			}
 
 			function ResetGame(l) {
-				if ((l || 1) == 1) g_globalStartTime = Date.now();
+				g_globalStartTime = Date.now();
 				g_currentLevel = l || 1; g_score = 0; map_offset = 0;
 				_antiCheat.hash = btoa("0" + _antiCheat.salt);
 				DeSoGhost.lives = 3; DeSoGhost.alive = true;
