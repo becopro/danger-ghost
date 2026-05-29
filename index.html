@@ -584,7 +584,10 @@
 								if (tile >= 7 && tile <= 12) {
 									if (tile == 7) AddScore(50);
 									else if (tile == 8) AddScore(100);
-									else if (tile == 12) this.lives++;
+									else if (tile == 12) {
+										this.lives++;
+										AddScore(666);
+									}
 									else AddScore(150);
 									map.bitmap[r][c] = 0;
 								}
