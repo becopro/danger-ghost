@@ -803,28 +803,36 @@
 			var g_leaderboardList = null;
 
 			async function FetchLeaderboard() {
+				var container = document.getElementById("leaderboardContent");
 				try {
-					// 1. Busca os HODLers da moeda DangerGhost em paralelo para sabermos quem é VIP
-					var hodlersReq = await fetch("https://node.deso.org/api/v0/get-hodlers-for-public-key", {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							PublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn",
-							NumToFetch: 200
-						})
-					});
-					var hodlersData = await hodlersReq.json();
 					var vipMap = {};
-					if (hodlersData && hodlersData.Hodlers) {
-						for (var h = 0; h < hodlersData.Hodlers.length; h++) {
-							var hodler = hodlersData.Hodlers[h];
-							if (hodler.BalanceNanos > 0) {
-								vipMap[hodler.HODLerPublicKeyBase58Check] = true;
+					
+					// 1. Busca os HODLers da moeda DangerGhost em bloco try/catch isolado (Resiliência Antivirus/Adblock)
+					try {
+						var hodlersReq = await fetch("https://node.deso.org/api/v0/get-hodlers-for-public-key", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({
+								PublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn",
+								NumToFetch: 200
+							})
+						});
+						if (hodlersReq.ok) {
+							var hodlersData = await hodlersReq.json();
+							if (hodlersData && hodlersData.Hodlers) {
+								for (var h = 0; h < hodlersData.Hodlers.length; h++) {
+									var hodler = hodlersData.Hodlers[h];
+									if (hodler.BalanceNanos > 0) {
+										vipMap[hodler.HODLerPublicKeyBase58Check] = true;
+									}
+								}
 							}
 						}
+					} catch(vipErr) {
+						console.warn("VIP Map load failed, continuing without VIP tags", vipErr);
 					}
 
-					// 2. Busca os posts de ranking do feed
+					// 2. Busca os posts de ranking do feed DeSo
 					var req = await fetch("https://node.deso.org/api/v0/get-hot-feed", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
@@ -834,6 +842,11 @@
 							ResponseLimit: 100
 						})
 					});
+					
+					if (!req.ok) {
+						throw new Error("HTTP Error " + req.status);
+					}
+					
 					var data = await req.json();
 					if (data && data.HotFeedPage) {
 						var list = [];
@@ -911,10 +924,14 @@
 						} else {
 							html = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>NO SCORES FOUND</p>";
 						}
-						var container = document.getElementById("leaderboardContent");
 						if (container) container.innerHTML = html;
 					}
-				} catch (e) { console.error("Leaderboard Error", e); }
+				} catch (e) { 
+					console.error("Leaderboard Error", e); 
+					if (container) {
+						container.innerHTML = "<p style='text-align: center; color: #FF00FF; font-size: 11px; margin: 10px 0;'>OFFLINE (CHECK SHIELDS)</p>";
+					}
+				}
 			}
 			FetchLeaderboard();
 			setInterval(FetchLeaderboard, 20000);
