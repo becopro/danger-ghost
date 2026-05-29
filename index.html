@@ -832,14 +832,14 @@
 						console.warn("VIP Map load failed, continuing without VIP tags", vipErr);
 					}
 
-					// 2. Busca os posts de ranking do feed DeSo
-					var req = await fetch("https://node.deso.org/api/v0/get-hot-feed", {
+					// 2. Busca os posts de ranking do feed DeSo (Histórico e Permanente por Tag)
+					var req = await fetch("https://node.deso.org/api/v0/get-posts-stateless", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
 							ReaderPublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn",
-							Tag: "#DangerGhost",
-							ResponseLimit: 100
+							PostContent: "#DangerGhost",
+							NumToFetch: 100
 						})
 					});
 					
@@ -848,11 +848,11 @@
 					}
 					
 					var data = await req.json();
-					if (data && data.HotFeedPage) {
+					if (data && data.PostsFound) {
 						var list = [];
 						
-						for (var i = 0; i < data.HotFeedPage.length; i++) {
-							var post = data.HotFeedPage[i];
+						for (var i = 0; i < data.PostsFound.length; i++) {
+							var post = data.PostsFound[i];
 							if (post.Body) {
 								var posterKey = post.PosterPublicKeyBase58Check;
 								var isVip = vipMap[posterKey] ? true : false;
