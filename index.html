@@ -903,8 +903,24 @@
 								});
 							};
 						}
+					} else {
+						console.error("NFT creation failed", data);
+						alert("NFT Creation Error: " + (data.error || "Unknown error"));
+						var btn = document.getElementById("desoPostBtn");
+						if(btn) {
+							btn.innerText = "MINT NFT";
+							btn.disabled = false;
+						}
 					}
-				} catch(e) { console.error("NFT Error", e); }
+				} catch(e) { 
+					console.error("NFT Error", e); 
+					alert("Error generating NFT. Check console.");
+					var btn = document.getElementById("desoPostBtn");
+					if(btn) {
+						btn.innerText = "MINT NFT";
+						btn.disabled = false;
+					}
+				}
 			}
 
 			async function SubmitSignedTransaction(signedTxHex) {
@@ -918,6 +934,7 @@
 					if (data && data.TxnHashHex) {
 						if (g_desoPendingTransactionType === "POST" || g_desoPendingTransactionType === "SUBMITTING_POST") {
 							g_desoPendingTransactionType = null;
+							g_desoLastPostHashHex = data.TxnHashHex; // SALVA HASH DO POST REAL TRANSMITIDO
 							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
 							
 							var btn = document.getElementById("desoPostBtn");
