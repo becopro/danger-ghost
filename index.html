@@ -804,6 +804,27 @@
 
 			async function FetchLeaderboard() {
 				try {
+					// 1. Busca os HODLers da moeda DangerGhost em paralelo para sabermos quem é VIP
+					var hodlersReq = await fetch("https://node.deso.org/api/v0/get-hodlers-for-public-key", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							PublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn",
+							NumToFetch: 200
+						})
+					});
+					var hodlersData = await hodlersReq.json();
+					var vipMap = {};
+					if (hodlersData && hodlersData.Hodlers) {
+						for (var h = 0; h < hodlersData.Hodlers.length; h++) {
+							var hodler = hodlersData.Hodlers[h];
+							if (hodler.BalanceNanos > 0) {
+								vipMap[hodler.HODLerPublicKeyBase58Check] = true;
+							}
+						}
+					}
+
+					// 2. Busca os posts de ranking do feed
 					var req = await fetch("https://node.deso.org/api/v0/get-hot-feed", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
@@ -820,6 +841,9 @@
 						for (var i = 0; i < data.HotFeedPage.length; i++) {
 							var post = data.HotFeedPage[i];
 							if (post.Body) {
+								var posterKey = post.PosterPublicKeyBase58Check;
+								var isVip = vipMap[posterKey] ? true : false;
+
 								if (post.Body.includes("🏆 DANGER GHOST GLOBAL TOP 10 🏆") || post.Body.includes("DANGER GHOST GLOBAL TOP 10")) {
 									var lines = post.Body.split("\n");
 									var inLeaderboard = false;
@@ -831,7 +855,11 @@
 											if (lines[j].includes("#DangerGhost")) break;
 											var match = lines[j].match(/^\d+\.\s+(.+?)\s+-\s+(\d+)\s+pts/);
 											if (match) {
-												list.push({ name: match[1].trim(), score: parseInt(match[2], 10) });
+												list.push({ 
+													name: match[1].trim(), 
+													score: parseInt(match[2], 10),
+													isVip: isVip
+												});
 											}
 										}
 									}
@@ -841,7 +869,8 @@
 								if (matchScore && matchName) {
 									list.push({
 										name: matchName[1].substring(0, 15).trim(),
-										score: parseInt(matchScore[1], 10)
+										score: parseInt(matchScore[1], 10),
+										isVip: isVip
 									});
 								}
 							}
@@ -868,8 +897,14 @@
 								else if (pos === 2) nameColor = "#C0C0C0"; // Prata
 								else if (pos === 3) nameColor = "#CD7F32"; // Bronze
 								
-								html += "<div style='display: flex; justify-content: space-between; margin: 6px 0; border-bottom: 1px dashed rgba(0, 255, 255, 0.2); font-size: 12px;'>" +
-								        "<span style='color: " + nameColor + "; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px;'>" + pos + ". " + item.name + "</span>" +
+								var vipTag = item.isVip ? " <span style='color: #FF00FF; font-weight: bold; font-size: 10px; text-shadow: 0 0 4px #FF00FF; background: rgba(255,0,255,0.15); padding: 1px 3px; border-radius: 3px; margin-left: 3px;'>VIP</span>" : "";
+								var displayName = pos + ". " + item.name;
+								
+								html += "<div style='display: flex; justify-content: space-between; align-items: center; margin: 6px 0; border-bottom: 1px dashed rgba(0, 255, 255, 0.2); font-size: 12px;'>" +
+								        "<div style='display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;'>" +
+								        "<span style='color: " + nameColor + "; font-weight: bold;'>" + displayName + "</span>" +
+								        vipTag +
+								        "</div>" +
 								        "<span style='color: #00FF00; font-weight: bold;'>" + item.score + "</span>" +
 								        "</div>";
 							}
