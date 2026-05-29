@@ -17,6 +17,12 @@
 				style="background-color:#000000; border: 2px solid #00FFFF; display: block; margin: 0 auto;"></canvas>
 			<img id="cutsceneGif" src="assets/sprites/Dream 36.gif" style="position: absolute; top: 0; left: 0; width: 640px; height: 300px; display: none; box-sizing: border-box; border: 2px solid #00FFFF;" />
 			<button id="muteBtn" onclick="ToggleMute()" style="position: absolute; right: 0px; top: -45px; font-size: 30px; background: none; border: none; cursor: pointer; padding: 0; outline: none; text-shadow: 0 0 5px #00FFFF;" title="Mute/Unmute">🔊</button>
+			<div id="leaderboardHelp" style="position: absolute; left: -220px; top: 0px; text-align: left; color: #00FFFF; font-family: 'Courier New'; font-size: 13px; background: rgba(0,0,0,0.8); padding: 10px; border: 1px solid #FF00FF; border-radius: 5px; width: 190px; box-shadow: 0 0 10px #FF00FF; box-sizing: border-box;">
+				<h3 style="margin: 0 0 10px 0; color: #FF00FF; font-size: 15px; text-align: center; letter-spacing: 1px;">TOP 10 VIP</h3>
+				<div id="leaderboardContent" style="line-height: 18px;">
+					<p style="text-align: center; color: #888; font-size: 11px; margin: 10px 0;">LOADING RANKING...</p>
+				</div>
+			</div>
 			<div id="controlsHelp" style="position: absolute; right: -220px; top: 0px; text-align: left; color: #00FFFF; font-family: 'Courier New'; font-size: 14px; background: rgba(0,0,0,0.8); padding: 10px; border: 1px solid #FF00FF; border-radius: 5px; width: 190px; box-shadow: 0 0 10px #FF00FF;">
 				<h3 style="margin: 0 0 10px 0; color: #FF00FF; font-size: 16px; text-align: center;">CONTROLS</h3>
 				<p style="margin: 5px 0;"><b>A/D or &larr;/&rarr;</b><br>Move</p>
@@ -804,50 +810,39 @@
 						body: JSON.stringify({
 							ReaderPublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn",
 							Tag: "#DangerGhost",
-							ResponseLimit: 20
+							ResponseLimit: 100
 						})
 					});
 					var data = await req.json();
 					if (data && data.HotFeedPage) {
 						var list = [];
-						var foundTop10Block = false;
 						
 						for (var i = 0; i < data.HotFeedPage.length; i++) {
 							var post = data.HotFeedPage[i];
-							if (post.Body && post.Body.includes("🏆 DANGER GHOST GLOBAL TOP 10 🏆")) {
-								var lines = post.Body.split("\n");
-								var inLeaderboard = false;
-								for (var j = 0; j < lines.length; j++) {
-									if (lines[j].includes("🏆 DANGER GHOST GLOBAL TOP 10 🏆")) {
-										inLeaderboard = true; continue;
-									}
-									if (inLeaderboard) {
-										if (lines[j].includes("#DangerGhost")) break;
-										var match = lines[j].match(/^\d+\.\s+(.+?)\s+-\s+(\d+)\s+pts/);
-										if (match) {
-											list.push({ name: match[1].trim(), score: parseInt(match[2], 10) });
+							if (post.Body) {
+								if (post.Body.includes("🏆 DANGER GHOST GLOBAL TOP 10 🏆") || post.Body.includes("DANGER GHOST GLOBAL TOP 10")) {
+									var lines = post.Body.split("\n");
+									var inLeaderboard = false;
+									for (var j = 0; j < lines.length; j++) {
+										if (lines[j].includes("DANGER GHOST GLOBAL TOP 10")) {
+											inLeaderboard = true; continue;
+										}
+										if (inLeaderboard) {
+											if (lines[j].includes("#DangerGhost")) break;
+											var match = lines[j].match(/^\d+\.\s+(.+?)\s+-\s+(\d+)\s+pts/);
+											if (match) {
+												list.push({ name: match[1].trim(), score: parseInt(match[2], 10) });
+											}
 										}
 									}
 								}
-								if (list.length > 0) {
-									foundTop10Block = true;
-									break;
-								}
-							}
-						}
-						
-						if (!foundTop10Block) {
-							for (var i = 0; i < data.HotFeedPage.length; i++) {
-								var post = data.HotFeedPage[i];
-								if (post.Body) {
-									var matchScore = post.Body.match(/Score:\s*(\d+)/i);
-									var matchName = post.Body.match(/Ghost Hunter:\s*(.+)/i);
-									if (matchScore && matchName) {
-										list.push({
-											name: matchName[1].substring(0, 15).trim(),
-											score: parseInt(matchScore[1], 10)
-										});
-									}
+								var matchScore = post.Body.match(/Score:\s*(\d+)/i);
+								var matchName = post.Body.match(/Ghost Hunter:\s*(.+)/i);
+								if (matchScore && matchName) {
+									list.push({
+										name: matchName[1].substring(0, 15).trim(),
+										score: parseInt(matchScore[1], 10)
+									});
 								}
 							}
 						}
@@ -862,10 +857,32 @@
 						list = Object.values(uniqueMap);
 						list.sort(function(a,b) { return b.score - a.score; });
 						g_leaderboardList = list.slice(0, 10);
+
+						var html = "";
+						if (g_leaderboardList.length > 0) {
+							for (var i = 0; i < g_leaderboardList.length; i++) {
+								var pos = i + 1;
+								var item = g_leaderboardList[i];
+								var nameColor = "#00FFFF";
+								if (pos === 1) nameColor = "#FFD700"; // Ouro
+								else if (pos === 2) nameColor = "#C0C0C0"; // Prata
+								else if (pos === 3) nameColor = "#CD7F32"; // Bronze
+								
+								html += "<div style='display: flex; justify-content: space-between; margin: 6px 0; border-bottom: 1px dashed rgba(0, 255, 255, 0.2); font-size: 12px;'>" +
+								        "<span style='color: " + nameColor + "; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px;'>" + pos + ". " + item.name + "</span>" +
+								        "<span style='color: #00FF00; font-weight: bold;'>" + item.score + "</span>" +
+								        "</div>";
+							}
+						} else {
+							html = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>NO SCORES FOUND</p>";
+						}
+						var container = document.getElementById("leaderboardContent");
+						if (container) container.innerHTML = html;
 					}
 				} catch (e) { console.error("Leaderboard Error", e); }
 			}
-			FetchLeaderboard(); // Inicia leitura do ranking
+			FetchLeaderboard();
+			setInterval(FetchLeaderboard, 20000);
 
 			async function CreateDeSoNFT(postHashHex) {
 				try {
