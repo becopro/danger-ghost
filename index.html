@@ -1167,8 +1167,19 @@
 			});
 
 			function LoginDeSo() {
+				var btn = document.getElementById("desoBtn");
+				if (btn) {
+					btn.innerText = "AWAITING LOGIN...";
+					btn.disabled = true;
+				}
 				g_desoPendingAction = 'login';
 				g_desoIdentityWindow = window.open("https://identity.deso.org/log-in?accessLevelRequest=2", "deso_identity", "width=800,height=1000");
+				WaitForWindowClose(g_desoIdentityWindow, function() {
+					if (!g_desoPublicKey && btn) {
+						btn.innerText = "LOGIN DESO";
+						btn.disabled = false;
+					}
+				});
 			}
 
 			function PostToDeSo() {
@@ -1202,16 +1213,19 @@
 			}
 
 			async function ExecuteDeSoPost(jwt) {
+				var btn = document.getElementById("desoPostBtn");
 				// Validação Anti-Tamper de Memória (Shadow State Check)
 				if (btoa(g_score + _antiCheat.salt) !== _antiCheat.hash) {
 					alert("⚠️ SECURITY ALERT: Memory manipulation detected! Score has been tampered with.");
+					if (btn) { btn.innerText = "POST TO DESO"; btn.disabled = false; }
 					return;
 				}
 				
-				// Validação Temporal (Sanity Check)
-				var maxScore = g_globalTotalTime * 500; 
+				// Validação Temporal (Sanity Check) - Buffer generoso de 25000 pts para acomodar itens do Level 33/Boss/Vidas Extras no speedrun VIP
+				var maxScore = (g_globalTotalTime * 500) + 25000; 
 				if (g_score > maxScore) {
 					alert("⚠️ SECURITY ALERT: Impossible Score/Time ratio! Speedhack detected.");
+					if (btn) { btn.innerText = "POST TO DESO"; btn.disabled = false; }
 					return;
 				}
 				
