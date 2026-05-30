@@ -856,7 +856,7 @@
 					}
 
 					// Executa todas as fontes em paralelo com isolamento total de falhas/timeouts (AAA Performance)
-					var [hodlersData, singlePostData, profileData, statelessData] = await Promise.all([
+					var [hodlersData, singlePostData, profileData, desoGhostProfileData, statelessData] = await Promise.all([
 						fetchSource("https://node.deso.org/api/v0/get-hodlers-for-public-key", {
 							PublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn",
 							NumToFetch: 200
@@ -868,14 +868,19 @@
 						}, "Thread Oficial"),
 						
 						fetchSource("https://node.deso.org/api/v0/get-posts-for-public-key", {
-							PublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn",
-							NumToFetch: 50
+							PublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn", // @DangerGhost
+							NumToFetch: 150 // Profundidade ampliada
 						}, "Posts Perfil DangerGhost"),
+
+						fetchSource("https://node.deso.org/api/v0/get-posts-for-public-key", {
+							PublicKeyBase58Check: "BC1YLgwuSYXasawyfX5D8wiVSvC7qS1usfPA9QCnJ3ZRndyRcRmKdUG", // @DeSoGhost (Nova Fonte!)
+							NumToFetch: 150
+						}, "Posts Perfil DeSoGhost"),
 						
 						fetchSource("https://node.deso.org/api/v0/get-posts-stateless", {
 							ReaderPublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn",
 							PostContent: "#DangerGhost",
-							NumToFetch: 50
+							NumToFetch: 150
 						}, "Hashtag Fallback")
 					]);
 
@@ -891,11 +896,13 @@
 
 					// 2. Coletar e consolidar posts das fontes
 					if (singlePostData && singlePostData.PostFound && singlePostData.PostFound.Comments) {
-						// Adiciona todas as respostas à Thread Oficial (Garante o estado permanente e histórico infinito)
 						combinedPosts = combinedPosts.concat(singlePostData.PostFound.Comments);
 					}
 					if (profileData && profileData.Posts) {
 						combinedPosts = combinedPosts.concat(profileData.Posts);
+					}
+					if (desoGhostProfileData && desoGhostProfileData.Posts) {
+						combinedPosts = combinedPosts.concat(desoGhostProfileData.Posts);
 					}
 					if (statelessData) {
 						var postsList = statelessData.Posts || statelessData.PostsFound;
@@ -908,12 +915,14 @@
 						for (var i = 0; i < combinedPosts.length; i++) {
 							var post = combinedPosts[i];
 							if (post && post.Body) {
+								// Sanitização completa contra Carriage Returns de sistemas operacionais distintos (\r)
+								var cleanBody = post.Body.replace(/\r/g, "");
 								var posterKey = post.PosterPublicKeyBase58Check;
 								var isVip = vipMap[posterKey] ? true : false;
 
 								// Parse clássico de placares embutidos em blocos globais de ranking
-								if (post.Body.includes("🏆 DANGER GHOST GLOBAL TOP 10 🏆") || post.Body.includes("DANGER GHOST GLOBAL TOP 10")) {
-									var lines = post.Body.split("\n");
+								if (cleanBody.includes("🏆 DANGER GHOST GLOBAL TOP 10 🏆") || cleanBody.includes("DANGER GHOST GLOBAL TOP 10")) {
+									var lines = cleanBody.split("\n");
 									var inLeaderboard = false;
 									for (var j = 0; j < lines.length; j++) {
 										if (lines[j].includes("DANGER GHOST GLOBAL TOP 10")) {
@@ -934,8 +943,8 @@
 								}
 								
 								// Parse individual de vitórias
-								var matchScore = post.Body.match(/Score:\s*(\d+)/i);
-								var matchName = post.Body.match(/Ghost Hunter:\s*(.+)/i);
+								var matchScore = cleanBody.match(/Score:\s*(\d+)/i);
+								var matchName = cleanBody.match(/Ghost Hunter:\s*(.+)/i);
 								if (matchScore && matchName) {
 									list.push({
 										name: matchName[1].substring(0, 15).trim(),
