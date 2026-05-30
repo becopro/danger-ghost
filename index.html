@@ -5,6 +5,14 @@
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 	<title>DeSoGhost | 33-Level Saga</title>
 	<link href="layout.css" rel="stylesheet" type="text/css" media="screen" />
+	<style>
+		canvas {
+			image-rendering: -moz-crisp-edges;
+			image-rendering: -webkit-crisp-edges;
+			image-rendering: pixelated;
+			image-rendering: crisp-edges;
+		}
+	</style>
 </head>
 
 <body style="background-color: #000; color: #fff; font-family: 'Courier New'; overflow: hidden;">
@@ -203,6 +211,16 @@
 			// --- GAME STATE ---
 			var G_START = 0, G_PLAY = 1, G_WIN = 2, G_GAMEOVER = 3, G_CUTSCENE = 4, G_END_CUTSCENE = 5, G_PAUSE = 6;
 			var g_gameState = G_START;
+			function SetGameState(newState) {
+				if (g_gameState === newState) return;
+				g_gameState = newState;
+				
+				var btn = document.getElementById("desoBtn");
+				if (btn) btn.style.display = (g_gameState == G_START || g_gameState == G_WIN) ? "inline-block" : "none";
+				
+				var winPanel = document.getElementById("winPanel");
+				if (winPanel) winPanel.style.display = (g_gameState == G_WIN) ? "block" : "none";
+			}
 			var g_count = 0;
 			var g_levelStartTime = Date.now();
 			var g_pauseStartTime = 0;
@@ -478,7 +496,7 @@
 
 				this.respawn = function () {
 					this.lives--;
-					if (this.lives <= 0) { g_gameState = G_GAMEOVER; return; }
+					if (this.lives <= 0) { SetGameState(G_GAMEOVER); return; }
 					this.alive = true; this.xPos = 48; this.yPos = 150;
 					explosionFrame = 0; map_offset = 0;
 				};
@@ -778,7 +796,7 @@
 
 			var g_cutsceneTimer = null;
 			function StartCutscene() {
-				g_gameState = G_CUTSCENE;
+				SetGameState(G_CUTSCENE);
 				var gif = document.getElementById("cutsceneGif");
 				gif.src = "";
 				gif.src = "assets/sprites/Dream 36.gif"; // Reinicia a animação no navegador
@@ -835,14 +853,13 @@
 						console.warn("VIP Map load failed, continuing without VIP tags", vipErr);
 					}
 
-					// 2. Busca os posts de ranking do feed DeSo (Histórico e Permanente por Tag)
-					var req = await fetch("https://node.deso.org/api/v0/get-posts-stateless", {
+					// 2. Busca os posts de ranking do feed DeSo (Exclusivo por Hashtag para evitar timeline geral vazia)
+					var req = await fetch("https://node.deso.org/api/v0/get-posts-for-hashtag", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
-							ReaderPublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn",
-							PostContent: "#DangerGhost",
-							NumToFetch: 100
+							Tag: "#DangerGhost",
+							NumToFetch: 50
 						})
 					});
 					
@@ -851,11 +868,12 @@
 					}
 					
 					var data = await req.json();
-					if (data && data.PostsFound) {
+					var postsList = data.Posts || data.PostsFound;
+					if (postsList) {
 						var list = [];
 						
-						for (var i = 0; i < data.PostsFound.length; i++) {
-							var post = data.PostsFound[i];
+						for (var i = 0; i < postsList.length; i++) {
+							var post = postsList[i];
 							if (post.Body) {
 								var posterKey = post.PosterPublicKeyBase58Check;
 								var isVip = vipMap[posterKey] ? true : false;
@@ -940,59 +958,78 @@
 			setInterval(FetchLeaderboard, 20000);
 
 			async function CreateDeSoNFT(postHashHex) {
-				try {
-					var nftReq = {
-						UpdaterPublicKeyBase58Check: g_desoPublicKey,
-						NFTPostHashHex: postHashHex,
-						NumCopies: 1,
-						NFTRoyaltyToCreatorBasisPoints: 500, // 5%
-						NFTRoyaltyToCoinBasisPoints: 500,    // 5%
-						HasUnlockable: false,
-						IsForSale: false,
-						MinFeeRateNanosPerKB: 1000
-					};
-					var res = await fetch("https://node.deso.org/api/v0/create-nft", {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify(nftReq)
-					});
-					var data = await res.json();
-					if (data.TransactionHex) {
-						var btn = document.getElementById("desoPostBtn");
-						if(btn) { 
-							btn.innerText = "APPROVE NFT"; 
-							btn.disabled = false; 
-							btn.onclick = function() {
-								g_desoPendingTransactionType = "NFT";
-								g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + data.TransactionHex, "deso_identity", "width=800,height=1000");
-								btn.innerText = "WAITING FOR APPROVAL...";
-								btn.disabled = true;
-								WaitForWindowClose(g_desoIdentityWindow, function() {
-									if (g_desoPendingTransactionType === "NFT") {
-										btn.innerText = "APPROVE NFT";
-										btn.disabled = false;
-									}
-								});
-							};
+				var btn = document.getElementById("desoPostBtn");
+				var maxAttempts = 4;
+				var attempt = 0;
+				
+				async function attemptMint() {
+					attempt++;
+					if (btn) btn.innerText = "MINTING... (" + attempt + "/" + maxAttempts + ")";
+					try {
+						var nftReq = {
+							UpdaterPublicKeyBase58Check: g_desoPublicKey,
+							NFTPostHashHex: postHashHex,
+							NumCopies: 1,
+							NFTRoyaltyToCreatorBasisPoints: 500, // 5%
+							NFTRoyaltyToCoinBasisPoints: 500,    // 5%
+							HasUnlockable: false,
+							IsForSale: false,
+							MinFeeRateNanosPerKB: 1000
+						};
+						var res = await fetch("https://node.deso.org/api/v0/create-nft", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify(nftReq)
+						});
+						var data = await res.json();
+						if (data.TransactionHex) {
+							if(btn) { 
+								btn.innerText = "APPROVE NFT"; 
+								btn.disabled = false; 
+								btn.onclick = function() {
+									g_desoPendingTransactionType = "NFT";
+									g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + data.TransactionHex, "deso_identity", "width=800,height=1000");
+									btn.innerText = "WAITING FOR APPROVAL...";
+									btn.disabled = true;
+									WaitForWindowClose(g_desoIdentityWindow, function() {
+										if (g_desoPendingTransactionType === "NFT") {
+											btn.innerText = "APPROVE NFT";
+											btn.disabled = false;
+										}
+									});
+								};
+							}
+						} else {
+							// Se falhou por não encontrar a transação na mempool ou banco de dados ainda, tenta novamente de forma resiliente
+							var isIndexError = data.error && (data.error.includes("not found") || data.error.includes("mempool") || data.error.includes("find") || data.error.includes("index"));
+							if (attempt < maxAttempts && isIndexError) {
+								console.warn("NFT Minting indexing delay detected, retrying in 1.5s...", data.error);
+								setTimeout(attemptMint, 1500);
+							} else {
+								console.error("NFT creation failed", data);
+								alert("NFT Creation Error: " + (data.error || "Unknown error"));
+								if(btn) {
+									btn.innerText = "MINT NFT";
+									btn.disabled = false;
+								}
+							}
 						}
-					} else {
-						console.error("NFT creation failed", data);
-						alert("NFT Creation Error: " + (data.error || "Unknown error"));
-						var btn = document.getElementById("desoPostBtn");
-						if(btn) {
-							btn.innerText = "MINT NFT";
-							btn.disabled = false;
+					} catch(e) { 
+						console.error("NFT Error", e); 
+						if (attempt < maxAttempts) {
+							console.warn("NFT Minting fetch failed, retrying in 1.5s...");
+							setTimeout(attemptMint, 1500);
+						} else {
+							alert("Error generating NFT. Check console.");
+							if(btn) {
+								btn.innerText = "MINT NFT";
+								btn.disabled = false;
+							}
 						}
-					}
-				} catch(e) { 
-					console.error("NFT Error", e); 
-					alert("Error generating NFT. Check console.");
-					var btn = document.getElementById("desoPostBtn");
-					if(btn) {
-						btn.innerText = "MINT NFT";
-						btn.disabled = false;
 					}
 				}
+				
+				attemptMint();
 			}
 
 			async function SubmitSignedTransaction(signedTxHex) {
@@ -1048,6 +1085,7 @@
 			}
 
 			function WaitForWindowClose(win, callback) {
+				if (!win) return; // Evita crashes silenciosos se a janela for bloqueada por Popup Blocker
 				var timer = setInterval(function() {
 					if (win.closed) {
 						clearInterval(timer);
@@ -1063,7 +1101,7 @@
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
 							PublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn",
-							NumToFetch: 200
+							HODLerPublicKeyBase58Check: pubKey
 						})
 					});
 					var data = await req.json();
@@ -1326,7 +1364,7 @@
 			}
 
 			function StartEndCutscene() {
-				g_gameState = G_END_CUTSCENE;
+				SetGameState(G_END_CUTSCENE);
 				var gif = document.getElementById("cutsceneGif");
 				gif.src = "";
 				gif.src = "assets/sprites/Dream 36 (1).gif"; // GIF de Encerramento
@@ -1339,7 +1377,7 @@
 				clearTimeout(g_cutsceneTimer);
 				var gif = document.getElementById("cutsceneGif");
 				gif.style.display = "none";
-				g_gameState = G_WIN;
+				SetGameState(G_WIN);
 			}
 
 			function ResetGame(l) {
@@ -1351,7 +1389,7 @@
 				DeSoGhost.jumpNum = 0; DeSoGhost.jumpCounter = 0;
 				DeSoGhost.jumpsPerformed = 0; explosionFrame = 0;
 				g_boss = null;
-				map.loadLevel(g_currentLevel); g_gameState = G_PLAY;
+				map.loadLevel(g_currentLevel); SetGameState(G_PLAY);
 			}
 
 			// --- INITIALIZATION ---
@@ -1384,13 +1422,6 @@
 			function Game_Loop() {
 				g_ctx.clearRect(0, 0, g_canvas.width, g_canvas.height);
 				
-				// Ocultar ou mostrar o botão DeSo dependendo do estado do jogo
-				var btn = document.getElementById("desoBtn");
-				if (btn) btn.style.display = (g_gameState == G_START || g_gameState == G_WIN) ? "inline-block" : "none";
-				
-				var winPanel = document.getElementById("winPanel");
-				if (winPanel) winPanel.style.display = (g_gameState == G_WIN) ? "block" : "none";
-
 				if (g_gameState == G_START) DrawStartScreen();
 				else if (g_gameState == G_CUTSCENE || g_gameState == G_END_CUTSCENE) {
 					// Tela preta de fundo pro Canvas enquanto o GIF toca pelo DOM
@@ -1450,10 +1481,10 @@
 					} else if (g_gameState == G_END_CUTSCENE) {
 						FinishEndCutscene();
 					} else if (g_gameState == G_PLAY) {
-						g_gameState = G_PAUSE;
+						SetGameState(G_PAUSE);
 						g_pauseStartTime = Date.now();
 					} else if (g_gameState == G_PAUSE) {
-						g_gameState = G_PLAY;
+						SetGameState(G_PLAY);
 						g_levelStartTime += (Date.now() - g_pauseStartTime);
 					} else { 
 						ResetGame(); 
@@ -1461,10 +1492,10 @@
 				}
 				if (e.keyCode == 80) { // P
 					if (g_gameState == G_PLAY) {
-						g_gameState = G_PAUSE;
+						SetGameState(G_PAUSE);
 						g_pauseStartTime = Date.now();
 					} else if (g_gameState == G_PAUSE) {
-						g_gameState = G_PLAY;
+						SetGameState(G_PLAY);
 						g_levelStartTime += (Date.now() - g_pauseStartTime);
 					} else if (g_gameState == G_START) {
 						// Bypass inteligente de VIP em desenvolvimento local ou staging para facilitar testes
@@ -1499,6 +1530,17 @@
 				if (e.keyCode == 68 || e.keyCode == 39) DeSoGhost.moveRight = false;
 				if (e.keyCode == 87 || e.keyCode == 38) DeSoGhost.jump = false;
 				if (e.keyCode == 70) DeSoGhost.ghostMode = false;
+			});
+			window.addEventListener("blur", function () {
+				DeSoGhost.moveLeft = false;
+				DeSoGhost.moveRight = false;
+				DeSoGhost.jump = false;
+				DeSoGhost.ghostMode = false;
+				if (g_isFast) {
+					g_isFast = false;
+					clearInterval(g_gameInterval);
+					g_gameInterval = setInterval(Game_Loop, 33);
+				}
 			});
 
 			// Expõe os botões para o HTML
