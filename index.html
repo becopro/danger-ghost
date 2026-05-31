@@ -357,6 +357,83 @@
 						}
 					}
 
+					// --- DYNAMIC AAA MAP DOUBLE WIDTH EXPANSION ---
+					var currentCols = this.bitmap[0].length;
+					if (currentCols === 50) {
+						// 1. ground/platform block detection
+						var predominantTile = 2; // Default: platformTileImage
+						var tileCounts = {1: 0, 2: 0, 13: 0, 14: 0, 20: 0};
+						for (var r = 0; r < 11; r++) {
+							for (var c = 0; c < 50; c++) {
+								var t = this.bitmap[r][c];
+								if (tileCounts[t] !== undefined) {
+									tileCounts[t]++;
+								}
+							}
+						}
+						var maxCount = 0;
+						for (var tKey in tileCounts) {
+							if (tileCounts[tKey] > maxCount) {
+								maxCount = tileCounts[tKey];
+								predominantTile = parseInt(tKey, 10);
+							}
+						}
+
+						// 2. Bridge clearance in col 49
+						for (var r = 0; r < 11; r++) {
+							this.bitmap[r][49] = 0;
+						}
+						this.bitmap[9][49] = predominantTile; // safe walking ground
+
+						// 3. Seeding deterministic RNG
+						var seed = levelNum * 432;
+						function seededRandom() {
+							var x = Math.sin(seed++) * 10000;
+							return x - Math.floor(x);
+						}
+
+						// 4. Generate cols 50 to 99 proceduraly
+						for (var r = 0; r < 11; r++) {
+							var row = this.bitmap[r];
+							for (var c = 50; c < 100; c++) {
+								if (r == 10) {
+									var isGap = seededRandom() < 0.20;
+									row.push(isGap ? 0 : predominantTile);
+								} else if (r == 9) {
+									var isGap = seededRandom() < 0.15;
+									row.push(isGap ? 0 : predominantTile);
+								} else if (r == 3 || r == 5 || r == 7) {
+									var rVal = seededRandom();
+									if (rVal < 0.40) {
+										row.push(predominantTile);
+									} else if (rVal < 0.65) {
+										row.push(predominantTile);
+										if (this.bitmap[r - 1]) {
+											this.bitmap[r - 1].push(8); // Blue Diamond (tile 8)
+											c++;
+										}
+									} else if (rVal < 0.72) {
+										row.push(predominantTile);
+										if (this.bitmap[r - 1]) {
+											this.bitmap[r - 1].push(12); // Extra Life (tile 12)
+											c++;
+										}
+									} else {
+										row.push(0);
+									}
+								} else {
+									row.push(0);
+								}
+							}
+						}
+
+						// 5. Force exactly 100 cols row size safety
+						for (var r = 0; r < 11; r++) {
+							while (this.bitmap[r].length < 100) this.bitmap[r].push(0);
+							if (this.bitmap[r].length > 100) this.bitmap[r] = this.bitmap[r].slice(0, 100);
+						}
+					}
+
 					if (levelNum == 4 || levelNum == 11 || levelNum == 16 || levelNum == 20) {
 						g_boss = new c_Boss(800, 192);
 						if (levelNum == 4) { g_boss.minX = 600; g_boss.maxX = 1000; }
@@ -374,7 +451,7 @@
 
 				this.draw = function () {
 					for (var i = 0; i < 11; i++) {
-						for (var j = 0; j < 50; j++) {
+						for (var j = 0; j < 100; j++) {
 							var x = (j * 24) + map_offset;
 							var y = i * 24;
 							var tile = this.bitmap[i][j];
@@ -408,7 +485,7 @@
 					g_ctx.fillStyle = "#000";
 					g_ctx.fillRect(0, 250, g_canvas.width, 50);
 					for (var j_sl = 24; j_sl < 340; j_sl += 226) {
-						for (var i_sl = 0; i_sl < 1200; i_sl += 24) {
+						for (var i_sl = 0; i_sl < 2400; i_sl += 24) {
 							g_ctx.drawImage(silverLine, i_sl, j_sl);
 						}
 					}
@@ -536,10 +613,11 @@
 					var prevX = this.xPos;
 					this.xPos += dx;
 					if (this.xPos < 0) this.xPos = 0;
+					if (this.xPos > 100 * 24 - 24) this.xPos = 100 * 24 - 24; // Limitador à direita (2376px)
 
 					var ty = determinePos(this.yPos + 4), by = determinePos(this.yPos + 20);
 					var cx = (dx > 0) ? determinePos(this.xPos + 22) : determinePos(this.xPos + 2);
-					if (ty >= 0 && ty < 11 && cx >= 0 && cx < 50) {
+					if (ty >= 0 && ty < 11 && cx >= 0 && cx < 100) {
 						var t1 = map.bitmap[ty][cx], t2 = map.bitmap[by][cx];
 						var s1 = (t1 == 1 || t1 == 2 || t1 == 13 || t1 == 14 || t1 == 15 || t1 == 19);
 						var s2 = (t2 == 1 || t2 == 2 || t2 == 13 || t2 == 14 || t2 == 15 || t2 == 19);
@@ -573,7 +651,7 @@
 					var nodes = [cl, cr];
 					for (var i = 0; i < nodes.length; i++) {
 						var c = nodes[i];
-						if (c < 0 || c >= 50) continue;
+						if (c < 0 || c >= 100) continue;
 
 						if (!this.ghostMode && ct >= 0 && (map.bitmap[ct][c] == 1 || map.bitmap[ct][c] == 2 || map.bitmap[ct][c] == 13 || map.bitmap[ct][c] == 14 || map.bitmap[ct][c] == 15 || map.bitmap[ct][c] == 19)) {
 							this.yPos = (ct + 1) * 24;
@@ -633,7 +711,11 @@
 						}
 					}
 
-					if (this.xPos > 200) map_offset = -(this.xPos - 200);
+					if (this.xPos > 200) {
+						map_offset = -(this.xPos - 200);
+						var maxOffset = -(100 * 24 - 640); // -1760 pixels
+						if (map_offset < maxOffset) map_offset = maxOffset;
+					}
 				};
 
 				this.nextLevel = function () {
@@ -856,7 +938,7 @@
 					}
 
 					// Executa todas as fontes em paralelo com isolamento total de falhas/timeouts (AAA Performance)
-					var [hodlersData, singlePostData, profileData, desoGhostProfileData, statelessData] = await Promise.all([
+					var [hodlersData, singlePostData, profileData, desoGhostProfileData, sickCrowProfileData, statelessData] = await Promise.all([
 						fetchSource("https://node.deso.org/api/v0/get-hodlers-for-public-key", {
 							PublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn",
 							NumToFetch: 200
@@ -873,9 +955,14 @@
 						}, "Posts Perfil DangerGhost"),
 
 						fetchSource("https://node.deso.org/api/v0/get-posts-for-public-key", {
-							PublicKeyBase58Check: "BC1YLgwuSYXasawyfX5D8wiVSvC7qS1usfPA9QCnJ3ZRndyRcRmKdUG", // @DeSoGhost (Nova Fonte!)
+							PublicKeyBase58Check: "BC1YLgwuSYXasawyfX5D8wiVSvC7qS1usfPA9QCnJ3ZRndyRcRmKdUG", // @DeSoGhost
 							NumToFetch: 150
 						}, "Posts Perfil DeSoGhost"),
+
+						fetchSource("https://node.deso.org/api/v0/get-posts-for-public-key", {
+							PublicKeyBase58Check: "BC1YLh2VrBvTgvqLm9PtVpLZWoCBUXrFSNmS3zs1eEv1rCFuDxfbqcC", // @sickcrow (Nova Fonte!)
+							NumToFetch: 150
+						}, "Posts Perfil SickCrow"),
 						
 						fetchSource("https://node.deso.org/api/v0/get-posts-stateless", {
 							ReaderPublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn",
@@ -903,6 +990,9 @@
 					}
 					if (desoGhostProfileData && desoGhostProfileData.Posts) {
 						combinedPosts = combinedPosts.concat(desoGhostProfileData.Posts);
+					}
+					if (sickCrowProfileData && sickCrowProfileData.Posts) {
+						combinedPosts = combinedPosts.concat(sickCrowProfileData.Posts);
 					}
 					if (statelessData) {
 						var postsList = statelessData.Posts || statelessData.PostsFound;
@@ -1040,6 +1130,12 @@
 								btn.onclick = function() {
 									g_desoPendingTransactionType = "NFT";
 									g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + data.TransactionHex, "deso_identity", "width=800,height=1000");
+									if (!g_desoIdentityWindow) {
+										alert("⚠️ POP-UP BLOQUEADO: Por favor, ative as janelas pop-up nas configurações do seu navegador para autorizar a transação on-chain!");
+										btn.innerText = "APPROVE NFT";
+										btn.disabled = false;
+										return;
+									}
 									btn.innerText = "WAITING FOR APPROVAL...";
 									btn.disabled = true;
 									WaitForWindowClose(g_desoIdentityWindow, function() {
@@ -1263,6 +1359,15 @@
 				}
 				g_desoPendingAction = 'login';
 				g_desoIdentityWindow = window.open("https://identity.deso.org/log-in?accessLevelRequest=2", "deso_identity", "width=800,height=1000");
+				if (!g_desoIdentityWindow) {
+					alert("⚠️ POP-UP BLOQUEADO: Por favor, ative as janelas pop-up nas configurações do seu navegador para efetuar login na DeSo!");
+					if (btn) {
+						btn.innerText = "LOGIN DESO";
+						btn.disabled = false;
+					}
+					g_desoPendingAction = null;
+					return;
+				}
 				WaitForWindowClose(g_desoIdentityWindow, function() {
 					if (!g_desoPublicKey && btn) {
 						btn.innerText = "LOGIN DESO";
@@ -1310,8 +1415,8 @@
 					return;
 				}
 				
-				// Validação Temporal (Sanity Check) - Buffer generoso de 25000 pts para acomodar itens do Level 33/Boss/Vidas Extras no speedrun VIP
-				var maxScore = (g_globalTotalTime * 500) + 25000; 
+				// Validação Temporal (Sanity Check) - Margem temporal otimizada para acomodar itens e vidas extras na expansão
+				var maxScore = (g_globalTotalTime * 250) + 85000; 
 				if (g_score > maxScore) {
 					alert("⚠️ SECURITY ALERT: Impossible Score/Time ratio! Speedhack detected.");
 					if (btn) { btn.innerText = "POST TO DESO"; btn.disabled = false; }
@@ -1387,6 +1492,12 @@
 									g_desoLastPostHashHex = postData.PostHashHex;
 									g_desoPendingTransactionType = "POST";
 									g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
+									if (!g_desoIdentityWindow) {
+										alert("⚠️ POP-UP BLOQUEADO: Por favor, ative as janelas pop-up nas configurações do seu navegador para autorizar a transação on-chain!");
+										btn.innerText = "APPROVE POST";
+										btn.disabled = false;
+										return;
+									}
 									btn.innerText = "WAITING FOR APPROVAL...";
 									btn.disabled = true;
 									WaitForWindowClose(g_desoIdentityWindow, function() {
