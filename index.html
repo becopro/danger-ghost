@@ -1005,11 +1005,12 @@
 										}
 										if (inLeaderboard) {
 											if (lines[j].includes("#DangerGhost")) break;
-											var match = lines[j].match(/^\d+\.\s+(.+?)\s+-\s+(\d+)\s+pts/);
+											var match = lines[j].match(/^\d+\.\s+(.+?)\s+-\s+(\d+)\s+pts(?:\s+\((\d+:\d+)\))?/);
 											if (match) {
 												list.push({ 
 													name: match[1].trim(), 
 													score: parseInt(match[2], 10),
+													time: match[3] ? match[3].trim() : "",
 													isVip: isVip
 												});
 											}
@@ -1020,10 +1021,12 @@
 								// Parse individual de vitórias
 								var matchScore = cleanBody.match(/Score:\s*(\d+)/i);
 								var matchName = cleanBody.match(/Ghost Hunter:\s*(.+)/i);
+								var matchTime = cleanBody.match(/Time:\s*(\d+:\d+)/i);
 								if (matchScore && matchName) {
 									list.push({
 										name: matchName[1].substring(0, 15).trim(),
 										score: parseInt(matchScore[1], 10),
+										time: matchTime ? matchTime[1].trim() : "",
 										isVip: isVip
 									});
 								}
@@ -1057,13 +1060,17 @@
 								
 								var vipTag = item.isVip ? " <span style='color: #FF00FF; font-weight: bold; font-size: 10px; text-shadow: 0 0 4px #FF00FF; background: rgba(255,0,255,0.15); padding: 1px 3px; border-radius: 3px; margin-left: 3px;'>VIP</span>" : "";
 								var displayName = pos + ". " + item.name;
+								var timeTag = item.time ? " <span style='color: #888; font-size: 11px; margin-left: 4px; font-weight: normal;'>(" + item.time + ")</span>" : "";
 								
 								html += "<div style='display: flex; justify-content: space-between; align-items: center; margin: 6px 0; border-bottom: 1px dashed rgba(0, 255, 255, 0.2); font-size: 12px;'>" +
 										"<div style='display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;'>" +
 										"<span style='color: " + nameColor + "; font-weight: bold;'>" + displayName + "</span>" +
 										vipTag +
 										"</div>" +
+										"<div style='display: flex; align-items: center;'>" +
 										"<span style='color: #00FF00; font-weight: bold;'>" + item.score + "</span>" +
+										timeTag +
+										"</div>" +
 										"</div>";
 							}
 						} else {
@@ -1434,18 +1441,23 @@
 						var foundMe = false;
 						for (var k = 0; k < g_leaderboardList.length; k++) {
 							if (g_leaderboardList[k].name === newPName) {
-								if (g_score > g_leaderboardList[k].score) g_leaderboardList[k].score = g_score;
+								if (g_score > g_leaderboardList[k].score) {
+									g_leaderboardList[k].score = g_score;
+									g_leaderboardList[k].time = timeStr;
+								}
 								foundMe = true; break;
 							}
 						}
-						if (!foundMe) g_leaderboardList.push({ name: newPName, score: g_score });
+						if (!foundMe) g_leaderboardList.push({ name: newPName, score: g_score, time: timeStr });
 						
 						g_leaderboardList.sort(function(a,b) { return b.score - a.score; });
 						g_leaderboardList = g_leaderboardList.slice(0, 10);
 						
 						var top10Text = "\n\n🏆 DANGER GHOST GLOBAL TOP 10 🏆\n";
 						for (var i = 0; i < g_leaderboardList.length; i++) {
-							top10Text += (i+1) + ". " + g_leaderboardList[i].name + " - " + g_leaderboardList[i].score + " pts\n";
+							var item = g_leaderboardList[i];
+							var timeSuffix = item.time ? " (" + item.time + ")" : "";
+							top10Text += (i+1) + ". " + item.name + " - " + item.score + " pts" + timeSuffix + "\n";
 						}
 
 						var bodyText = "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: " + pName + "\nScore: " + g_score + "\nTime: " + timeStr + top10Text + "\n#DangerGhost #Web3Gaming #DeSo";

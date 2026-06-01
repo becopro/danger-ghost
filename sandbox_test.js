@@ -241,11 +241,12 @@ function runLeaderboardParsingTest() {
                     }
                     if (inLeaderboard) {
                         if (lines[j].includes("#DangerGhost")) break;
-                        const match = lines[j].match(/^\d+\.\s+(.+?)\s+-\s+(\d+)\s+pts/);
+                        const match = lines[j].match(/^\d+\.\s+(.+?)\s+-\s+(\d+)\s+pts(?:\s+\((\d+:\d+)\))?/);
                         if (match) {
                             list.push({ 
                                 name: match[1].trim(), 
                                 score: parseInt(match[2], 10),
+                                time: match[3] ? match[3].trim() : "",
                                 isVip: isVip
                             });
                         }
@@ -254,10 +255,12 @@ function runLeaderboardParsingTest() {
             }
             const matchScore = post.Body.match(/Score:\s*(\d+)/i);
             const matchName = post.Body.match(/Ghost Hunter:\s*(.+)/i);
+            const matchTime = post.Body.match(/Time:\s*(\d+:\d+)/i);
             if (matchScore && matchName) {
                 list.push({
                     name: matchName[1].substring(0, 15).trim(),
                     score: parseInt(matchScore[1], 10),
+                    time: matchTime ? matchTime[1].trim() : "",
                     isVip: isVip
                 });
             }
