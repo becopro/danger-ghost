@@ -1525,8 +1525,7 @@
 						var top10Text = "\n\n🏆 DANGER GHOST GLOBAL TOP 10 🏆\n";
 						for (var i = 0; i < g_leaderboardList.length; i++) {
 							var item = g_leaderboardList[i];
-							var timeSuffix = item.time ? " (" + item.time + ")" : "";
-							top10Text += (i+1) + ". " + item.name + " - " + item.score + " pts" + timeSuffix + "\n";
+							top10Text += (i+1) + ". " + item.name + " - " + item.score + " pts\n";
 						}
 
 						var bodyText = "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: " + pName + "\nScore: " + g_score + "\nTime: " + timeStr + top10Text + "\n#DangerGhost #Web3Gaming #DeSo";
