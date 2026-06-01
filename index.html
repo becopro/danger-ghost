@@ -100,6 +100,151 @@
 				['call']());
 			}, 100);
 
+			// --- PREMIUM HORIZONTAL NAVBAR CONTROLS ---
+			var g_activeTab = null;
+
+			function ToggleNavbarTab(tab) {
+				try {
+					var panel = document.getElementById("navbarPanel");
+					var panelContent = document.getElementById("navbarPanelContent");
+					if (!panel || !panelContent) return;
+					
+					var btnScore = document.getElementById("btnNavScore");
+					var btnTime = document.getElementById("btnNavTime");
+					var btnControls = document.getElementById("btnNavControls");
+					
+					if (btnScore) {
+						btnScore.style.background = "rgba(0,0,0,0.8)";
+						btnScore.style.boxShadow = "0 0 5px rgba(0,255,255,0.3)";
+					}
+					if (btnTime) {
+						btnTime.style.background = "rgba(0,0,0,0.8)";
+						btnTime.style.boxShadow = "0 0 5px rgba(255,0,255,0.3)";
+					}
+					if (btnControls) {
+						btnControls.style.background = "rgba(0,0,0,0.8)";
+						btnControls.style.boxShadow = "0 0 5px rgba(255,255,0,0.3)";
+					}
+
+					if (g_activeTab === tab) {
+						panel.style.display = "none";
+						g_activeTab = null;
+						return;
+					}
+
+					g_activeTab = tab;
+					panel.style.display = "block";
+
+					if (tab === 'score') {
+						panel.style.borderColor = "#00FFFF";
+						panel.style.boxShadow = "0 0 15px #00FFFF";
+						if (btnScore) {
+							btnScore.style.background = "rgba(0,255,255,0.2)";
+							btnScore.style.boxShadow = "0 0 15px #00FFFF";
+						}
+						UpdateNavbarScore();
+					} else if (tab === 'time') {
+						panel.style.borderColor = "#FF00FF";
+						panel.style.boxShadow = "0 0 15px #FF00FF";
+						if (btnTime) {
+							btnTime.style.background = "rgba(255,0,255,0.2)";
+							btnTime.style.boxShadow = "0 0 15px #FF00FF";
+						}
+						UpdateNavbarTime();
+					} else if (tab === 'controls') {
+						panel.style.borderColor = "#FFFF00";
+						panel.style.boxShadow = "0 0 15px #FFFF00";
+						if (btnControls) {
+							btnControls.style.background = "rgba(255,255,0,0.2)";
+							btnControls.style.boxShadow = "0 0 15px #FFFF00";
+						}
+						
+						panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FFFF00; text-align: center; letter-spacing: 2px; font-size: 14px;'>🎮 CONTROLS</h3>" +
+							"<div style='display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #FFF; max-height: 250px; overflow-y: auto;'>" +
+							"<div><b>A/D or &larr;/&rarr;</b><br><span style='color:#FFFF00;'>Move Character</span></div>" +
+							"<div><b>W or &uarr;</b><br><span style='color:#FFFF00;'>Jump / Dbl Jump</span></div>" +
+							"<div><b>W (Press 3x)</b><br><span style='color:#FFFF00;'>Triple Jump!</span></div>" +
+							"<div><b>SPACE</b><br><span style='color:#FFFF00;'>Start / Pause</span></div>" +
+							"<div><b>F (Hold)</b><br><span style='color:#FFFF00;'>Ghost Mode</span></div>" +
+							"<div><b>R</b><br><span style='color:#FFFF00;'>Fast Mode</span></div>" +
+							"<div><b>P</b><br><span style='color:#FFFF00;'>Secret Password</span></div>" +
+							"<div><b>M</b><br><span style='color:#FFFF00;'>Mute Music</span></div>" +
+							"</div>";
+					}
+				} catch(err) {
+					console.warn("ToggleNavbarTab Error", err);
+				}
+			}
+
+			function UpdateNavbarScore() {
+				try {
+					var panelContent = document.getElementById("navbarPanelContent");
+					var lbContainer = document.getElementById("leaderboardContent");
+					if (!panelContent || !lbContainer) return;
+					var lbHtml = lbContainer.innerHTML;
+					if (!lbHtml || lbHtml.trim() === "") {
+						lbHtml = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>LOADING RANKING...</p>";
+					}
+					panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #00FFFF; text-align: center; letter-spacing: 2px;'>🏆 GLOBAL SCORE RANK</h3>" + lbHtml;
+				} catch(err) {
+					console.warn("UpdateNavbarScore Error", err);
+				}
+			}
+
+			function UpdateNavbarTime() {
+				try {
+					var panelContent = document.getElementById("navbarPanelContent");
+					var timeLbContainer = document.getElementById("timeLeaderboardContent");
+					if (!panelContent || !timeLbContainer) return;
+					var timeLbHtml = timeLbContainer.innerHTML;
+					if (!timeLbHtml || timeLbHtml.trim() === "") {
+						timeLbHtml = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>LOADING RANKING...</p>";
+					}
+					panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FF00FF; text-align: center; letter-spacing: 2px;'>⚡ SPEEDRUN TIME RANK</h3>" + timeLbHtml;
+				} catch(err) {
+					console.warn("UpdateNavbarTime Error", err);
+				}
+			}
+
+			// Exposição explícita das funções de controle da Navbar no escopo global
+			window.ToggleNavbarTab = ToggleNavbarTab;
+			window.UpdateNavbarScore = UpdateNavbarScore;
+			window.UpdateNavbarTime = UpdateNavbarTime;
+
+			// Método A: Vinculação Dinâmica no DOMContentLoaded (Segurança AAA)
+			document.addEventListener("DOMContentLoaded", function() {
+				var elScore = document.getElementById("btnNavScore");
+				var elTime = document.getElementById("btnNavTime");
+				var elControls = document.getElementById("btnNavControls");
+
+				if (elScore) {
+					elScore.addEventListener("click", function() { ToggleNavbarTab('score'); });
+				}
+				if (elTime) {
+					elTime.addEventListener("click", function() { ToggleNavbarTab('time'); });
+				}
+				if (elControls) {
+					elControls.addEventListener("click", function() { ToggleNavbarTab('controls'); });
+				}
+			});
+
+			// Método B: Vinculação Instantânea em tempo de parse do Script (Redundância Direta)
+			(function() {
+				var elScore = document.getElementById("btnNavScore");
+				var elTime = document.getElementById("btnNavTime");
+				var elControls = document.getElementById("btnNavControls");
+
+				if (elScore) {
+					elScore.onclick = function() { ToggleNavbarTab('score'); };
+				}
+				if (elTime) {
+					elTime.onclick = function() { ToggleNavbarTab('time'); };
+				}
+				if (elControls) {
+					elControls.onclick = function() { ToggleNavbarTab('controls'); };
+				}
+			})();
+
 			// --- ANTI-CHEAT CAIXA PRETA (IIFE) ---
 			(function() {
 			var g_canvas = document.getElementById("myCanvas");
@@ -1167,153 +1312,9 @@
 					}
 				}
 			}
-			// --- PREMIUM HORIZONTAL NAVBAR CONTROLS ---
-			var g_activeTab = null;
-
+			// --- PREMIUM HORIZONTAL NAVBAR CONTROLS BOOTSTRAP ---
 			FetchLeaderboard();
 			setInterval(FetchLeaderboard, 20000);
-
-			function ToggleNavbarTab(tab) {
-				try {
-					var panel = document.getElementById("navbarPanel");
-					var panelContent = document.getElementById("navbarPanelContent");
-					if (!panel || !panelContent) return;
-					
-					var btnScore = document.getElementById("btnNavScore");
-					var btnTime = document.getElementById("btnNavTime");
-					var btnControls = document.getElementById("btnNavControls");
-					
-					if (btnScore) {
-						btnScore.style.background = "rgba(0,0,0,0.8)";
-						btnScore.style.boxShadow = "0 0 5px rgba(0,255,255,0.3)";
-					}
-					if (btnTime) {
-						btnTime.style.background = "rgba(0,0,0,0.8)";
-						btnTime.style.boxShadow = "0 0 5px rgba(255,0,255,0.3)";
-					}
-					if (btnControls) {
-						btnControls.style.background = "rgba(0,0,0,0.8)";
-						btnControls.style.boxShadow = "0 0 5px rgba(255,255,0,0.3)";
-					}
-
-					if (g_activeTab === tab) {
-						panel.style.display = "none";
-						g_activeTab = null;
-						return;
-					}
-
-					g_activeTab = tab;
-					panel.style.display = "block";
-
-					if (tab === 'score') {
-						panel.style.borderColor = "#00FFFF";
-						panel.style.boxShadow = "0 0 15px #00FFFF";
-						if (btnScore) {
-							btnScore.style.background = "rgba(0,255,255,0.2)";
-							btnScore.style.boxShadow = "0 0 15px #00FFFF";
-						}
-						UpdateNavbarScore();
-					} else if (tab === 'time') {
-						panel.style.borderColor = "#FF00FF";
-						panel.style.boxShadow = "0 0 15px #FF00FF";
-						if (btnTime) {
-							btnTime.style.background = "rgba(255,0,255,0.2)";
-							btnTime.style.boxShadow = "0 0 15px #FF00FF";
-						}
-						UpdateNavbarTime();
-					} else if (tab === 'controls') {
-						panel.style.borderColor = "#FFFF00";
-						panel.style.boxShadow = "0 0 15px #FFFF00";
-						if (btnControls) {
-							btnControls.style.background = "rgba(255,255,0,0.2)";
-							btnControls.style.boxShadow = "0 0 15px #FFFF00";
-						}
-						
-						panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FFFF00; text-align: center; letter-spacing: 2px; font-size: 14px;'>🎮 CONTROLS</h3>" +
-							"<div style='display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #FFF; max-height: 250px; overflow-y: auto;'>" +
-							"<div><b>A/D or &larr;/&rarr;</b><br><span style='color:#FFFF00;'>Move Character</span></div>" +
-							"<div><b>W or &uarr;</b><br><span style='color:#FFFF00;'>Jump / Dbl Jump</span></div>" +
-							"<div><b>W (Press 3x)</b><br><span style='color:#FFFF00;'>Triple Jump!</span></div>" +
-							"<div><b>SPACE</b><br><span style='color:#FFFF00;'>Start / Pause</span></div>" +
-							"<div><b>F (Hold)</b><br><span style='color:#FFFF00;'>Ghost Mode</span></div>" +
-							"<div><b>R</b><br><span style='color:#FFFF00;'>Fast Mode</span></div>" +
-							"<div><b>P</b><br><span style='color:#FFFF00;'>Secret Password</span></div>" +
-							"<div><b>M</b><br><span style='color:#FFFF00;'>Mute Music</span></div>" +
-							"</div>";
-					}
-				} catch(err) {
-					console.warn("ToggleNavbarTab Error", err);
-				}
-			}
-
-			function UpdateNavbarScore() {
-				try {
-					var panelContent = document.getElementById("navbarPanelContent");
-					var lbContainer = document.getElementById("leaderboardContent");
-					if (!panelContent || !lbContainer) return;
-					var lbHtml = lbContainer.innerHTML;
-					if (!lbHtml || lbHtml.trim() === "") {
-						lbHtml = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>LOADING RANKING...</p>";
-					}
-					panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #00FFFF; text-align: center; letter-spacing: 2px;'>🏆 GLOBAL SCORE RANK</h3>" + lbHtml;
-				} catch(err) {
-					console.warn("UpdateNavbarScore Error", err);
-				}
-			}
-
-			function UpdateNavbarTime() {
-				try {
-					var panelContent = document.getElementById("navbarPanelContent");
-					var timeLbContainer = document.getElementById("timeLeaderboardContent");
-					if (!panelContent || !timeLbContainer) return;
-					var timeLbHtml = timeLbContainer.innerHTML;
-					if (!timeLbHtml || timeLbHtml.trim() === "") {
-						timeLbHtml = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>LOADING RANKING...</p>";
-					}
-					panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FF00FF; text-align: center; letter-spacing: 2px;'>⚡ SPEEDRUN TIME RANK</h3>" + timeLbHtml;
-				} catch(err) {
-					console.warn("UpdateNavbarTime Error", err);
-				}
-			}
-
-			// Exposição explícita das funções de controle da Navbar no escopo global
-			window.ToggleNavbarTab = ToggleNavbarTab;
-			window.UpdateNavbarScore = UpdateNavbarScore;
-			window.UpdateNavbarTime = UpdateNavbarTime;
-
-			// Método A: Vinculação Dinâmica no DOMContentLoaded (Segurança AAA)
-			document.addEventListener("DOMContentLoaded", function() {
-				var elScore = document.getElementById("btnNavScore");
-				var elTime = document.getElementById("btnNavTime");
-				var elControls = document.getElementById("btnNavControls");
-
-				if (elScore) {
-					elScore.addEventListener("click", function() { ToggleNavbarTab('score'); });
-				}
-				if (elTime) {
-					elTime.addEventListener("click", function() { ToggleNavbarTab('time'); });
-				}
-				if (elControls) {
-					elControls.addEventListener("click", function() { ToggleNavbarTab('controls'); });
-				}
-			});
-
-			// Método B: Vinculação Instantânea em tempo de parse do Script (Redundância Direta)
-			(function() {
-				var elScore = document.getElementById("btnNavScore");
-				var elTime = document.getElementById("btnNavTime");
-				var elControls = document.getElementById("btnNavControls");
-
-				if (elScore) {
-					elScore.onclick = function() { ToggleNavbarTab('score'); };
-				}
-				if (elTime) {
-					elTime.onclick = function() { ToggleNavbarTab('time'); };
-				}
-				if (elControls) {
-					elControls.onclick = function() { ToggleNavbarTab('controls'); };
-				}
-			})();
 
 			async function CreateDeSoNFT(postHashHex) {
 				var btn = document.getElementById("desoPostBtn");
