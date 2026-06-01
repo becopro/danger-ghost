@@ -13,6 +13,7 @@
 			image-rendering: crisp-edges;
 		}
 	</style>
+	<script src="rpg_system.js"></script>
 </head>
 
 <body style="background-color: #000; color: #fff; font-family: 'Courier New'; overflow: auto;">
@@ -26,6 +27,7 @@
 			<button id="btnNavScore" onclick="ToggleNavbarTab('score')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #00FFFF; border-radius: 5px; color: #00FFFF; cursor: pointer; text-shadow: 0 0 5px #00FFFF; box-shadow: 0 0 5px rgba(0,255,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">🏆 SCORE RANK</button>
 			<button id="btnNavTime" onclick="ToggleNavbarTab('time')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FF00FF; border-radius: 5px; color: #FF00FF; cursor: pointer; text-shadow: 0 0 5px #FF00FF; box-shadow: 0 0 5px rgba(255,0,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">⚡ TIME RANK</button>
 			<button id="btnNavControls" onclick="ToggleNavbarTab('controls')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FFFF00; border-radius: 5px; color: #FFFF00; cursor: pointer; text-shadow: 0 0 5px #FFFF00; box-shadow: 0 0 5px rgba(255,255,0,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">🎮 CONTROLS</button>
+			<button id="btnNavRPG" onclick="ToggleNavbarTab('rpg')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #00FF00; border-radius: 5px; color: #00FF00; cursor: pointer; text-shadow: 0 0 5px #00FF00; box-shadow: 0 0 5px rgba(0,255,0,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">👤 CHARACTER</button>
 		</div>
 
 		<div style="position: relative; display: inline-block;">
@@ -119,6 +121,7 @@
 					var btnScore = document.getElementById("btnNavScore");
 					var btnTime = document.getElementById("btnNavTime");
 					var btnControls = document.getElementById("btnNavControls");
+					var btnRPG = document.getElementById("btnNavRPG");
 					
 					if (btnScore) {
 						btnScore.style.background = "rgba(0,0,0,0.8)";
@@ -131,6 +134,10 @@
 					if (btnControls) {
 						btnControls.style.background = "rgba(0,0,0,0.8)";
 						btnControls.style.boxShadow = "0 0 5px rgba(255,255,0,0.3)";
+					}
+					if (btnRPG) {
+						btnRPG.style.background = "rgba(0,0,0,0.8)";
+						btnRPG.style.boxShadow = "0 0 5px rgba(0,255,0,0.3)";
 					}
 
 					if (g_activeTab === tab) {
@@ -177,6 +184,16 @@
 							"<div><b>P</b><br><span style='color:#FFFF00;'>Secret Password</span></div>" +
 							"<div><b>M</b><br><span style='color:#FFFF00;'>Mute Music</span></div>" +
 							"</div>";
+					} else if (tab === 'rpg') {
+						panel.style.borderColor = "#00FF00";
+						panel.style.boxShadow = "0 0 15px #00FF00";
+						if (btnRPG) {
+							btnRPG.style.background = "rgba(0,255,0,0.2)";
+							btnRPG.style.boxShadow = "0 0 15px #00FF00";
+						}
+						if (typeof RenderRPGStatusDrawer === "function") {
+							RenderRPGStatusDrawer();
+						}
 					}
 				} catch(err) {
 					console.warn("ToggleNavbarTab Error", err);
@@ -223,6 +240,7 @@
 				var elScore = document.getElementById("btnNavScore");
 				var elTime = document.getElementById("btnNavTime");
 				var elControls = document.getElementById("btnNavControls");
+				var elRPG = document.getElementById("btnNavRPG");
 
 				if (elScore) {
 					elScore.addEventListener("click", function() { ToggleNavbarTab('score'); });
@@ -232,6 +250,9 @@
 				}
 				if (elControls) {
 					elControls.addEventListener("click", function() { ToggleNavbarTab('controls'); });
+				}
+				if (elRPG) {
+					elRPG.addEventListener("click", function() { ToggleNavbarTab('rpg'); });
 				}
 
 				// Abre o painel de Controles por padrão ao carregar a página para abrir as informações para todos
@@ -245,6 +266,7 @@
 				var elScore = document.getElementById("btnNavScore");
 				var elTime = document.getElementById("btnNavTime");
 				var elControls = document.getElementById("btnNavControls");
+				var elRPG = document.getElementById("btnNavRPG");
 
 				if (elScore) {
 					elScore.onclick = function() { ToggleNavbarTab('score'); };
@@ -254,6 +276,9 @@
 				}
 				if (elControls) {
 					elControls.onclick = function() { ToggleNavbarTab('controls'); };
+				}
+				if (elRPG) {
+					elRPG.onclick = function() { ToggleNavbarTab('rpg'); };
 				}
 			})();
 
@@ -722,6 +747,8 @@
 				this.moveLeft = false; this.moveRight = false; this.jump = false;
 				this.ghostMode = false;
 				this.alive = true; this.speed = 3;
+				this.mana = 100; this.maxMana = 100;
+				this.isLevelingUpAnim = 0;
 
 				this.draw = function () {
 					if (this.alive) {
@@ -729,6 +756,16 @@
 						var sprite = (this.face == 1) ? desoGhostRight : desoGhostLeft;
 						g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, 24, 24);
 						if (this.ghostMode) g_ctx.globalAlpha = 1.0;
+
+						// Renderização da animação de Level Up
+						if (this.isLevelingUpAnim && this.isLevelingUpAnim > 0) {
+							g_ctx.fillStyle = (Math.floor(Date.now() / 100) % 2 === 0) ? "#FFFF00" : "#00FF00";
+							g_ctx.font = "bold 11px 'Courier New'";
+							g_ctx.textAlign = "center";
+							g_ctx.fillText("⚡ LEVEL UP! +5 AP ⚡", this.xPos + 12 + map_offset, this.yPos - 12);
+							g_ctx.textAlign = "start";
+							this.isLevelingUpAnim--;
+						}
 					} else {
 						if (explosionFrame < explosionFrames.length) {
 							g_ctx.drawImage(explosionFrames[explosionFrame], this.xPos + map_offset, this.yPos, 24, 24);
@@ -744,18 +781,49 @@
 					if (this.lives <= 0) { SetGameState(G_GAMEOVER); return; }
 					this.alive = true; this.xPos = 48; this.yPos = 150;
 					explosionFrame = 0; map_offset = 0;
+
+					// Bônus de Vitalidade (VIT): adiciona vidas passivas com teto
+					var vitBonus = GhostRPG.getMaxLivesBonus();
+					if (vitBonus > 0) {
+						this.lives = Math.min(6, this.lives + vitBonus); // teto de 6 vidas máximas para manter o HUD harmônico
+					}
 				};
 
 				this.move = function () {
 					if (!this.alive) return;
 
+					// Atualização física dinâmica dos atributos do RPG (AGI)
+					this.speed = GhostRPG.getModifiedSpeed(3);
+					var baseJumpAcceleration = [0, 0, 6.5, 6, 5.5, 5, 4.5, 4, 3.5, 3, 2.5, 2, 2, 1.5, 1.5, 0.75, 0.75, 0.5, 0.5, 0.5, 0.25, 0.25, 0, 0];
+					this.acceleration = GhostRPG.getModifiedJumpAcceleration(baseJumpAcceleration);
+
+					// Gerenciamento de Mana/Energia do Ghost Mode (INT)
+					var stats = GhostRPG.getStats();
+					this.maxMana = 100 * GhostRPG.getGhostDurationMultiplier();
+					if (this.ghostMode && this.alive) {
+						var consumeRate = Math.max(0.5, 3 - (stats.int * 0.15));
+						this.mana -= consumeRate;
+						if (this.mana <= 0) {
+							this.mana = 0;
+							this.ghostMode = false; // Desativa
+						}
+					} else if (this.alive) {
+						var regenRate = 1.0 + (stats.int * 0.10);
+						this.mana = Math.min(this.maxMana, this.mana + regenRate);
+					}
+
 					if (g_boss && g_boss.alive) {
 						if (this.xPos + 20 > g_boss.xPos && this.xPos + 4 < g_boss.xPos + g_boss.width &&
 							this.yPos + 24 > g_boss.yPos && this.yPos < g_boss.yPos + g_boss.height) {
 							if (this.jumpNum == 2 && (this.yPos + 24) < (g_boss.yPos + g_boss.height / 2)) {
-								g_boss.lives--;
+								var dmg = GhostRPG.getBossJumpDamage();
+								g_boss.lives -= dmg;
 								this.jumpNum = 1; this.jumpCounter = 2;
-								if (g_boss.lives <= 0) { g_boss.alive = false; AddScore(1000); }
+								if (g_boss.lives <= 0) { 
+									g_boss.alive = false; 
+									AddScore(1000); 
+									GhostRPG.addXp(1000); 
+								}
 							} else if (!this.ghostMode) {
 								this.alive = false;
 							}
@@ -846,13 +914,16 @@
 							if (r >= 0 && r < 11) {
 								var tile = map.bitmap[r][c];
 								if (tile >= 7 && tile <= 12) {
-									if (tile == 7) AddScore(50);
-									else if (tile == 8) AddScore(100);
+									if (tile == 7) { AddScore(50); GhostRPG.addXp(30); }
+									else if (tile == 8) { AddScore(100); GhostRPG.addXp(50); }
+									else if (tile == 9) { AddScore(150); GhostRPG.addXp(75); }
+									else if (tile == 10) { AddScore(150); GhostRPG.addXp(150); }
+									else if (tile == 11) { AddScore(150); GhostRPG.addXp(100); }
 									else if (tile == 12) {
 										this.lives++;
 										AddScore(666);
+										GhostRPG.addXp(300);
 									}
-									else AddScore(150);
 									map.bitmap[r][c] = 0;
 								}
 							}
@@ -1168,6 +1239,10 @@
 								var posterKey = post.PosterPublicKeyBase58Check;
 								var isVip = vipMap[posterKey] ? true : false;
 
+								// Extração do nível RPG se presente no post
+								var matchRpg = cleanBody.match(/RPG Level:\s*(\d+)/i);
+								var rpgLvl = matchRpg ? parseInt(matchRpg[1], 10) : 1;
+
 								// Parse clássico de placares embutidos em blocos globais de ranking
 								if (cleanBody.includes("🏆 DANGER GHOST GLOBAL TOP 10 🏆") || cleanBody.includes("DANGER GHOST GLOBAL TOP 10")) {
 									var lines = cleanBody.split("\n");
@@ -1184,7 +1259,8 @@
 													name: match[1].trim(), 
 													score: parseInt(match[2], 10),
 													time: match[3] ? match[3].trim() : "",
-													isVip: isVip
+													isVip: isVip,
+													rpgLevel: rpgLvl
 												});
 											}
 										}
@@ -1200,7 +1276,8 @@
 										name: matchName[1].substring(0, 15).trim(),
 										score: parseInt(matchScore[1], 10),
 										time: matchTime ? matchTime[1].trim() : "",
-										isVip: isVip
+										isVip: isVip,
+										rpgLevel: rpgLvl
 									});
 								}
 							}
@@ -1210,8 +1287,19 @@
 						var uniqueMap = {};
 						for (var k = 0; k < list.length; k++) {
 							var p = list[k];
-							if (!uniqueMap[p.name] || uniqueMap[p.name].score < p.score) {
+							if (!uniqueMap[p.name]) {
 								uniqueMap[p.name] = p;
+							} else {
+								if (p.score > uniqueMap[p.name].score) {
+									var oldLvl = uniqueMap[p.name].rpgLevel || 1;
+									uniqueMap[p.name] = p;
+									if (!uniqueMap[p.name].rpgLevel || uniqueMap[p.name].rpgLevel < oldLvl) {
+										uniqueMap[p.name].rpgLevel = oldLvl;
+									}
+								}
+								if (p.rpgLevel && p.rpgLevel > (uniqueMap[p.name].rpgLevel || 1)) {
+									uniqueMap[p.name].rpgLevel = p.rpgLevel;
+								}
 							}
 						}
 						list = Object.values(uniqueMap);
@@ -1251,12 +1339,15 @@
 								else if (pos === 3) nameColor = "#CD7F32"; // Bronze
 								
 								var vipTag = item.isVip ? " <span style='color: #FF00FF; font-weight: bold; font-size: 10px; text-shadow: 0 0 4px #FF00FF; background: rgba(255,0,255,0.15); padding: 1px 3px; border-radius: 3px; margin-left: 3px;'>VIP</span>" : "";
+								var rpgLvlVal = item.rpgLevel || 1;
+								var rpgTag = " <span style='color: #00FF00; font-weight: bold; font-size: 10px; text-shadow: 0 0 4px #00FF00; background: rgba(0,255,0,0.15); padding: 1px 3px; border-radius: 3px; margin-left: 3px;'>Lvl." + rpgLvlVal + "</span>";
 								var displayName = pos + ". " + item.name;
 								
 								html += "<div style='display: flex; justify-content: space-between; align-items: center; margin: 6px 0; border-bottom: 1px dashed rgba(0, 255, 255, 0.2); font-size: 12px;'>" +
-										"<div style='display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;'>" +
+										"<div style='display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;'>" +
 										"<span style='color: " + nameColor + "; font-weight: bold;'>" + displayName + "</span>" +
 										vipTag +
+										rpgTag +
 										"</div>" +
 										"<span style='color: #00FF00; font-weight: bold;'>" + item.score + "</span>" +
 										"</div>";
@@ -1278,12 +1369,15 @@
 								else if (pos === 3) nameColor = "#CD7F32"; // Bronze
 								
 								var vipTag = item.isVip ? " <span style='color: #FF00FF; font-weight: bold; font-size: 10px; text-shadow: 0 0 4px #FF00FF; background: rgba(255,0,255,0.15); padding: 1px 3px; border-radius: 3px; margin-left: 3px;'>VIP</span>" : "";
+								var rpgLvlVal = item.rpgLevel || 1;
+								var rpgTag = " <span style='color: #00FF00; font-weight: bold; font-size: 10px; text-shadow: 0 0 4px #00FF00; background: rgba(0,255,0,0.15); padding: 1px 3px; border-radius: 3px; margin-left: 3px;'>Lvl." + rpgLvlVal + "</span>";
 								var displayName = pos + ". " + item.name;
 								
 								timeHtml += "<div style='display: flex; justify-content: space-between; align-items: center; margin: 6px 0; border-bottom: 1px dashed rgba(0, 255, 255, 0.2); font-size: 12px;'>" +
-										"<div style='display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;'>" +
+										"<div style='display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;'>" +
 										"<span style='color: " + nameColor + "; font-weight: bold;'>" + displayName + "</span>" +
 										vipTag +
+										rpgTag +
 										"</div>" +
 										"<div style='display: flex; align-items: center;'>" +
 										"<span style='color: #00FF00; font-weight: bold;'>" + item.time + "</span>" +
@@ -1707,7 +1801,8 @@
 							top10Text += (i+1) + ". " + item.name + " - " + item.score + " pts\n";
 						}
 
-						var bodyText = "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: " + pName + "\nScore: " + g_score + "\nTime: " + timeStr + top10Text + "\n#DangerGhost #Web3Gaming #DeSo";
+						var rpgMetadata = GhostRPG.getDeSoMetadataString();
+						var bodyText = "🎮 I just conquered DANGER GHOST!" + rpgMetadata + "\n\nGhost Hunter: " + pName + "\nScore: " + g_score + "\nTime: " + timeStr + top10Text + "\n#DangerGhost #Web3Gaming #DeSo";
 						
 						var postReq = {
 							UpdaterPublicKeyBase58Check: g_desoPublicKey,
@@ -1925,7 +2020,8 @@
 				if (e.keyCode == 65 || e.keyCode == 37) DeSoGhost.moveLeft = true;
 				if (e.keyCode == 68 || e.keyCode == 39) DeSoGhost.moveRight = true;
 				if (e.keyCode == 87 || e.keyCode == 38) DeSoGhost.jump = true;
-				if (e.keyCode == 70) DeSoGhost.ghostMode = true;
+				if (e.keyCode == 70 && DeSoGhost.mana > 0) DeSoGhost.ghostMode = true;
+				if (e.keyCode == 75) ToggleNavbarTab('rpg'); // Key 'K' to toggle CHARACTER/RPG Panel
 			});
 			window.addEventListener("keyup", function (e) {
 				if (e.keyCode == 82 && g_isFast) {
