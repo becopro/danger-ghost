@@ -20,34 +20,28 @@
 
 	<div id="content" style="text-align: center;">
 		<h1 style="color: #FF00FF; letter-spacing: 5px; margin-bottom: 10px;">DANGER GHOST</h1>
+		
+		<!-- Horizontal Navigation Menu -->
+		<div id="gameNavbar" style="display: flex; justify-content: center; align-items: center; gap: 15px; margin: 15px auto; max-width: 640px; font-family: 'Courier New'; font-weight: bold; box-sizing: border-box; padding: 0 10px;">
+			<button id="btnNavScore" onclick="ToggleNavbarTab('score')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #00FFFF; border-radius: 5px; color: #00FFFF; cursor: pointer; text-shadow: 0 0 5px #00FFFF; box-shadow: 0 0 5px rgba(0,255,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">🏆 SCORE RANK</button>
+			<button id="btnNavTime" onclick="ToggleNavbarTab('time')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FF00FF; border-radius: 5px; color: #FF00FF; cursor: pointer; text-shadow: 0 0 5px #FF00FF; box-shadow: 0 0 5px rgba(255,0,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">⚡ TIME RANK</button>
+			<button id="btnNavControls" onclick="ToggleNavbarTab('controls')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FFFF00; border-radius: 5px; color: #FFFF00; cursor: pointer; text-shadow: 0 0 5px #FFFF00; box-shadow: 0 0 5px rgba(255,255,0,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">🎮 CONTROLS</button>
+		</div>
+
+		<!-- Shared Collapsible Drawer -->
+		<div id="navbarPanel" style="display: none; max-width: 620px; margin: 10px auto 15px auto; background: rgba(0,0,0,0.95); border: 2px solid #FF00FF; border-radius: 5px; padding: 15px; box-shadow: 0 0 15px #FF00FF; box-sizing: border-box; text-align: left; font-family: 'Courier New';">
+			<div id="navbarPanelContent" style="color: #FFF;"></div>
+		</div>
+
 		<div style="position: relative; display: inline-block;">
 			<canvas id="myCanvas" width="640" height="300"
 				style="background-color:#000000; border: 2px solid #00FFFF; display: block; margin: 0 auto;"></canvas>
 			<img id="cutsceneGif" src="assets/sprites/Dream 36.gif" style="position: absolute; top: 0; left: 0; width: 640px; height: 300px; display: none; box-sizing: border-box; border: 2px solid #00FFFF;" />
 			<button id="muteBtn" onclick="ToggleMute()" style="position: absolute; right: 0px; top: -45px; font-size: 30px; background: none; border: none; cursor: pointer; padding: 0; outline: none; text-shadow: 0 0 5px #00FFFF;" title="Mute/Unmute">🔊</button>
-			<div id="leaderboardHelp" style="position: absolute; right: -430px; top: 0px; text-align: left; color: #00FFFF; font-family: 'Courier New'; font-size: 13px; background: rgba(0,0,0,0.8); padding: 10px; border: 1px solid #FF00FF; border-radius: 5px; width: 190px; box-shadow: 0 0 10px #FF00FF; box-sizing: border-box;">
-				<h3 style="margin: 0 0 10px 0; color: #FF00FF; font-size: 15px; text-align: center; letter-spacing: 2px;">RANK</h3>
-				<div id="leaderboardContent" style="line-height: 18px;">
-					<p style="text-align: center; color: #888; font-size: 11px; margin: 10px 0;">LOADING RANKING...</p>
-				</div>
-			</div>
-			<div id="timeLeaderboardHelp" style="position: absolute; right: -640px; top: 0px; text-align: left; color: #00FFFF; font-family: 'Courier New'; font-size: 13px; background: rgba(0,0,0,0.8); padding: 10px; border: 1px solid #FF00FF; border-radius: 5px; width: 190px; box-shadow: 0 0 10px #FF00FF; box-sizing: border-box;">
-				<h3 style="margin: 0 0 10px 0; color: #FF00FF; font-size: 15px; text-align: center; letter-spacing: 2px;">TIME RANK</h3>
-				<div id="timeLeaderboardContent" style="line-height: 18px;">
-					<p style="text-align: center; color: #888; font-size: 11px; margin: 10px 0;">LOADING RANKING...</p>
-				</div>
-			</div>
-			<div id="controlsHelp" style="position: absolute; right: -220px; top: 0px; text-align: left; color: #00FFFF; font-family: 'Courier New'; font-size: 14px; background: rgba(0,0,0,0.8); padding: 10px; border: 1px solid #FF00FF; border-radius: 5px; width: 190px; box-shadow: 0 0 10px #FF00FF;">
-				<h3 style="margin: 0 0 10px 0; color: #FF00FF; font-size: 16px; text-align: center;">CONTROLS</h3>
-				<p style="margin: 5px 0;"><b>A/D or &larr;/&rarr;</b><br>Move</p>
-				<p style="margin: 5px 0;"><b>W/&uarr;</b><br>Jump / Double Jump</p>
-				<p style="margin: 5px 0;"><b>W (Press 3x)</b><br>Triple Jump!</p>
-				<p style="margin: 5px 0;"><b>SPACE</b><br>Start / Pause</p>
-				<p style="margin: 5px 0;"><b>F (Hold)</b><br>Ghost Mode</p>
-				<p style="margin: 5px 0;"><b>R</b><br>Fast Mode</p>
-				<p style="margin: 5px 0;"><b>P</b><br>Secret Password</p>
-				<p style="margin: 5px 0;"><b>M</b><br>Mute Music</p>
-			</div>
+			
+			<!-- Hidden Containers to preserve full compatibility with original FetchLeaderboard() calls -->
+			<div id="leaderboardHelp" style="display: none;"><div id="leaderboardContent"></div></div>
+			<div id="timeLeaderboardHelp" style="display: none;"><div id="timeLeaderboardContent"></div></div>
 		</div>
 		<br>
 		<button id="desoBtn" onclick="LoginDeSo()" style="display: inline-block; margin-top: 20px; padding: 10px 30px; background-color: #000; color: #FF00FF; text-decoration: none; font-weight: bold; font-size: 20px; border: 2px solid #00FFFF; border-radius: 5px; cursor: pointer;">LOGIN DESO</button>
@@ -1146,6 +1140,15 @@
 						if (container) container.innerHTML = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>NO SCORES FOUND</p>";
 						if (timeContainer) timeContainer.innerHTML = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>NO SCORES FOUND</p>";
 					}
+					
+					// Reatividade de atualização em tempo real para a Navbar ativa
+					if (typeof g_activeTab !== "undefined") {
+						if (g_activeTab === 'score') {
+							UpdateNavbarScore();
+						} else if (g_activeTab === 'time') {
+							UpdateNavbarTime();
+						}
+					}
 				} catch (e) { 
 					console.error("Leaderboard Error", e); 
 					if (container) {
@@ -1158,6 +1161,84 @@
 			}
 			FetchLeaderboard();
 			setInterval(FetchLeaderboard, 20000);
+
+			// --- PREMIUM HORIZONTAL NAVBAR CONTROLS ---
+			var g_activeTab = null;
+
+			function ToggleNavbarTab(tab) {
+				var panel = document.getElementById("navbarPanel");
+				var panelContent = document.getElementById("navbarPanelContent");
+				
+				var btnScore = document.getElementById("btnNavScore");
+				var btnTime = document.getElementById("btnNavTime");
+				var btnControls = document.getElementById("btnNavControls");
+				
+				btnScore.style.background = "rgba(0,0,0,0.8)";
+				btnTime.style.background = "rgba(0,0,0,0.8)";
+				btnControls.style.background = "rgba(0,0,0,0.8)";
+				
+				btnScore.style.boxShadow = "0 0 5px rgba(0,255,255,0.3)";
+				btnTime.style.boxShadow = "0 0 5px rgba(255,0,255,0.3)";
+				btnControls.style.boxShadow = "0 0 5px rgba(255,255,0,0.3)";
+
+				if (g_activeTab === tab) {
+					panel.style.display = "none";
+					g_activeTab = null;
+					return;
+				}
+
+				g_activeTab = tab;
+				panel.style.display = "block";
+
+				if (tab === 'score') {
+					panel.style.borderColor = "#00FFFF";
+					panel.style.boxShadow = "0 0 15px #00FFFF";
+					btnScore.style.background = "rgba(0,255,255,0.2)";
+					btnScore.style.boxShadow = "0 0 15px #00FFFF";
+					UpdateNavbarScore();
+				} else if (tab === 'time') {
+					panel.style.borderColor = "#FF00FF";
+					panel.style.boxShadow = "0 0 15px #FF00FF";
+					btnTime.style.background = "rgba(255,0,255,0.2)";
+					btnTime.style.boxShadow = "0 0 15px #FF00FF";
+					UpdateNavbarTime();
+				} else if (tab === 'controls') {
+					panel.style.borderColor = "#FFFF00";
+					panel.style.boxShadow = "0 0 15px #FFFF00";
+					btnControls.style.background = "rgba(255,255,0,0.2)";
+					btnControls.style.boxShadow = "0 0 15px #FFFF00";
+					
+					panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FFFF00; text-align: center; letter-spacing: 2px;'>🎮 GAME CONTROLS</h3>" +
+						"<div style='display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px; color: #FFF;'>" +
+						"<div><b>A / D or &larr; / &rarr;</b><br><span style='color:#FFFF00;'>Move Character</span></div>" +
+						"<div><b>W or &uarr;</b><br><span style='color:#FFFF00;'>Jump / Double Jump</span></div>" +
+						"<div><b>W (Press 3x)</b><br><span style='color:#FFFF00;'>Triple Jump!</span></div>" +
+						"<div><b>SPACE</b><br><span style='color:#FFFF00;'>Start Game / Pause</span></div>" +
+						"<div><b>F (Hold)</b><br><span style='color:#FFFF00;'>Ghost Mode (Pass Walls)</span></div>" +
+						"<div><b>R</b><br><span style='color:#FFFF00;'>Fast Mode (Toggle Speed)</span></div>" +
+						"<div><b>P</b><br><span style='color:#FFFF00;'>Secret Password (VIP)</span></div>" +
+						"<div><b>M</b><br><span style='color:#FFFF00;'>Mute Music</span></div>" +
+						"</div>";
+				}
+			}
+
+			function UpdateNavbarScore() {
+				var panelContent = document.getElementById("navbarPanelContent");
+				var lbHtml = document.getElementById("leaderboardContent").innerHTML;
+				if (!lbHtml || lbHtml.trim() === "") {
+					lbHtml = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>LOADING RANKING...</p>";
+				}
+				panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #00FFFF; text-align: center; letter-spacing: 2px;'>🏆 GLOBAL SCORE RANK</h3>" + lbHtml;
+			}
+
+			function UpdateNavbarTime() {
+				var panelContent = document.getElementById("navbarPanelContent");
+				var timeLbHtml = document.getElementById("timeLeaderboardContent").innerHTML;
+				if (!timeLbHtml || timeLbHtml.trim() === "") {
+					timeLbHtml = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>LOADING RANKING...</p>";
+				}
+				panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FF00FF; text-align: center; letter-spacing: 2px;'>⚡ SPEEDRUN TIME RANK</h3>" + timeLbHtml;
+			}
 
 			async function CreateDeSoNFT(postHashHex) {
 				var btn = document.getElementById("desoPostBtn");
