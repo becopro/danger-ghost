@@ -5,12 +5,227 @@
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 	<title>DeSoGhost | 33-Level Saga</title>
 	<link href="layout.css" rel="stylesheet" type="text/css" media="screen" />
+	<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&amp;display=swap" rel="stylesheet" />
 	<style>
 		canvas {
 			image-rendering: -moz-crisp-edges;
 			image-rendering: -webkit-crisp-edges;
 			image-rendering: pixelated;
 			image-rendering: crisp-edges;
+		}
+
+		/* Global styling adjustments */
+		body {
+			font-family: 'Outfit', 'Courier New', monospace !important;
+		}
+
+		/* Premium Animated Title - Gothic Cyberpunk Neon Pulsing & Flickering */
+		.neon-title {
+			color: #fff;
+			font-family: 'Outfit', sans-serif !important;
+			font-weight: 900;
+			font-size: 42px !important;
+			letter-spacing: 8px;
+			margin-top: 15px;
+			margin-bottom: 15px;
+			text-transform: uppercase;
+			display: inline-block;
+			text-shadow: 
+				0 0 5px #fff,
+				0 0 10px #FF00FF,
+				0 0 20px #FF00FF,
+				0 0 40px #FF00FF,
+				0 0 80px #00FFFF,
+				0 0 90px #00FFFF,
+				0 0 100px #00FFFF;
+			animation: titleGlow 2.5s ease-in-out infinite alternate;
+		}
+
+		@keyframes titleGlow {
+			0%, 100% {
+				text-shadow: 
+					0 0 5px #fff,
+					0 0 10px #FF00FF,
+					0 0 20px #FF00FF,
+					0 0 35px #FF00FF,
+					0 0 60px #00FFFF,
+					0 0 80px #00FFFF,
+					0 0 100px #00FFFF;
+				transform: scale(1);
+			}
+			50% {
+				text-shadow: 
+					0 0 3px #fff,
+					0 0 6px #FF00FF,
+					0 0 12px #FF00FF,
+					0 0 25px #FF00FF,
+					0 0 45px #00FFFF,
+					0 0 60px #00FFFF,
+					0 0 75px #00FFFF;
+				transform: scale(0.98);
+			}
+			18%, 22%, 82% {
+				text-shadow: 
+					0 0 4px #fff,
+					0 0 8px #FF00FF,
+					0 0 16px #FF00FF,
+					0 0 30px #FF00FF,
+					0 0 50px #00FFFF,
+					0 0 70px #00FFFF;
+			}
+		}
+
+		/* Tactile Navbar buttons */
+		#gameNavbar button {
+			font-family: 'Outfit', sans-serif !important;
+			font-weight: 700 !important;
+			letter-spacing: 0.8px;
+			border-radius: 8px !important;
+			transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+			cursor: pointer !important;
+			outline: none;
+		}
+
+		#gameNavbar button:hover {
+			transform: scale(1.05) translateY(-2px);
+		}
+
+		#gameNavbar button:active {
+			transform: scale(0.98) translateY(0);
+		}
+
+		#btnNavScore:hover {
+			background: rgba(0, 255, 255, 0.15) !important;
+			box-shadow: 0 0 15px hsla(180, 100%, 50%, 0.6) !important;
+		}
+
+		#btnNavTime:hover {
+			background: rgba(255, 0, 255, 0.15) !important;
+			box-shadow: 0 0 15px hsla(300, 100%, 50%, 0.6) !important;
+		}
+
+		#btnNavControls:hover {
+			background: rgba(255, 255, 0, 0.15) !important;
+			box-shadow: 0 0 15px hsla(60, 100%, 50%, 0.6) !important;
+		}
+
+		#btnNavRPG:hover {
+			background: rgba(0, 255, 0, 0.15) !important;
+			box-shadow: 0 0 15px hsla(120, 100%, 50%, 0.6) !important;
+		}
+
+		/* Action Buttons & Input styling - Glassmorphism, Rounded Borders & Pulsing Shadows */
+		.glass-action-btn {
+			font-family: 'Outfit', sans-serif !important;
+			font-weight: 700 !important;
+			letter-spacing: 1.5px;
+			cursor: pointer !important;
+			backdrop-filter: blur(12px) !important;
+			-webkit-backdrop-filter: blur(12px) !important;
+			transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+			outline: none;
+		}
+
+		.glass-action-btn:hover {
+			transform: translateY(-3px) scale(1.04);
+		}
+
+		.glass-action-btn:active {
+			transform: translateY(-1px) scale(0.98);
+		}
+
+		#desoBtn {
+			display: inline-block;
+			margin-top: 20px;
+			padding: 12px 36px !important;
+			background: linear-gradient(135deg, rgba(255, 0, 255, 0.1), rgba(0, 255, 255, 0.15)) !important;
+			color: #FF00FF !important;
+			font-size: 20px !important;
+			border: 2px solid #00FFFF !important;
+			border-radius: 30px !important;
+			text-shadow: 0 0 8px #FF00FF !important;
+			box-shadow: 0 0 15px rgba(0, 255, 255, 0.25), inset 0 0 10px rgba(255, 0, 255, 0.15);
+			animation: desoPulse 2.5s infinite alternate;
+		}
+
+		#desoBtn:hover {
+			color: #00FFFF !important;
+			border-color: #FF00FF !important;
+			text-shadow: 0 0 12px #00FFFF !important;
+			box-shadow: 0 0 25px rgba(255, 0, 255, 0.5), inset 0 0 15px rgba(0, 255, 255, 0.3) !important;
+		}
+
+		@keyframes desoPulse {
+			0% {
+				box-shadow: 0 0 12px rgba(0, 255, 255, 0.25), inset 0 0 10px rgba(255, 0, 255, 0.15);
+			}
+			100% {
+				box-shadow: 0 0 22px rgba(0, 255, 255, 0.45), 0 0 10px rgba(255, 0, 255, 0.25), inset 0 0 15px rgba(0, 255, 255, 0.3);
+			}
+		}
+
+		#downloadBtn {
+			padding: 12px 25px !important;
+			margin-left: 10px;
+			font-size: 16px !important;
+			border-radius: 30px !important;
+			background: linear-gradient(135deg, rgba(0, 56, 0, 0.2), rgba(0, 255, 0, 0.1)) !important;
+			border: 2px solid #00FF00 !important;
+			color: #00FF00 !important;
+			text-shadow: 0 0 6px #00FF00 !important;
+			box-shadow: 0 0 10px rgba(0, 255, 0, 0.2), inset 0 0 8px rgba(0, 255, 0, 0.1);
+		}
+
+		#downloadBtn:hover {
+			background: rgba(0, 255, 0, 0.2) !important;
+			box-shadow: 0 0 20px rgba(0, 255, 0, 0.5), inset 0 0 12px rgba(0, 255, 0, 0.2) !important;
+		}
+
+		#desoPostBtn {
+			padding: 12px 25px !important;
+			margin-left: 10px;
+			font-size: 16px !important;
+			border-radius: 30px !important;
+			background: linear-gradient(135deg, rgba(56, 0, 56, 0.2), rgba(255, 0, 255, 0.1)) !important;
+			border: 2px solid #FF00FF !important;
+			color: #FF00FF !important;
+			text-shadow: 0 0 6px #FF00FF !important;
+			box-shadow: 0 0 10px rgba(255, 0, 255, 0.2), inset 0 0 8px rgba(255, 0, 255, 0.1);
+		}
+
+		#desoPostBtn:hover {
+			background: rgba(255, 0, 255, 0.2) !important;
+			box-shadow: 0 0 20px rgba(255, 0, 255, 0.5), inset 0 0 12px rgba(255, 0, 255, 0.2) !important;
+		}
+
+		#playerNameInput {
+			padding: 12px 20px !important;
+			font-family: 'Outfit', sans-serif !important;
+			font-weight: 700 !important;
+			font-size: 16px !important;
+			border: 2px solid #00FFFF !important;
+			border-radius: 30px !important;
+			background: rgba(0, 0, 0, 0.6) !important;
+			color: #FFF !important;
+			outline: none;
+			box-shadow: 0 0 8px rgba(0, 255, 255, 0.2);
+			transition: all 0.3s ease;
+			text-align: center;
+			letter-spacing: 1px;
+		}
+
+		#playerNameInput:focus {
+			border-color: #FF00FF !important;
+			box-shadow: 0 0 15px rgba(255, 0, 255, 0.45);
+		}
+
+		/* Modern Glassmorphic Side Panels */
+		#rpgPanel, #navbarPanel {
+			background: rgba(0, 0, 0, 0.8) !important;
+			backdrop-filter: blur(12px) !important;
+			-webkit-backdrop-filter: blur(12px) !important;
+			border-radius: 12px !important;
+			transition: all 0.3s ease;
 		}
 	</style>
 	<script src="rpg_system.js"></script>
@@ -20,7 +235,7 @@
 	<iframe id="identityIframe" src="https://identity.deso.org/embed?v=2" style="display: none;"></iframe>
 
 	<div id="content" style="text-align: center;">
-		<h1 style="color: #FF00FF; letter-spacing: 5px; margin-bottom: 10px;">DANGER GHOST</h1>
+		<h1 class="neon-title">DANGER GHOST</h1>
 		
 		<!-- Horizontal Navigation Menu -->
 		<div id="gameNavbar" style="display: flex; justify-content: center; align-items: center; gap: 15px; margin: 15px auto; max-width: 640px; font-family: 'Courier New'; font-weight: bold; box-sizing: border-box; padding: 0 10px;">
@@ -51,12 +266,12 @@
 			<div id="timeLeaderboardHelp" style="display: none;"><div id="timeLeaderboardContent"></div></div>
 		</div>
 		<br>
-		<button id="desoBtn" onclick="LoginDeSo()" style="display: inline-block; margin-top: 20px; padding: 10px 30px; background-color: #000; color: #FF00FF; text-decoration: none; font-weight: bold; font-size: 20px; border: 2px solid #00FFFF; border-radius: 5px; cursor: pointer;">LOGIN DESO</button>
+		<button id="desoBtn" onclick="LoginDeSo()" class="glass-action-btn">LOGIN DESO</button>
 		
 		<div id="winPanel" style="display: none; margin-top: 20px;">
-			<input type="text" id="playerNameInput" placeholder="ENTER PLAYER NAME" maxlength="20" style="padding: 10px; font-family: 'Courier New'; font-weight: bold; font-size: 16px; border: 2px solid #00FFFF; background: #000; color: #FFF; outline: none;" />
-			<button id="downloadBtn" onclick="DownloadScreenshot()" style="padding: 10px 20px; margin-left: 10px; font-family: 'Courier New'; font-weight: bold; font-size: 16px; border: 2px solid #00FF00; background: #003800; color: #00FF00; cursor: pointer;">DOWNLOAD SCREENSHOT</button>
-			<button id="desoPostBtn" onclick="PostToDeSo()" style="padding: 10px 20px; margin-left: 10px; font-family: 'Courier New'; font-weight: bold; font-size: 16px; border: 2px solid #FF00FF; background: #380038; color: #FF00FF; cursor: pointer;">POST TO DESO</button>
+			<input type="text" id="playerNameInput" placeholder="ENTER PLAYER NAME" maxlength="20" />
+			<button id="downloadBtn" onclick="DownloadScreenshot()" class="glass-action-btn">DOWNLOAD SCREENSHOT</button>
+			<button id="desoPostBtn" onclick="PostToDeSo()" class="glass-action-btn">POST TO DESO</button>
 		</div>
 
 		<script>
