@@ -226,6 +226,11 @@
 				if (elControls) {
 					elControls.addEventListener("click", function() { ToggleNavbarTab('controls'); });
 				}
+
+				// Abre o painel de Controles por padrão ao carregar a página para abrir as informações para todos
+				try {
+					ToggleNavbarTab('controls');
+				} catch(e) {}
 			});
 
 			// Método B: Vinculação Instantânea em tempo de parse do Script (Redundância Direta)
@@ -328,6 +333,7 @@
 					btn.innerText = "🔇";
 				}
 			}
+			window.ToggleMute = ToggleMute;
 			var sickCrowRight = new Image(); sickCrowRight.src = 'assets/sprites/Sickcrow d.png';
 			var sickCrowLeft = new Image(); sickCrowLeft.src = 'assets/sprites/Sickcrow e.png';
 			var cactusRight = new Image(); cactusRight.src = 'assets/sprites/Cactus direita.png';
@@ -1004,6 +1010,7 @@
 					DrawWinScreen();
 				}, "image/jpeg", 0.95);
 			}
+			window.DownloadScreenshot = DownloadScreenshot;
 
 			function DrawGameOverScreen() {
 				g_ctx.fillStyle = "#000"; g_ctx.fillRect(0, 0, g_canvas.width, g_canvas.height);
@@ -1599,6 +1606,7 @@
 					}
 				});
 			}
+			window.LoginDeSo = LoginDeSo;
 
 			function PostToDeSo() {
 				if (!g_desoPublicKey) {
@@ -1629,6 +1637,7 @@
 					payload: jwtPayload
 				}, "https://identity.deso.org");
 			}
+			window.PostToDeSo = PostToDeSo;
 
 			async function ExecuteDeSoPost(jwt) {
 				var btn = document.getElementById("desoPostBtn");
