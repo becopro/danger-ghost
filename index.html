@@ -802,31 +802,6 @@
 				g_ctx.fillStyle = "#FFFFFF"; g_ctx.font = "bold 18px 'Courier New'";
 				g_ctx.fillText("PRESS 'SPACE' TO START", g_canvas.width / 2, 240);
 				g_ctx.textAlign = "start";
-
-				// Desenha Leaderboard Web3
-				if (g_leaderboardList && g_leaderboardList.length > 0) {
-					g_ctx.fillStyle = "rgba(0,0,0,0.8)";
-					g_ctx.fillRect(10, 10, 220, 180);
-					g_ctx.strokeStyle = "#00FFFF";
-					g_ctx.lineWidth = 2;
-					g_ctx.strokeRect(10, 10, 220, 180);
-					
-					g_ctx.fillStyle = "#00FFFF";
-					g_ctx.font = "bold 16px 'Courier New'";
-					g_ctx.textAlign = "center";
-					g_ctx.fillText("🌎 GLOBAL TOP 5", 120, 30);
-					
-					g_ctx.font = "bold 14px 'Courier New'";
-					for (var i = 0; i < g_leaderboardList.length; i++) {
-						g_ctx.textAlign = "left";
-						g_ctx.fillStyle = "#FFFFFF";
-						g_ctx.fillText((i+1) + ". " + g_leaderboardList[i].name, 20, 60 + (i*25));
-						g_ctx.fillStyle = "#FF00FF";
-						g_ctx.textAlign = "right";
-						g_ctx.fillText(g_leaderboardList[i].score, 210, 60 + (i*25));
-					}
-					g_ctx.textAlign = "center"; // Restaura
-				}
 			}
 
 			function DrawWinScreen(playerToStamp) {
