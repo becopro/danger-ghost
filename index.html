@@ -1099,17 +1099,13 @@
 								
 								var vipTag = item.isVip ? " <span style='color: #FF00FF; font-weight: bold; font-size: 10px; text-shadow: 0 0 4px #FF00FF; background: rgba(255,0,255,0.15); padding: 1px 3px; border-radius: 3px; margin-left: 3px;'>VIP</span>" : "";
 								var displayName = pos + ". " + item.name;
-								var timeTag = item.time ? " <span style='color: #888; font-size: 11px; margin-left: 4px; font-weight: normal;'>(" + item.time + ")</span>" : "";
 								
 								html += "<div style='display: flex; justify-content: space-between; align-items: center; margin: 6px 0; border-bottom: 1px dashed rgba(0, 255, 255, 0.2); font-size: 12px;'>" +
 										"<div style='display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;'>" +
 										"<span style='color: " + nameColor + "; font-weight: bold;'>" + displayName + "</span>" +
 										vipTag +
 										"</div>" +
-										"<div style='display: flex; align-items: center;'>" +
 										"<span style='color: #00FF00; font-weight: bold;'>" + item.score + "</span>" +
-										timeTag +
-										"</div>" +
 										"</div>";
 							}
 						} else {
