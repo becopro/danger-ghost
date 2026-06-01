@@ -178,7 +178,7 @@ GhostRPG.init();
 // Status Drawer de Atributos RPG Integrado
 function RenderRPGStatusDrawer() {
     var stats = GhostRPG.getStats();
-    var panelContent = document.getElementById("navbarPanelContent");
+    var panelContent = document.getElementById("rpgPanelContent") || document.getElementById("navbarPanelContent");
     if (!panelContent) return;
 
     var apHTML = "";

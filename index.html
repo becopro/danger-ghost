@@ -36,6 +36,11 @@
 			<img id="cutsceneGif" src="assets/sprites/Dream 36.gif" style="position: absolute; top: 0; left: 0; width: 640px; height: 300px; display: none; box-sizing: border-box; border: 2px solid #00FFFF;" />
 			<button id="muteBtn" onclick="ToggleMute()" style="position: absolute; right: 0px; top: -45px; font-size: 30px; background: none; border: none; cursor: pointer; padding: 0; outline: none; text-shadow: 0 0 5px #00FFFF;" title="Mute/Unmute">🔊</button>
 			
+			<!-- Shared Collapsible Drawer (Positioned Absolutely on the Left Side of the Canvas for RPG) -->
+			<div id="rpgPanel" style="display: none; position: absolute; left: -220px; top: 0px; width: 200px; background: rgba(0,0,0,0.9); border: 2px solid #00FF00; border-radius: 5px; padding: 12px; box-shadow: 0 0 15px #00FF00; box-sizing: border-box; text-align: left; font-family: 'Courier New'; font-size: 13px; z-index: 100;">
+				<div id="rpgPanelContent" style="color: #FFF; line-height: 18px;"></div>
+			</div>
+
 			<!-- Shared Collapsible Drawer (Positioned Absolutely on the Right Side of the Canvas) -->
 			<div id="navbarPanel" style="display: none; position: absolute; right: -220px; top: 0px; width: 200px; background: rgba(0,0,0,0.9); border: 2px solid #FF00FF; border-radius: 5px; padding: 12px; box-shadow: 0 0 15px #FF00FF; box-sizing: border-box; text-align: left; font-family: 'Courier New'; font-size: 13px; z-index: 100;">
 				<div id="navbarPanelContent" style="color: #FFF; line-height: 18px;"></div>
@@ -114,9 +119,11 @@
 					}
 					g_lastTabClickTick = now;
 
-					var panel = document.getElementById("navbarPanel");
-					var panelContent = document.getElementById("navbarPanelContent");
-					if (!panel || !panelContent) return;
+					var rightPanel = document.getElementById("navbarPanel");
+					var leftPanel = document.getElementById("rpgPanel");
+					var rightContent = document.getElementById("navbarPanelContent");
+					var leftContent = document.getElementById("rpgPanelContent");
+					if (!rightPanel || !rightContent || !leftPanel || !leftContent) return;
 					
 					var btnScore = document.getElementById("btnNavScore");
 					var btnTime = document.getElementById("btnNavTime");
@@ -141,58 +148,64 @@
 					}
 
 					if (g_activeTab === tab) {
-						panel.style.display = "none";
+						rightPanel.style.display = "none";
+						leftPanel.style.display = "none";
 						g_activeTab = null;
 						return;
 					}
 
-					g_activeTab = tab;
-					panel.style.display = "block";
+					// Close both first, then open the chosen one
+					rightPanel.style.display = "none";
+					leftPanel.style.display = "none";
 
-					if (tab === 'score') {
-						panel.style.borderColor = "#00FFFF";
-						panel.style.boxShadow = "0 0 15px #00FFFF";
-						if (btnScore) {
-							btnScore.style.background = "rgba(0,255,255,0.2)";
-							btnScore.style.boxShadow = "0 0 15px #00FFFF";
-						}
-						UpdateNavbarScore();
-					} else if (tab === 'time') {
-						panel.style.borderColor = "#FF00FF";
-						panel.style.boxShadow = "0 0 15px #FF00FF";
-						if (btnTime) {
-							btnTime.style.background = "rgba(255,0,255,0.2)";
-							btnTime.style.boxShadow = "0 0 15px #FF00FF";
-						}
-						UpdateNavbarTime();
-					} else if (tab === 'controls') {
-						panel.style.borderColor = "#FFFF00";
-						panel.style.boxShadow = "0 0 15px #FFFF00";
-						if (btnControls) {
-							btnControls.style.background = "rgba(255,255,0,0.2)";
-							btnControls.style.boxShadow = "0 0 15px #FFFF00";
-						}
-						
-						panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FFFF00; text-align: center; letter-spacing: 2px; font-size: 14px;'>🎮 CONTROLS</h3>" +
-							"<div style='display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #FFF; max-height: 250px; overflow-y: auto;'>" +
-							"<div><b>A/D or &larr;/&rarr;</b><br><span style='color:#FFFF00;'>Move Character</span></div>" +
-							"<div><b>W or &uarr;</b><br><span style='color:#FFFF00;'>Jump / Dbl Jump</span></div>" +
-							"<div><b>W (Press 3x)</b><br><span style='color:#FFFF00;'>Triple Jump!</span></div>" +
-							"<div><b>SPACE</b><br><span style='color:#FFFF00;'>Start / Pause</span></div>" +
-							"<div><b>F (Hold)</b><br><span style='color:#FFFF00;'>Ghost Mode</span></div>" +
-							"<div><b>R</b><br><span style='color:#FFFF00;'>Fast Mode</span></div>" +
-							"<div><b>P</b><br><span style='color:#FFFF00;'>Secret Password</span></div>" +
-							"<div><b>M</b><br><span style='color:#FFFF00;'>Mute Music</span></div>" +
-							"</div>";
-					} else if (tab === 'rpg') {
-						panel.style.borderColor = "#00FF00";
-						panel.style.boxShadow = "0 0 15px #00FF00";
+					g_activeTab = tab;
+
+					if (tab === 'rpg') {
+						leftPanel.style.display = "block";
 						if (btnRPG) {
 							btnRPG.style.background = "rgba(0,255,0,0.2)";
 							btnRPG.style.boxShadow = "0 0 15px #00FF00";
 						}
 						if (typeof RenderRPGStatusDrawer === "function") {
 							RenderRPGStatusDrawer();
+						}
+					} else {
+						rightPanel.style.display = "block";
+						if (tab === 'score') {
+							rightPanel.style.borderColor = "#00FFFF";
+							rightPanel.style.boxShadow = "0 0 15px #00FFFF";
+							if (btnScore) {
+								btnScore.style.background = "rgba(0,255,255,0.2)";
+								btnScore.style.boxShadow = "0 0 15px #00FFFF";
+							}
+							UpdateNavbarScore();
+						} else if (tab === 'time') {
+							rightPanel.style.borderColor = "#FF00FF";
+							rightPanel.style.boxShadow = "0 0 15px #FF00FF";
+							if (btnTime) {
+								btnTime.style.background = "rgba(255,0,255,0.2)";
+								btnTime.style.boxShadow = "0 0 15px #FF00FF";
+							}
+							UpdateNavbarTime();
+						} else if (tab === 'controls') {
+							rightPanel.style.borderColor = "#FFFF00";
+							rightPanel.style.boxShadow = "0 0 15px #FFFF00";
+							if (btnControls) {
+								btnControls.style.background = "rgba(255,255,0,0.2)";
+								btnControls.style.boxShadow = "0 0 15px #FFFF00";
+							}
+							
+							rightContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FFFF00; text-align: center; letter-spacing: 2px; font-size: 14px;'>🎮 CONTROLS</h3>" +
+								"<div style='display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #FFF; max-height: 250px; overflow-y: auto;'>" +
+								"<div><b>A/D or &larr;/&rarr;</b><br><span style='color:#FFFF00;'>Move Character</span></div>" +
+								"<div><b>W or &uarr;</b><br><span style='color:#FFFF00;'>Jump / Dbl Jump</span></div>" +
+								"<div><b>W (Press 3x)</b><br><span style='color:#FFFF00;'>Triple Jump!</span></div>" +
+								"<div><b>SPACE</b><br><span style='color:#FFFF00;'>Start / Pause</span></div>" +
+								"<div><b>F (Hold)</b><br><span style='color:#FFFF00;'>Ghost Mode</span></div>" +
+								"<div><b>R</b><br><span style='color:#FFFF00;'>Fast Mode</span></div>" +
+								"<div><b>P</b><br><span style='color:#FFFF00;'>Secret Password</span></div>" +
+								"<div><b>M</b><br><span style='color:#FFFF00;'>Mute Music</span></div>" +
+								"</div>";
 						}
 					}
 				} catch(err) {
