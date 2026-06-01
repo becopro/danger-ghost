@@ -23,9 +23,9 @@
 		
 		<!-- Horizontal Navigation Menu -->
 		<div id="gameNavbar" style="display: flex; justify-content: center; align-items: center; gap: 15px; margin: 15px auto; max-width: 640px; font-family: 'Courier New'; font-weight: bold; box-sizing: border-box; padding: 0 10px;">
-			<button id="btnNavScore" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #00FFFF; border-radius: 5px; color: #00FFFF; cursor: pointer; text-shadow: 0 0 5px #00FFFF; box-shadow: 0 0 5px rgba(0,255,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">🏆 SCORE RANK</button>
-			<button id="btnNavTime" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FF00FF; border-radius: 5px; color: #FF00FF; cursor: pointer; text-shadow: 0 0 5px #FF00FF; box-shadow: 0 0 5px rgba(255,0,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">⚡ TIME RANK</button>
-			<button id="btnNavControls" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FFFF00; border-radius: 5px; color: #FFFF00; cursor: pointer; text-shadow: 0 0 5px #FFFF00; box-shadow: 0 0 5px rgba(255,255,0,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">🎮 CONTROLS</button>
+			<button id="btnNavScore" onclick="ToggleNavbarTab('score')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #00FFFF; border-radius: 5px; color: #00FFFF; cursor: pointer; text-shadow: 0 0 5px #00FFFF; box-shadow: 0 0 5px rgba(0,255,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">🏆 SCORE RANK</button>
+			<button id="btnNavTime" onclick="ToggleNavbarTab('time')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FF00FF; border-radius: 5px; color: #FF00FF; cursor: pointer; text-shadow: 0 0 5px #FF00FF; box-shadow: 0 0 5px rgba(255,0,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">⚡ TIME RANK</button>
+			<button id="btnNavControls" onclick="ToggleNavbarTab('controls')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FFFF00; border-radius: 5px; color: #FFFF00; cursor: pointer; text-shadow: 0 0 5px #FFFF00; box-shadow: 0 0 5px rgba(255,255,0,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">🎮 CONTROLS</button>
 		</div>
 
 		<div style="position: relative; display: inline-block;">
@@ -1174,78 +1174,106 @@
 			setInterval(FetchLeaderboard, 20000);
 
 			function ToggleNavbarTab(tab) {
-				var panel = document.getElementById("navbarPanel");
-				var panelContent = document.getElementById("navbarPanelContent");
-				
-				var btnScore = document.getElementById("btnNavScore");
-				var btnTime = document.getElementById("btnNavTime");
-				var btnControls = document.getElementById("btnNavControls");
-				
-				btnScore.style.background = "rgba(0,0,0,0.8)";
-				btnTime.style.background = "rgba(0,0,0,0.8)";
-				btnControls.style.background = "rgba(0,0,0,0.8)";
-				
-				btnScore.style.boxShadow = "0 0 5px rgba(0,255,255,0.3)";
-				btnTime.style.boxShadow = "0 0 5px rgba(255,0,255,0.3)";
-				btnControls.style.boxShadow = "0 0 5px rgba(255,255,0,0.3)";
-
-				if (g_activeTab === tab) {
-					panel.style.display = "none";
-					g_activeTab = null;
-					return;
-				}
-
-				g_activeTab = tab;
-				panel.style.display = "block";
-
-				if (tab === 'score') {
-					panel.style.borderColor = "#00FFFF";
-					panel.style.boxShadow = "0 0 15px #00FFFF";
-					btnScore.style.background = "rgba(0,255,255,0.2)";
-					btnScore.style.boxShadow = "0 0 15px #00FFFF";
-					UpdateNavbarScore();
-				} else if (tab === 'time') {
-					panel.style.borderColor = "#FF00FF";
-					panel.style.boxShadow = "0 0 15px #FF00FF";
-					btnTime.style.background = "rgba(255,0,255,0.2)";
-					btnTime.style.boxShadow = "0 0 15px #FF00FF";
-					UpdateNavbarTime();
-				} else if (tab === 'controls') {
-					panel.style.borderColor = "#FFFF00";
-					panel.style.boxShadow = "0 0 15px #FFFF00";
-					btnControls.style.background = "rgba(255,255,0,0.2)";
-					btnControls.style.boxShadow = "0 0 15px #FFFF00";
+				try {
+					var panel = document.getElementById("navbarPanel");
+					var panelContent = document.getElementById("navbarPanelContent");
+					if (!panel || !panelContent) return;
 					
-					panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FFFF00; text-align: center; letter-spacing: 2px; font-size: 14px;'>🎮 CONTROLS</h3>" +
-						"<div style='display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #FFF; max-height: 250px; overflow-y: auto;'>" +
-						"<div><b>A/D or &larr;/&rarr;</b><br><span style='color:#FFFF00;'>Move Character</span></div>" +
-						"<div><b>W or &uarr;</b><br><span style='color:#FFFF00;'>Jump / Dbl Jump</span></div>" +
-						"<div><b>W (Press 3x)</b><br><span style='color:#FFFF00;'>Triple Jump!</span></div>" +
-						"<div><b>SPACE</b><br><span style='color:#FFFF00;'>Start / Pause</span></div>" +
-						"<div><b>F (Hold)</b><br><span style='color:#FFFF00;'>Ghost Mode</span></div>" +
-						"<div><b>R</b><br><span style='color:#FFFF00;'>Fast Mode</span></div>" +
-						"<div><b>P</b><br><span style='color:#FFFF00;'>Secret Password</span></div>" +
-						"<div><b>M</b><br><span style='color:#FFFF00;'>Mute Music</span></div>" +
-						"</div>";
+					var btnScore = document.getElementById("btnNavScore");
+					var btnTime = document.getElementById("btnNavTime");
+					var btnControls = document.getElementById("btnNavControls");
+					
+					if (btnScore) {
+						btnScore.style.background = "rgba(0,0,0,0.8)";
+						btnScore.style.boxShadow = "0 0 5px rgba(0,255,255,0.3)";
+					}
+					if (btnTime) {
+						btnTime.style.background = "rgba(0,0,0,0.8)";
+						btnTime.style.boxShadow = "0 0 5px rgba(255,0,255,0.3)";
+					}
+					if (btnControls) {
+						btnControls.style.background = "rgba(0,0,0,0.8)";
+						btnControls.style.boxShadow = "0 0 5px rgba(255,255,0,0.3)";
+					}
+
+					if (g_activeTab === tab) {
+						panel.style.display = "none";
+						g_activeTab = null;
+						return;
+					}
+
+					g_activeTab = tab;
+					panel.style.display = "block";
+
+					if (tab === 'score') {
+						panel.style.borderColor = "#00FFFF";
+						panel.style.boxShadow = "0 0 15px #00FFFF";
+						if (btnScore) {
+							btnScore.style.background = "rgba(0,255,255,0.2)";
+							btnScore.style.boxShadow = "0 0 15px #00FFFF";
+						}
+						UpdateNavbarScore();
+					} else if (tab === 'time') {
+						panel.style.borderColor = "#FF00FF";
+						panel.style.boxShadow = "0 0 15px #FF00FF";
+						if (btnTime) {
+							btnTime.style.background = "rgba(255,0,255,0.2)";
+							btnTime.style.boxShadow = "0 0 15px #FF00FF";
+						}
+						UpdateNavbarTime();
+					} else if (tab === 'controls') {
+						panel.style.borderColor = "#FFFF00";
+						panel.style.boxShadow = "0 0 15px #FFFF00";
+						if (btnControls) {
+							btnControls.style.background = "rgba(255,255,0,0.2)";
+							btnControls.style.boxShadow = "0 0 15px #FFFF00";
+						}
+						
+						panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FFFF00; text-align: center; letter-spacing: 2px; font-size: 14px;'>🎮 CONTROLS</h3>" +
+							"<div style='display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #FFF; max-height: 250px; overflow-y: auto;'>" +
+							"<div><b>A/D or &larr;/&rarr;</b><br><span style='color:#FFFF00;'>Move Character</span></div>" +
+							"<div><b>W or &uarr;</b><br><span style='color:#FFFF00;'>Jump / Dbl Jump</span></div>" +
+							"<div><b>W (Press 3x)</b><br><span style='color:#FFFF00;'>Triple Jump!</span></div>" +
+							"<div><b>SPACE</b><br><span style='color:#FFFF00;'>Start / Pause</span></div>" +
+							"<div><b>F (Hold)</b><br><span style='color:#FFFF00;'>Ghost Mode</span></div>" +
+							"<div><b>R</b><br><span style='color:#FFFF00;'>Fast Mode</span></div>" +
+							"<div><b>P</b><br><span style='color:#FFFF00;'>Secret Password</span></div>" +
+							"<div><b>M</b><br><span style='color:#FFFF00;'>Mute Music</span></div>" +
+							"</div>";
+					}
+				} catch(err) {
+					console.warn("ToggleNavbarTab Error", err);
 				}
 			}
 
 			function UpdateNavbarScore() {
-				var panelContent = document.getElementById("navbarPanelContent");
-				var lbHtml = document.getElementById("leaderboardContent").innerHTML;
-				if (!lbHtml || lbHtml.trim() === "") {
-					lbHtml = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>LOADING RANKING...</p>";
+				try {
+					var panelContent = document.getElementById("navbarPanelContent");
+					var lbContainer = document.getElementById("leaderboardContent");
+					if (!panelContent || !lbContainer) return;
+					var lbHtml = lbContainer.innerHTML;
+					if (!lbHtml || lbHtml.trim() === "") {
+						lbHtml = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>LOADING RANKING...</p>";
+					}
+					panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #00FFFF; text-align: center; letter-spacing: 2px;'>🏆 GLOBAL SCORE RANK</h3>" + lbHtml;
+				} catch(err) {
+					console.warn("UpdateNavbarScore Error", err);
 				}
-				panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #00FFFF; text-align: center; letter-spacing: 2px;'>🏆 GLOBAL SCORE RANK</h3>" + lbHtml;
 			}
 
 			function UpdateNavbarTime() {
-				var panelContent = document.getElementById("navbarPanelContent");
-				var timeLbHtml = document.getElementById("timeLeaderboardContent").innerHTML;
-				if (!timeLbHtml || timeLbHtml.trim() === "") {
-					timeLbHtml = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>LOADING RANKING...</p>";
+				try {
+					var panelContent = document.getElementById("navbarPanelContent");
+					var timeLbContainer = document.getElementById("timeLeaderboardContent");
+					if (!panelContent || !timeLbContainer) return;
+					var timeLbHtml = timeLbContainer.innerHTML;
+					if (!timeLbHtml || timeLbHtml.trim() === "") {
+						timeLbHtml = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>LOADING RANKING...</p>";
+					}
+					panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FF00FF; text-align: center; letter-spacing: 2px;'>⚡ SPEEDRUN TIME RANK</h3>" + timeLbHtml;
+				} catch(err) {
+					console.warn("UpdateNavbarTime Error", err);
 				}
-				panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FF00FF; text-align: center; letter-spacing: 2px;'>⚡ SPEEDRUN TIME RANK</h3>" + timeLbHtml;
 			}
 
 			// Exposição explícita das funções de controle da Navbar no escopo global
