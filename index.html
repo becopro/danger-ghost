@@ -23,9 +23,9 @@
 		
 		<!-- Horizontal Navigation Menu -->
 		<div id="gameNavbar" style="display: flex; justify-content: center; align-items: center; gap: 15px; margin: 15px auto; max-width: 640px; font-family: 'Courier New'; font-weight: bold; box-sizing: border-box; padding: 0 10px;">
-			<button id="btnNavScore" onclick="ToggleNavbarTab('score')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #00FFFF; border-radius: 5px; color: #00FFFF; cursor: pointer; text-shadow: 0 0 5px #00FFFF; box-shadow: 0 0 5px rgba(0,255,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">🏆 SCORE RANK</button>
-			<button id="btnNavTime" onclick="ToggleNavbarTab('time')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FF00FF; border-radius: 5px; color: #FF00FF; cursor: pointer; text-shadow: 0 0 5px #FF00FF; box-shadow: 0 0 5px rgba(255,0,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">⚡ TIME RANK</button>
-			<button id="btnNavControls" onclick="ToggleNavbarTab('controls')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FFFF00; border-radius: 5px; color: #FFFF00; cursor: pointer; text-shadow: 0 0 5px #FFFF00; box-shadow: 0 0 5px rgba(255,255,0,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">🎮 CONTROLS</button>
+			<button id="btnNavScore" onclick="ToggleNavbarTab('score')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #00FFFF; border-radius: 5px; color: #00FFFF; cursor: pointer; text-shadow: 0 0 5px #00FFFF; box-shadow: 0 0 5px rgba(0,255,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">🏆 SCORE RANK</button>
+			<button id="btnNavTime" onclick="ToggleNavbarTab('time')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FF00FF; border-radius: 5px; color: #FF00FF; cursor: pointer; text-shadow: 0 0 5px #FF00FF; box-shadow: 0 0 5px rgba(255,0,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">⚡ TIME RANK</button>
+			<button id="btnNavControls" onclick="ToggleNavbarTab('controls')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FFFF00; border-radius: 5px; color: #FFFF00; cursor: pointer; text-shadow: 0 0 5px #FFFF00; box-shadow: 0 0 5px rgba(255,255,0,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">🎮 CONTROLS</button>
 		</div>
 
 		<div style="position: relative; display: inline-block;">
@@ -102,9 +102,16 @@
 
 			// --- PREMIUM HORIZONTAL NAVBAR CONTROLS ---
 			var g_activeTab = null;
+			var g_lastTabClickTick = 0; // Tick-based event loop guard to prevent double-firing in Triple-Redundant click architectures
 
 			function ToggleNavbarTab(tab) {
 				try {
+					var now = Date.now();
+					if (now - g_lastTabClickTick < 50) {
+						return; // Ignore duplicate synchronous clicks triggered by redundant bindings
+					}
+					g_lastTabClickTick = now;
+
 					var panel = document.getElementById("navbarPanel");
 					var panelContent = document.getElementById("navbarPanelContent");
 					if (!panel || !panelContent) return;
