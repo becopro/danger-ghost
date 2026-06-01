@@ -15,7 +15,7 @@
 	</style>
 </head>
 
-<body style="background-color: #000; color: #fff; font-family: 'Courier New'; overflow: hidden;">
+<body style="background-color: #000; color: #fff; font-family: 'Courier New'; overflow: auto;">
 	<iframe id="identityIframe" src="https://identity.deso.org/embed?v=2" style="display: none;"></iframe>
 
 	<div id="content" style="text-align: center;">
@@ -1159,11 +1159,11 @@
 					}
 				}
 			}
-			FetchLeaderboard();
-			setInterval(FetchLeaderboard, 20000);
-
 			// --- PREMIUM HORIZONTAL NAVBAR CONTROLS ---
 			var g_activeTab = null;
+
+			FetchLeaderboard();
+			setInterval(FetchLeaderboard, 20000);
 
 			function ToggleNavbarTab(tab) {
 				var panel = document.getElementById("navbarPanel");
