@@ -23,9 +23,9 @@
 		
 		<!-- Horizontal Navigation Menu -->
 		<div id="gameNavbar" style="display: flex; justify-content: center; align-items: center; gap: 15px; margin: 15px auto; max-width: 640px; font-family: 'Courier New'; font-weight: bold; box-sizing: border-box; padding: 0 10px;">
-			<button id="btnNavScore" onclick="ToggleNavbarTab('score')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #00FFFF; border-radius: 5px; color: #00FFFF; cursor: pointer; text-shadow: 0 0 5px #00FFFF; box-shadow: 0 0 5px rgba(0,255,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">🏆 SCORE RANK</button>
-			<button id="btnNavTime" onclick="ToggleNavbarTab('time')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FF00FF; border-radius: 5px; color: #FF00FF; cursor: pointer; text-shadow: 0 0 5px #FF00FF; box-shadow: 0 0 5px rgba(255,0,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">⚡ TIME RANK</button>
-			<button id="btnNavControls" onclick="ToggleNavbarTab('controls')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FFFF00; border-radius: 5px; color: #FFFF00; cursor: pointer; text-shadow: 0 0 5px #FFFF00; box-shadow: 0 0 5px rgba(255,255,0,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">🎮 CONTROLS</button>
+			<button id="btnNavScore" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #00FFFF; border-radius: 5px; color: #00FFFF; cursor: pointer; text-shadow: 0 0 5px #00FFFF; box-shadow: 0 0 5px rgba(0,255,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">🏆 SCORE RANK</button>
+			<button id="btnNavTime" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FF00FF; border-radius: 5px; color: #FF00FF; cursor: pointer; text-shadow: 0 0 5px #FF00FF; box-shadow: 0 0 5px rgba(255,0,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">⚡ TIME RANK</button>
+			<button id="btnNavControls" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FFFF00; border-radius: 5px; color: #FFFF00; cursor: pointer; text-shadow: 0 0 5px #FFFF00; box-shadow: 0 0 5px rgba(255,255,0,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.3s ease;">🎮 CONTROLS</button>
 		</div>
 
 		<div style="position: relative; display: inline-block;">
@@ -1247,6 +1247,45 @@
 				}
 				panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FF00FF; text-align: center; letter-spacing: 2px;'>⚡ SPEEDRUN TIME RANK</h3>" + timeLbHtml;
 			}
+
+			// Exposição explícita das funções de controle da Navbar no escopo global
+			window.ToggleNavbarTab = ToggleNavbarTab;
+			window.UpdateNavbarScore = UpdateNavbarScore;
+			window.UpdateNavbarTime = UpdateNavbarTime;
+
+			// Método A: Vinculação Dinâmica no DOMContentLoaded (Segurança AAA)
+			document.addEventListener("DOMContentLoaded", function() {
+				var elScore = document.getElementById("btnNavScore");
+				var elTime = document.getElementById("btnNavTime");
+				var elControls = document.getElementById("btnNavControls");
+
+				if (elScore) {
+					elScore.addEventListener("click", function() { ToggleNavbarTab('score'); });
+				}
+				if (elTime) {
+					elTime.addEventListener("click", function() { ToggleNavbarTab('time'); });
+				}
+				if (elControls) {
+					elControls.addEventListener("click", function() { ToggleNavbarTab('controls'); });
+				}
+			});
+
+			// Método B: Vinculação Instantânea em tempo de parse do Script (Redundância Direta)
+			(function() {
+				var elScore = document.getElementById("btnNavScore");
+				var elTime = document.getElementById("btnNavTime");
+				var elControls = document.getElementById("btnNavControls");
+
+				if (elScore) {
+					elScore.onclick = function() { ToggleNavbarTab('score'); };
+				}
+				if (elTime) {
+					elTime.onclick = function() { ToggleNavbarTab('time'); };
+				}
+				if (elControls) {
+					elControls.onclick = function() { ToggleNavbarTab('controls'); };
+				}
+			})();
 
 			async function CreateDeSoNFT(postHashHex) {
 				var btn = document.getElementById("desoPostBtn");
