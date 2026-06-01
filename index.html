@@ -812,18 +812,31 @@
 
 			function DrawWinScreen(playerToStamp) {
 				g_ctx.fillStyle = "#000"; g_ctx.fillRect(0, 0, g_canvas.width, g_canvas.height);
-				g_ctx.font = "bold 40px 'Courier New'"; g_ctx.fillStyle = "#FFFF00"; g_ctx.textAlign = "center";
-				g_ctx.fillText("YOU WIN!", g_canvas.width / 2, 60);
-				g_ctx.font = "bold 20px 'Courier New'"; g_ctx.fillStyle = "#00FFFF";
-				g_ctx.fillText("FINAL SCORE: " + g_score, g_canvas.width / 2, 110);
 				
-				// O tempo foi removido a pedido da equipe
+				// Nome do jogo "Danger Ghost" no topo
+				g_ctx.font = "bold 24px 'Courier New'"; g_ctx.fillStyle = "#FF00FF"; g_ctx.textAlign = "center";
+				g_ctx.fillText("DANGER GHOST", g_canvas.width / 2, 40);
+				
+				// YOU WIN!
+				g_ctx.font = "bold 36px 'Courier New'"; g_ctx.fillStyle = "#FFFF00";
+				g_ctx.fillText("YOU WIN!", g_canvas.width / 2, 85);
+				
+				// Pontuação e tempo final
+				g_ctx.font = "bold 18px 'Courier New'"; g_ctx.fillStyle = "#00FFFF";
+				g_ctx.fillText("FINAL SCORE: " + g_score, g_canvas.width / 2, 125);
+				
+				var mins = Math.floor(g_globalTotalTime / 60);
+				var secs = g_globalTotalTime % 60;
+				var timeStr = mins + ":" + secs.toString().padStart(2, '0');
+				g_ctx.fillText("FINAL TIME : " + timeStr, g_canvas.width / 2, 155);
 				
 				if (playerToStamp) {
 					g_ctx.fillStyle = "#FF00FF";
-					g_ctx.fillText("PLAYER: " + playerToStamp.toUpperCase(), g_canvas.width / 2, 190);
+					g_ctx.font = "bold 18px 'Courier New'";
+					g_ctx.fillText("PLAYER: " + playerToStamp.toUpperCase(), g_canvas.width / 2, 195);
 				} else {
-					g_ctx.fillStyle = "#FFFFFF"; g_ctx.fillText("PRESS 'SPACE' TO PLAY AGAIN", g_canvas.width / 2, 230);
+					g_ctx.fillStyle = "#FFFFFF"; g_ctx.font = "bold 18px 'Courier New'";
+					g_ctx.fillText("PRESS 'SPACE' TO PLAY AGAIN", g_canvas.width / 2, 230);
 				}
 				g_ctx.textAlign = "start";
 			}
