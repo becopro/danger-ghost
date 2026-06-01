@@ -1309,7 +1309,7 @@
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
 							PublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn",
-							HODLerPublicKeyBase58Check: pubKey
+							NumToFetch: 1000
 						})
 					});
 					var data = await req.json();
