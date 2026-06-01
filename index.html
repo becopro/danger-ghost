@@ -1157,6 +1157,14 @@
 					if (timeContainer) {
 						timeContainer.innerHTML = "<p style='text-align: center; color: #FF00FF; font-size: 11px; margin: 10px 0;'>OFFLINE (CHECK SHIELDS)</p>";
 					}
+					// Reatividade de erro para a Navbar ativa
+					if (typeof g_activeTab !== "undefined") {
+						if (g_activeTab === 'score') {
+							UpdateNavbarScore();
+						} else if (g_activeTab === 'time') {
+							UpdateNavbarTime();
+						}
+					}
 				}
 			}
 			// --- PREMIUM HORIZONTAL NAVBAR CONTROLS ---
@@ -1335,6 +1343,9 @@
 							g_desoLastPostHashHex = data.TxnHashHex; // SALVA HASH DO POST REAL TRANSMITIDO
 							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
 							
+							// Força atualização instantânea do ranking após postar
+							FetchLeaderboard();
+							
 							var btn = document.getElementById("desoPostBtn");
 							if (btn) {
 								btn.innerText = "MINT NFT";
@@ -1348,6 +1359,9 @@
 						} else if (g_desoPendingTransactionType === "NFT" || g_desoPendingTransactionType === "SUBMITTING_NFT") {
 							g_desoPendingTransactionType = null;
 							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+							
+							// Força atualização instantânea do ranking após mint do NFT
+							FetchLeaderboard();
 							
 							var btn = document.getElementById("desoPostBtn");
 							if (btn) {
