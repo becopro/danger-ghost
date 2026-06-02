@@ -285,10 +285,13 @@
 							setTimeout(attemptMint, 1500);
 						} else {
 							console.error("NFT creation failed", data);
-							alert("NFT Creation Error: " + (data.error || "Unknown error"));
+							alert("Erro ao criar NFT: " + (data.error || "Erro desconhecido"));
 							if(btn) {
-								btn.innerText = bId === "createGhostBtn" ? "MINT SAVE NFT" : "MINT SAVE NFT";
+								btn.innerText = bId === "createGhostBtn" ? "RE-MINTAR FANTASMA" : "RE-MINTAR SAVE";
 								btn.disabled = false;
+								btn.onclick = function() {
+									CreateDeSoNFTForRPG(postHashHex, bId);
+								};
 							}
 						}
 					}
@@ -297,10 +300,13 @@
 					if (attempt < maxAttempts) {
 						setTimeout(attemptMint, 1500);
 					} else {
-						alert("Erro ao criar NFT. Verifique o console.");
+						alert("Erro ao criar NFT: " + e.message);
 						if(btn) {
-							btn.innerText = bId === "createGhostBtn" ? "MINT SAVE NFT" : "MINT SAVE NFT";
+							btn.innerText = bId === "createGhostBtn" ? "RE-MINTAR FANTASMA" : "RE-MINTAR SAVE";
 							btn.disabled = false;
+							btn.onclick = function() {
+								CreateDeSoNFTForRPG(postHashHex, bId);
+							};
 						}
 					}
 				}
@@ -2057,6 +2063,7 @@
 							alert("🏆 BINGO! Your Win Screenshot was MINTED as a unique NFT directly into your DeSo Wallet! Welcome to Web3.");
 						} else if (g_desoPendingTransactionType === "RPG_SAVE" || g_desoPendingTransactionType === "SUBMITTING_RPG_SAVE") {
 							g_desoPendingTransactionType = null;
+							g_desoLastPostHashHex = data.TxnHashHex; // SALVA HASH DO POST REAL TRANSMITIDO
 							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
 							
 							var btn = document.getElementById("rpgSaveBtn");
@@ -2091,6 +2098,7 @@
 							ExecuteCharacterPostCreation();
 						} else if (g_desoPendingTransactionType === "RPG_CHAR_POST" || g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_POST") {
 							g_desoPendingTransactionType = null;
+							g_desoLastPostHashHex = data.TxnHashHex; // SALVA HASH DO POST REAL TRANSMITIDO
 							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
 							CreateDeSoNFTForRPG(g_desoLastPostHashHex, "createGhostBtn");
 						} else if (g_desoPendingTransactionType === "RPG_CHAR_NFT" || g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_NFT") {
@@ -2256,6 +2264,7 @@
 							alert("🏆 BINGO! Your Win Screenshot was MINTED as a unique NFT directly into your DeSo Wallet! Welcome to Web3.");
 						} else if (g_desoPendingTransactionType === "RPG_SAVE" || g_desoPendingTransactionType === "SUBMITTING_RPG_SAVE") {
 							g_desoPendingTransactionType = null;
+							g_desoLastPostHashHex = txHash; // SALVA HASH DO POST REAL TRANSMITIDO
 							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
 							
 							var btn = document.getElementById("rpgSaveBtn");
@@ -2290,6 +2299,7 @@
 							ExecuteCharacterPostCreation();
 						} else if (g_desoPendingTransactionType === "RPG_CHAR_POST" || g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_POST") {
 							g_desoPendingTransactionType = null;
+							g_desoLastPostHashHex = txHash; // SALVA HASH DO POST REAL TRANSMITIDO
 							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
 							CreateDeSoNFTForRPG(g_desoLastPostHashHex, "createGhostBtn");
 						} else if (g_desoPendingTransactionType === "RPG_CHAR_NFT" || g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_NFT") {
