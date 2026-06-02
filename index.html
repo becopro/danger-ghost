@@ -2206,19 +2206,19 @@
 				}
 				
 				// O JWT payload tem formato diferente: payload.jwt
-				if (g_desoPendingAction === 'jwt' && data.payload && (typeof data.payload === "string" || data.payload.jwt)) {
+				if ((g_desoPendingAction === 'jwt' || g_desoPendingAction === 'char_creation_jwt' || g_desoPendingAction === 'char_save_jwt') && data.payload && (typeof data.payload === "string" || data.payload.jwt)) {
 					var jwt = typeof data.payload === "string" ? data.payload : data.payload.jwt;
 					if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+					
+					var action = g_desoPendingAction;
 					g_desoPendingAction = null;
 					
 					if (typeof g_rpgSavePending !== "undefined" && g_rpgSavePending) {
 						g_rpgSavePending = false;
 						ExecuteDeSoRPGSave(jwt);
-					} else if (g_desoPendingAction === 'char_creation_jwt') {
-						g_desoPendingAction = null;
+					} else if (action === 'char_creation_jwt') {
 						ExecuteCharacterPostSubmit(jwt, window.g_pendingCharBlob);
-					} else if (g_desoPendingAction === 'char_save_jwt') {
-						g_desoPendingAction = null;
+					} else if (action === 'char_save_jwt') {
 						ExecuteDeSoRPGSaveWithImage(jwt, window.g_pendingCharSaveBlob, window.g_pendingCharSaveObj);
 					} else {
 						ExecuteDeSoPost(jwt);
