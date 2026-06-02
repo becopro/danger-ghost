@@ -271,7 +271,7 @@
 		<div id="winPanel" style="display: none; margin-top: 20px;">
 			<input type="text" id="playerNameInput" placeholder="ENTER PLAYER NAME" maxlength="20" />
 			<button id="downloadBtn" onclick="DownloadScreenshot()" class="glass-action-btn">DOWNLOAD SCREENSHOT</button>
-			<button id="desoPostBtn" onclick="PostToDeSo()" class="glass-action-btn">POST TO DESO</button>
+			<button id="desoPostBtn" onclick="PostToDeSo()" class="glass-action-btn">SAVE TO DESO (BLOCKCHAIN)</button>
 		</div>
 
 		<script>
@@ -1203,7 +1203,8 @@
 				
 				// Nome e Vidas na parte de baixo do jogo
 				g_ctx.fillText("DeSoGhost", 10, g_canvas.height - 10);
-				for (var i_l = 0; i_l < DeSoGhost.lives; i_l++) { g_ctx.drawImage(DeSoGhost_Lives, 110 + (i_l * 25), g_canvas.height - 25, 24, 24); }
+				g_ctx.drawImage(DeSoGhost_Lives, 110, g_canvas.height - 25, 24, 24);
+				g_ctx.fillText("X " + DeSoGhost.lives, 140, g_canvas.height - 8);
 				
 				// Pontos e Nível no topo
 				g_ctx.fillStyle = "#00FFFF"; g_ctx.fillText("SCORE: " + g_score.toString().padStart(6, '0'), 10, 20);
@@ -1266,28 +1267,34 @@
 				
 				// Nome do jogo "Danger Ghost" no topo
 				g_ctx.font = "bold 24px 'Courier New'"; g_ctx.fillStyle = "#FF00FF"; g_ctx.textAlign = "center";
-				g_ctx.fillText("DANGER GHOST", g_canvas.width / 2, 40);
+				g_ctx.fillText("DANGER GHOST", g_canvas.width / 2, 35);
 				
 				// YOU WIN!
 				g_ctx.font = "bold 36px 'Courier New'"; g_ctx.fillStyle = "#FFFF00";
-				g_ctx.fillText("YOU WIN!", g_canvas.width / 2, 85);
+				g_ctx.fillText("YOU WIN!", g_canvas.width / 2, 75);
 				
 				// Pontuação e tempo final
 				g_ctx.font = "bold 18px 'Courier New'"; g_ctx.fillStyle = "#00FFFF";
-				g_ctx.fillText("FINAL SCORE: " + g_score, g_canvas.width / 2, 125);
+				g_ctx.fillText("FINAL SCORE: " + g_score, g_canvas.width / 2, 110);
 				
 				var mins = Math.floor(g_globalTotalTime / 60);
 				var secs = g_globalTotalTime % 60;
 				var timeStr = mins + ":" + secs.toString().padStart(2, '0');
-				g_ctx.fillText("FINAL TIME : " + timeStr, g_canvas.width / 2, 155);
+				g_ctx.fillText("FINAL TIME : " + timeStr, g_canvas.width / 2, 135);
+				
+				// Nível e XP do Fantasma
+				var stats = GhostRPG.getStats();
+				g_ctx.fillStyle = "#00FF00";
+				g_ctx.fillText("GHOST LEVEL: " + stats.level, g_canvas.width / 2, 160);
+				g_ctx.fillText("GHOST XP   : " + stats.xp + " / " + stats.xpRequired, g_canvas.width / 2, 185);
 				
 				if (playerToStamp) {
 					g_ctx.fillStyle = "#FF00FF";
 					g_ctx.font = "bold 18px 'Courier New'";
-					g_ctx.fillText("PLAYER: " + playerToStamp.toUpperCase(), g_canvas.width / 2, 195);
+					g_ctx.fillText("PLAYER: " + playerToStamp.toUpperCase(), g_canvas.width / 2, 220);
 				} else {
 					g_ctx.fillStyle = "#FFFFFF"; g_ctx.font = "bold 18px 'Courier New'";
-					g_ctx.fillText("PRESS 'SPACE' TO PLAY AGAIN", g_canvas.width / 2, 230);
+					g_ctx.fillText("PRESS 'SPACE' TO PLAY AGAIN", g_canvas.width / 2, 255);
 				}
 				g_ctx.textAlign = "start";
 			}
@@ -1973,7 +1980,7 @@
 				// Validação Anti-Tamper de Memória (Shadow State Check)
 				if (btoa(g_score + _antiCheat.salt) !== _antiCheat.hash) {
 					alert("⚠️ SECURITY ALERT: Memory manipulation detected! Score has been tampered with.");
-					if (btn) { btn.innerText = "POST TO DESO"; btn.disabled = false; }
+					if (btn) { btn.innerText = "SAVE TO DESO (BLOCKCHAIN)"; btn.disabled = false; }
 					return;
 				}
 				
@@ -1981,7 +1988,7 @@
 				var maxScore = (g_globalTotalTime * 250) + 95000; 
 				if (g_score > maxScore) {
 					alert("⚠️ SECURITY ALERT: Impossible Score/Time ratio! Speedhack detected.");
-					if (btn) { btn.innerText = "POST TO DESO"; btn.disabled = false; }
+					if (btn) { btn.innerText = "SAVE TO DESO (BLOCKCHAIN)"; btn.disabled = false; }
 					return;
 				}
 				
@@ -2087,7 +2094,7 @@
 						console.error("DeSo Error", e);
 						alert("Error posting to DeSo. Check console.");
 						var btn = document.getElementById("desoPostBtn");
-						if(btn) { btn.innerText = "POST TO DESO"; btn.disabled = false; }
+						if(btn) { btn.innerText = "SAVE TO DESO (BLOCKCHAIN)"; btn.disabled = false; }
 						DrawWinScreen(); 
 					}
 				}, "image/jpeg", 0.95);
