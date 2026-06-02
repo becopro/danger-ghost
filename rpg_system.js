@@ -166,6 +166,22 @@ var GhostRPG = (function() {
             }
         },
 
+        loadBlockchainState: function(lvl, vit, agi, int, pow) {
+            state.level = lvl;
+            state.vit = vit;
+            state.agi = agi;
+            state.int = int;
+            state.pow = pow;
+            state.xp = 0;
+            state.pointsToDistribute = 0;
+            state.xpRequired = calculateXpRequired(state.level);
+            updateIntegrityHash();
+            this.saveLocalStorage();
+            if (typeof RenderRPGStatusDrawer === "function") {
+                RenderRPGStatusDrawer();
+            }
+        },
+
         getDeSoMetadataString: function() {
             return " [RPG Level: " + state.level + " | VIT: " + state.vit + " | AGI: " + state.agi + " | INT: " + state.int + " | POW: " + state.pow + "]";
         }
@@ -194,6 +210,13 @@ function RenderRPGStatusDrawer() {
         return "";
     }
 
+    var saveButtonHTML = "";
+    if (typeof window.g_desoPublicKey !== "undefined" && window.g_desoPublicKey) {
+        saveButtonHTML = "<button id='rpgSaveBtn' onclick='window.TriggerRPGSaveToDeSo()' style='width:100%; margin-top:10px; padding:6px; background:#00FF00; color:#000; font-weight:bold; border:none; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>SALVAR JOGO (BLOCKCHAIN)</button>";
+    } else {
+        saveButtonHTML = "<button onclick='window.LoginDeSo()' style='width:100%; margin-top:10px; padding:6px; background:#444; color:#AAA; font-weight:bold; border:1px dashed #AAA; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>LOGIN PARA SALVAR</button>";
+    }
+
     panelContent.innerHTML = 
         "<h3 style='margin: 0 0 12px 0; color: #00FF00; text-align: center; letter-spacing: 2px;'>🛡️ HERO STATUS</h3>" +
         apHTML +
@@ -213,7 +236,8 @@ function RenderRPGStatusDrawer() {
         "<div style='display:flex; justify-content:space-between; align-items:center;'><span>⚔️ <b>POW:</b> " + stats.pow + "</span>" + makeButton('pow') + "</div>" +
         "<div style='font-size:10px; color:#888; margin-top:-6px;'>Aumenta o dano de pisada nos chefes.</div>" +
         "</div>" +
-        "<br><button onclick=\"if(confirm('Resetar Atributos?')){GhostRPG.resetStats(); RenderRPGStatusDrawer();}\" style='width:100%; padding:6px; background:#FF0000; color:#FFF; font-weight:bold; border:none; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>RESETAR ATRIBUTOS</button>";
+        "<br><button onclick=\"if(confirm('Resetar Atributos?')){GhostRPG.resetStats(); RenderRPGStatusDrawer();}\" style='width:100%; padding:6px; background:#FF0000; color:#FFF; font-weight:bold; border:none; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>RESETAR ATRIBUTOS</button>" +
+        saveButtonHTML;
 }
 
 // Exposição global segura para clicks do DOM
