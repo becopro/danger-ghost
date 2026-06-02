@@ -1047,6 +1047,13 @@
 						}
 					}
 
+					// Garantir plataforma inicial no spawn (colunas 1, 2, 3 na linha 8)
+					if (this.bitmap[8]) {
+						this.bitmap[8][1] = 2;
+						this.bitmap[8][2] = 2;
+						this.bitmap[8][3] = 2;
+					}
+
 					// --- DYNAMIC AAA MAP DOUBLE WIDTH EXPANSION ---
 					var currentCols = this.bitmap[0].length;
 					if (currentCols === 50) {
