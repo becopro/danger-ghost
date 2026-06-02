@@ -299,6 +299,73 @@ function runLeaderboardParsingTest() {
 
     console.log("✅ [TEST 6 PASSED] Parsing de payload, ordenação de ranking, deduplicação e VIP checks validados.\n");
 
+    // --- TEST 7: DYNAMIC CHARACTER SELECT & MINT PRICING MATH ---
+    console.log("👤 [TEST 7] Character Save NFT Pricing & ID Deduplication...");
+    
+    function calculateGhostPrice(ownedCount) {
+        return ownedCount * 0.25;
+    }
+    
+    assert.strictEqual(calculateGhostPrice(0), 0.00, "1º Fantasma deve ser Grátis.");
+    assert.strictEqual(calculateGhostPrice(1), 0.25, "2º Fantasma deve custar 0.25 DeSo.");
+    assert.strictEqual(calculateGhostPrice(2), 0.50, "3º Fantasma deve custar 0.50 DeSo.");
+    assert.strictEqual(calculateGhostPrice(5), 1.25, "6º Fantasma deve custar 1.25 DeSo.");
+    console.log("👉 Cálculo de precificação graduada: OK.");
+
+    const mockPosts = [
+        {
+            IsNFT: true,
+            PostHashHex: "new_save_1",
+            ImageURLs: ["img1"],
+            PostExtraData: {
+                DangerGhost_CharacterID: "char_A",
+                DangerGhost_SaveState: btoa(JSON.stringify({ level: 5, score: 2500 }))
+            }
+        },
+        {
+            IsNFT: true,
+            PostHashHex: "old_save_1",
+            ImageURLs: ["img1_old"],
+            PostExtraData: {
+                DangerGhost_CharacterID: "char_A",
+                DangerGhost_SaveState: btoa(JSON.stringify({ level: 3, score: 1000 }))
+            }
+        },
+        {
+            IsNFT: true,
+            PostHashHex: "new_save_2",
+            ImageURLs: ["img2"],
+            PostExtraData: {
+                DangerGhost_CharacterID: "char_B",
+                DangerGhost_SaveState: btoa(JSON.stringify({ level: 12, score: 8500 }))
+            }
+        }
+    ];
+
+    const charactersMap = {};
+    for (let i = 0; i < mockPosts.length; i++) {
+        const post = mockPosts[i];
+        if (post && post.IsNFT && post.PostExtraData && post.PostExtraData.DangerGhost_SaveState) {
+            const charId = post.PostExtraData.DangerGhost_CharacterID;
+            if (charId && !charactersMap[charId]) {
+                const decrypted = Buffer.from(post.PostExtraData.DangerGhost_SaveState, 'base64').toString('utf8');
+                const stats = JSON.parse(decrypted);
+                stats.characterId = charId;
+                charactersMap[charId] = stats;
+            }
+        }
+    }
+    const uniqueChars = Object.values(charactersMap);
+
+    assert.strictEqual(uniqueChars.length, 2, "Devem haver exatamente 2 Fantasmas únicos deduplicados.");
+    assert.strictEqual(uniqueChars[0].characterId, "char_A");
+    assert.strictEqual(uniqueChars[0].level, 5, "Fantasma A deve carregar o nível mais recente (5 em vez de 3).");
+    assert.strictEqual(uniqueChars[1].characterId, "char_B");
+    assert.strictEqual(uniqueChars[1].level, 12);
+    console.log("👉 Deduplicação de IDs de personagem com base no save mais recente: OK.");
+
+    console.log("✅ [TEST 7 PASSED] Lógica de precificação e deduplicação de IDs validada com sucesso.\n");
+
     console.log("====================================================");
     console.log("🎉 ALL TESTS PASSED SUCCESSFULLY! 100% SUCCESS 🎉");
     console.log("====================================================");

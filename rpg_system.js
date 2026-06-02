@@ -17,7 +17,8 @@ var GhostRPG = (function() {
         vit: 1, // Vitalidade: Vida e Resistência Passiva
         agi: 1, // Agilidade: Velocidade e Altura do Pulo
         int: 1, // Inteligência: Regeneração e Duração do Ghost Mode
-        pow: 1  // Poder: Dano causado ao pular no Boss
+        pow: 1, // Poder: Dano causado ao pular no Boss
+        characterId: "" // Identificador único do Fantasma DeSo
     };
 
     // Assinatura de integridade (Anti-Cheat)
@@ -28,14 +29,14 @@ var GhostRPG = (function() {
 
     function updateIntegrityHash() {
         var dataStr = [
-            state.level, state.xp, state.vit, state.agi, state.int, state.pow, state.pointsToDistribute
+            state.level, state.xp, state.vit, state.agi, state.int, state.pow, state.pointsToDistribute, state.characterId
         ].join("-");
         rpgAntiCheat.hash = btoa(dataStr + rpgAntiCheat.salt);
     }
 
     function verifyIntegrity() {
         var dataStr = [
-            state.level, state.xp, state.vit, state.agi, state.int, state.pow, state.pointsToDistribute
+            state.level, state.xp, state.vit, state.agi, state.int, state.pow, state.pointsToDistribute, state.characterId
         ].join("-");
         return btoa(dataStr + rpgAntiCheat.salt) === rpgAntiCheat.hash;
     }
@@ -59,7 +60,7 @@ var GhostRPG = (function() {
         },
 
         resetStats: function() {
-            state = { level: 1, xp: 0, xpRequired: 100, pointsToDistribute: 0, vit: 1, agi: 1, int: 1, pow: 1 };
+            state = { level: 1, xp: 0, xpRequired: 100, pointsToDistribute: 0, vit: 1, agi: 1, int: 1, pow: 1, characterId: "" };
             updateIntegrityHash();
             this.saveLocalStorage();
         },
@@ -95,7 +96,7 @@ var GhostRPG = (function() {
             if (state.pointsToDistribute <= 0) return false;
 
             var attr = attributeName.toLowerCase();
-            if (state.hasOwnProperty(attr) && attr !== 'level' && attr !== 'xp' && attr !== 'xprequired' && attr !== 'pointstodistribute') {
+            if (state.hasOwnProperty(attr) && attr !== 'level' && attr !== 'xp' && attr !== 'xprequired' && attr !== 'pointstodistribute' && attr !== 'characterid') {
                 state[attr]++;
                 state.pointsToDistribute--;
                 updateIntegrityHash();
@@ -170,12 +171,13 @@ var GhostRPG = (function() {
             }
         },
 
-        loadBlockchainState: function(lvl, vit, agi, int, pow) {
+        loadBlockchainState: function(lvl, vit, agi, int, pow, characterId) {
             state.level = lvl;
             state.vit = vit;
             state.agi = agi;
             state.int = int;
             state.pow = pow;
+            state.characterId = characterId || "";
             state.xp = 0;
             state.pointsToDistribute = 0;
             state.xpRequired = calculateXpRequired(state.level);
@@ -187,7 +189,7 @@ var GhostRPG = (function() {
         },
 
         getDeSoMetadataString: function() {
-            return " [RPG Level: " + state.level + " | VIT: " + state.vit + " | AGI: " + state.agi + " | INT: " + state.int + " | POW: " + state.pow + "]";
+            return " [RPG Level: " + state.level + " | VIT: " + state.vit + " | AGI: " + state.agi + " | INT: " + state.int + " | POW: " + state.pow + " | CharID: " + state.characterId.substring(0,8) + "...]";
         }
     };
 })();
@@ -216,9 +218,13 @@ function RenderRPGStatusDrawer() {
 
     var saveButtonHTML = "";
     if (typeof window.g_desoPublicKey !== "undefined" && window.g_desoPublicKey) {
-        saveButtonHTML = "<button id='rpgSaveBtn' onclick='window.TriggerRPGSaveToDeSo()' style='width:100%; margin-top:10px; padding:6px; background:#00FF00; color:#000; font-weight:bold; border:none; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>SALVAR JOGO (BLOCKCHAIN)</button>";
+        if (stats.characterId) {
+            saveButtonHTML = "<button id='rpgSaveBtn' onclick='window.TriggerRPGSaveToDeSo()' style='width:100%; margin-top:10px; padding:6px; background:#00FF00; color:#000; font-weight:bold; border:none; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>SALVAR EVOLUÇÃO (BLOCKCHAIN)</button>";
+        } else {
+            saveButtonHTML = "<button onclick='window.LoadRPGStateFromDeSo(window.g_desoPublicKey)' style='width:100%; margin-top:10px; padding:6px; background:#00FFFF; color:#000; font-weight:bold; border:none; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>ESCOLHER FANTASMA</button>";
+        }
     } else {
-        saveButtonHTML = "<button onclick='window.LoginDeSo()' style='width:100%; margin-top:10px; padding:6px; background:#444; color:#AAA; font-weight:bold; border:1px dashed #AAA; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>LOGIN PARA SALVAR</button>";
+        saveButtonHTML = "<button onclick='window.LoginDeSo()' style='width:100%; margin-top:10px; padding:6px; background:#444; color:#AAA; font-weight:bold; border:1px dashed #AAA; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>CONECTAR CARTEIRA DESO</button>";
     }
 
     panelContent.innerHTML = 
