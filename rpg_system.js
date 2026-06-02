@@ -236,7 +236,6 @@ function RenderRPGStatusDrawer() {
         "<div style='display:flex; justify-content:space-between; align-items:center;'><span>⚔️ <b>POW:</b> " + stats.pow + "</span>" + makeButton('pow') + "</div>" +
         "<div style='font-size:10px; color:#888; margin-top:-6px;'>Aumenta o dano de pisada nos chefes.</div>" +
         "</div>" +
-        "<br><button onclick=\"if(confirm('Resetar Atributos?')){GhostRPG.resetStats(); RenderRPGStatusDrawer();}\" style='width:100%; padding:6px; background:#FF0000; color:#FFF; font-weight:bold; border:none; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>RESETAR ATRIBUTOS</button>" +
         saveButtonHTML;
 }
 
