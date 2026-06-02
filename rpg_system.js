@@ -84,6 +84,10 @@ var GhostRPG = (function() {
             if (leveledUp) {
                 this.triggerLevelUpEffect();
             }
+
+            if (typeof RenderRPGStatusDrawer === "function") {
+                RenderRPGStatusDrawer();
+            }
         },
 
         allocateAttribute: function(attributeName) {

@@ -1050,7 +1050,8 @@
 								if (g_boss.lives <= 0) { 
 									g_boss.alive = false; 
 									AddScore(1000); 
-									GhostRPG.addXp(1000); 
+									var bossXp = (g_boss.type === "cactus") ? 1000 : 100;
+									GhostRPG.addXp(bossXp); 
 								}
 							} else if (!this.ghostMode) {
 								this.alive = false;
@@ -1142,15 +1143,14 @@
 							if (r >= 0 && r < 11) {
 								var tile = map.bitmap[r][c];
 								if (tile >= 7 && tile <= 12) {
-									if (tile == 7) { AddScore(50); GhostRPG.addXp(30); }
-									else if (tile == 8) { AddScore(100); GhostRPG.addXp(50); }
-									else if (tile == 9) { AddScore(150); GhostRPG.addXp(75); }
-									else if (tile == 10) { AddScore(150); GhostRPG.addXp(150); }
-									else if (tile == 11) { AddScore(150); GhostRPG.addXp(100); }
+									if (tile == 7) { AddScore(50); }
+									else if (tile == 8) { AddScore(100); }
+									else if (tile == 9) { AddScore(150); }
+									else if (tile == 10) { AddScore(150); }
+									else if (tile == 11) { AddScore(150); }
 									else if (tile == 12) {
 										this.lives++;
 										AddScore(666);
-										GhostRPG.addXp(300);
 									}
 									map.bitmap[r][c] = 0;
 								}
