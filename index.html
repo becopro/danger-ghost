@@ -1,125 +1,392 @@
-			async function CreateDeSoNFTForRPG(postHashHex, buttonId) {
-				var bId = buttonId || "rpgSaveBtn";
-				var btn = document.getElementById(bId);
-				var maxAttempts = 4;
-				var attempt = 0;
-				
-				async function attemptMint() {
-					attempt++;
-					if (btn) btn.innerText = "MINTING NFT... (" + attempt + "/" + maxAttempts + ")";
-					try {
-						var nftReq = {
-							UpdaterPublicKeyBase58Check: g_desoPublicKey,
-							NFTPostHashHex: postHashHex,
-							NumCopies: 1,
-							NFTRoyaltyToCreatorBasisPoints: 500, // 5%
-							NFTRoyaltyToCoinBasisPoints: 500,    // 5%
-							HasUnlockable: false,
-							IsForSale: false,
-							MinFeeRateNanosPerKB: 1000
-						};
-						var res = await fetch("https://node.deso.org/api/v0/create-nft", {
-							method: "POST",
-							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify(nftReq)
-						});
-						var data = await res.json();
-						if (data.TransactionHex) {
-							if(btn) { 
-								btn.innerText = bId === "createGhostBtn" ? "APROVAR CRIAÇÃO DO NFT" : "APROVAR NFT DE SAVE"; 
-								btn.disabled = false; 
-								btn.onclick = function() {
-									g_desoPendingTransactionType = bId === "createGhostBtn" ? "RPG_CHAR_NFT" : "RPG_NFT";
-									g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + data.TransactionHex, "deso_identity", "width=800,height=1000");
-									if (!g_desoIdentityWindow) {
-										alert("⚠️ POP-UP BLOQUEADO: Ative as janelas pop-up para autorizar a criação do NFT!");
-										return;
-									}
-									btn.innerText = "AGUARDANDO APROVAÇÃO...";
-									btn.disabled = true;
-									WaitForWindowClose(g_desoIdentityWindow, function() {
-										if (g_desoPendingTransactionType === "RPG_NFT" || g_desoPendingTransactionType === "RPG_CHAR_NFT") {
-											btn.innerText = bId === "createGhostBtn" ? "APROVAR CRIAÇÃO DO NFT" : "APROVAR NFT DE SAVE";
-											btn.disabled = false;
-										}
-									});
-								};
-							}
-						} else {
-							var isIndexError = data.error && (data.error.includes("not found") || data.error.includes("mempool") || data.error.includes("find") || data.error.includes("index"));
-							if (attempt < maxAttempts && isIndexError) {
-								console.warn("NFT Minting indexing delay, retrying in 1.5s...", data.error);
-								setTimeout(attemptMint, 1500);
-							} else {
-								console.error("NFT creation failed", data);
-								alert("NFT Creation Error: " + (data.error || "Unknown error"));
-								if(btn) {
-									btn.innerText = bId === "createGhostBtn" ? "MINT SAVE NFT" : "MINT SAVE NFT";
-									btn.disabled = false;
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+	<title>DeSoGhost | 33-Level Saga</title>
+	<link href="layout.css" rel="stylesheet" type="text/css" media="screen" />
+	<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&amp;display=swap" rel="stylesheet" />
+	<style>
+		canvas {
+			image-rendering: -moz-crisp-edges;
+			image-rendering: -webkit-crisp-edges;
+			image-rendering: pixelated;
+			image-rendering: crisp-edges;
+		}
+
+		/* Global styling adjustments */
+		body {
+			font-family: 'Outfit', 'Courier New', monospace !important;
+		}
+
+		/* Premium Animated Title - Gothic Cyberpunk Neon Pulsing & Flickering */
+		.neon-title {
+			color: #fff;
+			font-family: 'Outfit', sans-serif !important;
+			font-weight: 900;
+			font-size: 42px !important;
+			letter-spacing: 8px;
+			margin-top: 15px;
+			margin-bottom: 15px;
+			text-transform: uppercase;
+			display: inline-block;
+			text-shadow: 
+				0 0 5px #fff,
+				0 0 10px #FF00FF,
+				0 0 20px #FF00FF,
+				0 0 40px #FF00FF,
+				0 0 80px #00FFFF,
+				0 0 90px #00FFFF,
+				0 0 100px #00FFFF;
+			animation: titleGlow 2.5s ease-in-out infinite alternate;
+		}
+
+		@keyframes titleGlow {
+			0%, 100% {
+				text-shadow: 
+					0 0 5px #fff,
+					0 0 10px #FF00FF,
+					0 0 20px #FF00FF,
+					0 0 35px #FF00FF,
+					0 0 60px #00FFFF,
+					0 0 80px #00FFFF,
+					0 0 100px #00FFFF;
+				transform: scale(1);
+			}
+			50% {
+				text-shadow: 
+					0 0 3px #fff,
+					0 0 6px #FF00FF,
+					0 0 12px #FF00FF,
+					0 0 25px #FF00FF,
+					0 0 45px #00FFFF,
+					0 0 60px #00FFFF,
+					0 0 75px #00FFFF;
+				transform: scale(0.98);
+			}
+			18%, 22%, 82% {
+				text-shadow: 
+					0 0 4px #fff,
+					0 0 8px #FF00FF,
+					0 0 16px #FF00FF,
+					0 0 30px #FF00FF,
+					0 0 50px #00FFFF,
+					0 0 70px #00FFFF;
+			}
+		}
+
+		/* Tactile Navbar buttons */
+		#gameNavbar button {
+			font-family: 'Outfit', sans-serif !important;
+			font-weight: 700 !important;
+			letter-spacing: 0.8px;
+			border-radius: 8px !important;
+			transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+			cursor: pointer !important;
+			outline: none;
+		}
+
+		#gameNavbar button:hover {
+			transform: scale(1.05) translateY(-2px);
+		}
+
+		#gameNavbar button:active {
+			transform: scale(0.98) translateY(0);
+		}
+
+		#btnNavScore:hover {
+			background: rgba(0, 255, 255, 0.15) !important;
+			box-shadow: 0 0 15px hsla(180, 100%, 50%, 0.6) !important;
+		}
+
+		#btnNavTime:hover {
+			background: rgba(255, 0, 255, 0.15) !important;
+			box-shadow: 0 0 15px hsla(300, 100%, 50%, 0.6) !important;
+		}
+
+		#btnNavControls:hover {
+			background: rgba(255, 255, 0, 0.15) !important;
+			box-shadow: 0 0 15px hsla(60, 100%, 50%, 0.6) !important;
+		}
+
+		#btnNavRPG:hover {
+			background: rgba(0, 255, 0, 0.15) !important;
+			box-shadow: 0 0 15px hsla(120, 100%, 50%, 0.6) !important;
+		}
+
+		/* Action Buttons & Input styling - Glassmorphism, Rounded Borders & Pulsing Shadows */
+		.glass-action-btn {
+			font-family: 'Outfit', sans-serif !important;
+			font-weight: 700 !important;
+			letter-spacing: 1.5px;
+			cursor: pointer !important;
+			backdrop-filter: blur(12px) !important;
+			-webkit-backdrop-filter: blur(12px) !important;
+			transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+			outline: none;
+		}
+
+		.glass-action-btn:hover {
+			transform: translateY(-3px) scale(1.04);
+		}
+
+		.glass-action-btn:active {
+			transform: translateY(-1px) scale(0.98);
+		}
+
+		#desoBtn {
+			display: inline-block;
+			margin-top: 20px;
+			padding: 12px 36px !important;
+			background: linear-gradient(135deg, rgba(255, 0, 255, 0.1), rgba(0, 255, 255, 0.15)) !important;
+			color: #FF00FF !important;
+			font-size: 20px !important;
+			border: 2px solid #00FFFF !important;
+			border-radius: 30px !important;
+			text-shadow: 0 0 8px #FF00FF !important;
+			box-shadow: 0 0 15px rgba(0, 255, 255, 0.25), inset 0 0 10px rgba(255, 0, 255, 0.15);
+			animation: desoPulse 2.5s infinite alternate;
+		}
+
+		#desoBtn:hover {
+			color: #00FFFF !important;
+			border-color: #FF00FF !important;
+			text-shadow: 0 0 12px #00FFFF !important;
+			box-shadow: 0 0 25px rgba(255, 0, 255, 0.5), inset 0 0 15px rgba(0, 255, 255, 0.3) !important;
+		}
+
+		@keyframes desoPulse {
+			0% {
+				box-shadow: 0 0 12px rgba(0, 255, 255, 0.25), inset 0 0 10px rgba(255, 0, 255, 0.15);
+			}
+			100% {
+				box-shadow: 0 0 22px rgba(0, 255, 255, 0.45), 0 0 10px rgba(255, 0, 255, 0.25), inset 0 0 15px rgba(0, 255, 255, 0.3);
+			}
+		}
+
+		#downloadBtn {
+			padding: 12px 25px !important;
+			margin-left: 10px;
+			font-size: 16px !important;
+			border-radius: 30px !important;
+			background: linear-gradient(135deg, rgba(0, 56, 0, 0.2), rgba(0, 255, 0, 0.1)) !important;
+			border: 2px solid #00FF00 !important;
+			color: #00FF00 !important;
+			text-shadow: 0 0 6px #00FF00 !important;
+			box-shadow: 0 0 10px rgba(0, 255, 0, 0.2), inset 0 0 8px rgba(0, 255, 0, 0.1);
+		}
+
+		#downloadBtn:hover {
+			background: rgba(0, 255, 0, 0.2) !important;
+			box-shadow: 0 0 20px rgba(0, 255, 0, 0.5), inset 0 0 12px rgba(0, 255, 0, 0.2) !important;
+		}
+
+		#desoPostBtn {
+			padding: 12px 25px !important;
+			margin-left: 10px;
+			font-size: 16px !important;
+			border-radius: 30px !important;
+			background: linear-gradient(135deg, rgba(56, 0, 56, 0.2), rgba(255, 0, 255, 0.1)) !important;
+			border: 2px solid #FF00FF !important;
+			color: #FF00FF !important;
+			text-shadow: 0 0 6px #FF00FF !important;
+			box-shadow: 0 0 10px rgba(255, 0, 255, 0.2), inset 0 0 8px rgba(255, 0, 255, 0.1);
+		}
+
+		#desoPostBtn:hover {
+			background: rgba(255, 0, 255, 0.2) !important;
+			box-shadow: 0 0 20px rgba(255, 0, 255, 0.5), inset 0 0 12px rgba(0, 255, 0, 0.2) !important;
+		}
+
+		#playerNameInput {
+			padding: 12px 20px !important;
+			font-family: 'Outfit', sans-serif !important;
+			font-weight: 700 !important;
+			font-size: 16px !important;
+			border: 2px solid #00FFFF !important;
+			border-radius: 30px !important;
+			background: rgba(0, 0, 0, 0.6) !important;
+			color: #FFF !important;
+			outline: none;
+			box-shadow: 0 0 8px rgba(0, 255, 255, 0.2);
+			transition: all 0.3s ease;
+			text-align: center;
+			letter-spacing: 1px;
+		}
+
+		#playerNameInput:focus {
+			border-color: #FF00FF !important;
+			box-shadow: 0 0 15px rgba(255, 0, 255, 0.45);
+		}
+
+		/* Modern Glassmorphic Side Panels */
+		#rpgPanel, #navbarPanel {
+			background: rgba(0, 0, 0, 0.8) !important;
+			backdrop-filter: blur(12px) !important;
+			-webkit-backdrop-filter: blur(12px) !important;
+			border-radius: 12px !important;
+			transition: all 0.3s ease;
+		}
+	</style>
+	
+	<script>
+		// --- Web3 DeSo NFT/Save Helpers ---
+		async function CreateDeSoNFTForRPG(postHashHex, buttonId) {
+			var bId = buttonId || "rpgSaveBtn";
+			var btn = document.getElementById(bId);
+			var maxAttempts = 4;
+			var attempt = 0;
+			
+			async function attemptMint() {
+				attempt++;
+				if (btn) btn.innerText = "MINTING NFT... (" + attempt + "/" + maxAttempts + ")";
+				try {
+					var nftReq = {
+						UpdaterPublicKeyBase58Check: g_desoPublicKey,
+						NFTPostHashHex: postHashHex,
+						NumCopies: 1,
+						NFTRoyaltyToCreatorBasisPoints: 500,
+						NFTRoyaltyToCoinBasisPoints: 500,
+						HasUnlockable: false,
+						IsForSale: false,
+						MinFeeRateNanosPerKB: 1000
+					};
+					var res = await fetch("https://node.deso.org/api/v0/create-nft", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(nftReq)
+					});
+					var data = await res.json();
+					if (data.TransactionHex) {
+						if(btn) { 
+							btn.innerText = bId === "createGhostBtn" ? "APROVAR CRIAÇÃO DO NFT" : "APROVAR NFT DE SAVE"; 
+							btn.disabled = false; 
+							btn.onclick = function() {
+								g_desoPendingTransactionType = bId === "createGhostBtn" ? "RPG_CHAR_NFT" : "RPG_NFT";
+								g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + data.TransactionHex, "deso_identity", "width=800,height=1000");
+								if (!g_desoIdentityWindow) {
+									alert("⚠️ POP-UP BLOQUEADO: Ative as janelas pop-up para autorizar a criação do NFT!");
+									return;
 								}
-							}
+								btn.innerText = "AGUARDANDO APROVAÇÃO...";
+								btn.disabled = true;
+								WaitForWindowClose(g_desoIdentityWindow, function() {
+									if (g_desoPendingTransactionType === "RPG_NFT" || g_desoPendingTransactionType === "RPG_CHAR_NFT") {
+										btn.innerText = bId === "createGhostBtn" ? "APROVAR CRIAÇÃO DO NFT" : "APROVAR NFT DE SAVE";
+										btn.disabled = false;
+									}
+								});
+							};
 						}
-					} catch(e) { 
-						console.error("NFT Error", e); 
-						if (attempt < maxAttempts) {
+					} else {
+						var isIndexError = data.error && (data.error.includes("not found") || data.error.includes("mempool") || data.error.includes("find") || data.error.includes("index"));
+						if (attempt < maxAttempts && isIndexError) {
+							console.warn("NFT Minting indexing delay, retrying in 1.5s...", data.error);
 							setTimeout(attemptMint, 1500);
 						} else {
-							alert("Erro ao criar NFT. Verifique o console.");
+							console.error("NFT creation failed", data);
+							alert("NFT Creation Error: " + (data.error || "Unknown error"));
 							if(btn) {
 								btn.innerText = bId === "createGhostBtn" ? "MINT SAVE NFT" : "MINT SAVE NFT";
 								btn.disabled = false;
 							}
 						}
 					}
-				}
-				
-				attemptMint();
-			}l]
-						},
-						PostExtraData: {
-							"DangerGhost_CharacterID": saveObj.characterId,
-							"DangerGhost_SaveState": btoa(JSON.stringify(saveObj)),
-							"DangerGhost_GameApp": "v1.0.0"
-						},
-						MinFeeRateNanosPerKB: 1000
-					};
-
-					var postRes = await fetch("https://node.deso.org/api/v0/submit-post", {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify(postReq)
-					});
-					var postData = await postRes.json();
-					
-					if (postData.TransactionHex && postData.PostHashHex) {
-						g_desoPendingTransactionHex = postData.TransactionHex;
-						g_desoLastPostHashHex = postData.PostHashHex;
-						g_desoPendingTransactionType = "RPG_SAVE";
-						
-						g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
-						if (!g_desoIdentityWindow) {
-							alert("⚠️ POP-UP BLOQUEADO: Por favor, ative pop-ups para aprovar o salvamento!");
-							if(btn) { btn.innerText = "SALVAR EVOLUÇÃO (BLOCKCHAIN)"; btn.disabled = false; }
-							return;
-						}
-						if(btn) btn.innerText = "APROVE O SALVE NO POPUP...";
-						
-						WaitForWindowClose(g_desoIdentityWindow, function() {
-							if (g_desoPendingTransactionType === "RPG_SAVE") {
-								if(btn) { btn.innerText = "SALVAR EVOLUÇÃO (BLOCKCHAIN)"; btn.disabled = false; }
-							}
-						});
+				} catch(e) { 
+					console.error("NFT Error", e); 
+					if (attempt < maxAttempts) {
+						setTimeout(attemptMint, 1500);
 					} else {
-						throw new Error(postData.error || "Erro no submit-post do nó DeSo.");
+						alert("Erro ao criar NFT. Verifique o console.");
+						if(btn) {
+							btn.innerText = bId === "createGhostBtn" ? "MINT SAVE NFT" : "MINT SAVE NFT";
+							btn.disabled = false;
+						}
 					}
-				} catch(e) {
-					console.error("Save RPG Error", e);
-					if(btn) { btn.innerText = "SALVAR EVOLUÇÃO (BLOCKCHAIN)"; btn.disabled = false; }
-					alert("Erro ao salvar Fantasma: " + e.message);
 				}
 			}
-			window.ExecuteDeSoRPGSaveWithImage = ExecuteDeSoRPGSaveWithImage;(0.98);
+			
+			attemptMint();
 		}
+
+		async function ExecuteDeSoRPGSaveWithImage(jwt, blob, saveObj) {
+			var btn = document.getElementById("rpgSaveBtn");
+			if(btn) { btn.innerText = "UPLOADING IMAGE..."; btn.disabled = true; }
+			try {
+				var formData = new FormData();
+				formData.append("file", blob, "DangerGhost_Save_" + saveObj.characterId + ".jpg");
+				formData.append("UserPublicKeyBase58Check", g_desoPublicKey);
+				formData.append("JWT", jwt);
+
+				var uploadRes = await fetch("https://node.deso.org/api/v0/upload-image", {
+					method: "POST",
+					body: formData
+				});
+				var uploadData = await uploadRes.json();
+				var imageUrl = uploadData.ImageURL;
+
+				if(btn) btn.innerText = "SUBMITTING SAVE...";
+				var bodyText = "🎮 Danger Ghost - Progresso do Fantasma Salvo!\n\n" +
+							   "ID: " + saveObj.characterId.substring(0,12) + "...\n" +
+							   "Nível: " + saveObj.level + "\n" +
+							   "VIT: " + saveObj.vit + " | AGI: " + saveObj.agi + " | INT: " + saveObj.int + " | POW: " + saveObj.pow + "\n\n" +
+							   "#DangerGhostSave #GhostEvolved #DeSo";
+
+				var postReq = {
+					UpdaterPublicKeyBase58Check: g_desoPublicKey,
+					ParentStakeID: "fd622ab4b7723a8a4d17fe0d7bd2bcc11e22832dde0a4a45ad637760ee89cd40",
+					BodyObj: {
+						Body: bodyText,
+						ImageURLs: [imageUrl]
+					},
+					PostExtraData: {
+						"DangerGhost_CharacterID": saveObj.characterId,
+						"DangerGhost_SaveState": btoa(JSON.stringify(saveObj)),
+						"DangerGhost_GameApp": "v1.0.0"
+					},
+					MinFeeRateNanosPerKB: 1000
+				};
+
+				var postRes = await fetch("https://node.deso.org/api/v0/submit-post", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(postReq)
+				});
+				var postData = await postRes.json();
+				
+				if (postData.TransactionHex && postData.PostHashHex) {
+					g_desoPendingTransactionHex = postData.TransactionHex;
+					g_desoLastPostHashHex = postData.PostHashHex;
+					g_desoPendingTransactionType = "RPG_SAVE";
+					
+					g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
+					if (!g_desoIdentityWindow) {
+						alert("⚠️ POP-UP BLOQUEADO: Por favor, ative pop-ups para aprovar o salvamento!");
+						if(btn) { btn.innerText = "SALVAR EVOLUÇÃO (BLOCKCHAIN)"; btn.disabled = false; }
+						return;
+					}
+					if(btn) btn.innerText = "APROVE O SALVE NO POPUP...";
+					
+					WaitForWindowClose(g_desoIdentityWindow, function() {
+						if (g_desoPendingTransactionType === "RPG_SAVE") {
+							if(btn) { btn.innerText = "SALVAR EVOLUÇÃO (BLOCKCHAIN)"; btn.disabled = false; }
+						}
+					});
+				} else {
+					throw new Error(postData.error || "Erro no submit-post do nó DeSo.");
+				}
+			} catch(e) {
+				console.error("Save RPG Error", e);
+				if(btn) { btn.innerText = "SALVAR EVOLUÇÃO (BLOCKCHAIN)"; btn.disabled = false; }
+				alert("Erro ao salvar Fantasma: " + e.message);
+			}
+		}
+		
+		window.CreateDeSoNFTForRPG = CreateDeSoNFTForRPG;
+		window.ExecuteDeSoRPGSaveWithImage = ExecuteDeSoRPGSaveWithImage;
+	</script>
+	<script src="rpg_system.js"></script>
+</head>
 
 		#desoBtn {
 			display: inline-block;
@@ -602,6 +869,7 @@
 				}
 			}
 			window.ToggleMute = ToggleMute;
+			window.RenderCharacterNFTBlob = RenderCharacterNFTBlob;
 			var sickCrowRight = new Image(); sickCrowRight.src = 'assets/sprites/Sickcrow d.png';
 			var sickCrowLeft = new Image(); sickCrowLeft.src = 'assets/sprites/Sickcrow e.png';
 			var cactusRight = new Image(); cactusRight.src = 'assets/sprites/Cactus direita.png';
@@ -2483,7 +2751,7 @@
 						"<div>❤️ VIT: " + char.vit + " | ⚡ AGI: " + char.agi + "</div>" +
 						"<div>🔮 INT: " + char.int + " | ⚔️ POW: " + char.pow + "</div>" +
 						"</div>" +
-						"<button onclick='SelectCharacterToPlay("" + char.characterId + "")' style='width: 100%; padding: 6px; background: #00FFFF; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: "Courier New"; margin-top: 10px;'>JOGAR</button>";
+						"<button onclick=\"SelectCharacterToPlay('" + char.characterId + "')\" style='width: 100%; padding: 6px; background: #00FFFF; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: \'Courier New\'; margin-top: 10px;'>JOGAR</button>";
 					container.appendChild(card);
 				}
 			}
