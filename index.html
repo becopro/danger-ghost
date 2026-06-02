@@ -1637,14 +1637,14 @@
 			}
 
 			// --- DESO WEB3 INTEGRATION ---
-			var g_desoPublicKey = null;
-			var g_desoUserObj = null;
-			var g_desoIdentityWindow = null;
-			var g_desoPendingAction = null; 
-			var g_desoPendingTransactionHex = null;
-			var g_hasCreatorCoin = false;
-			var g_desoLastPostHashHex = null;
-			var g_desoPendingTransactionType = null;
+			window.g_desoPublicKey = null;
+			window.g_desoUserObj = null;
+			window.g_desoIdentityWindow = null;
+			window.g_desoPendingAction = null; 
+			window.g_desoPendingTransactionHex = null;
+			window.g_hasCreatorCoin = false;
+			window.g_desoLastPostHashHex = null;
+			window.g_desoPendingTransactionType = null;
 			var g_leaderboardList = null;
 
 			// --- PROMISE-BASED RESILIENT FETCH WITH TIMEOUT ---
@@ -1948,7 +1948,7 @@
 					if (btn) btn.innerText = "MINTING... (" + attempt + "/" + maxAttempts + ")";
 					try {
 						var nftReq = {
-							UpdaterPublicKeyBase58Check: g_desoPublicKey,
+							UpdaterPublicKeyBase58Check: window.g_desoPublicKey,
 							NFTPostHashHex: postHashHex,
 							NumCopies: 1,
 							NFTRoyaltyToCreatorBasisPoints: 500, // 5%
@@ -1968,9 +1968,9 @@
 								btn.innerText = "APPROVE NFT"; 
 								btn.disabled = false; 
 								btn.onclick = function() {
-									g_desoPendingTransactionType = "NFT";
-									g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + data.TransactionHex, "deso_identity", "width=800,height=1000");
-									if (!g_desoIdentityWindow) {
+									window.g_desoPendingTransactionType = "NFT";
+									window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + data.TransactionHex, "deso_identity", "width=800,height=1000");
+									if (!window.g_desoIdentityWindow) {
 										alert("⚠️ POP-UP BLOQUEADO: Por favor, ative as janelas pop-up nas configurações do seu navegador para autorizar a transação on-chain!");
 										btn.innerText = "APPROVE NFT";
 										btn.disabled = false;
@@ -1978,8 +1978,8 @@
 									}
 									btn.innerText = "WAITING FOR APPROVAL...";
 									btn.disabled = true;
-									WaitForWindowClose(g_desoIdentityWindow, function() {
-										if (g_desoPendingTransactionType === "NFT") {
+									WaitForWindowClose(window.g_desoIdentityWindow, function() {
+										if (window.g_desoPendingTransactionType === "NFT") {
 											btn.innerText = "APPROVE NFT";
 											btn.disabled = false;
 										}
@@ -2028,10 +2028,10 @@
 					});
 					var data = await res.json();
 					if (data && data.TxnHashHex) {
-						if (g_desoPendingTransactionType === "POST" || g_desoPendingTransactionType === "SUBMITTING_POST") {
-							g_desoPendingTransactionType = null;
-							g_desoLastPostHashHex = data.TxnHashHex; // SALVA HASH DO POST REAL TRANSMITIDO
-							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+						if (window.g_desoPendingTransactionType === "POST" || window.g_desoPendingTransactionType === "SUBMITTING_POST") {
+							window.g_desoPendingTransactionType = null;
+							window.g_desoLastPostHashHex = data.TxnHashHex; // SALVA HASH DO POST REAL TRANSMITIDO
+							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							
 							// Força atualização instantânea do ranking após postar
 							FetchLeaderboard();
@@ -2043,12 +2043,12 @@
 								btn.onclick = function() {
 									btn.innerText = "MINTING... PLEASE WAIT";
 									btn.disabled = true;
-									CreateDeSoNFT(g_desoLastPostHashHex);
+									CreateDeSoNFT(window.g_desoLastPostHashHex);
 								};
 							}
-						} else if (g_desoPendingTransactionType === "NFT" || g_desoPendingTransactionType === "SUBMITTING_NFT") {
-							g_desoPendingTransactionType = null;
-							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+						} else if (window.g_desoPendingTransactionType === "NFT" || window.g_desoPendingTransactionType === "SUBMITTING_NFT") {
+							window.g_desoPendingTransactionType = null;
+							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							
 							// Força atualização instantânea do ranking após mint do NFT
 							FetchLeaderboard();
@@ -2059,10 +2059,10 @@
 								btn.disabled = true;
 							}
 							alert("🏆 BINGO! Your Win Screenshot was MINTED as a unique NFT directly into your DeSo Wallet! Welcome to Web3.");
-						} else if (g_desoPendingTransactionType === "RPG_SAVE" || g_desoPendingTransactionType === "SUBMITTING_RPG_SAVE") {
-							g_desoPendingTransactionType = null;
-							g_desoLastPostHashHex = data.TxnHashHex; // SALVA HASH DO POST REAL TRANSMITIDO
-							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+						} else if (window.g_desoPendingTransactionType === "RPG_SAVE" || window.g_desoPendingTransactionType === "SUBMITTING_RPG_SAVE") {
+							window.g_desoPendingTransactionType = null;
+							window.g_desoLastPostHashHex = data.TxnHashHex; // SALVA HASH DO POST REAL TRANSMITIDO
+							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							
 							var btn = document.getElementById("rpgSaveBtn");
 							if (btn) {
@@ -2073,13 +2073,13 @@
 								btn.onclick = function() {
 									btn.innerText = "INICIANDO MINT...";
 									btn.disabled = true;
-									CreateDeSoNFTForRPG(g_desoLastPostHashHex);
+									CreateDeSoNFTForRPG(window.g_desoLastPostHashHex);
 								};
 							}
 							alert("🎉 SUCESSO! O progresso foi gravado na DeSo.\n\nAgora, clique em 'MINTAR NFT DE SAVE' para gerar um NFT exclusivo do seu save na sua carteira!");
-						} else if (g_desoPendingTransactionType === "RPG_NFT" || g_desoPendingTransactionType === "SUBMITTING_RPG_NFT") {
-							g_desoPendingTransactionType = null;
-							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+						} else if (window.g_desoPendingTransactionType === "RPG_NFT" || window.g_desoPendingTransactionType === "SUBMITTING_RPG_NFT") {
+							window.g_desoPendingTransactionType = null;
+							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							
 							var btn = document.getElementById("rpgSaveBtn");
 							if (btn) {
@@ -2090,18 +2090,18 @@
 								setTimeout(RenderRPGStatusDrawer, 4000);
 							}
 							alert("🏆 PARABÉNS! O save do seu Fantasma foi MINTADO como um NFT exclusivo na sua carteira DeSo!");
-						} else if (g_desoPendingTransactionType === "RPG_CHAR_PAYMENT" || g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_PAYMENT") {
-							g_desoPendingTransactionType = null;
-							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+						} else if (window.g_desoPendingTransactionType === "RPG_CHAR_PAYMENT" || window.g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_PAYMENT") {
+							window.g_desoPendingTransactionType = null;
+							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							ExecuteCharacterPostCreation();
-						} else if (g_desoPendingTransactionType === "RPG_CHAR_POST" || g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_POST") {
-							g_desoPendingTransactionType = null;
-							g_desoLastPostHashHex = data.TxnHashHex; // SALVA HASH DO POST REAL TRANSMITIDO
-							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
-							CreateDeSoNFTForRPG(g_desoLastPostHashHex, "createGhostBtn");
-						} else if (g_desoPendingTransactionType === "RPG_CHAR_NFT" || g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_NFT") {
-							g_desoPendingTransactionType = null;
-							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+						} else if (window.g_desoPendingTransactionType === "RPG_CHAR_POST" || window.g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_POST") {
+							window.g_desoPendingTransactionType = null;
+							window.g_desoLastPostHashHex = data.TxnHashHex; // SALVA HASH DO POST REAL TRANSMITIDO
+							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
+							CreateDeSoNFTForRPG(window.g_desoLastPostHashHex, "createGhostBtn");
+						} else if (window.g_desoPendingTransactionType === "RPG_CHAR_NFT" || window.g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_NFT") {
+							window.g_desoPendingTransactionType = null;
+							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							alert("🎉 SUCESSO! Seu Fantasma foi mintado como NFT. Vamos começar!");
 							document.getElementById("characterSelectionOverlay").style.display = "none";
 							GhostRPG.loadBlockchainState(1, 1, 1, 1, 1, g_characterCreationId);
@@ -2113,18 +2113,18 @@
 						alert("Error broadcasting transaction: " + (data.error || "Unknown error"));
 						var btn = document.getElementById("desoPostBtn");
 						var saveBtn = document.getElementById("rpgSaveBtn");
-						if (btn && (g_desoPendingTransactionType === "SUBMITTING_POST" || g_desoPendingTransactionType === "POST")) {
+						if (btn && (window.g_desoPendingTransactionType === "SUBMITTING_POST" || window.g_desoPendingTransactionType === "POST")) {
 							btn.innerText = "APPROVE POST";
 							btn.disabled = false;
-						} else if (btn && (g_desoPendingTransactionType === "SUBMITTING_NFT" || g_desoPendingTransactionType === "NFT")) {
+						} else if (btn && (window.g_desoPendingTransactionType === "SUBMITTING_NFT" || window.g_desoPendingTransactionType === "NFT")) {
 							btn.innerText = "APPROVE NFT";
 							btn.disabled = false;
-						} else if (saveBtn && (g_desoPendingTransactionType === "SUBMITTING_RPG_SAVE" || g_desoPendingTransactionType === "RPG_SAVE")) {
+						} else if (saveBtn && (window.g_desoPendingTransactionType === "SUBMITTING_RPG_SAVE" || window.g_desoPendingTransactionType === "RPG_SAVE")) {
 							saveBtn.innerText = "SALVAR EVOLUÇÃO (BLOCKCHAIN)";
 							saveBtn.disabled = false;
-						} else if (g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_PAYMENT" || g_desoPendingTransactionType === "RPG_CHAR_PAYMENT" ||
-								   g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_POST" || g_desoPendingTransactionType === "RPG_CHAR_POST" ||
-								   g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_NFT" || g_desoPendingTransactionType === "RPG_CHAR_NFT") {
+						} else if (window.g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_PAYMENT" || window.g_desoPendingTransactionType === "RPG_CHAR_PAYMENT" ||
+								   window.g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_POST" || window.g_desoPendingTransactionType === "RPG_CHAR_POST" ||
+								   window.g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_NFT" || window.g_desoPendingTransactionType === "RPG_CHAR_NFT") {
 							var cBtn = document.getElementById("createGhostBtn");
 							if (cBtn) {
 								cBtn.innerText = "CRIAR NOVO FANTASMA (MINT)";
@@ -2169,15 +2169,15 @@
 						}
 					}
 					if (hasCoin) {
-						g_hasCreatorCoin = true;
+						window.g_hasCreatorCoin = true;
 						console.log("VIP Access Granted: DangerGhost HODLer!");
 					} else {
-						g_hasCreatorCoin = false;
+						window.g_hasCreatorCoin = false;
 						console.log("VIP Access Denied: Not a DangerGhost HODLer.");
 					}
 				} catch(e) { 
 					console.log("VIP Check Error", e);
-					g_hasCreatorCoin = false;
+					window.g_hasCreatorCoin = false;
 				}
 			}
 
@@ -2189,34 +2189,34 @@
 					event.source.postMessage({ id: data.id, service: "identity" }, "https://identity.deso.org");
 				}
 				
-				if (g_desoPendingAction === 'login' && data.method === "login") {
+				if (window.g_desoPendingAction === 'login' && data.method === "login") {
 					for (var key in data.payload.users) {
-						g_desoPublicKey = key; 
-						g_desoUserObj = data.payload.users[key];
+						window.g_desoPublicKey = key; 
+						window.g_desoUserObj = data.payload.users[key];
 						break;
 					}
-					if (g_desoPublicKey) {
-						document.getElementById("desoBtn").innerText = "LOGGED IN: " + g_desoPublicKey.substring(0,8) + "...";
+					if (window.g_desoPublicKey) {
+						document.getElementById("desoBtn").innerText = "LOGGED IN: " + window.g_desoPublicKey.substring(0,8) + "...";
 						document.getElementById("desoBtn").style.borderColor = "#00FF00";
 						document.getElementById("desoBtn").style.color = "#00FF00";
-						if (g_desoIdentityWindow) g_desoIdentityWindow.close();
-						g_desoPendingAction = null;
-						CheckVIPStatus(g_desoPublicKey);
+						if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
+						window.g_desoPendingAction = null;
+						CheckVIPStatus(window.g_desoPublicKey);
 						
 						// Carrega dinamicamente o status do fantasma único do jogador da DeSo!
 						if (typeof LoadRPGStateFromDeSo === "function") {
-							LoadRPGStateFromDeSo(g_desoPublicKey);
+							LoadRPGStateFromDeSo(window.g_desoPublicKey);
 						}
 					}
 				}
 				
 				// O JWT payload tem formato diferente: payload.jwt
-				if ((g_desoPendingAction === 'jwt' || g_desoPendingAction === 'char_creation_jwt' || g_desoPendingAction === 'char_save_jwt') && data.payload && (typeof data.payload === "string" || data.payload.jwt)) {
+				if ((window.g_desoPendingAction === 'jwt' || window.g_desoPendingAction === 'char_creation_jwt' || window.g_desoPendingAction === 'char_save_jwt') && data.payload && (typeof data.payload === "string" || data.payload.jwt)) {
 					var jwt = typeof data.payload === "string" ? data.payload : data.payload.jwt;
-					if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+					if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 					
-					var action = g_desoPendingAction;
-					g_desoPendingAction = null;
+					var action = window.g_desoPendingAction;
+					window.g_desoPendingAction = null;
 					
 					if (typeof g_rpgSavePending !== "undefined" && g_rpgSavePending) {
 						g_rpgSavePending = false;
@@ -2235,10 +2235,10 @@
 					// nós consumimos diretamente para evitar colisões redundantes de mempool!
 					if (data.payload.txnHashHex) {
 						var txHash = data.payload.txnHashHex;
-						if (g_desoPendingTransactionType === "POST" || g_desoPendingTransactionType === "SUBMITTING_POST") {
-							g_desoPendingTransactionType = null;
-							g_desoLastPostHashHex = txHash;
-							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+						if (window.g_desoPendingTransactionType === "POST" || window.g_desoPendingTransactionType === "SUBMITTING_POST") {
+							window.g_desoPendingTransactionType = null;
+							window.g_desoLastPostHashHex = txHash;
+							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							
 							var btn = document.getElementById("desoPostBtn");
 							if (btn) {
@@ -2247,12 +2247,12 @@
 								btn.onclick = function() {
 									btn.innerText = "MINTING... PLEASE WAIT";
 									btn.disabled = true;
-									CreateDeSoNFT(g_desoLastPostHashHex);
+									CreateDeSoNFT(window.g_desoLastPostHashHex);
 								};
 							}
-						} else if (g_desoPendingTransactionType === "NFT" || g_desoPendingTransactionType === "SUBMITTING_NFT") {
-							g_desoPendingTransactionType = null;
-							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+						} else if (window.g_desoPendingTransactionType === "NFT" || window.g_desoPendingTransactionType === "SUBMITTING_NFT") {
+							window.g_desoPendingTransactionType = null;
+							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							
 							var btn = document.getElementById("desoPostBtn");
 							if (btn) {
@@ -2260,10 +2260,10 @@
 								btn.disabled = true;
 							}
 							alert("🏆 BINGO! Your Win Screenshot was MINTED as a unique NFT directly into your DeSo Wallet! Welcome to Web3.");
-						} else if (g_desoPendingTransactionType === "RPG_SAVE" || g_desoPendingTransactionType === "SUBMITTING_RPG_SAVE") {
-							g_desoPendingTransactionType = null;
-							g_desoLastPostHashHex = txHash; // SALVA HASH DO POST REAL TRANSMITIDO
-							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+						} else if (window.g_desoPendingTransactionType === "RPG_SAVE" || window.g_desoPendingTransactionType === "SUBMITTING_RPG_SAVE") {
+							window.g_desoPendingTransactionType = null;
+							window.g_desoLastPostHashHex = txHash; // SALVA HASH DO POST REAL TRANSMITIDO
+							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							
 							var btn = document.getElementById("rpgSaveBtn");
 							if (btn) {
@@ -2274,13 +2274,13 @@
 								btn.onclick = function() {
 									btn.innerText = "INICIANDO MINT...";
 									btn.disabled = true;
-									CreateDeSoNFTForRPG(g_desoLastPostHashHex);
+									CreateDeSoNFTForRPG(window.g_desoLastPostHashHex);
 								};
 							}
 							alert("🎉 SUCESSO! O progresso foi gravado na DeSo.\n\nAgora, clique em 'MINTAR NFT DE SAVE' para gerar um NFT exclusivo do seu save na sua carteira!");
-						} else if (g_desoPendingTransactionType === "RPG_NFT" || g_desoPendingTransactionType === "SUBMITTING_RPG_NFT") {
-							g_desoPendingTransactionType = null;
-							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+						} else if (window.g_desoPendingTransactionType === "RPG_NFT" || window.g_desoPendingTransactionType === "SUBMITTING_RPG_NFT") {
+							window.g_desoPendingTransactionType = null;
+							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							
 							var btn = document.getElementById("rpgSaveBtn");
 							if (btn) {
@@ -2291,18 +2291,18 @@
 								setTimeout(RenderRPGStatusDrawer, 4000);
 							}
 							alert("🏆 PARABÉNS! O save do seu Fantasma foi MINTADO como um NFT exclusivo na sua carteira DeSo!");
-						} else if (g_desoPendingTransactionType === "RPG_CHAR_PAYMENT" || g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_PAYMENT") {
-							g_desoPendingTransactionType = null;
-							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+						} else if (window.g_desoPendingTransactionType === "RPG_CHAR_PAYMENT" || window.g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_PAYMENT") {
+							window.g_desoPendingTransactionType = null;
+							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							ExecuteCharacterPostCreation();
-						} else if (g_desoPendingTransactionType === "RPG_CHAR_POST" || g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_POST") {
-							g_desoPendingTransactionType = null;
-							g_desoLastPostHashHex = txHash; // SALVA HASH DO POST REAL TRANSMITIDO
-							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
-							CreateDeSoNFTForRPG(g_desoLastPostHashHex, "createGhostBtn");
-						} else if (g_desoPendingTransactionType === "RPG_CHAR_NFT" || g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_NFT") {
-							g_desoPendingTransactionType = null;
-							if (g_desoIdentityWindow) g_desoIdentityWindow.close();
+						} else if (window.g_desoPendingTransactionType === "RPG_CHAR_POST" || window.g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_POST") {
+							window.g_desoPendingTransactionType = null;
+							window.g_desoLastPostHashHex = txHash; // SALVA HASH DO POST REAL TRANSMITIDO
+							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
+							CreateDeSoNFTForRPG(window.g_desoLastPostHashHex, "createGhostBtn");
+						} else if (window.g_desoPendingTransactionType === "RPG_CHAR_NFT" || window.g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_NFT") {
+							window.g_desoPendingTransactionType = null;
+							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							alert("🎉 SUCESSO! Seu Fantasma foi mintado como NFT. Vamos começar!");
 							document.getElementById("characterSelectionOverlay").style.display = "none";
 							GhostRPG.loadBlockchainState(1, 1, 1, 1, 1, g_characterCreationId);
@@ -2312,12 +2312,12 @@
 					} else {
 						// Fallback resiliente: caso o Identity não tenha auto-transmitido,
 						// nós enviamos a transação assinada manualmente pelo nó DeSo
-						if (g_desoPendingTransactionType === "POST") g_desoPendingTransactionType = "SUBMITTING_POST";
-						else if (g_desoPendingTransactionType === "NFT") g_desoPendingTransactionType = "SUBMITTING_NFT";
-						else if (g_desoPendingTransactionType === "RPG_SAVE") g_desoPendingTransactionType = "SUBMITTING_RPG_SAVE";
-						else if (g_desoPendingTransactionType === "RPG_CHAR_PAYMENT") g_desoPendingTransactionType = "SUBMITTING_RPG_CHAR_PAYMENT";
-						else if (g_desoPendingTransactionType === "RPG_CHAR_POST") g_desoPendingTransactionType = "SUBMITTING_RPG_CHAR_POST";
-						else if (g_desoPendingTransactionType === "RPG_CHAR_NFT") g_desoPendingTransactionType = "SUBMITTING_RPG_CHAR_NFT";
+						if (window.g_desoPendingTransactionType === "POST") window.g_desoPendingTransactionType = "SUBMITTING_POST";
+						else if (window.g_desoPendingTransactionType === "NFT") window.g_desoPendingTransactionType = "SUBMITTING_NFT";
+						else if (window.g_desoPendingTransactionType === "RPG_SAVE") window.g_desoPendingTransactionType = "SUBMITTING_RPG_SAVE";
+						else if (window.g_desoPendingTransactionType === "RPG_CHAR_PAYMENT") window.g_desoPendingTransactionType = "SUBMITTING_RPG_CHAR_PAYMENT";
+						else if (window.g_desoPendingTransactionType === "RPG_CHAR_POST") window.g_desoPendingTransactionType = "SUBMITTING_RPG_CHAR_POST";
+						else if (window.g_desoPendingTransactionType === "RPG_CHAR_NFT") window.g_desoPendingTransactionType = "SUBMITTING_RPG_CHAR_NFT";
 						SubmitSignedTransaction(data.payload.signedTransactionHex);
 					}
 				}
@@ -2329,19 +2329,19 @@
 					btn.innerText = "AWAITING LOGIN...";
 					btn.disabled = true;
 				}
-				g_desoPendingAction = 'login';
-				g_desoIdentityWindow = window.open("https://identity.deso.org/log-in?accessLevelRequest=2", "deso_identity", "width=800,height=1000");
-				if (!g_desoIdentityWindow) {
+				window.g_desoPendingAction = 'login';
+				window.g_desoIdentityWindow = window.open("https://identity.deso.org/log-in?accessLevelRequest=2", "deso_identity", "width=800,height=1000");
+				if (!window.g_desoIdentityWindow) {
 					alert("⚠️ POP-UP BLOQUEADO: Por favor, ative as janelas pop-up nas configurações do seu navegador para efetuar login na DeSo!");
 					if (btn) {
 						btn.innerText = "LOGIN DESO";
 						btn.disabled = false;
 					}
-					g_desoPendingAction = null;
+					window.g_desoPendingAction = null;
 					return;
 				}
-				WaitForWindowClose(g_desoIdentityWindow, function() {
-					if (!g_desoPublicKey && btn) {
+				WaitForWindowClose(window.g_desoIdentityWindow, function() {
+					if (!window.g_desoPublicKey && btn) {
 						btn.innerText = "LOGIN DESO";
 						btn.disabled = false;
 					}
@@ -2350,7 +2350,7 @@
 			window.LoginDeSo = LoginDeSo;
 
 			function PostToDeSo() {
-				if (!g_desoPublicKey) {
+				if (!window.g_desoPublicKey) {
 					alert("Please LOGIN TO DESO on the Start Screen before posting your score!");
 					return;
 				}
@@ -2361,14 +2361,14 @@
 				var btn = document.getElementById("desoPostBtn");
 				if(btn) { btn.innerText = "UPLOADING... PLEASE WAIT"; btn.disabled = true; }
 				
-				g_desoPendingAction = 'jwt';
+				window.g_desoPendingAction = 'jwt';
 				var iframe = document.getElementById("identityIframe");
 				var jwtPayload = {};
-				if (g_desoUserObj) {
+				if (window.g_desoUserObj) {
 					jwtPayload = {
-						accessLevel: g_desoUserObj.accessLevel,
-						accessLevelHmac: g_desoUserObj.accessLevelHmac,
-						encryptedSeedHex: g_desoUserObj.encryptedSeedHex
+						accessLevel: window.g_desoUserObj.accessLevel,
+						accessLevelHmac: window.g_desoUserObj.accessLevelHmac,
+						encryptedSeedHex: window.g_desoUserObj.encryptedSeedHex
 					};
 				}
 				iframe.contentWindow.postMessage({
@@ -2401,7 +2401,7 @@
 					try {
 						var formData = new FormData();
 						formData.append("file", blob, "DangerGhost_Clear.jpg");
-						formData.append("UserPublicKeyBase58Check", g_desoPublicKey);
+						formData.append("UserPublicKeyBase58Check", window.g_desoPublicKey);
 						formData.append("JWT", jwt);
 
 						var uploadRes = await fetch("https://node.deso.org/api/v0/upload-image", {
@@ -2445,7 +2445,7 @@
 						var bodyText = "🎮 I just conquered DANGER GHOST!" + rpgMetadata + "\n\nGhost Hunter: " + pName + "\nScore: " + g_score + "\nTime: " + timeStr + top10Text + "\n#DangerGhost #Web3Gaming #DeSo";
 						
 						var postReq = {
-							UpdaterPublicKeyBase58Check: g_desoPublicKey,
+							UpdaterPublicKeyBase58Check: window.g_desoPublicKey,
 							ParentStakeID: "fd622ab4b7723a8a4d17fe0d7bd2bcc11e22832dde0a4a45ad637760ee89cd40", // Link Permanente ao Post de Ranking Oficial
 							BodyObj: {
 								Body: bodyText,
@@ -2467,11 +2467,11 @@
 								btn.innerText = "APPROVE POST"; 
 								btn.disabled = false; 
 								btn.onclick = function() {
-									g_desoPendingTransactionHex = postData.TransactionHex;
-									g_desoLastPostHashHex = postData.PostHashHex;
-									g_desoPendingTransactionType = "POST";
-									g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
-									if (!g_desoIdentityWindow) {
+									window.g_desoPendingTransactionHex = postData.TransactionHex;
+									window.g_desoLastPostHashHex = postData.PostHashHex;
+									window.g_desoPendingTransactionType = "POST";
+									window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
+									if (!window.g_desoIdentityWindow) {
 										alert("⚠️ POP-UP BLOQUEADO: Por favor, ative as janelas pop-up nas configurações do seu navegador para autorizar a transação on-chain!");
 										btn.innerText = "APPROVE POST";
 										btn.disabled = false;
@@ -2479,8 +2479,8 @@
 									}
 									btn.innerText = "WAITING FOR APPROVAL...";
 									btn.disabled = true;
-									WaitForWindowClose(g_desoIdentityWindow, function() {
-										if (g_desoPendingTransactionType === "POST") {
+									WaitForWindowClose(window.g_desoIdentityWindow, function() {
+										if (window.g_desoPendingTransactionType === "POST") {
 											btn.innerText = "APPROVE POST";
 											btn.disabled = false;
 										}
@@ -2508,7 +2508,7 @@
 			var g_rpgSavePending = false;
 
 			function TriggerRPGSaveToDeSo() {
-				if (!g_desoPublicKey) {
+				if (!window.g_desoPublicKey) {
 					alert("Por favor, faça LOGIN na DeSo antes de salvar!");
 					return;
 				}
@@ -2516,16 +2516,16 @@
 				var btn = document.getElementById("rpgSaveBtn");
 				if(btn) { btn.innerText = "OBTENDO CHAVE..."; btn.disabled = true; }
 				
-				g_desoPendingAction = 'jwt';
+				window.g_desoPendingAction = 'jwt';
 				g_rpgSavePending = true;
 				
 				var iframe = document.getElementById("identityIframe");
 				var jwtPayload = {};
-				if (g_desoUserObj) {
+				if (window.g_desoUserObj) {
 					jwtPayload = {
-						accessLevel: g_desoUserObj.accessLevel,
-						accessLevelHmac: g_desoUserObj.accessLevelHmac,
-						encryptedSeedHex: g_desoUserObj.encryptedSeedHex
+						accessLevel: window.g_desoUserObj.accessLevel,
+						accessLevelHmac: window.g_desoUserObj.accessLevelHmac,
+						encryptedSeedHex: window.g_desoUserObj.encryptedSeedHex
 					};
 				}
 				iframe.contentWindow.postMessage({
@@ -2548,7 +2548,7 @@
 								   "#DangerGhost #RPGSave #Web3 #DeSo";
 					
 					var postReq = {
-						UpdaterPublicKeyBase58Check: g_desoPublicKey,
+						UpdaterPublicKeyBase58Check: window.g_desoPublicKey,
 						BodyObj: {
 							Body: bodyText,
 							ImageURLs: []
@@ -2568,20 +2568,20 @@
 					var postData = await postRes.json();
 					
 					if (postData.TransactionHex && postData.PostHashHex) {
-						g_desoPendingTransactionHex = postData.TransactionHex;
-						g_desoLastPostHashHex = postData.PostHashHex;
-						g_desoPendingTransactionType = "RPG_SAVE";
+						window.g_desoPendingTransactionHex = postData.TransactionHex;
+						window.g_desoLastPostHashHex = postData.PostHashHex;
+						window.g_desoPendingTransactionType = "RPG_SAVE";
 						
-						g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
-						if (!g_desoIdentityWindow) {
+						window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
+						if (!window.g_desoIdentityWindow) {
 							alert("⚠️ POP-UP BLOQUEADO: Por favor, ative pop-ups para aprovar o salvamento!");
 							if(btn) { btn.innerText = "SALVAR JOGO (BLOCKCHAIN)"; btn.disabled = false; }
 							return;
 						}
 						if(btn) btn.innerText = "APROVE O SALVE NO POPUP...";
 						
-						WaitForWindowClose(g_desoIdentityWindow, function() {
-							if (g_desoPendingTransactionType === "RPG_SAVE") {
+						WaitForWindowClose(window.g_desoIdentityWindow, function() {
+							if (window.g_desoPendingTransactionType === "RPG_SAVE") {
 								if(btn) { btn.innerText = "SALVAR JOGO (BLOCKCHAIN)"; btn.disabled = false; }
 							}
 						});
@@ -2804,7 +2804,7 @@
 				var btn = document.getElementById("createGhostBtn");
 				var status = document.getElementById("selectionStatusText");
 				
-				if (!g_desoPublicKey) {
+				if (!window.g_desoPublicKey) {
 					alert("Por favor, conecte a sua carteira primeiro!");
 					return;
 				}
@@ -2819,7 +2819,7 @@
 					if (status) status.innerText = "Preparando transação de " + priceDeSo + " DeSo para o desenvolvedor...";
 					try {
 						var sendReq = {
-							SenderPublicKeyBase58Check: g_desoPublicKey,
+							SenderPublicKeyBase58Check: window.g_desoPublicKey,
 							RecipientPublicKeyOrUsername: "BC1YLgwuSYXasawyfX5D8wiVSvC7qS1usfPA9QCnJ3ZRndyRcRmKdUG",
 							AmountNanos: Math.floor(priceDeSo * 1e9),
 							MinFeeRateNanosPerKB: 1000
@@ -2831,12 +2831,12 @@
 						});
 						var data = await res.json();
 						if (data.TransactionHex) {
-							g_desoPendingTransactionHex = data.TransactionHex;
-							g_desoPendingTransactionType = "RPG_CHAR_PAYMENT";
+							window.g_desoPendingTransactionHex = data.TransactionHex;
+							window.g_desoPendingTransactionType = "RPG_CHAR_PAYMENT";
 							g_characterCreationPending = true;
 							
-							g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + data.TransactionHex, "deso_identity", "width=800,height=1000");
-							if (!g_desoIdentityWindow) {
+							window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + data.TransactionHex, "deso_identity", "width=800,height=1000");
+							if (!window.g_desoIdentityWindow) {
 								alert("⚠️ POP-UP BLOQUEADO: Ative os pop-ups para aprovar o pagamento de criação!");
 								if (btn) btn.disabled = false;
 								if (status) status.innerText = "Erro: Pop-up bloqueado.";
@@ -2879,15 +2879,15 @@
 				RenderCharacterNFTBlob(defaultStats, async function(blob) {
 					if (status) status.innerText = "Fazendo upload da imagem do NFT...";
 					try {
-						g_desoPendingAction = 'char_creation_jwt';
+						window.g_desoPendingAction = 'char_creation_jwt';
 						
 						var iframe = document.getElementById("identityIframe");
 						var jwtPayload = {};
-						if (g_desoUserObj) {
+						if (window.g_desoUserObj) {
 							jwtPayload = {
-								accessLevel: g_desoUserObj.accessLevel,
-								accessLevelHmac: g_desoUserObj.accessLevelHmac,
-								encryptedSeedHex: g_desoUserObj.encryptedSeedHex
+								accessLevel: window.g_desoUserObj.accessLevel,
+								accessLevelHmac: window.g_desoUserObj.accessLevelHmac,
+								encryptedSeedHex: window.g_desoUserObj.encryptedSeedHex
 							};
 						}
 						window.g_pendingCharBlob = blob;
@@ -2912,7 +2912,7 @@
 				try {
 					var formData = new FormData();
 					formData.append("file", blob, "DangerGhost_Char_" + g_characterCreationId + ".jpg");
-					formData.append("UserPublicKeyBase58Check", g_desoPublicKey);
+					formData.append("UserPublicKeyBase58Check", window.g_desoPublicKey);
 					formData.append("JWT", jwt);
 
 					var uploadRes = await fetch("https://node.deso.org/api/v0/upload-image", {
@@ -2941,7 +2941,7 @@
 								   "#DangerGhostCharacter #NewGhost #DeSo";
 
 					var postReq = {
-						UpdaterPublicKeyBase58Check: g_desoPublicKey,
+						UpdaterPublicKeyBase58Check: window.g_desoPublicKey,
 						BodyObj: {
 							Body: bodyText,
 							ImageURLs: [imageUrl]
@@ -2962,12 +2962,12 @@
 					var postData = await postRes.json();
 					
 					if (postData.TransactionHex && postData.PostHashHex) {
-						g_desoPendingTransactionHex = postData.TransactionHex;
-						g_desoLastPostHashHex = postData.PostHashHex;
-						g_desoPendingTransactionType = "RPG_CHAR_POST";
+						window.g_desoPendingTransactionHex = postData.TransactionHex;
+						window.g_desoLastPostHashHex = postData.PostHashHex;
+						window.g_desoPendingTransactionType = "RPG_CHAR_POST";
 						
-						g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
-						if (!g_desoIdentityWindow) {
+						window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
+						if (!window.g_desoIdentityWindow) {
 							alert("⚠️ POP-UP BLOQUEADO: Ative os pop-ups para aprovar a postagem do novo Fantasma!");
 							return;
 						}
@@ -3184,7 +3184,7 @@
 									  window.location.hostname === "127.0.0.1" || 
 									  window.location.protocol === "file:";
 									  
-						if (!g_hasCreatorCoin && !isLocal) {
+						if (!window.g_hasCreatorCoin && !isLocal) {
 							alert("⚠️ ACCESS DENIED (TOKEN-GATING): This feature is exclusively for $DangerGhost Coin Holders! Buy our Creator Coin on DeSo with your logged in wallet to unlock Passwords.");
 							return;
 						}
