@@ -981,6 +981,7 @@
 				this.loadLevel = function (levelNum) {
 					g_levelStartTime = Date.now();
 					g_timeRemaining = 240;
+					var predominantTile = 2; // Default fallback
 					var idx = levelNum - 1;
 					if (idx < 0) idx = 0;
 					if (idx >= g_levels.length) idx = 0;
@@ -1060,7 +1061,7 @@
 					var currentCols = this.bitmap[0].length;
 					if (currentCols === 50) {
 						// 1. ground/platform block detection
-						var predominantTile = 2; // Default: platformTileImage
+						predominantTile = 2; // Default: platformTileImage
 						var tileCounts = {1: 0, 2: 0, 13: 0, 14: 0, 20: 0};
 						for (var r = 0; r < 11; r++) {
 							for (var c = 0; c < 50; c++) {
@@ -1157,6 +1158,16 @@
 					} else {
 						g_boss = null;
 					}
+
+					// Colocar a porta nova (tile 21) na coluna 1, linha 7 (acima do chão na linha 8)
+					if (levelNum > 1) {
+						if (this.bitmap[8]) {
+							this.bitmap[8][1] = predominantTile;
+						}
+						if (this.bitmap[7]) {
+							this.bitmap[7][1] = 21;
+						}
+					}
 				};
 				this.loadLevel(g_currentLevel);
 
@@ -1186,6 +1197,14 @@
 							else if (tile == 18) g_ctx.drawImage(starsImage, x, y, 24, 24);
 							else if (tile == 19) g_ctx.drawImage(branchImage, x, y, 24, 24);
 							else if (tile == 20) g_ctx.drawImage(grassImage, x, y, 24, 24);
+							else if (tile == 21) {
+								g_ctx.drawImage(doorImage, x, y, 24, 24);
+								g_ctx.font = "bold 9px 'Courier New'";
+								g_ctx.fillStyle = "#FFFF00";
+								g_ctx.textAlign = "center";
+								g_ctx.fillText("voltar", x + 12, y - 6);
+								g_ctx.textAlign = "start";
+							}
 						}
 					}
 					
@@ -1428,6 +1447,12 @@
 						if (cb >= 0 && cb < 11 && map.bitmap[cb][c] == 4 && this.jump) {
 							if (g_boss && g_boss.alive && g_boss.isOriginal) { /* Locked */ } else { this.nextLevel(); }
 						}
+						if (ct >= 0 && ct < 11 && map.bitmap[ct][c] == 21 && this.jump) {
+							this.prevLevel();
+						}
+						if (cb >= 0 && cb < 11 && map.bitmap[cb][c] == 21 && this.jump) {
+							this.prevLevel();
+						}
 
 						var tiles = [ct, cb];
 						for (var t = 0; t < tiles.length; t++) {
@@ -1491,6 +1516,17 @@
 						return; 
 					}
 					g_currentLevel++;
+					if (window.g_completedLevels) {
+						window.g_completedLevels[g_currentLevel] = true;
+					}
+					this.xPos = 48; this.yPos = 150; map_offset = 0;
+					map.loadLevel(g_currentLevel);
+					this.jump = false; this.jumpNum = 0;
+				};
+
+				this.prevLevel = function () {
+					if (g_currentLevel <= 1) return;
+					g_currentLevel--;
 					if (window.g_completedLevels) {
 						window.g_completedLevels[g_currentLevel] = true;
 					}
