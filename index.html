@@ -1145,12 +1145,14 @@
 
 					if (levelNum == 4 || levelNum == 11 || levelNum == 16 || levelNum == 20) {
 						g_boss = new c_Boss(800, 192);
+						g_boss.isOriginal = true;
 						if (levelNum == 4) { g_boss.minX = 600; g_boss.maxX = 1000; }
 						else if (levelNum == 11) { g_boss.minX = 600; g_boss.maxX = 1100; }
 						else if (levelNum == 16) { g_boss.minX = 400; g_boss.maxX = 900; }
 						else if (levelNum == 20) { g_boss.minX = 500; g_boss.maxX = 1000; }
 					} else if (levelNum == 33) {
 						g_boss = new c_Boss(800, 144, "cactus");
+						g_boss.isOriginal = true;
 						g_boss.minX = 200; g_boss.maxX = 1000;
 					} else {
 						g_boss = null;
@@ -1232,6 +1234,7 @@
 				this.height = (this.type === "cactus") ? 288 : 48;
 				this.speed = 2; this.dir = 1;
 				this.alive = true;
+				this.isOriginal = false;
 				this.minX = l_x - 120; this.maxX = l_x + 120;
 
 				this.draw = function () {
@@ -1420,10 +1423,10 @@
 						if (cb >= 0 && cb < 11 && (map.bitmap[cb][c] == 5 || map.bitmap[cb][c] == 6)) this.alive = false;
 
 						if (ct >= 0 && ct < 11 && map.bitmap[ct][c] == 4 && this.jump) {
-							if (g_boss && g_boss.alive) { /* Locked */ } else { this.nextLevel(); }
+							if (g_boss && g_boss.alive && g_boss.isOriginal) { /* Locked */ } else { this.nextLevel(); }
 						}
 						if (cb >= 0 && cb < 11 && map.bitmap[cb][c] == 4 && this.jump) {
-							if (g_boss && g_boss.alive) { /* Locked */ } else { this.nextLevel(); }
+							if (g_boss && g_boss.alive && g_boss.isOriginal) { /* Locked */ } else { this.nextLevel(); }
 						}
 
 						var tiles = [ct, cb];
