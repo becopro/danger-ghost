@@ -3078,25 +3078,122 @@
 				SetGameState(G_WIN);
 			}
 
+			function FindRandomPlatformCoordinates() {
+				var validPositions = [];
+				for (var c = 2; c < 96; c++) {
+					for (var r = 2; r < 11; r++) {
+						var tileLeft = map.bitmap[r][c];
+						var tileCenter = map.bitmap[r][c+1];
+						var tileRight = map.bitmap[r][c+2];
+						
+						var isLeftSolid = (tileLeft == 1 || tileLeft == 2 || tileLeft == 13 || tileLeft == 14 || tileLeft == 20);
+						var isCenterSolid = (tileCenter == 1 || tileCenter == 2 || tileCenter == 13 || tileCenter == 14 || tileCenter == 20);
+						var isRightSolid = (tileRight == 1 || tileRight == 2 || tileRight == 13 || tileRight == 14 || tileRight == 20);
+
+						if (isLeftSolid && isCenterSolid && isRightSolid) {
+							var isSpaceFree = true;
+							for (var checkR = r - 1; checkR >= r - 2; checkR--) {
+								if (checkR >= 0) {
+									var tL = map.bitmap[checkR][c];
+									var tC = map.bitmap[checkR][c+1];
+									var tR = map.bitmap[checkR][c+2];
+									if (tL != 0 || tC != 0 || tR != 0) {
+										isSpaceFree = false;
+										break;
+									}
+								}
+							}
+							if (isSpaceFree) {
+								var minCol = c;
+								while (minCol > 0) {
+									var t = map.bitmap[r][minCol - 1];
+									if (t == 1 || t == 2 || t == 13 || t == 14 || t == 20) {
+										minCol--;
+									} else {
+										break;
+									}
+								}
+								var maxCol = c + 2;
+								while (maxCol < 99) {
+									var t = map.bitmap[r][maxCol + 1];
+									if (t == 1 || t == 2 || t == 13 || t == 14 || t == 20) {
+										maxCol++;
+									} else {
+										break;
+									}
+								}
+								validPositions.push({
+									col: c + 1,
+									row: r - 2,
+									minX: minCol * 24,
+									maxX: (maxCol - 1) * 24
+								});
+							}
+						}
+					}
+				}
+
+				if (validPositions.length > 0) {
+					var farPositions = validPositions.filter(function(pos) {
+						return Math.abs(pos.col * 24 - DeSoGhost.xPos) >= 150;
+					});
+					var list = farPositions.length > 0 ? farPositions : validPositions;
+					var randPos = list[Math.floor(Math.random() * list.length)];
+					return {
+						x: randPos.col * 24,
+						y: randPos.row * 24,
+						minX: randPos.minX,
+						maxX: randPos.maxX
+					};
+				}
+				return null;
+			}
+
 			function SpawnBossAtRandomLocation() {
 				g_screenShakeTime = 30; // 30 frames de tremor (~1 segundo)
 				g_screenShakeIntensity = 12;
 
-				// Escolhe uma coluna aleatória de 5 a 94
-				var randomCol = Math.floor(Math.random() * 90) + 5;
-				var spawnX = randomCol * 24;
-				// Evitar spawnar exatamente em cima do jogador
-				while (Math.abs(spawnX - DeSoGhost.xPos) < 150) {
-					randomCol = Math.floor(Math.random() * 90) + 5;
+				var spawnX, spawnY, walkMinX, walkMaxX;
+				var coords = FindRandomPlatformCoordinates();
+
+				if (coords) {
+					spawnX = coords.x;
+					spawnY = coords.y;
+					walkMinX = coords.minX;
+					walkMaxX = coords.maxX;
+				} else {
+					// Fallback: spawn no meio do mapa com plataforma gerada dinamicamente
+					var randomCol = Math.floor(Math.random() * 80) + 10;
 					spawnX = randomCol * 24;
+					spawnY = 144; // row 6
+
+					// Garantir plataforma de tile ID 2 sob o boss (linha 8, colunas col-1, col, col+1, col+2)
+					if (map.bitmap[8]) {
+						map.bitmap[8][randomCol - 1] = 2;
+						map.bitmap[8][randomCol] = 2;
+						map.bitmap[8][randomCol + 1] = 2;
+						map.bitmap[8][randomCol + 2] = 2;
+					}
+					walkMinX = Math.max(0, spawnX - 120);
+					walkMaxX = Math.min(2350, spawnX + 120);
 				}
 
-				// Spawnar na altura do chão padrão (y = 192)
-				var spawnY = 192;
+				// Evitar spawnar muito próximo do jogador
+				if (Math.abs(spawnX - DeSoGhost.xPos) < 150) {
+					if (spawnX + 240 < 2300) {
+						spawnX += 240;
+						walkMinX += 240;
+						walkMaxX += 240;
+					} else {
+						spawnX -= 240;
+						walkMinX -= 240;
+						walkMaxX -= 240;
+					}
+				}
 
 				g_boss = new c_Boss(spawnX, spawnY, "crow");
-				g_boss.minX = Math.max(0, spawnX - 250); // Anda 250px para a esquerda
-				g_boss.maxX = Math.min(2350, spawnX + 250); // Anda 250px para a direita
+				g_boss.minX = walkMinX;
+				g_boss.maxX = walkMaxX;
 			}
 
 			function ResetGame(l) {
