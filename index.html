@@ -2788,7 +2788,9 @@
 						parseInt(char.agi, 10),
 						parseInt(char.int, 10),
 						parseInt(char.pow, 10),
-						char.characterId
+						char.characterId,
+						parseInt(char.xp, 10) || 0,
+						parseInt(char.pointsToDistribute, 10) || 0
 					);
 					
 					if (typeof char.score !== "undefined") {
@@ -3026,7 +3028,7 @@
 							var charactersMap = {};
 							for (var i = 0; i < posts.length; i++) {
 								var post = posts[i];
-								if (post && post.IsNFT && post.PostExtraData && post.PostExtraData["DangerGhost_SaveState"]) {
+								if (post && post.PostExtraData && post.PostExtraData["DangerGhost_SaveState"]) {
 									var charId = post.PostExtraData["DangerGhost_CharacterID"];
 									if (charId) {
 										if (!charactersMap[charId]) {

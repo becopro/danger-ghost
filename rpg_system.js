@@ -171,15 +171,15 @@ var GhostRPG = (function() {
             }
         },
 
-        loadBlockchainState: function(lvl, vit, agi, int, pow, characterId) {
+        loadBlockchainState: function(lvl, vit, agi, int, pow, characterId, xp, pointsToDistribute) {
             state.level = lvl;
             state.vit = vit;
             state.agi = agi;
             state.int = int;
             state.pow = pow;
             state.characterId = characterId || "";
-            state.xp = 0;
-            state.pointsToDistribute = 0;
+            state.xp = typeof xp !== "undefined" ? xp : 0;
+            state.pointsToDistribute = typeof pointsToDistribute !== "undefined" ? pointsToDistribute : 0;
             state.xpRequired = calculateXpRequired(state.level);
             updateIntegrityHash();
             this.saveLocalStorage();
