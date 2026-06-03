@@ -2571,6 +2571,7 @@
 							ImageURLs: []
 						},
 						PostExtraData: {
+							"DangerGhost_CharacterID": stats.characterId,
 							"DangerGhost_SaveState": btoa(JSON.stringify(stats)),
 							"DangerGhost_GameApp": "v1.0.0"
 						},
@@ -3052,6 +3053,12 @@
 												charactersMap[charId] = stats;
 											} catch(err) {
 												console.error("Ficha corrompida para o fantasma ID " + charId, err);
+											}
+										} else {
+											// Se a ficha mais recente já foi carregada, mas não tem imagem,
+											// herdar a imagem de postagens anteriores (como a do NFT original) se disponível
+											if (!charactersMap[charId].imageUrl && post.ImageURLs && post.ImageURLs[0]) {
+												charactersMap[charId].imageUrl = post.ImageURLs[0];
 											}
 										}
 									}
