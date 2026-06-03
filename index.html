@@ -1585,8 +1585,16 @@
 				g_ctx.fillText("FINAL TIME : " + timeStr, g_canvas.width / 2, 135);
 				
 				// Elegibilidade para o ranking de tempo (Speedrun)
-				var totalLevels = window.g_completedLevels ? Object.keys(window.g_completedLevels).length : 0;
-				var eligibleForTime = (totalLevels >= 33) && (!window.g_hasUsedPassword);
+				var eligibleForTime = true;
+				for (var lvl = 1; lvl <= 33; lvl++) {
+					if (!window.g_completedLevels || !window.g_completedLevels[lvl]) {
+						eligibleForTime = false;
+						break;
+					}
+				}
+				if (window.g_hasUsedPassword) {
+					eligibleForTime = false;
+				}
 				if (!eligibleForTime) {
 					g_ctx.fillStyle = "#FF0000"; g_ctx.font = "bold 10px 'Courier New'";
 					g_ctx.fillText("(NOT ELIGIBLE FOR SPEEDRUN RANK - SKIPPED LEVELS/PASSWORD USED)", g_canvas.width / 2, 148);
@@ -2499,8 +2507,16 @@
 						var pName = nameInput.value.trim() || "UNKNOWN";
 						var newPName = pName.substring(0, 15).trim();
 						
-						var totalLevels = window.g_completedLevels ? Object.keys(window.g_completedLevels).length : 0;
-						var eligibleForTime = (totalLevels >= 33) && (!window.g_hasUsedPassword);
+						var eligibleForTime = true;
+						for (var lvl = 1; lvl <= 33; lvl++) {
+							if (!window.g_completedLevels || !window.g_completedLevels[lvl]) {
+								eligibleForTime = false;
+								break;
+							}
+						}
+						if (window.g_hasUsedPassword) {
+							eligibleForTime = false;
+						}
 						var postTimeStr = eligibleForTime ? timeStr : "N/A (Skipped Levels/Password Used)";
 						var timeParamForScoreList = eligibleForTime ? timeStr : "";
 
