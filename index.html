@@ -1442,7 +1442,7 @@
 										AddScore(666);
 										this.collectedLives = (this.collectedLives || 0) + 1;
 										if (this.collectedLives % 3 === 0) {
-											SpawnBossNearPlayer(this);
+											SpawnBossAtRandomLocation();
 										}
 									}
 									map.bitmap[r][c] = 0;
@@ -3075,24 +3075,25 @@
 				SetGameState(G_WIN);
 			}
 
-			function SpawnBossNearPlayer(player) {
+			function SpawnBossAtRandomLocation() {
 				g_screenShakeTime = 30; // 30 frames de tremor (~1 segundo)
 				g_screenShakeIntensity = 12;
 
-				var offset = 180;
-				var spawnX = player.xPos + offset;
-				if (spawnX > 2300) {
-					spawnX = player.xPos - offset;
+				// Escolhe uma coluna aleatória de 5 a 94
+				var randomCol = Math.floor(Math.random() * 90) + 5;
+				var spawnX = randomCol * 24;
+				// Evitar spawnar exatamente em cima do jogador
+				while (Math.abs(spawnX - DeSoGhost.xPos) < 150) {
+					randomCol = Math.floor(Math.random() * 90) + 5;
+					spawnX = randomCol * 24;
 				}
-				if (spawnX < 24) spawnX = 24;
 
-				var spawnY = player.yPos;
-				if (spawnY < 24) spawnY = 24;
-				if (spawnY > 192) spawnY = 192;
+				// Spawnar na altura do chão padrão (y = 192)
+				var spawnY = 192;
 
 				g_boss = new c_Boss(spawnX, spawnY, "crow");
-				g_boss.minX = Math.max(0, spawnX - 120);
-				g_boss.maxX = Math.min(2350, spawnX + 120);
+				g_boss.minX = Math.max(0, spawnX - 250); // Anda 250px para a esquerda
+				g_boss.maxX = Math.min(2350, spawnX + 250); // Anda 250px para a direita
 			}
 
 			function ResetGame(l) {
