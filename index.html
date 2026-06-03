@@ -935,6 +935,8 @@
 			var waterFrame = 0, fireFrame = 0, weedFrame = 0, cupFrame = 0, explosionFrame = 0;
 			var g_boss = null;
 			var g_activeIslands = [];
+			var g_screenShakeTime = 0;
+			var g_screenShakeIntensity = 10;
 
 			// --- LEVEL DATA (33 UNIQUE LEVELS) ---
 			var g_levels = [
@@ -1255,6 +1257,7 @@
 			function c_DeSoGhost(l_x, l_y) {
 				this.xPos = l_x; this.yPos = l_y;
 				this.lives = 3; this.face = 1;
+				this.collectedLives = 0;
 				this.acceleration = [0, 0, 6.5, 6, 5.5, 5, 4.5, 4, 3.5, 3, 2.5, 2, 2, 1.5, 1.5, 0.75, 0.75, 0.5, 0.5, 0.5, 0.25, 0.25, 0, 0];
 				this.jumpCounter = 0; this.jumpNum = 0;
 				this.jumpsPerformed = 0; this.jumpPressed = false;
@@ -1437,6 +1440,10 @@
 									else if (tile == 12) {
 										this.lives++;
 										AddScore(666);
+										this.collectedLives = (this.collectedLives || 0) + 1;
+										if (this.collectedLives % 3 === 0) {
+											SpawnBossNearPlayer(this);
+										}
 									}
 									map.bitmap[r][c] = 0;
 								}
@@ -3068,11 +3075,32 @@
 				SetGameState(G_WIN);
 			}
 
+			function SpawnBossNearPlayer(player) {
+				g_screenShakeTime = 30; // 30 frames de tremor (~1 segundo)
+				g_screenShakeIntensity = 12;
+
+				var offset = 180;
+				var spawnX = player.xPos + offset;
+				if (spawnX > 2300) {
+					spawnX = player.xPos - offset;
+				}
+				if (spawnX < 24) spawnX = 24;
+
+				var spawnY = player.yPos;
+				if (spawnY < 24) spawnY = 24;
+				if (spawnY > 192) spawnY = 192;
+
+				g_boss = new c_Boss(spawnX, spawnY, "crow");
+				g_boss.minX = Math.max(0, spawnX - 120);
+				g_boss.maxX = Math.min(2350, spawnX + 120);
+			}
+
 			function ResetGame(l) {
 				g_globalStartTime = Date.now();
 				g_currentLevel = l || 1; g_score = 0; map_offset = 0;
 				_antiCheat.hash = btoa("0" + _antiCheat.salt);
 				DeSoGhost.lives = 3; DeSoGhost.alive = true;
+				DeSoGhost.collectedLives = 0;
 				DeSoGhost.xPos = 48; DeSoGhost.yPos = 150;
 				DeSoGhost.jumpNum = 0; DeSoGhost.jumpCounter = 0;
 				DeSoGhost.jumpsPerformed = 0; explosionFrame = 0;
@@ -3110,6 +3138,14 @@
 			function Game_Loop() {
 				g_ctx.clearRect(0, 0, g_canvas.width, g_canvas.height);
 				
+				g_ctx.save();
+				if (g_screenShakeTime > 0) {
+					var dx = (Math.random() - 0.5) * g_screenShakeIntensity;
+					var dy = (Math.random() - 0.5) * g_screenShakeIntensity;
+					g_ctx.translate(dx, dy);
+					g_screenShakeTime--;
+				}
+				
 				if (g_gameState == G_START) DrawStartScreen();
 				else if (g_gameState == G_CUTSCENE || g_gameState == G_END_CUTSCENE) {
 					// Tela preta de fundo pro Canvas enquanto o GIF toca pelo DOM
@@ -3144,6 +3180,8 @@
 					g_ctx.fillText("PRESS SPACE TO RESUME", g_canvas.width / 2, 180);
 					g_ctx.textAlign = "left"; 
 				}
+				
+				g_ctx.restore();
 			}
 
 			var g_gameInterval = setInterval(Game_Loop, 33);

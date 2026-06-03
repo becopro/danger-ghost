@@ -37,7 +37,10 @@ const dom = new JSDOM(html, {
                 beginPath: () => {},
                 moveTo: () => {},
                 lineTo: () => {},
-                measureText: () => ({ width: 100 })
+                measureText: () => ({ width: 100 }),
+                save: () => {},
+                restore: () => {},
+                translate: () => {}
             };
         };
         // Captura erros no escopo global do window
