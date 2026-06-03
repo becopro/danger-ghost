@@ -3025,12 +3025,23 @@
 						var data = await res.json();
 						var posts = data.Posts;
 						if (posts && posts.length > 0) {
+							// 1. Identificar IDs de personagens legitimamente mintados (NFTs) pelo usuário
+							var validCharIds = {};
+							for (var i = 0; i < posts.length; i++) {
+								var post = posts[i];
+								if (post && post.IsNFT && post.PostExtraData && post.PostExtraData["DangerGhost_CharacterID"]) {
+									var charId = post.PostExtraData["DangerGhost_CharacterID"];
+									validCharIds[charId] = true;
+								}
+							}
+
+							// 2. Para cada ID válido, obter o estado mais recente (NFT ou salvamento de progresso)
 							var charactersMap = {};
 							for (var i = 0; i < posts.length; i++) {
 								var post = posts[i];
 								if (post && post.PostExtraData && post.PostExtraData["DangerGhost_SaveState"]) {
 									var charId = post.PostExtraData["DangerGhost_CharacterID"];
-									if (charId) {
+									if (charId && validCharIds[charId]) {
 										if (!charactersMap[charId]) {
 											try {
 												var decrypted = atob(post.PostExtraData["DangerGhost_SaveState"]);
