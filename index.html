@@ -3249,7 +3249,7 @@
 
 			function FindRandomPlatformCoordinates() {
 				var validPositions = [];
-				for (var c = 2; c < 96; c++) {
+				for (var c = 40; c < 96; c++) {
 					for (var r = 2; r < 11; r++) {
 						var tileLeft = map.bitmap[r][c];
 						var tileCenter = map.bitmap[r][c+1];
@@ -3332,7 +3332,7 @@
 					walkMaxX = coords.maxX;
 				} else {
 					// Fallback: spawn no meio do mapa com plataforma gerada dinamicamente
-					var randomCol = Math.floor(Math.random() * 80) + 10;
+					var randomCol = Math.floor(Math.random() * 50) + 40; // Garantir distância do início da fase
 					spawnX = randomCol * 24;
 					spawnY = 144; // row 6
 
