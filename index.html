@@ -1482,12 +1482,18 @@
 				};
 
 				this.nextLevel = function () {
+					if (window.g_completedLevels) {
+						window.g_completedLevels[g_currentLevel] = true;
+					}
 					if (g_currentLevel >= 33) { 
 						g_globalTotalTime = Math.floor((Date.now() - g_globalStartTime) / 1000);
 						StartEndCutscene();
 						return; 
 					}
 					g_currentLevel++;
+					if (window.g_completedLevels) {
+						window.g_completedLevels[g_currentLevel] = true;
+					}
 					this.xPos = 48; this.yPos = 150; map_offset = 0;
 					map.loadLevel(g_currentLevel);
 					this.jump = false; this.jumpNum = 0;
@@ -1578,19 +1584,27 @@
 				var timeStr = mins + ":" + secs.toString().padStart(2, '0');
 				g_ctx.fillText("FINAL TIME : " + timeStr, g_canvas.width / 2, 135);
 				
+				// Elegibilidade para o ranking de tempo (Speedrun)
+				var totalLevels = window.g_completedLevels ? Object.keys(window.g_completedLevels).length : 0;
+				var eligibleForTime = (totalLevels >= 33) && (!window.g_hasUsedPassword);
+				if (!eligibleForTime) {
+					g_ctx.fillStyle = "#FF0000"; g_ctx.font = "bold 10px 'Courier New'";
+					g_ctx.fillText("(NOT ELIGIBLE FOR SPEEDRUN RANK - SKIPPED LEVELS/PASSWORD USED)", g_canvas.width / 2, 148);
+				}
+				
 				// Nível e XP do Fantasma
 				var stats = GhostRPG.getStats();
-				g_ctx.fillStyle = "#00FF00";
-				g_ctx.fillText("GHOST LEVEL: " + stats.level, g_canvas.width / 2, 160);
-				g_ctx.fillText("GHOST XP   : " + stats.xp + " / " + stats.xpRequired, g_canvas.width / 2, 185);
+				g_ctx.fillStyle = "#00FF00"; g_ctx.font = "bold 18px 'Courier New'";
+				g_ctx.fillText("GHOST LEVEL: " + stats.level, g_canvas.width / 2, 172);
+				g_ctx.fillText("GHOST XP   : " + stats.xp + " / " + stats.xpRequired, g_canvas.width / 2, 197);
 				
 				if (playerToStamp) {
 					g_ctx.fillStyle = "#FF00FF";
 					g_ctx.font = "bold 18px 'Courier New'";
-					g_ctx.fillText("PLAYER: " + playerToStamp.toUpperCase(), g_canvas.width / 2, 220);
+					g_ctx.fillText("PLAYER: " + playerToStamp.toUpperCase(), g_canvas.width / 2, 230);
 				} else {
 					g_ctx.fillStyle = "#FFFFFF"; g_ctx.font = "bold 18px 'Courier New'";
-					g_ctx.fillText("PRESS 'SPACE' TO PLAY AGAIN", g_canvas.width / 2, 255);
+					g_ctx.fillText("PRESS 'SPACE' TO PLAY AGAIN", g_canvas.width / 2, 265);
 				}
 				g_ctx.textAlign = "start";
 			}
@@ -2485,18 +2499,23 @@
 						var pName = nameInput.value.trim() || "UNKNOWN";
 						var newPName = pName.substring(0, 15).trim();
 						
+						var totalLevels = window.g_completedLevels ? Object.keys(window.g_completedLevels).length : 0;
+						var eligibleForTime = (totalLevels >= 33) && (!window.g_hasUsedPassword);
+						var postTimeStr = eligibleForTime ? timeStr : "N/A (Skipped Levels/Password Used)";
+						var timeParamForScoreList = eligibleForTime ? timeStr : "";
+
 						if (!g_leaderboardList) g_leaderboardList = [];
 						var foundMe = false;
 						for (var k = 0; k < g_leaderboardList.length; k++) {
 							if (g_leaderboardList[k].name === newPName) {
 								if (g_score > g_leaderboardList[k].score) {
 									g_leaderboardList[k].score = g_score;
-									g_leaderboardList[k].time = timeStr;
+									g_leaderboardList[k].time = timeParamForScoreList;
 								}
 								foundMe = true; break;
 							}
 						}
-						if (!foundMe) g_leaderboardList.push({ name: newPName, score: g_score, time: timeStr });
+						if (!foundMe) g_leaderboardList.push({ name: newPName, score: g_score, time: timeParamForScoreList });
 						
 						g_leaderboardList.sort(function(a,b) { return b.score - a.score; });
 						g_leaderboardList = g_leaderboardList.slice(0, 10);
@@ -2507,26 +2526,28 @@
 							top10Text += (i+1) + ". " + item.name + " - " + item.score + " pts" + (item.time ? " (" + item.time + ")" : "") + "\n";
 						}
 
-						// 2. Atualizar o ranking de tempo localmente para a postagem
+						// 2. Atualizar o ranking de tempo localmente para a postagem (apenas se elegível)
 						if (!g_timeLeaderboardList) g_timeLeaderboardList = [];
-						var foundMeTime = false;
-						for (var k = 0; k < g_timeLeaderboardList.length; k++) {
-							if (g_timeLeaderboardList[k].name === newPName) {
-								var oldSecs = timeToSeconds(g_timeLeaderboardList[k].time);
-								var newSecs = timeToSeconds(timeStr);
-								if (newSecs < oldSecs) {
-									g_timeLeaderboardList[k].time = timeStr;
-									g_timeLeaderboardList[k].score = g_score;
+						if (eligibleForTime) {
+							var foundMeTime = false;
+							for (var k = 0; k < g_timeLeaderboardList.length; k++) {
+								if (g_timeLeaderboardList[k].name === newPName) {
+									var oldSecs = timeToSeconds(g_timeLeaderboardList[k].time);
+									var newSecs = timeToSeconds(timeStr);
+									if (newSecs < oldSecs) {
+										g_timeLeaderboardList[k].time = timeStr;
+										g_timeLeaderboardList[k].score = g_score;
+									}
+									foundMeTime = true; break;
 								}
-								foundMeTime = true; break;
 							}
+							if (!foundMeTime) g_timeLeaderboardList.push({ name: newPName, score: g_score, time: timeStr });
+							
+							g_timeLeaderboardList.sort(function(a, b) {
+								return timeToSeconds(a.time) - timeToSeconds(b.time);
+							});
+							g_timeLeaderboardList = g_timeLeaderboardList.slice(0, 10);
 						}
-						if (!foundMeTime) g_timeLeaderboardList.push({ name: newPName, score: g_score, time: timeStr });
-						
-						g_timeLeaderboardList.sort(function(a, b) {
-							return timeToSeconds(a.time) - timeToSeconds(b.time);
-						});
-						g_timeLeaderboardList = g_timeLeaderboardList.slice(0, 10);
 						
 						var timeTop10Text = "\n\n⚡ DANGER GHOST SPEEDRUN TOP 10 ⚡\n";
 						for (var i = 0; i < g_timeLeaderboardList.length; i++) {
@@ -2535,7 +2556,7 @@
 						}
 
 						var rpgMetadata = GhostRPG.getDeSoMetadataString();
-						var bodyText = "🎮 I just conquered DANGER GHOST!" + rpgMetadata + "\n\nGhost Hunter: " + pName + "\nScore: " + g_score + "\nTime: " + timeStr + top10Text + timeTop10Text + "\n#DangerGhost #Web3Gaming #DeSo";
+						var bodyText = "🎮 I just conquered DANGER GHOST!" + rpgMetadata + "\n\nGhost Hunter: " + pName + "\nScore: " + g_score + "\nTime: " + postTimeStr + top10Text + timeTop10Text + "\n#DangerGhost #Web3Gaming #DeSo";
 						
 						var postReq = {
 							UpdaterPublicKeyBase58Check: window.g_desoPublicKey,
@@ -3295,6 +3316,9 @@
 			function ResetGame(l) {
 				g_globalStartTime = Date.now();
 				g_currentLevel = l || 1; g_score = 0; map_offset = 0;
+				window.g_hasUsedPassword = (l && l > 1) ? true : false;
+				window.g_completedLevels = {};
+				window.g_completedLevels[g_currentLevel] = true;
 				_antiCheat.hash = btoa("0" + _antiCheat.salt);
 				DeSoGhost.lives = 3; DeSoGhost.alive = true;
 				DeSoGhost.collectedLives = 0;
@@ -3432,9 +3456,13 @@
 						}
 						var pw = prompt("ENTER VIP PASSWORD");
 						if (pw) {
-							if (pw.toLowerCase() === "matrix") { ResetGame(26); }
-							else if (pw.toLowerCase() === "becopro") { ResetGame(29); }
-							else if (pw.toLowerCase() === "maximo") { ResetGame(33); }
+							var pwLower = pw.toLowerCase();
+							if (pwLower === "matrix" || pwLower === "becopro" || pwLower === "maximo") {
+								window.g_hasUsedPassword = true;
+								if (pwLower === "matrix") { ResetGame(26); }
+								else if (pwLower === "becopro") { ResetGame(29); }
+								else if (pwLower === "maximo") { ResetGame(33); }
+							}
 						}
 					}
 				}
