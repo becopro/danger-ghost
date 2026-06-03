@@ -1272,7 +1272,8 @@
 					this.xPos += this.speed * this.dir;
 					if (this.xPos > this.maxX || this.xPos < this.minX) this.dir *= -1;
 					if (this.xPos < 0) { this.xPos = 0; this.dir = 1; }
-					if (this.xPos > 1152) { this.xPos = 1152; this.dir = -1; }
+					var maxLimit = 2400 - this.width;
+					if (this.xPos > maxLimit) { this.xPos = maxLimit; this.dir = -1; }
 				};
 			}
 
@@ -3294,7 +3295,7 @@
 								validPositions.push({
 									col: c + 1,
 									row: r - 2,
-									minX: minCol * 24,
+									minX: Math.max(960, minCol * 24),
 									maxX: (maxCol - 1) * 24
 								});
 							}
@@ -3343,7 +3344,7 @@
 						map.bitmap[8][randomCol + 1] = 2;
 						map.bitmap[8][randomCol + 2] = 2;
 					}
-					walkMinX = Math.max(0, spawnX - 120);
+					walkMinX = Math.max(960, spawnX - 120);
 					walkMaxX = Math.min(2350, spawnX + 120);
 				}
 
