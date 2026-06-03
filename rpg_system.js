@@ -206,7 +206,7 @@ function RenderRPGStatusDrawer() {
     var apHTML = "";
     if (stats.pointsToDistribute > 0) {
         apHTML = "<div style='color:#00FF00; font-weight:bold; text-align:center; margin-bottom: 12px; text-shadow: 0 0 5px #00FF00;'>" +
-                 "⚡ " + stats.pointsToDistribute + " PONTOS DISPONÍVEIS!</div>";
+                 "⚡ " + stats.pointsToDistribute + " POINTS AVAILABLE!</div>";
     }
 
     function makeButton(attr) {
@@ -219,32 +219,32 @@ function RenderRPGStatusDrawer() {
     var saveButtonHTML = "";
     if (typeof window.g_desoPublicKey !== "undefined" && window.g_desoPublicKey) {
         if (stats.characterId) {
-            saveButtonHTML = "<button id='rpgSaveBtn' onclick='window.TriggerRPGSaveToDeSo()' style='width:100%; margin-top:10px; padding:6px; background:#00FF00; color:#000; font-weight:bold; border:none; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>SALVAR EVOLUÇÃO (BLOCKCHAIN)</button>";
+            saveButtonHTML = "<button id='rpgSaveBtn' onclick='window.TriggerRPGSaveToDeSo()' style='width:100%; margin-top:10px; padding:6px; background:#00FF00; color:#000; font-weight:bold; border:none; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>SAVE EVOLUTION (BLOCKCHAIN)</button>";
         } else {
-            saveButtonHTML = "<button onclick='window.LoadRPGStateFromDeSo(window.g_desoPublicKey)' style='width:100%; margin-top:10px; padding:6px; background:#00FFFF; color:#000; font-weight:bold; border:none; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>ESCOLHER FANTASMA</button>";
+            saveButtonHTML = "<button onclick='window.LoadRPGStateFromDeSo(window.g_desoPublicKey)' style='width:100%; margin-top:10px; padding:6px; background:#00FFFF; color:#000; font-weight:bold; border:none; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>SELECT GHOST</button>";
         }
     } else {
-        saveButtonHTML = "<button onclick='window.LoginDeSo()' style='width:100%; margin-top:10px; padding:6px; background:#444; color:#AAA; font-weight:bold; border:1px dashed #AAA; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>CONECTAR CARTEIRA DESO</button>";
+        saveButtonHTML = "<button onclick='window.LoginDeSo()' style='width:100%; margin-top:10px; padding:6px; background:#444; color:#AAA; font-weight:bold; border:1px dashed #AAA; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>CONNECT DESO WALLET</button>";
     }
 
     panelContent.innerHTML = 
         "<h3 style='margin: 0 0 12px 0; color: #00FF00; text-align: center; letter-spacing: 2px;'>🛡️ HERO STATUS</h3>" +
         apHTML +
         "<div style='display: flex; flex-direction: column; gap: 10px; font-size: 13px; color: #FFF;'>" +
-        "<div><b>NÍVEL:</b> <span style='color:#00FFFF;'>" + stats.level + "</span></div>" +
+        "<div><b>LEVEL:</b> <span style='color:#00FFFF;'>" + stats.level + "</span></div>" +
         "<div><b>XP:</b> <span style='color:#00FFFF;'>" + stats.xp + " / " + stats.xpRequired + "</span></div>" +
         "<hr style='border-color: rgba(255,255,255,0.2); margin: 5px 0;'>" +
         "<div style='display:flex; justify-content:space-between; align-items:center;'><span>❤️ <b>VIT:</b> " + stats.vit + "</span>" + makeButton('vit') + "</div>" +
-        "<div style='font-size:10px; color:#888; margin-top:-6px;'>Aumenta vidas máximas passivas.</div>" +
+        "<div style='font-size:10px; color:#888; margin-top:-6px;'>Increases max passive lives.</div>" +
         
         "<div style='display:flex; justify-content:space-between; align-items:center;'><span>⚡ <b>AGI:</b> " + stats.agi + "</span>" + makeButton('agi') + "</div>" +
-        "<div style='font-size:10px; color:#888; margin-top:-6px;'>Aumenta velocidade e aceleração.</div>" +
+        "<div style='font-size:10px; color:#888; margin-top:-6px;'>Increases speed and acceleration.</div>" +
         
         "<div style='display:flex; justify-content:space-between; align-items:center;'><span>🔮 <b>INT:</b> " + stats.int + "</span>" + makeButton('int') + "</div>" +
-        "<div style='font-size:10px; color:#888; margin-top:-6px;'>Aumenta reserva de Ghost Mode.</div>" +
+        "<div style='font-size:10px; color:#888; margin-top:-6px;'>Increases Ghost Mode duration.</div>" +
         
         "<div style='display:flex; justify-content:space-between; align-items:center;'><span>⚔️ <b>POW:</b> " + stats.pow + "</span>" + makeButton('pow') + "</div>" +
-        "<div style='font-size:10px; color:#888; margin-top:-6px;'>Aumenta o dano de pisada nos chefes.</div>" +
+        "<div style='font-size:10px; color:#888; margin-top:-6px;'>Increases jump damage to bosses.</div>" +
         "</div>" +
         saveButtonHTML;
 }
