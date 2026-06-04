@@ -1293,7 +1293,13 @@
 			function c_Boss(l_x, l_y, type) {
 				this.type = type || "crow";
 				this.xPos = l_x; this.yPos = l_y;
-				this.lives = (this.type === "cactus") ? 9 : 4; 
+				
+				var stats = GhostRPG.getStats();
+				this.level = stats.level || 1;
+				
+				var baseHp = (this.type === "cactus") ? 9 : 4;
+				this.lives = baseHp * this.level;
+				
 				this.width = (this.type === "cactus") ? 288 : 48; 
 				this.height = (this.type === "cactus") ? 288 : 48;
 				this.speed = 2; this.dir = 1;
@@ -1360,7 +1366,7 @@
 					if (this.lives <= 0) {
 						this.alive = false;
 						AddScore(1000);
-						var bossXp = (this.type === "cactus") ? 1000 : 100;
+						var bossXp = (this.type === "cactus") ? 1000 : (100 + (this.level - 1) * 30);
 						GhostRPG.addXp(bossXp);
 						return;
 					}
@@ -1484,12 +1490,17 @@
 							this.yPos + 24 > g_boss.yPos && this.yPos < g_boss.yPos + g_boss.height) {
 							if (this.jumpNum == 2 && (this.yPos + 24) < (g_boss.yPos + g_boss.height / 2)) {
 								var dmg = GhostRPG.getBossJumpDamage();
-								g_boss.lives -= dmg;
+								var finalDmg = dmg;
+								if (g_boss.level > 1) {
+									var reduction = Math.min(0.70, (g_boss.level - 1) * 0.04);
+									finalDmg = Math.max(1, Math.floor(dmg * (1 - reduction)));
+								}
+								g_boss.lives -= finalDmg;
 								this.jumpNum = 1; this.jumpCounter = 2;
 								if (g_boss.lives <= 0) { 
 									g_boss.alive = false; 
 									AddScore(1000); 
-									var bossXp = (g_boss.type === "cactus") ? 1000 : 100;
+									var bossXp = (g_boss.type === "cactus") ? 1000 : (100 + (g_boss.level - 1) * 30);
 									GhostRPG.addXp(bossXp); 
 								}
 							} else if (!this.ghostMode && this.phantomFormTimer <= 0) { // Immune during Phantom Form
@@ -1852,7 +1863,12 @@
 
 							if (canHit) {
 								p.hits[g_boss.xPos + "_" + g_boss.yPos] = g_count;
-								g_boss.lives -= p.damage;
+								var finalDmg = p.damage;
+								if (g_boss.level > 1) {
+									var reduction = Math.min(0.70, (g_boss.level - 1) * 0.04);
+									finalDmg = Math.max(1, Math.floor(p.damage * (1 - reduction)));
+								}
+								g_boss.lives -= finalDmg;
 
 								if (p.type === "spark") {
 									var genAmount = 15 + Math.floor(stats.int * 0.5);
@@ -1865,7 +1881,7 @@
 								if (g_boss.lives <= 0) {
 									g_boss.alive = false;
 									AddScore(1000);
-									var bossXp = (g_boss.type === "cactus") ? 1000 : 100;
+									var bossXp = (g_boss.type === "cactus") ? 1000 : (100 + (g_boss.level - 1) * 30);
 									GhostRPG.addXp(bossXp);
 								}
 
@@ -1943,8 +1959,27 @@
 				g_ctx.fillText(timeStr, 340, 20);
 
 				if (g_boss && g_boss.alive) {
-					g_ctx.fillStyle = "#FF0000"; g_ctx.fillText("BOSS:", 480, 20);
-					for (var i_b = 0; i_b < g_boss.lives; i_b++) { g_ctx.fillRect(540 + (i_b * 20), 8, 15, 15); }
+					g_ctx.fillStyle = "#FF0000"; g_ctx.fillText("BOSS:", 445, 20);
+					
+					// Draw health bar border
+					g_ctx.strokeStyle = "#555";
+					g_ctx.lineWidth = 1.5;
+					g_ctx.strokeRect(505, 8, 120, 14);
+					
+					// Calculate fill percentage
+					var baseHp = (g_boss.type === "cactus") ? 9 : 4;
+					var maxHp = baseHp * g_boss.level;
+					var pct = Math.max(0, g_boss.lives / maxHp);
+					
+					// Draw filled health bar
+					g_ctx.fillStyle = "#FF0000";
+					g_ctx.fillRect(506, 9, Math.floor(pct * 118), 12);
+					
+					// Draw text Lvl overlay
+					g_ctx.font = "bold 9px 'Courier New'"; g_ctx.fillStyle = "#FFFFFF";
+					g_ctx.textAlign = "center";
+					g_ctx.fillText("LVL " + g_boss.level, 565, 18);
+					g_ctx.textAlign = "start";
 				}
 				
 				// Arte Logo DeSo na parte de baixo, 2 vezes o tamanho do Ftasma (24 * 2 = 48)
