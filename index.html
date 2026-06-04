@@ -1340,7 +1340,7 @@
 
 					// Gerenciamento de Mana/Energia do Ghost Mode (INT)
 					var stats = GhostRPG.getStats();
-					this.maxMana = 100 * GhostRPG.getGhostDurationMultiplier();
+					this.maxMana = GhostRPG.getMaxMana();
 					if (this.ghostMode && this.alive) {
 						var consumeRate = Math.max(0.5, 3 - (stats.int * 0.15));
 						this.mana -= consumeRate;
@@ -1571,6 +1571,29 @@
 				if (logoDesoImage.complete) {
 					g_ctx.drawImage(logoDesoImage, g_canvas.width - 48 - 10, g_canvas.height - 48 - 10, 48, 48);
 				}
+
+				// Barra de Mana
+				g_ctx.font = "bold 14px 'Courier New'"; g_ctx.fillStyle = "#00E5FF";
+				g_ctx.fillText("MANA:", 200, g_canvas.height - 10);
+				
+				g_ctx.strokeStyle = "rgba(0, 229, 255, 0.4)";
+				g_ctx.lineWidth = 1.5;
+				g_ctx.strokeRect(250, g_canvas.height - 21, 120, 12);
+				
+				var fillWidth = DeSoGhost.maxMana > 0 ? (DeSoGhost.mana / DeSoGhost.maxMana) * 118 : 0;
+				if (fillWidth > 0) {
+					var grad = g_ctx.createLinearGradient(251, 0, 251 + fillWidth, 0);
+					grad.addColorStop(0, "#0052D4");
+					grad.addColorStop(0.5, "#4364F7");
+					grad.addColorStop(1, "#6FB1FC");
+					g_ctx.fillStyle = grad;
+					g_ctx.fillRect(251, g_canvas.height - 20, fillWidth, 10);
+				}
+				
+				g_ctx.font = "9px 'Courier New'"; g_ctx.fillStyle = "#FFFFFF";
+				g_ctx.textAlign = "center";
+				g_ctx.fillText(Math.floor(DeSoGhost.mana) + " / " + Math.floor(DeSoGhost.maxMana), 310, g_canvas.height - 12);
+				g_ctx.textAlign = "start";
 			}
 
 			function DrawStartScreen() {
@@ -2253,7 +2276,7 @@
 							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							alert("🎉 SUCCESS! Your Ghost was minted as an NFT. Let's begin!");
 							document.getElementById("characterSelectionOverlay").style.display = "none";
-							GhostRPG.loadBlockchainState(1, 1, 1, 1, 1, g_characterCreationId);
+							GhostRPG.loadBlockchainState(1, 1, 1, 1, 1, g_characterCreationId, 0, 0, 1);
 							g_score = 0; _antiCheat.hash = btoa("0" + _antiCheat.salt); g_globalTotalTime = 0;
 							ResetGame(1);
 						}
@@ -2454,7 +2477,7 @@
 							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							alert("🎉 SUCCESS! Your Ghost was minted as an NFT. Let's begin!");
 							document.getElementById("characterSelectionOverlay").style.display = "none";
-							GhostRPG.loadBlockchainState(1, 1, 1, 1, 1, g_characterCreationId);
+							GhostRPG.loadBlockchainState(1, 1, 1, 1, 1, g_characterCreationId, 0, 0, 1);
 							g_score = 0; _antiCheat.hash = btoa("0" + _antiCheat.salt); g_globalTotalTime = 0;
 							ResetGame(1);
 						}
@@ -2875,18 +2898,19 @@
 					ctx.fillText("⚡ AGI (AGILITY)     : " + stats.agi, 340, startAttrY + gap);
 					ctx.fillText("🔮 INT (INTELLIGENCE): " + stats.int, 340, startAttrY + gap * 2);
 					ctx.fillText("⚔️ POW (POWER)       : " + stats.pow, 340, startAttrY + gap * 3);
+					ctx.fillText("🌀 MAG (MAGIC)       : " + (stats.mag || 1), 340, startAttrY + gap * 4);
 
 					ctx.strokeStyle = "rgba(255,255,255,0.1)";
 					ctx.beginPath();
-					ctx.moveTo(330, startAttrY + gap * 3 + 15);
-					ctx.lineTo(570, startAttrY + gap * 3 + 15);
+					ctx.moveTo(330, startAttrY + gap * 4 + 15);
+					ctx.lineTo(570, startAttrY + gap * 4 + 15);
 					ctx.stroke();
 
 					ctx.font = "bold 9px 'Courier New'";
 					ctx.fillStyle = "#888";
 					var shortId = stats.characterId ? stats.characterId.substring(0, 16) + "..." : "MINTING ON-CHAIN...";
-					ctx.fillText("CHAR ID: " + shortId, 340, startAttrY + gap * 3 + 35);
-					ctx.fillText("POWERED BY DESO BLOCKCHAIN", 340, startAttrY + gap * 3 + 47);
+					ctx.fillText("CHAR ID: " + shortId, 340, startAttrY + gap * 4 + 35);
+					ctx.fillText("POWERED BY DESO BLOCKCHAIN", 340, startAttrY + gap * 4 + 47);
 
 					canvas.toBlob(callback, "image/jpeg", 0.95);
 				}
@@ -2951,7 +2975,7 @@
 						"<div style='font-size: 12px; color: #FFF; display: flex; flex-direction: column; gap: 3px;'>" +
 						"<div><b>Level:</b> <span style='color: #00FFFF;'>" + char.level + "</span></div>" +
 						"<div>❤️ VIT: " + char.vit + " | ⚡ AGI: " + char.agi + "</div>" +
-						"<div>🔮 INT: " + char.int + " | ⚔️ POW: " + char.pow + "</div>" +
+						"<div>🔮 INT: " + char.int + " | ⚔️ POW: " + char.pow + " | 🌀 MAG: " + (char.mag || 1) + "</div>" +
 						"</div>" +
 						"<button onclick=\"SelectCharacterToPlay('" + char.characterId + "')\" style='width: 100%; padding: 6px; background: #00FFFF; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: \'Courier New\'; margin-top: 10px;'>PLAY</button>";
 					container.appendChild(card);
@@ -2969,7 +2993,8 @@
 						parseInt(char.pow, 10),
 						char.characterId,
 						parseInt(char.xp, 10) || 0,
-						parseInt(char.pointsToDistribute, 10) || 0
+						parseInt(char.pointsToDistribute, 10) || 0,
+						parseInt(char.mag, 10) || 1
 					);
 					
 					if (typeof char.score !== "undefined") {
@@ -3069,6 +3094,7 @@
 					agi: 1,
 					int: 1,
 					pow: 1,
+					mag: 1,
 					characterId: g_characterCreationId,
 					score: 0,
 					time: 0
@@ -3127,6 +3153,7 @@
 						agi: 1,
 						int: 1,
 						pow: 1,
+						mag: 1,
 						characterId: g_characterCreationId,
 						score: 0,
 						time: 0
@@ -3135,7 +3162,7 @@
 					var bodyText = "🔮 Danger Ghost - New Ghost Initiated!\n\n" +
 								   "ID: " + g_characterCreationId.substring(0,12) + "...\n" +
 								   "Level: 1\n" +
-								   "VIT: 1 | AGI: 1 | INT: 1 | POW: 1\n\n" +
+								   "VIT: 1 | AGI: 1 | INT: 1 | POW: 1 | MAG: 1\n\n" +
 								   "#DangerGhostCharacter #NewGhost #DeSo";
 
 					var postReq = {
@@ -3226,6 +3253,7 @@
 												var decrypted = atob(post.PostExtraData["DangerGhost_SaveState"]);
 												var stats = JSON.parse(decrypted);
 												stats.characterId = charId;
+												stats.mag = stats.mag || 1;
 												stats.imageUrl = post.ImageURLs && post.ImageURLs[0] ? post.ImageURLs[0] : "";
 												stats.postHashHex = post.PostHashHex;
 												charactersMap[charId] = stats;

@@ -18,6 +18,7 @@ var GhostRPG = (function() {
         agi: 1, // Agilidade: Velocidade e Altura do Pulo
         int: 1, // Inteligência: Regeneração e Duração do Ghost Mode
         pow: 1, // Poder: Dano causado ao pular no Boss
+        mag: 1, // Magic: Aumenta a Mana máxima
         characterId: "" // Identificador único do Fantasma DeSo
     };
 
@@ -29,14 +30,14 @@ var GhostRPG = (function() {
 
     function updateIntegrityHash() {
         var dataStr = [
-            state.level, state.xp, state.vit, state.agi, state.int, state.pow, state.pointsToDistribute, state.characterId
+            state.level, state.xp, state.vit, state.agi, state.int, state.pow, state.mag, state.pointsToDistribute, state.characterId
         ].join("-");
         rpgAntiCheat.hash = btoa(dataStr + rpgAntiCheat.salt);
     }
 
     function verifyIntegrity() {
         var dataStr = [
-            state.level, state.xp, state.vit, state.agi, state.int, state.pow, state.pointsToDistribute, state.characterId
+            state.level, state.xp, state.vit, state.agi, state.int, state.pow, state.mag, state.pointsToDistribute, state.characterId
         ].join("-");
         return btoa(dataStr + rpgAntiCheat.salt) === rpgAntiCheat.hash;
     }
@@ -60,7 +61,7 @@ var GhostRPG = (function() {
         },
 
         resetStats: function() {
-            state = { level: 1, xp: 0, xpRequired: 100, pointsToDistribute: 0, vit: 1, agi: 1, int: 1, pow: 1, characterId: "" };
+            state = { level: 1, xp: 0, xpRequired: 100, pointsToDistribute: 0, vit: 1, agi: 1, int: 1, pow: 1, mag: 1, characterId: "" };
             updateIntegrityHash();
             this.saveLocalStorage();
         },
@@ -144,6 +145,12 @@ var GhostRPG = (function() {
             return Math.floor(state.vit / 5);
         },
 
+        getMaxMana: function() {
+            // Cada ponto de MAG (Magic) aumenta a mana máxima (+20 de mana)
+            if (!verifyIntegrity()) return 100;
+            return 100 + (state.mag * 20);
+        },
+
         saveLocalStorage: function() {
             try {
                 var dataToSave = JSON.stringify(state);
@@ -171,12 +178,13 @@ var GhostRPG = (function() {
             }
         },
 
-        loadBlockchainState: function(lvl, vit, agi, int, pow, characterId, xp, pointsToDistribute) {
+        loadBlockchainState: function(lvl, vit, agi, int, pow, characterId, xp, pointsToDistribute, mag) {
             state.level = lvl;
             state.vit = vit;
             state.agi = agi;
             state.int = int;
             state.pow = pow;
+            state.mag = typeof mag !== "undefined" ? mag : 1;
             state.characterId = characterId || "";
             state.xp = typeof xp !== "undefined" ? xp : 0;
             state.pointsToDistribute = typeof pointsToDistribute !== "undefined" ? pointsToDistribute : 0;
@@ -189,7 +197,7 @@ var GhostRPG = (function() {
         },
 
         getDeSoMetadataString: function() {
-            return " [RPG Level: " + state.level + " | VIT: " + state.vit + " | AGI: " + state.agi + " | INT: " + state.int + " | POW: " + state.pow + " | CharID: " + state.characterId.substring(0,8) + "...]";
+            return " [RPG Level: " + state.level + " | VIT: " + state.vit + " | AGI: " + state.agi + " | INT: " + state.int + " | POW: " + state.pow + " | MAG: " + state.mag + " | CharID: " + state.characterId.substring(0,8) + "...]";
         }
     };
 })();
@@ -241,10 +249,13 @@ function RenderRPGStatusDrawer() {
         "<div style='font-size:10px; color:#888; margin-top:-6px;'>Increases speed and acceleration.</div>" +
         
         "<div style='display:flex; justify-content:space-between; align-items:center;'><span>🔮 <b>INT:</b> " + stats.int + "</span>" + makeButton('int') + "</div>" +
-        "<div style='font-size:10px; color:#888; margin-top:-6px;'>Increases Ghost Mode duration.</div>" +
+        "<div style='font-size:10px; color:#888; margin-top:-6px;'>Increases mana regeneration.</div>" +
         
         "<div style='display:flex; justify-content:space-between; align-items:center;'><span>⚔️ <b>POW:</b> " + stats.pow + "</span>" + makeButton('pow') + "</div>" +
         "<div style='font-size:10px; color:#888; margin-top:-6px;'>Increases jump damage to bosses.</div>" +
+
+        "<div style='display:flex; justify-content:space-between; align-items:center;'><span>🌀 <b>MAG:</b> " + stats.mag + "</span>" + makeButton('mag') + "</div>" +
+        "<div style='font-size:10px; color:#888; margin-top:-6px;'>Increases maximum mana capacity.</div>" +
         "</div>" +
         saveButtonHTML;
 }
