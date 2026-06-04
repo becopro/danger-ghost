@@ -494,6 +494,9 @@
 	<div id="content" style="text-align: center;">
 		<h1 class="neon-title">DANGER GHOST</h1>
 		
+		<!-- External Game Timer -->
+		<div id="externalTimer" style="display: none; font-size: 24px; font-weight: bold; color: #FFFFFF; font-family: 'Courier New', monospace; margin: 10px auto; text-shadow: 0 0 10px #FFFFFF; letter-spacing: 2px;">TIME: 00:00</div>
+		
 		<!-- Horizontal Navigation Menu -->
 		<div id="gameNavbar" style="display: flex; justify-content: center; align-items: center; gap: 15px; margin: 15px auto; max-width: 640px; font-family: 'Courier New'; font-weight: bold; box-sizing: border-box; padding: 0 10px;">
 			<button id="btnNavScore" onclick="ToggleNavbarTab('score')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #00FFFF; border-radius: 5px; color: #00FFFF; cursor: pointer; text-shadow: 0 0 5px #00FFFF; box-shadow: 0 0 5px rgba(0,255,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">🏆 SCORE RANK</button>
@@ -1950,13 +1953,23 @@
 				// Texto completo do Level com os dois pontos para alinhar perfeitamente com a fonte
 				g_ctx.fillText("LEVEL : " + g_currentLevel, 200, 20);
 				
-				// Desenha o cronômetro (TIME: MM:SS)
+				// Atualiza o cronômetro externo (TIME: MM:SS)
 				var tr = g_timeRemaining < 0 ? 0 : g_timeRemaining;
 				var mins = Math.floor(tr / 60);
 				var secs = tr % 60;
 				var timeStr = "TIME: " + mins.toString().padStart(2, '0') + ":" + secs.toString().padStart(2, '0');
-				g_ctx.fillStyle = (tr <= 30) ? "#FF0000" : "#FFFFFF";
-				g_ctx.fillText(timeStr, 340, 20);
+				
+				var extTimer = document.getElementById("externalTimer");
+				if (extTimer) {
+					extTimer.innerText = timeStr;
+					if (tr <= 30) {
+						extTimer.style.color = "#FF0000";
+						extTimer.style.textShadow = "0 0 10px #FF0000";
+					} else {
+						extTimer.style.color = "#FFFFFF";
+						extTimer.style.textShadow = "0 0 10px #FFFFFF";
+					}
+				}
 
 				if (g_boss && g_boss.alive) {
 					g_ctx.fillStyle = "#FF0000"; g_ctx.fillText("BOSS:", 445, 20);
@@ -2430,12 +2443,12 @@
 								var matchName = cleanBody.match(/Ghost Hunter:\s*(.+)/i);
 								var matchTime = cleanBody.match(/Time:\s*(\d+:\d+)/i);
 								if (matchScore && matchName) {
-									var isEligibleTime = true;
+									var isEligibleTime = false;
 									var matchLevels = cleanBody.match(/Levels Completed:\s*(\d+)\s*\/\s*33/i);
 									if (matchLevels) {
 										var completedCount = parseInt(matchLevels[1], 10);
-										if (completedCount < 33) {
-											isEligibleTime = false;
+										if (completedCount === 33) {
+											isEligibleTime = true;
 										}
 									}
 									list.push({
@@ -3963,6 +3976,10 @@
 			}
 
 			function Game_Loop() {
+				var extTimer = document.getElementById("externalTimer");
+				if (extTimer) {
+					extTimer.style.display = (g_gameState === G_PLAY || g_gameState === G_PAUSE) ? "block" : "none";
+				}
 				g_ctx.clearRect(0, 0, g_canvas.width, g_canvas.height);
 				
 				g_ctx.save();
