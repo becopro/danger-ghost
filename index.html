@@ -1699,7 +1699,7 @@
 				var skillId = stats.equippedSkills[slotIndex];
 				var runeId = stats.equippedRunes[slotIndex];
 
-				if (skillId === 0) { // Spectral Spark (Q)
+				if (skillId === 0) { // Spectral Spark (V)
 					fireProjectile("spark", runeId);
 					DeSoGhost.skillCooldowns[slotIndex] = 15; // 0.5s cooldown
 				}
@@ -1975,7 +1975,7 @@
 				g_ctx.fillText(Math.floor(DeSoGhost.mana) + " / " + Math.floor(DeSoGhost.maxMana), 310, g_canvas.height - 12);
 				
 				// Draw HUD Quick Bar (4 Slots)
-				var slotKeys = ["Q", "F", "E", "R"];
+				var slotKeys = ["V", "F", "E", "R"];
 				var stats = GhostRPG.getStats();
 				if (!DeSoGhost.skillCooldowns) DeSoGhost.skillCooldowns = [0, 0, 0, 0];
 				
@@ -2072,9 +2072,9 @@
 				g_ctx.fillText("W / ARROW UP: JUMP (PRESS THREE TIMES FOR TRIPLE JUMP)", g_canvas.width / 2, 110);
 				g_ctx.fillText("A, D / LEFT, RIGHT: MOVE", g_canvas.width / 2, 130);
 				g_ctx.fillText("W (AT DOOR): ENTER NEXT LEVEL", g_canvas.width / 2, 150);
-				g_ctx.fillText("F: GHOST MODE (TOGGLE, CONSUMES MANA)", g_canvas.width / 2, 170);
+				g_ctx.fillText("F (HOLD): GHOST MODE (PASS THROUGH WALLS)", g_canvas.width / 2, 170);
 				g_ctx.fillText("T (HOLD): FAST FORWARD (2X SPEED)", g_canvas.width / 2, 190);
-				g_ctx.fillText("Q: SPECTRAL SPARK (GEN) | E: PLASMA ORB (SPENDER)", g_canvas.width / 2, 210);
+				g_ctx.fillText("V: SPECTRAL SPARK (GEN) | E: PLASMA ORB (SPENDER)", g_canvas.width / 2, 210);
 				g_ctx.fillText("R: PHANTOM FORM (ULT) | K: OPEN RPG PANEL", g_canvas.width / 2, 230);
 				
 				g_ctx.fillStyle = "#FF00FF";
@@ -4048,12 +4048,18 @@
 					clearInterval(g_gameInterval);
 					g_gameInterval = setInterval(Game_Loop, 16);
 				}
-				if (!e.repeat) {
-					if (e.keyCode == 81) { useSlotSkill(0); } // Q
-					if (e.keyCode == 70) { useSlotSkill(1); } // F
-					if (e.keyCode == 69) { useSlotSkill(2); } // E
-					if (e.keyCode == 82) { useSlotSkill(3); } // R
+				if (e.keyCode == 86 && !e.repeat) { useSlotSkill(0); } // V
+				if (e.keyCode == 70) { // F
+					var stats = GhostRPG.getStats();
+					var skillId = stats.equippedSkills[1];
+					if (skillId === 1) { // Ghost Mode
+						if (DeSoGhost.mana > 0) DeSoGhost.ghostMode = true;
+					} else {
+						if (!e.repeat) useSlotSkill(1);
+					}
 				}
+				if (e.keyCode == 69 && !e.repeat) { useSlotSkill(2); } // E
+				if (e.keyCode == 82 && !e.repeat) { useSlotSkill(3); } // R
 				if (e.keyCode == 32) { 
 					if (g_gameState == G_START) {
 						StartCutscene();
@@ -4110,6 +4116,9 @@
 					g_isFast = false;
 					clearInterval(g_gameInterval);
 					g_gameInterval = setInterval(Game_Loop, 33);
+				}
+				if (e.keyCode == 70) { // F
+					DeSoGhost.ghostMode = false;
 				}
 				if (e.keyCode == 65 || e.keyCode == 37) DeSoGhost.moveLeft = false;
 				if (e.keyCode == 68 || e.keyCode == 39) DeSoGhost.moveRight = false;

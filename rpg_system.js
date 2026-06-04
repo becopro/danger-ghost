@@ -207,7 +207,7 @@ function RenderRPGStatusDrawer() {
         "</div>";
 
     var skillsList = [
-        { id: 0, name: "Spectral Spark (Q)" }, { id: 1, name: "Ghost Mode (F)" },
+        { id: 0, name: "Spectral Spark (V)" }, { id: 1, name: "Ghost Mode (F)" },
         { id: 2, name: "Plasma Orb (E)" }, { id: 3, name: "Phantom Form (R)" }
     ];
     var runesList = [
@@ -215,7 +215,7 @@ function RenderRPGStatusDrawer() {
         { id: 3, name: "Lightning" }, { id: 4, name: "Poison" }, { id: 5, name: "Arcane" }
     ];
 
-    var slotNames = ["Q", "F", "E", "R"];
+    var slotNames = ["V", "F", "E", "R"];
     var customizationHTML = 
         "<hr style='border-color: rgba(255,255,255,0.2); margin: 8px 0;'>" +
         "<h4 style='color: #00FF00; margin: 0 0 6px 0; text-align: center; font-size: 12px; letter-spacing: 1px;'>🔮 ACTIVE SKILLS & RUNES</h4>" +
