@@ -920,6 +920,7 @@
 			var map_offset = 0;
 			var g_score = 0;
 			var g_currentLevel = 1;
+			var g_doorsUsed = 0;
 
 			// --- SHADOW STATE ANTI-TAMPER ---
 			var _antiCheat = {
@@ -1511,6 +1512,7 @@
 					if (window.g_completedLevels) {
 						window.g_completedLevels[g_currentLevel] = true;
 					}
+					g_doorsUsed++;
 					if (g_currentLevel >= 33) { 
 						g_globalTotalTime = Math.floor((Date.now() - g_globalStartTime) / 1000);
 						StartEndCutscene();
@@ -1528,6 +1530,7 @@
 				this.prevLevel = function () {
 					if (g_currentLevel <= 1) return;
 					g_currentLevel--;
+					if (g_doorsUsed > 0) g_doorsUsed--;
 					if (window.g_completedLevels) {
 						window.g_completedLevels[g_currentLevel] = true;
 					}
@@ -1614,12 +1617,15 @@
 				
 				// Pontuação e tempo final
 				g_ctx.font = "bold 18px 'Courier New'"; g_ctx.fillStyle = "#00FFFF";
-				g_ctx.fillText("FINAL SCORE: " + g_score, g_canvas.width / 2, 110);
+				g_ctx.fillText("FINAL SCORE: " + g_score, g_canvas.width / 2, 105);
 				
 				var mins = Math.floor(g_globalTotalTime / 60);
 				var secs = g_globalTotalTime % 60;
 				var timeStr = mins + ":" + secs.toString().padStart(2, '0');
-				g_ctx.fillText("FINAL TIME : " + timeStr, g_canvas.width / 2, 135);
+				g_ctx.fillText("FINAL TIME : " + timeStr, g_canvas.width / 2, 125);
+				
+				var doorsStr = g_doorsUsed.toString().padStart(2, '0');
+				g_ctx.fillText("LEVELS COMPLETED: " + doorsStr + " / 33", g_canvas.width / 2, 145);
 				
 				// Elegibilidade para o ranking de tempo (Speedrun)
 				var eligibleForTime = true;
@@ -1634,14 +1640,14 @@
 				}
 				if (!eligibleForTime) {
 					g_ctx.fillStyle = "#FF0000"; g_ctx.font = "bold 10px 'Courier New'";
-					g_ctx.fillText("(NOT ELIGIBLE FOR SPEEDRUN RANK - SKIPPED LEVELS/PASSWORD USED)", g_canvas.width / 2, 148);
+					g_ctx.fillText("(NOT ELIGIBLE FOR SPEEDRUN RANK - SKIPPED LEVELS/PASSWORD USED)", g_canvas.width / 2, 158);
 				}
 				
 				// Nível e XP do Fantasma
 				var stats = GhostRPG.getStats();
 				g_ctx.fillStyle = "#00FF00"; g_ctx.font = "bold 18px 'Courier New'";
-				g_ctx.fillText("GHOST LEVEL: " + stats.level, g_canvas.width / 2, 172);
-				g_ctx.fillText("GHOST XP   : " + stats.xp + " / " + stats.xpRequired, g_canvas.width / 2, 197);
+				g_ctx.fillText("GHOST LEVEL: " + stats.level, g_canvas.width / 2, 180);
+				g_ctx.fillText("GHOST XP   : " + stats.xp + " / " + stats.xpRequired, g_canvas.width / 2, 200);
 				
 				if (playerToStamp) {
 					g_ctx.fillStyle = "#FF00FF";
@@ -2609,7 +2615,8 @@
 						}
 
 						var rpgMetadata = GhostRPG.getDeSoMetadataString();
-						var bodyText = "🎮 I just conquered DANGER GHOST!" + rpgMetadata + "\n\nGhost Hunter: " + pName + "\nScore: " + g_score + "\nTime: " + postTimeStr + top10Text + timeTop10Text + "\n#DangerGhost #Web3Gaming #DeSo";
+						var doorsStr = g_doorsUsed.toString().padStart(2, '0');
+						var bodyText = "🎮 I just conquered DANGER GHOST!" + rpgMetadata + "\n\nGhost Hunter: " + pName + "\nScore: " + g_score + "\nTime: " + postTimeStr + "\nLevels Completed: " + doorsStr + " / 33" + top10Text + timeTop10Text + "\n#DangerGhost #Web3Gaming #DeSo";
 						
 						var postReq = {
 							UpdaterPublicKeyBase58Check: window.g_desoPublicKey,
@@ -3368,7 +3375,7 @@
 
 			function ResetGame(l) {
 				g_globalStartTime = Date.now();
-				g_currentLevel = l || 1; g_score = 0; map_offset = 0;
+				g_currentLevel = l || 1; g_score = 0; map_offset = 0; g_doorsUsed = 0;
 				window.g_hasUsedPassword = (l && l > 1) ? true : false;
 				window.g_completedLevels = {};
 				window.g_completedLevels[g_currentLevel] = true;
