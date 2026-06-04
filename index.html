@@ -1638,6 +1638,9 @@
 				if (window.g_hasUsedPassword) {
 					eligibleForTime = false;
 				}
+				if (g_doorsUsed < 33) {
+					eligibleForTime = false;
+				}
 				if (!eligibleForTime) {
 					g_ctx.fillStyle = "#FF0000"; g_ctx.font = "bold 10px 'Courier New'";
 					g_ctx.fillText("(NOT ELIGIBLE FOR SPEEDRUN RANK - SKIPPED LEVELS/PASSWORD USED)", g_canvas.width / 2, 158);
@@ -2558,6 +2561,9 @@
 							}
 						}
 						if (window.g_hasUsedPassword) {
+							eligibleForTime = false;
+						}
+						if (g_doorsUsed < 33) {
 							eligibleForTime = false;
 						}
 						var postTimeStr = eligibleForTime ? timeStr : "N/A (Skipped Levels/Password Used)";
