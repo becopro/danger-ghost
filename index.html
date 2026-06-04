@@ -230,6 +230,18 @@
 	</style>
 	
 	<script>
+		// Secure HTML Escaping function to shield against stored XSS attacks
+		function escapeHTML(str) {
+			if (!str) return "";
+			return str.toString()
+				.replace(/&/g, "&amp;")
+				.replace(/</g, "&lt;")
+				.replace(/>/g, "&gt;")
+				.replace(/"/g, "&quot;")
+				.replace(/'/g, "&#039;");
+		}
+		window.escapeHTML = escapeHTML;
+
 		// --- Web3 DeSo NFT/Save Helpers ---
 		async function CreateDeSoNFTForRPG(postHashHex, buttonId) {
 			var bId = buttonId || "rpgSaveBtn";
@@ -697,7 +709,7 @@
 								"<div><b>W or &uarr;</b><br><span style='color:#FFFF00;'>Jump / Dbl Jump</span></div>" +
 								"<div><b>W (Press 3x)</b><br><span style='color:#FFFF00;'>Triple Jump!</span></div>" +
 								"<div><b>SPACE</b><br><span style='color:#FFFF00;'>Start / Pause</span></div>" +
-								"<div><b>Q, F, E, R</b><br><span style='color:#FFFF00;'>Slot Skills (Spectral, Ghost, Orb, Phantom)</span></div>" +
+								"<div><b>V, F, E, R</b><br><span style='color:#FFFF00;'>Slot Skills (Spectral, Ghost, Orb, Phantom)</span></div>" +
 								"<div><b>T (Hold)</b><br><span style='color:#FFFF00;'>Fast Mode</span></div>" +
 								"<div><b>P</b><br><span style='color:#FFFF00;'>Secret Password</span></div>" +
 								"<div><b>M</b><br><span style='color:#FFFF00;'>Mute Music</span></div>" +
@@ -2533,7 +2545,7 @@
 								var vipTag = item.isVip ? " <span style='color: #FF00FF; font-weight: bold; font-size: 10px; text-shadow: 0 0 4px #FF00FF; background: rgba(255,0,255,0.15); padding: 1px 3px; border-radius: 3px; margin-left: 3px;'>VIP</span>" : "";
 								var rpgLvlVal = item.rpgLevel || 1;
 								var rpgTag = " <span style='color: #00FF00; font-weight: bold; font-size: 10px; text-shadow: 0 0 4px #00FF00; background: rgba(0,255,0,0.15); padding: 1px 3px; border-radius: 3px; margin-left: 3px;'>Lvl." + rpgLvlVal + "</span>";
-								var displayName = pos + ". " + item.name;
+								var displayName = pos + ". " + escapeHTML(item.name);
 								
 								html += "<div style='display: flex; justify-content: space-between; align-items: center; margin: 6px 0; border-bottom: 1px dashed rgba(0, 255, 255, 0.2); font-size: 12px;'>" +
 										"<div style='display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;'>" +
@@ -2563,7 +2575,7 @@
 								var vipTag = item.isVip ? " <span style='color: #FF00FF; font-weight: bold; font-size: 10px; text-shadow: 0 0 4px #FF00FF; background: rgba(255,0,255,0.15); padding: 1px 3px; border-radius: 3px; margin-left: 3px;'>VIP</span>" : "";
 								var rpgLvlVal = item.rpgLevel || 1;
 								var rpgTag = " <span style='color: #00FF00; font-weight: bold; font-size: 10px; text-shadow: 0 0 4px #00FF00; background: rgba(0,255,0,0.15); padding: 1px 3px; border-radius: 3px; margin-left: 3px;'>Lvl." + rpgLvlVal + "</span>";
-								var displayName = pos + ". " + item.name;
+								var displayName = pos + ". " + escapeHTML(item.name);
 								
 								timeHtml += "<div style='display: flex; justify-content: space-between; align-items: center; margin: 6px 0; border-bottom: 1px dashed rgba(0, 255, 255, 0.2); font-size: 12px;'>" +
 										"<div style='display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;'>" +
@@ -3468,7 +3480,7 @@
 
 					var imgHTML = "";
 					if (char.imageUrl) {
-						imgHTML = "<img src='" + char.imageUrl + "' style='width: 100%; height: 140px; object-fit: contain; background: #0a0810; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);' />";
+						imgHTML = "<img src='" + escapeHTML(char.imageUrl) + "' style='width: 100%; height: 140px; object-fit: contain; background: #0a0810; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);' />";
 					} else {
 						imgHTML = "<div style='width: 100%; height: 140px; background: #0a0810; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #555; border: 1px dashed rgba(255,255,255,0.1);'>No Image</div>";
 					}
@@ -3476,14 +3488,14 @@
 					card.innerHTML = 
 						imgHTML +
 						"<div style='font-size: 14px; font-weight: bold; color: #00FF00;'>👻 Ghost #" + (i + 1) + "</div>" +
-						"<div style='font-size: 11px; color: #888;'>ID: " + char.characterId.substring(0, 12) + "...</div>" +
+						"<div style='font-size: 11px; color: #888;'>ID: " + escapeHTML(char.characterId.substring(0, 12)) + "...</div>" +
 						"<hr style='border-color: rgba(255,255,255,0.1); margin: 4px 0;' />" +
 						"<div style='font-size: 12px; color: #FFF; display: flex; flex-direction: column; gap: 3px;'>" +
-						"<div><b>Level:</b> <span style='color: #00FFFF;'>" + char.level + "</span></div>" +
-						"<div>❤️ VIT: " + char.vit + " | ⚡ AGI: " + char.agi + "</div>" +
-						"<div>🔮 INT: " + char.int + " | ⚔️ POW: " + char.pow + " | 🌀 MAG: " + (char.mag || 1) + "</div>" +
+						"<div><b>Level:</b> <span style='color: #00FFFF;'>" + escapeHTML(char.level) + "</span></div>" +
+						"<div>❤️ VIT: " + escapeHTML(char.vit) + " | ⚡ AGI: " + escapeHTML(char.agi) + "</div>" +
+						"<div>🔮 INT: " + escapeHTML(char.int) + " | ⚔️ POW: " + escapeHTML(char.pow) + " | 🌀 MAG: " + escapeHTML(char.mag || 1) + "</div>" +
 						"</div>" +
-						"<button onclick=\"SelectCharacterToPlay('" + char.characterId + "')\" style='width: 100%; padding: 6px; background: #00FFFF; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: \'Courier New\'; margin-top: 10px;'>PLAY</button>";
+						"<button onclick=\"SelectCharacterToPlay('" + escapeHTML(char.characterId) + "')\" style='width: 100%; padding: 6px; background: #00FFFF; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: \'Courier New\'; margin-top: 10px;'>PLAY</button>";
 					container.appendChild(card);
 				}
 			}
