@@ -694,8 +694,8 @@
 								"<div><b>W or &uarr;</b><br><span style='color:#FFFF00;'>Jump / Dbl Jump</span></div>" +
 								"<div><b>W (Press 3x)</b><br><span style='color:#FFFF00;'>Triple Jump!</span></div>" +
 								"<div><b>SPACE</b><br><span style='color:#FFFF00;'>Start / Pause</span></div>" +
-								"<div><b>F (Hold)</b><br><span style='color:#FFFF00;'>Ghost Mode</span></div>" +
-								"<div><b>R</b><br><span style='color:#FFFF00;'>Fast Mode</span></div>" +
+								"<div><b>Q, F, E, R</b><br><span style='color:#FFFF00;'>Slot Skills (Spectral, Ghost, Orb, Phantom)</span></div>" +
+								"<div><b>T (Hold)</b><br><span style='color:#FFFF00;'>Fast Mode</span></div>" +
 								"<div><b>P</b><br><span style='color:#FFFF00;'>Secret Password</span></div>" +
 								"<div><b>M</b><br><span style='color:#FFFF00;'>Mute Music</span></div>" +
 								"</div>";
@@ -790,6 +790,32 @@
 
 			// --- ANTI-CHEAT CAIXA PRETA (IIFE) ---
 			(function() {
+            // requestAnimationFrame polyfill
+            (function() {
+                var lastTime = 0;
+                var vendors = ['ms', 'moz', 'webkit', 'o'];
+                for(var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
+                    window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'];
+                    window.cancelAnimationFrame = window[vendors[x]+'CancelAnimationFrame'] 
+                                               || window[vendors[x]+'CancelRequestAnimationFrame'];
+                }
+             
+                if (!window.requestAnimationFrame)
+                    window.requestAnimationFrame = function(callback, element) {
+                        var currTime = new Date().getTime();
+                        var timeToCall = Math.max(0, 16 - (currTime - lastTime));
+                        var id = window.setTimeout(function() { callback(currTime + timeToCall); }, 
+                          timeToCall);
+                        lastTime = currTime + timeToCall;
+                        return id;
+                    };
+             
+                if (!window.cancelAnimationFrame)
+                    window.cancelAnimationFrame = function(id) {
+                        clearTimeout(id);
+                    };
+            }());
+
 			var g_canvas = document.getElementById("myCanvas");
 			var g_ctx = g_canvas.getContext("2d");
 
@@ -933,11 +959,29 @@
 				g_score += points;
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
 			}
+			function GetScore() {
+				if (btoa(g_score + _antiCheat.salt) !== _antiCheat.hash) return 0;
+				return g_score;
+			}
+			function DeductScore(points) {
+				if (btoa(g_score + _antiCheat.salt) !== _antiCheat.hash) return false;
+				if (g_score >= points) {
+					g_score -= points;
+					_antiCheat.hash = btoa(g_score + _antiCheat.salt);
+					return true;
+				}
+				return false;
+			}
+			window.AddScore = AddScore;
+			window.GetScore = GetScore;
+			window.DeductScore = DeductScore;
 			var waterFrame = 0, fireFrame = 0, weedFrame = 0, cupFrame = 0, explosionFrame = 0;
 			var g_boss = null;
 			var g_activeIslands = [];
 			var g_screenShakeTime = 0;
 			var g_screenShakeIntensity = 10;
+			var g_projectiles = [];
+			var g_visualEffects = [];
 
 			// --- LEVEL DATA (33 UNIQUE LEVELS) ---
 			var g_levels = [
@@ -1256,6 +1300,10 @@
 				this.alive = true;
 				this.isOriginal = false;
 				this.minX = l_x - 120; this.maxX = l_x + 120;
+				this.burnTicks = 0;
+				this.poisonTicks = 0;
+				this.slowTimer = 0;
+				this.shockTimer = 0;
 
 				this.draw = function () {
 					if (!this.alive) return;
@@ -1263,14 +1311,66 @@
 					if (this.type === "cactus") {
 						sprite = (this.dir > 0) ? cactusRight : cactusLeft;
 					} else {
-						sprite = (this.dir > 0) ? sickCrowLeft : sickCrowRight; // Espelhado conforme pedido
+						sprite = (this.dir > 0) ? sickCrowLeft : sickCrowRight;
 					}
 					g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, this.width, this.height);
+					
+					// Draw overlays for active status effects
+					if (this.burnTicks > 0) {
+						g_ctx.fillStyle = "rgba(255, 69, 0, 0.35)";
+						g_ctx.fillRect(this.xPos + map_offset, this.yPos, this.width, this.height);
+					}
+					if (this.poisonTicks > 0) {
+						g_ctx.fillStyle = "rgba(50, 205, 50, 0.35)";
+						g_ctx.fillRect(this.xPos + map_offset, this.yPos, this.width, this.height);
+					}
+					if (this.slowTimer > 0) {
+						g_ctx.fillStyle = "rgba(30, 144, 255, 0.35)";
+						g_ctx.fillRect(this.xPos + map_offset, this.yPos, this.width, this.height);
+					}
+					if (this.shockTimer > 0) {
+						g_ctx.fillStyle = "rgba(255, 255, 0, 0.35)";
+						g_ctx.fillRect(this.xPos + map_offset, this.yPos, this.width, this.height);
+					}
 				};
 
 				this.update = function () {
 					if (!this.alive) return;
-					this.xPos += this.speed * this.dir;
+					
+					// Update status ticks
+					if (this.burnTicks > 0) {
+						this.burnTicks--;
+						if (this.burnTicks % 15 === 0) {
+							var burnDmg = 2 + Math.floor(GhostRPG.getStats().weapon.damage * 0.05);
+							this.lives -= burnDmg;
+							g_visualEffects.push(createExplosionEffect(this.xPos + this.width/2, this.yPos + this.height/2, "#FF4500", 6));
+						}
+					}
+					if (this.poisonTicks > 0) {
+						this.poisonTicks--;
+						if (this.poisonTicks % 20 === 0) {
+							var poisonDmg = 1 + Math.floor(GhostRPG.getStats().weapon.damage * 0.03);
+							this.lives -= poisonDmg;
+							g_visualEffects.push(createExplosionEffect(this.xPos + this.width/2, this.yPos + this.height/2, "#32CD32", 4));
+						}
+					}
+					if (this.slowTimer > 0) this.slowTimer--;
+					if (this.shockTimer > 0) this.shockTimer--;
+					
+					if (this.lives <= 0) {
+						this.alive = false;
+						AddScore(1000);
+						var bossXp = (this.type === "cactus") ? 1000 : 100;
+						GhostRPG.addXp(bossXp);
+						return;
+					}
+					
+					if (this.shockTimer > 0) return; // stunned, skip movement
+					
+					var currentSpeed = this.speed;
+					if (this.slowTimer > 0) currentSpeed *= 0.5; // 50% slow
+					
+					this.xPos += currentSpeed * this.dir;
 					if (this.xPos > this.maxX || this.xPos < this.minX) this.dir *= -1;
 					if (this.xPos < 0) { this.xPos = 0; this.dir = 1; }
 					var maxLimit = 2400 - this.width;
@@ -1290,10 +1390,22 @@
 				this.alive = true; this.speed = 3;
 				this.mana = 100; this.maxMana = 100;
 				this.isLevelingUpAnim = 0;
+				this.skillCooldowns = [0, 0, 0, 0];
+				this.phantomFormTimer = 0;
 
 				this.draw = function () {
 					if (this.alive) {
 						if (this.ghostMode) g_ctx.globalAlpha = 0.5;
+						
+						// Pink aura if Phantom Form active
+						if (this.phantomFormTimer > 0) {
+							g_ctx.strokeStyle = "#FF00FF";
+							g_ctx.lineWidth = 2;
+							g_ctx.beginPath();
+							g_ctx.arc(this.xPos + 12 + map_offset, this.yPos + 12, 18, 0, Math.PI * 2);
+							g_ctx.stroke();
+						}
+						
 						var sprite = (this.face == 1) ? desoGhostRight : desoGhostLeft;
 						g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, 24, 24);
 						if (this.ghostMode) g_ctx.globalAlpha = 1.0;
@@ -1319,6 +1431,11 @@
 
 				this.respawn = function () {
 					this.lives--;
+					g_projectiles = [];
+					g_visualEffects = [];
+					this.skillCooldowns = [0, 0, 0, 0];
+					this.phantomFormTimer = 0;
+					this.ghostMode = false;
 					if (this.lives <= 0) { SetGameState(G_GAMEOVER); return; }
 					this.alive = true; this.xPos = 48; this.yPos = 150;
 					explosionFrame = 0; map_offset = 0;
@@ -1326,19 +1443,27 @@
 					// Bônus de Vitalidade (VIT): adiciona vidas passivas com teto
 					var vitBonus = GhostRPG.getMaxLivesBonus();
 					if (vitBonus > 0) {
-						this.lives = Math.min(6, this.lives + vitBonus); // teto de 6 vidas máximas para manter o HUD harmônico
+						this.lives = Math.min(6, this.lives + vitBonus); // teto de 6 vidas máximas
 					}
 				};
 
 				this.move = function () {
 					if (!this.alive) return;
 
-					// Atualização física dinâmica dos atributos do RPG (AGI)
-					this.speed = GhostRPG.getModifiedSpeed(3);
+					// Update skill cooldowns
+					for (var s = 0; s < 4; s++) {
+						if (this.skillCooldowns[s] > 0) this.skillCooldowns[s]--;
+					}
+					// Update Phantom Form timer
+					if (this.phantomFormTimer > 0) this.phantomFormTimer--;
+
+					// Physical attributes updates
+					var baseSpeed = (this.phantomFormTimer > 0) ? 4.8 : 3; // 60% speed bonus during Phantom Form
+					this.speed = GhostRPG.getModifiedSpeed(baseSpeed);
 					var baseJumpAcceleration = [0, 0, 6.5, 6, 5.5, 5, 4.5, 4, 3.5, 3, 2.5, 2, 2, 1.5, 1.5, 0.75, 0.75, 0.5, 0.5, 0.5, 0.25, 0.25, 0, 0];
 					this.acceleration = GhostRPG.getModifiedJumpAcceleration(baseJumpAcceleration);
 
-					// Gerenciamento de Mana/Energia do Ghost Mode (INT)
+					// Mana management
 					var stats = GhostRPG.getStats();
 					this.maxMana = GhostRPG.getMaxMana();
 					if (this.ghostMode && this.alive) {
@@ -1346,13 +1471,14 @@
 						this.mana -= consumeRate;
 						if (this.mana <= 0) {
 							this.mana = 0;
-							this.ghostMode = false; // Desativa
+							this.ghostMode = false;
 						}
 					} else if (this.alive) {
 						var regenRate = 1.0 + (stats.int * 0.10);
 						this.mana = Math.min(this.maxMana, this.mana + regenRate);
 					}
 
+					// Collision with Boss
 					if (g_boss && g_boss.alive) {
 						if (this.xPos + 20 > g_boss.xPos && this.xPos + 4 < g_boss.xPos + g_boss.width &&
 							this.yPos + 24 > g_boss.yPos && this.yPos < g_boss.yPos + g_boss.height) {
@@ -1366,7 +1492,7 @@
 									var bossXp = (g_boss.type === "cactus") ? 1000 : 100;
 									GhostRPG.addXp(bossXp); 
 								}
-							} else if (!this.ghostMode) {
+							} else if (!this.ghostMode && this.phantomFormTimer <= 0) { // Immune during Phantom Form
 								this.alive = false;
 							}
 						}
@@ -1440,8 +1566,10 @@
 							this.jumpNum = 0; this.jumpCounter = 0;
 							this.jumpsPerformed = 0;
 						}
-						if (ct >= 0 && ct < 11 && (map.bitmap[ct][c] == 5 || map.bitmap[ct][c] == 6)) this.alive = false;
-						if (cb >= 0 && cb < 11 && (map.bitmap[cb][c] == 5 || map.bitmap[cb][c] == 6)) this.alive = false;
+						if (this.phantomFormTimer <= 0) {
+							if (ct >= 0 && ct < 11 && (map.bitmap[ct][c] == 5 || map.bitmap[ct][c] == 6)) this.alive = false;
+							if (cb >= 0 && cb < 11 && (map.bitmap[cb][c] == 5 || map.bitmap[cb][c] == 6)) this.alive = false;
+						}
 
 						if (ct >= 0 && ct < 11 && map.bitmap[ct][c] == 4 && this.jump) {
 							if (g_boss && g_boss.alive && g_boss.isOriginal) { /* Locked */ } else { this.nextLevel(); }
@@ -1523,6 +1651,17 @@
 						window.g_completedLevels[g_currentLevel] = true;
 					}
 					this.xPos = 48; this.yPos = 150; map_offset = 0;
+					
+					// Clean spells and state
+					g_projectiles = [];
+					g_visualEffects = [];
+					this.phantomFormTimer = 0;
+					this.skillCooldowns = [0, 0, 0, 0];
+					if (g_boss) {
+						g_boss.burnTicks = 0; g_boss.poisonTicks = 0;
+						g_boss.slowTimer = 0; g_boss.shockTimer = 0;
+					}
+
 					map.loadLevel(g_currentLevel);
 					this.jump = false; this.jumpNum = 0;
 				};
@@ -1535,9 +1674,250 @@
 						window.g_completedLevels[g_currentLevel] = true;
 					}
 					this.xPos = 48; this.yPos = 150; map_offset = 0;
+					
+					// Clean spells and state
+					g_projectiles = [];
+					g_visualEffects = [];
+					this.phantomFormTimer = 0;
+					this.skillCooldowns = [0, 0, 0, 0];
+					if (g_boss) {
+						g_boss.burnTicks = 0; g_boss.poisonTicks = 0;
+						g_boss.slowTimer = 0; g_boss.shockTimer = 0;
+					}
+
 					map.loadLevel(g_currentLevel);
 					this.jump = false; this.jumpNum = 0;
 				};
+			}
+
+			function useSlotSkill(slotIndex) {
+				if (!DeSoGhost.alive || g_gameState !== G_PLAY) return;
+				if (!DeSoGhost.skillCooldowns) DeSoGhost.skillCooldowns = [0, 0, 0, 0];
+				if (DeSoGhost.skillCooldowns[slotIndex] > 0) return;
+
+				var stats = GhostRPG.getStats();
+				var skillId = stats.equippedSkills[slotIndex];
+				var runeId = stats.equippedRunes[slotIndex];
+
+				if (skillId === 0) { // Spectral Spark (Q)
+					fireProjectile("spark", runeId);
+					DeSoGhost.skillCooldowns[slotIndex] = 15; // 0.5s cooldown
+				}
+				else if (skillId === 1) { // Ghost Mode (F)
+					if (DeSoGhost.mana >= 10) {
+						DeSoGhost.ghostMode = !DeSoGhost.ghostMode;
+					}
+				}
+				else if (skillId === 2) { // Plasma Orb (E)
+					var manaCost = 30;
+					if (DeSoGhost.mana >= manaCost) {
+						DeSoGhost.mana -= manaCost;
+						fireProjectile("orb", runeId);
+						DeSoGhost.skillCooldowns[slotIndex] = 45; // 1.5s cooldown
+					}
+				}
+				else if (skillId === 3) { // Phantom Form (R)
+					var manaCost = 50;
+					if (DeSoGhost.mana >= manaCost) {
+						DeSoGhost.mana -= manaCost;
+						DeSoGhost.phantomFormTimer = 150; // 5s duration
+						DeSoGhost.skillCooldowns[slotIndex] = 450; // 15s cooldown
+						g_visualEffects.push({
+							type: "expand",
+							x: DeSoGhost.xPos + 12,
+							y: DeSoGhost.yPos + 12,
+							color: "#FF00FF",
+							radius: 20,
+							maxRadius: 50,
+							life: 15,
+							maxLife: 15
+						});
+					}
+				}
+			}
+
+			function fireProjectile(type, runeId) {
+				var stats = GhostRPG.getStats();
+				var weaponDmg = stats.weapon.damage;
+				var direction = DeSoGhost.face === 1 ? 1 : -1;
+				var startX = DeSoGhost.xPos + 12;
+				var startY = DeSoGhost.yPos + 12;
+
+				var p = {
+					x: startX,
+					y: startY,
+					vx: (type === "spark" ? 8 : 3.5) * direction,
+					vy: 0,
+					type: type,
+					runeId: runeId,
+					width: type === "spark" ? 8 : 20,
+					height: type === "spark" ? 8 : 20,
+					life: type === "spark" ? 60 : 120,
+					damage: 0,
+					penetrates: type === "orb",
+					hits: {}
+				};
+
+				if (type === "spark") {
+					p.damage = Math.floor(weaponDmg * 0.8);
+				} else {
+					p.damage = Math.floor(weaponDmg * 2.2);
+				}
+
+				if (runeId === 5) {
+					p.damage = Math.floor(p.damage * 1.4); // Arcane rune (+40% dmg)
+				}
+
+				g_projectiles.push(p);
+			}
+
+			function createExplosionEffect(x, y, color, particleCount) {
+				var fx = {
+					type: "explosion",
+					x: x,
+					y: y,
+					particles: [],
+					life: 15,
+					maxLife: 15
+				};
+				for (var i = 0; i < particleCount; i++) {
+					var angle = Math.random() * Math.PI * 2;
+					var speed = 1 + Math.random() * 3;
+					fx.particles.push({
+						x: 0,
+						y: 0,
+						vx: Math.cos(angle) * speed,
+						vy: Math.sin(angle) * speed,
+						color: color,
+						size: 2 + Math.random() * 3
+					});
+				}
+				return fx;
+			}
+
+			function updateAndDrawProjectiles() {
+				var stats = GhostRPG.getStats();
+				for (var i = g_projectiles.length - 1; i >= 0; i--) {
+					var p = g_projectiles[i];
+					p.x += p.vx;
+					p.y += p.vy;
+					p.life--;
+
+					var screenX = p.x + map_offset;
+
+					if (p.life <= 0 || screenX < -50 || screenX > 700) {
+						g_projectiles.splice(i, 1);
+						continue;
+					}
+
+					var color = "#00FFFF";
+					if (p.type === "spark") {
+						if (p.runeId === 1) color = "#FF4500";
+						else if (p.runeId === 2) color = "#00E5FF";
+						else if (p.runeId === 3) color = "#FFEA00";
+						else if (p.runeId === 4) color = "#00E676";
+						else if (p.runeId === 5) color = "#D500F9";
+
+						g_ctx.fillStyle = color;
+						g_ctx.beginPath();
+						g_ctx.arc(screenX, p.y, p.width / 2, 0, Math.PI * 2);
+						g_ctx.fill();
+					} else {
+						if (p.runeId === 1) color = "rgba(255, 69, 0, 0.7)";
+						else if (p.runeId === 2) color = "rgba(0, 229, 255, 0.7)";
+						else if (p.runeId === 3) color = "rgba(255, 234, 0, 0.7)";
+						else if (p.runeId === 4) color = "rgba(0, 230, 118, 0.7)";
+						else if (p.runeId === 5) color = "rgba(213, 0, 249, 0.7)";
+
+						g_ctx.fillStyle = color;
+						g_ctx.beginPath();
+						g_ctx.arc(screenX, p.y, p.width / 2, 0, Math.PI * 2);
+						g_ctx.fill();
+						g_ctx.strokeStyle = "#FFFFFF";
+						g_ctx.lineWidth = 1.5;
+						g_ctx.stroke();
+					}
+
+					if (g_boss && g_boss.alive) {
+						if (p.x + p.width/2 > g_boss.xPos && p.x - p.width/2 < g_boss.xPos + g_boss.width &&
+							p.y + p.height/2 > g_boss.yPos && p.y - p.height/2 < g_boss.yPos + g_boss.height) {
+
+							var canHit = true;
+							if (p.penetrates) {
+								var lastHitTime = p.hits[g_boss.xPos + "_" + g_boss.yPos] || 0;
+								if (g_count - lastHitTime < 10 && lastHitTime !== 0) {
+									canHit = false;
+								}
+							}
+
+							if (canHit) {
+								p.hits[g_boss.xPos + "_" + g_boss.yPos] = g_count;
+								g_boss.lives -= p.damage;
+
+								if (p.type === "spark") {
+									var genAmount = 15 + Math.floor(stats.int * 0.5);
+									DeSoGhost.mana = Math.min(DeSoGhost.maxMana, DeSoGhost.mana + genAmount);
+								}
+
+								applyRuneEffectsToBoss(g_boss, p.runeId);
+								g_visualEffects.push(createExplosionEffect(p.x, p.y, color, p.type === "spark" ? 5 : 10));
+
+								if (g_boss.lives <= 0) {
+									g_boss.alive = false;
+									AddScore(1000);
+									var bossXp = (g_boss.type === "cactus") ? 1000 : 100;
+									GhostRPG.addXp(bossXp);
+								}
+
+								if (!p.penetrates) {
+									g_projectiles.splice(i, 1);
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+
+			function applyRuneEffectsToBoss(boss, runeId) {
+				if (runeId === 1) boss.burnTicks = 150;
+				else if (runeId === 2) boss.slowTimer = 200;
+				else if (runeId === 3) boss.shockTimer = Math.random() < 0.40 ? 60 : 20;
+				else if (runeId === 4) boss.poisonTicks = 240;
+			}
+
+			function updateAndDrawVisualEffects() {
+				for (var i = g_visualEffects.length - 1; i >= 0; i--) {
+					var fx = g_visualEffects[i];
+					fx.life--;
+					if (fx.life <= 0) {
+						g_visualEffects.splice(i, 1);
+						continue;
+					}
+
+					var screenX = fx.x + map_offset;
+
+					if (fx.type === "explosion") {
+						for (var p = 0; p < fx.particles.length; p++) {
+							var pt = fx.particles[p];
+							pt.x += pt.vx;
+							pt.y += pt.vy;
+							g_ctx.fillStyle = pt.color;
+							g_ctx.globalAlpha = fx.life / fx.maxLife;
+							g_ctx.fillRect(screenX + pt.x, fx.y + pt.y, pt.size, pt.size);
+						}
+						g_ctx.globalAlpha = 1.0;
+					} else if (fx.type === "expand") {
+						g_ctx.strokeStyle = fx.color;
+						g_ctx.globalAlpha = fx.life / fx.maxLife;
+						g_ctx.lineWidth = 2;
+						var radius = fx.radius + (1 - fx.life / fx.maxLife) * (fx.maxRadius - fx.radius);
+						g_ctx.beginPath();
+						g_ctx.arc(screenX, fx.y, radius, 0, Math.PI * 2);
+						g_ctx.stroke();
+						g_ctx.globalAlpha = 1.0;
+					}
+				}
 			}
 
 			function Print_HUD() {
@@ -1593,6 +1973,82 @@
 				g_ctx.font = "9px 'Courier New'"; g_ctx.fillStyle = "#FFFFFF";
 				g_ctx.textAlign = "center";
 				g_ctx.fillText(Math.floor(DeSoGhost.mana) + " / " + Math.floor(DeSoGhost.maxMana), 310, g_canvas.height - 12);
+				
+				// Draw HUD Quick Bar (4 Slots)
+				var slotKeys = ["Q", "F", "E", "R"];
+				var stats = GhostRPG.getStats();
+				if (!DeSoGhost.skillCooldowns) DeSoGhost.skillCooldowns = [0, 0, 0, 0];
+				
+				var skillColors = ["#00FFFF", "#FF00FF", "#FF7700", "#D500F9"];
+				var skillInitials = ["S", "G", "P", "F"];
+				var maxCooldowns = [15, 1, 45, 450];
+				
+				for (var i = 0; i < 4; i++) {
+					var slotX = 405 + i * 32;
+					var slotY = g_canvas.height - 32;
+					
+					// Draw background
+					g_ctx.fillStyle = "#111118";
+					g_ctx.fillRect(slotX, slotY, 24, 24);
+					
+					// Draw border
+					g_ctx.strokeStyle = DeSoGhost.skillCooldowns[i] > 0 ? "#444444" : "#00FF00";
+					g_ctx.lineWidth = 1;
+					g_ctx.strokeRect(slotX, slotY, 24, 24);
+					
+					// Draw skill initial
+					var skillId = stats.equippedSkills[i];
+					g_ctx.font = "bold 11px 'Courier New'";
+					g_ctx.fillStyle = skillColors[skillId] || "#FFFFFF";
+					g_ctx.textAlign = "center";
+					g_ctx.fillText(skillInitials[skillId] || "?", slotX + 12, slotY + 16);
+					
+					// Draw rune indicator dot
+					var runeId = stats.equippedRunes[i];
+					var runeColor = "#FFFFFF";
+					if (runeId === 1) runeColor = "#FF4500"; // Fire
+					else if (runeId === 2) runeColor = "#00E5FF"; // Cold
+					else if (runeId === 3) runeColor = "#FFEA00"; // Lightning
+					else if (runeId === 4) runeColor = "#00E676"; // Poison
+					else if (runeId === 5) runeColor = "#D500F9"; // Arcane
+					
+					if (runeId > 0) {
+						g_ctx.fillStyle = runeColor;
+						g_ctx.beginPath();
+						g_ctx.arc(slotX + 20, slotY + 4, 3, 0, Math.PI * 2);
+						g_ctx.fill();
+					}
+					
+					// Draw cooldown overlay
+					var cd = DeSoGhost.skillCooldowns[i];
+					if (cd > 0) {
+						var maxCd = maxCooldowns[i] || 1;
+						var pct = cd / maxCd;
+						g_ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+						g_ctx.fillRect(slotX, slotY + (24 * (1 - pct)), 24, 24 * pct);
+						
+						g_ctx.font = "bold 9px 'Courier New'";
+						g_ctx.fillStyle = "#FF3333";
+						var secsLeft = Math.ceil(cd / 30);
+						g_ctx.fillText(secsLeft, slotX + 12, slotY + 15);
+					}
+					
+					// Draw mana cost
+					var manaCost = 0;
+					if (skillId === 1) manaCost = 10;
+					else if (skillId === 2) manaCost = 30;
+					else if (skillId === 3) manaCost = 50;
+					if (manaCost > 0) {
+						g_ctx.font = "8px 'Courier New'";
+						g_ctx.fillStyle = "#00E5FF";
+						g_ctx.fillText(manaCost, slotX + 7, slotY + 22);
+					}
+					
+					// Draw hotkey indicator
+					g_ctx.font = "9px 'Courier New'";
+					g_ctx.fillStyle = "#888888";
+					g_ctx.fillText(slotKeys[i], slotX + 12, slotY - 4);
+				}
 				g_ctx.textAlign = "start";
 			}
 
@@ -1616,14 +2072,16 @@
 				g_ctx.fillText("W / ARROW UP: JUMP (PRESS THREE TIMES FOR TRIPLE JUMP)", g_canvas.width / 2, 110);
 				g_ctx.fillText("A, D / LEFT, RIGHT: MOVE", g_canvas.width / 2, 130);
 				g_ctx.fillText("W (AT DOOR): ENTER NEXT LEVEL", g_canvas.width / 2, 150);
-				g_ctx.fillText("F (HOLD): GHOST MODE (PASS THROUGH WALLS)", g_canvas.width / 2, 170);
-				g_ctx.fillText("R (HOLD): FAST FORWARD (2X SPEED)", g_canvas.width / 2, 190);
+				g_ctx.fillText("F: GHOST MODE (TOGGLE, CONSUMES MANA)", g_canvas.width / 2, 170);
+				g_ctx.fillText("T (HOLD): FAST FORWARD (2X SPEED)", g_canvas.width / 2, 190);
+				g_ctx.fillText("Q: SPECTRAL SPARK (GEN) | E: PLASMA ORB (SPENDER)", g_canvas.width / 2, 210);
+				g_ctx.fillText("R: PHANTOM FORM (ULT) | K: OPEN RPG PANEL", g_canvas.width / 2, 230);
 				
 				g_ctx.fillStyle = "#FF00FF";
-				g_ctx.fillText("PRESS 'P' FOR PASSWORD (VIP ONLY)", g_canvas.width / 2, 210);
+				g_ctx.fillText("PRESS 'P' FOR PASSWORD (VIP ONLY)", g_canvas.width / 2, 255);
 				
 				g_ctx.fillStyle = "#FFFFFF"; g_ctx.font = "bold 18px 'Courier New'";
-				g_ctx.fillText("PRESS 'SPACE' TO START", g_canvas.width / 2, 240);
+				g_ctx.fillText("PRESS 'SPACE' TO START", g_canvas.width / 2, 285);
 				g_ctx.textAlign = "start";
 			}
 
@@ -2994,7 +3452,11 @@
 						char.characterId,
 						parseInt(char.xp, 10) || 0,
 						parseInt(char.pointsToDistribute, 10) || 0,
-						parseInt(char.mag, 10) || 1
+						parseInt(char.mag, 10) || 1,
+						char.equippedSkills,
+						char.equippedRunes,
+						char.equippedPassives,
+						char.weapon
 					);
 					
 					if (typeof char.score !== "undefined") {
@@ -3493,7 +3955,11 @@
 					UpdateAndDrawBinaryBackground(false);
 					map.draw(); map.updateMap();
 					if (g_boss) { g_boss.update(); g_boss.draw(); }
-					DeSoGhost.move(); DeSoGhost.draw(); Print_HUD();
+					DeSoGhost.move();
+					updateAndDrawProjectiles();
+					DeSoGhost.draw();
+					updateAndDrawVisualEffects();
+					Print_HUD();
 				}
 				else if (g_gameState == G_WIN) DrawWinScreen();
 				else if (g_gameState == G_GAMEOVER) DrawGameOverScreen();
@@ -3501,6 +3967,59 @@
 					UpdateAndDrawBinaryBackground(false);
 					map.draw();
 					if (g_boss) { g_boss.draw(); }
+					
+					// Draw spells and effects statically during pause
+					for (var i = 0; i < g_projectiles.length; i++) {
+						var p = g_projectiles[i];
+						var screenX = p.x + map_offset;
+						var color = "#00FFFF";
+						if (p.type === "spark") {
+							if (p.runeId === 1) color = "#FF4500";
+							else if (p.runeId === 2) color = "#00E5FF";
+							else if (p.runeId === 3) color = "#FFEA00";
+							else if (p.runeId === 4) color = "#00E676";
+							else if (p.runeId === 5) color = "#D500F9";
+							g_ctx.fillStyle = color;
+							g_ctx.beginPath();
+							g_ctx.arc(screenX, p.y, p.width / 2, 0, Math.PI * 2);
+							g_ctx.fill();
+						} else {
+							if (p.runeId === 1) color = "rgba(255, 69, 0, 0.7)";
+							else if (p.runeId === 2) color = "rgba(0, 229, 255, 0.7)";
+							else if (p.runeId === 3) color = "rgba(255, 234, 0, 0.7)";
+							else if (p.runeId === 4) color = "rgba(0, 230, 118, 0.7)";
+							else if (p.runeId === 5) color = "rgba(213, 0, 249, 0.7)";
+							g_ctx.fillStyle = color;
+							g_ctx.beginPath();
+							g_ctx.arc(screenX, p.y, p.width / 2, 0, Math.PI * 2);
+							g_ctx.fill();
+							g_ctx.strokeStyle = "#FFFFFF";
+							g_ctx.lineWidth = 1.5;
+							g_ctx.stroke();
+						}
+					}
+					for (var i = 0; i < g_visualEffects.length; i++) {
+						var fx = g_visualEffects[i];
+						var screenX = fx.x + map_offset;
+						if (fx.type === "explosion") {
+							for (var p = 0; p < fx.particles.length; p++) {
+								var pt = fx.particles[p];
+								g_ctx.fillStyle = pt.color;
+								g_ctx.globalAlpha = fx.life / fx.maxLife;
+								g_ctx.fillRect(screenX + pt.x, fx.y + pt.y, pt.size, pt.size);
+							}
+							g_ctx.globalAlpha = 1.0;
+						} else if (fx.type === "expand") {
+							g_ctx.strokeStyle = fx.color;
+							g_ctx.globalAlpha = fx.life / fx.maxLife;
+							g_ctx.lineWidth = 2;
+							var radius = fx.radius + (1 - fx.life / fx.maxLife) * (fx.maxRadius - fx.radius);
+							g_ctx.beginPath();
+							g_ctx.arc(screenX, fx.y, radius, 0, Math.PI * 2);
+							g_ctx.stroke();
+							g_ctx.globalAlpha = 1.0;
+						}
+					}
 					DeSoGhost.draw(); Print_HUD();
 					
 					g_ctx.fillStyle = "rgba(0,0,0,0.7)"; g_ctx.fillRect(0, 0, g_canvas.width, g_canvas.height);
@@ -3524,10 +4043,16 @@
 					bgMusic.play().catch(function(err){});
 					g_musicStarted = true;
 				}
-				if (e.keyCode == 82 && !g_isFast) {
+				if (e.keyCode == 84 && !g_isFast) { // T (Fast Forward)
 					g_isFast = true;
 					clearInterval(g_gameInterval);
 					g_gameInterval = setInterval(Game_Loop, 16);
+				}
+				if (!e.repeat) {
+					if (e.keyCode == 81) { useSlotSkill(0); } // Q
+					if (e.keyCode == 70) { useSlotSkill(1); } // F
+					if (e.keyCode == 69) { useSlotSkill(2); } // E
+					if (e.keyCode == 82) { useSlotSkill(3); } // R
 				}
 				if (e.keyCode == 32) { 
 					if (g_gameState == G_START) {
@@ -3578,11 +4103,10 @@
 				if (e.keyCode == 65 || e.keyCode == 37) DeSoGhost.moveLeft = true;
 				if (e.keyCode == 68 || e.keyCode == 39) DeSoGhost.moveRight = true;
 				if (e.keyCode == 87 || e.keyCode == 38) DeSoGhost.jump = true;
-				if (e.keyCode == 70 && DeSoGhost.mana > 0) DeSoGhost.ghostMode = true;
 				if (e.keyCode == 75) ToggleNavbarTab('rpg'); // Key 'K' to toggle CHARACTER/RPG Panel
 			});
 			window.addEventListener("keyup", function (e) {
-				if (e.keyCode == 82 && g_isFast) {
+				if (e.keyCode == 84 && g_isFast) { // T (Fast Forward)
 					g_isFast = false;
 					clearInterval(g_gameInterval);
 					g_gameInterval = setInterval(Game_Loop, 33);
@@ -3590,7 +4114,6 @@
 				if (e.keyCode == 65 || e.keyCode == 37) DeSoGhost.moveLeft = false;
 				if (e.keyCode == 68 || e.keyCode == 39) DeSoGhost.moveRight = false;
 				if (e.keyCode == 87 || e.keyCode == 38) DeSoGhost.jump = false;
-				if (e.keyCode == 70) DeSoGhost.ghostMode = false;
 			});
 			window.addEventListener("blur", function () {
 				DeSoGhost.moveLeft = false;
