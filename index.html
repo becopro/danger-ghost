@@ -1855,6 +1855,13 @@
 								var rpgLvl = matchRpg ? parseInt(matchRpg[1], 10) : 1;
 
 								// Parse clássico de placares embutidos em blocos globais de ranking
+								// Apenas aceitamos blocos de rankings consolidados vindos de perfis oficiais para evitar injeção de falsos rankings via hashtag feed
+								var isOfficialPost = (
+									posterKey === "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn" || // @DangerGhost
+									posterKey === "BC1YLgwuSYXasawyfX5D8wiVSvC7qS1usfPA9QCnJ3ZRndyRcRmKdUG" || // @DeSoGhost
+									posterKey === "BC1YLh2VrBvTgvqLm9PtVpLZWoCBUXrFSNmS3zs1eEv1rCFuDxfbqcC"    // @sickcrow
+								);
+
 								var lines = cleanBody.split("\n");
 								var inScoreRank = false;
 								var inTimeRank = false;
@@ -1862,13 +1869,13 @@
 									var line = lines[j].trim();
 									if (!line) continue;
 									if (line.includes("DANGER GHOST GLOBAL TOP 10")) {
-										inScoreRank = true;
+										inScoreRank = isOfficialPost;
 										inTimeRank = false;
 										continue;
 									}
 									if (line.includes("DANGER GHOST SPEEDRUN TOP 10") || line.includes("SPEEDRUN TIME RANK")) {
 										inScoreRank = false;
-										inTimeRank = true;
+										inTimeRank = isOfficialPost;
 										continue;
 									}
 									if (line.includes("#DangerGhost")) {
@@ -1907,10 +1914,18 @@
 								var matchName = cleanBody.match(/Ghost Hunter:\s*(.+)/i);
 								var matchTime = cleanBody.match(/Time:\s*(\d+:\d+)/i);
 								if (matchScore && matchName) {
+									var isEligibleTime = true;
+									var matchLevels = cleanBody.match(/Levels Completed:\s*(\d+)\s*\/\s*33/i);
+									if (matchLevels) {
+										var completedCount = parseInt(matchLevels[1], 10);
+										if (completedCount < 33) {
+											isEligibleTime = false;
+										}
+									}
 									list.push({
 										name: matchName[1].substring(0, 15).trim(),
 										score: parseInt(matchScore[1], 10),
-										time: matchTime ? matchTime[1].trim() : "",
+										time: (matchTime && isEligibleTime) ? matchTime[1].trim() : "",
 										isVip: isVip,
 										rpgLevel: rpgLvl
 									});

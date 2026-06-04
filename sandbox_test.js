@@ -189,7 +189,7 @@ setTimeout(() => {
     
     // Roda o teste final síncrono com o encerramento do timeout anterior
     runLeaderboardParsingTest();
-}, 60);
+}, 200);
 
 
 // --- TEST 6: VALIDAR PARSING DE PAYLOADS DO FEED DESO ---
@@ -200,16 +200,24 @@ function runLeaderboardParsingTest() {
     const mockDeSoPayload = {
         Posts: [
             {
-                PosterPublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn", // VIP (HODLer)
-                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerVIP\nScore: 25000\n#DangerGhost #Web3"
+                PosterPublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn", // VIP (HODLer) e Oficial
+                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerVIP\nScore: 25000\nTime: 12:34\nLevels Completed: 33 / 33\n#DangerGhost #Web3"
             },
             {
-                PosterPublicKeyBase58Check: "BC1NonVIPAddressHere",
+                PosterPublicKeyBase58Check: "BC1NonVIPAddressHere", // Não-oficial (tentando injetar bloco consolidado falso)
+                Body: "🏆 DANGER GHOST GLOBAL TOP 10 🏆\n1. HackerConsolidated - 99999 pts\n#DangerGhost"
+            },
+            {
+                PosterPublicKeyBase58Check: "BC1YLgwuSYXasawyfX5D8wiVSvC7qS1usfPA9QCnJ3ZRndyRcRmKdUG", // Oficial DeSoGhost (Não-VIP)
                 Body: "🏆 DANGER GHOST GLOBAL TOP 10 🏆\n1. PlayerA - 50000 pts\n2. PlayerB - 35000 pts\n#DangerGhost"
             },
             {
-                PosterPublicKeyBase58Check: "BC1NonVIPAddressHere",
-                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerA\nScore: 12000\n#DangerGhost" // Score menor duplicado, deve ser ignorado
+                PosterPublicKeyBase58Check: "BC1NonVIPAddressHere", // Não-oficial individual válido
+                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerA\nScore: 12000\nTime: 10:15\nLevels Completed: 33 / 33\n#DangerGhost"
+            },
+            {
+                PosterPublicKeyBase58Check: "BC1NonVIPAddressHere", // Não-oficial individual INVÁLIDO (menos de 33 fases)
+                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerBad\nScore: 10000\nTime: 05:22\nLevels Completed: 12 / 33\n#DangerGhost"
             },
             {
                 PosterPublicKeyBase58Check: "BC1NonVIPAddressHere",
@@ -222,22 +230,29 @@ function runLeaderboardParsingTest() {
         "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn": true
     };
 
+    const officialKeys = {
+        "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn": true, // @DangerGhost
+        "BC1YLgwuSYXasawyfX5D8wiVSvC7qS1usfPA9QCnJ3ZRndyRcRmKdUG": true, // @DeSoGhost
+        "BC1YLh2VrBvTgvqLm9PtVpLZWoCBUXrFSNmS3zs1eEv1rCFuDxfbqcC": true  // @sickcrow
+    };
+
     const postsList = mockDeSoPayload.Posts;
     const list = [];
 
-    // Parsing idêntico às linhas 875-911 do index.html
+    // Parsing idêntico às linhas do index.html
     for (let i = 0; i < postsList.length; i++) {
         const post = postsList[i];
         if (post.Body) {
             const posterKey = post.PosterPublicKeyBase58Check;
             const isVip = vipMap[posterKey] ? true : false;
+            const isOfficialPost = officialKeys[posterKey] ? true : false;
 
             if (post.Body.includes("🏆 DANGER GHOST GLOBAL TOP 10 🏆") || post.Body.includes("DANGER GHOST GLOBAL TOP 10")) {
                 const lines = post.Body.split("\n");
                 let inLeaderboard = false;
                 for (let j = 0; j < lines.length; j++) {
                     if (lines[j].includes("DANGER GHOST GLOBAL TOP 10")) {
-                        inLeaderboard = true; continue;
+                        inLeaderboard = isOfficialPost; continue;
                     }
                     if (inLeaderboard) {
                         if (lines[j].includes("#DangerGhost")) break;
@@ -257,10 +272,18 @@ function runLeaderboardParsingTest() {
             const matchName = post.Body.match(/Ghost Hunter:\s*(.+)/i);
             const matchTime = post.Body.match(/Time:\s*(\d+:\d+)/i);
             if (matchScore && matchName) {
+                let isEligibleTime = true;
+                const matchLevels = post.Body.match(/Levels Completed:\s*(\d+)\s*\/\s*33/i);
+                if (matchLevels) {
+                    const completedCount = parseInt(matchLevels[1], 10);
+                    if (completedCount < 33) {
+                        isEligibleTime = false;
+                    }
+                }
                 list.push({
                     name: matchName[1].substring(0, 15).trim(),
                     score: parseInt(matchScore[1], 10),
-                    time: matchTime ? matchTime[1].trim() : "",
+                    time: (matchTime && isEligibleTime) ? matchTime[1].trim() : "",
                     isVip: isVip
                 });
             }
@@ -281,8 +304,23 @@ function runLeaderboardParsingTest() {
     parsedList.sort((a, b) => b.score - a.score);
     const leaderboardList = parsedList.slice(0, 10);
 
+    // Deduplicação de tempos válidos (apenas se tiver tempo válido)
+    const validTimeRuns = list.filter(item => item.time && item.time !== "");
+    const uniqueTimeMap = {};
+    for (let k = 0; k < validTimeRuns.length; k++) {
+        const p = validTimeRuns[k];
+        if (!uniqueTimeMap[p.name]) {
+            uniqueTimeMap[p.name] = p;
+        }
+    }
+    const finalTimeList = Object.values(uniqueTimeMap);
+
     // Asserções do Ranking
-    assert.strictEqual(leaderboardList.length, 3, "Devem ser extraídos exatamente 3 registros únicos de jogadores.");
+    // Deve ignorar o falso bloco do hacker e ignorar o tempo do PlayerBad (só concluiu 12/33 fases)
+    assert.strictEqual(leaderboardList.some(p => p.name === "HackerConsolidated"), false, "Falso bloco de ranking consolidado do Hacker deve ser descartado!");
+    assert.strictEqual(finalTimeList.some(p => p.name === "PlayerBad"), false, "PlayerBad (fases concluídas < 33) não pode entrar no Ranking de Tempo!");
+    
+    assert.strictEqual(leaderboardList.length, 4, "Devem ser extraídos exatamente 4 registros únicos de jogadores (PlayerA, PlayerB, PlayerVIP, PlayerBad).");
     
     // PlayerA deve reter o score de 50000 e ser Rank 1
     assert.strictEqual(leaderboardList[0].name, "PlayerA");
