@@ -54,11 +54,27 @@ var GhostRPG = (function() {
         },
         addXp: function(amount) {
             if (!verifyIntegrity()) return;
+            var maxLevel = 100000000000;
+            if (state.level >= maxLevel) {
+                state.level = maxLevel;
+                state.xp = 0;
+                state.xpRequired = calculateXpRequired(maxLevel);
+                updateIntegrityHash(); this.saveLocalStorage();
+                return;
+            }
             state.xp += amount;
             var leveledUp = false;
-            while (state.xp >= state.xpRequired) {
-                state.xp -= state.xpRequired; state.level++; state.pointsToDistribute += 5;
-                state.xpRequired = calculateXpRequired(state.level); leveledUp = true;
+            while (state.xp >= state.xpRequired && state.level < maxLevel) {
+                state.xp -= state.xpRequired;
+                state.level++;
+                state.pointsToDistribute += 5;
+                state.xpRequired = calculateXpRequired(state.level);
+                leveledUp = true;
+            }
+            if (state.level >= maxLevel) {
+                state.level = maxLevel;
+                state.xp = 0;
+                state.xpRequired = calculateXpRequired(maxLevel);
             }
             updateIntegrityHash(); this.saveLocalStorage();
             if (leveledUp) { this.triggerLevelUpEffect(); }
@@ -135,6 +151,11 @@ var GhostRPG = (function() {
                     var parts = decrypted.split("||");
                     var data = JSON.parse(parts[0]);
                     state = data;
+                    var maxLevel = 100000000000;
+                    if (state.level > maxLevel) {
+                        state.level = maxLevel;
+                        state.xp = 0;
+                    }
                     if (!state.equippedSkills) state.equippedSkills = [0, 1, 2, 3];
                     if (!state.equippedRunes) state.equippedRunes = [0, 0, 0, 0];
                     if (!state.equippedPassives) state.equippedPassives = [-1, -1];
@@ -145,9 +166,15 @@ var GhostRPG = (function() {
             } catch(e) { this.resetStats(); }
         },
         loadBlockchainState: function(lvl, vit, agi, int, pow, characterId, xp, pointsToDistribute, mag, equippedSkills, equippedRunes, equippedPassives, weapon) {
-            state.level = lvl; state.vit = vit; state.agi = agi; state.int = int; state.pow = pow;
+            var maxLevel = 100000000000;
+            state.level = Math.min(lvl, maxLevel);
+            state.vit = vit; state.agi = agi; state.int = int; state.pow = pow;
             state.mag = typeof mag !== "undefined" ? mag : 1; state.characterId = characterId || "";
-            state.xp = typeof xp !== "undefined" ? xp : 0; state.pointsToDistribute = typeof pointsToDistribute !== "undefined" ? pointsToDistribute : 0;
+            state.xp = typeof xp !== "undefined" ? xp : 0;
+            if (state.level >= maxLevel) {
+                state.xp = 0;
+            }
+            state.pointsToDistribute = typeof pointsToDistribute !== "undefined" ? pointsToDistribute : 0;
             state.xpRequired = calculateXpRequired(state.level);
             state.equippedSkills = equippedSkills || [0, 1, 2, 3];
             state.equippedRunes = equippedRunes || [0, 0, 0, 0];
