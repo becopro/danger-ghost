@@ -1461,10 +1461,13 @@
 					this.alive = true; this.xPos = 48; this.yPos = 150;
 					explosionFrame = 0; map_offset = 0;
 
-					// Bônus de Vitalidade (VIT): adiciona vidas passivas com teto
+					// Bônus de Vitalidade (VIT): adiciona vidas passivas com teto dinâmico baseado na Vitalidade
+					var maxLivesCap = GhostRPG.getMaxLivesCap();
 					var vitBonus = GhostRPG.getMaxLivesBonus();
 					if (vitBonus > 0) {
-						this.lives = Math.min(6, this.lives + vitBonus); // teto de 6 vidas máximas
+						this.lives = Math.min(maxLivesCap, this.lives + vitBonus);
+					} else {
+						this.lives = Math.min(maxLivesCap, this.lives);
 					}
 				};
 
@@ -1622,7 +1625,10 @@
 									else if (tile == 10) { AddScore(150); }
 									else if (tile == 11) { AddScore(150); }
 									else if (tile == 12) {
-										this.lives++;
+										var maxLivesCap = GhostRPG.getMaxLivesCap();
+										if (this.lives < maxLivesCap) {
+											this.lives++;
+										}
 										AddScore(666);
 										this.collectedLives = (this.collectedLives || 0) + 1;
 										if (this.collectedLives % 3 === 0) {

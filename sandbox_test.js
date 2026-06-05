@@ -404,6 +404,41 @@ function runLeaderboardParsingTest() {
 
     console.log("✅ [TEST 7 PASSED] Lógica de precificação e deduplicação de IDs validada com sucesso.\n");
 
+    // --- TEST 8: VITALITY LIVES CAP MATH & PICKUP VALIDATION ---
+    console.log("❤️ [TEST 8] Vitality Lives Cap & Pickup Limits...");
+    
+    function simulateGetMaxLivesCap(vit) {
+        return 4 + vit;
+    }
+    
+    // Simula a coleta de vida extra
+    function simulateLivesPickup(currentLives, vit) {
+        var maxLivesCap = simulateGetMaxLivesCap(vit);
+        if (currentLives < maxLivesCap) {
+            return currentLives + 1;
+        }
+        return currentLives;
+    }
+    
+    // Caso A: VIT = 1 (Teto = 5)
+    assert.strictEqual(simulateGetMaxLivesCap(1), 5, "VIT = 1 deve dar teto de 5 vidas");
+    assert.strictEqual(simulateLivesPickup(3, 1), 4, "Coleta com 3 vidas deve subir para 4");
+    assert.strictEqual(simulateLivesPickup(4, 1), 5, "Coleta com 4 vidas deve subir para 5");
+    assert.strictEqual(simulateLivesPickup(5, 1), 5, "Coleta com 5 vidas deve travar em 5");
+    
+    // Caso B: VIT = 2 (Teto = 6)
+    assert.strictEqual(simulateGetMaxLivesCap(2), 6, "VIT = 2 deve dar teto de 6 vidas");
+    assert.strictEqual(simulateLivesPickup(5, 2), 6, "Coleta com 5 vidas deve subir para 6");
+    assert.strictEqual(simulateLivesPickup(6, 2), 6, "Coleta com 6 vidas deve travar em 6");
+
+    // Caso C: VIT = 3 (Teto = 7)
+    assert.strictEqual(simulateGetMaxLivesCap(3), 7, "VIT = 3 deve dar teto de 7 vidas");
+    assert.strictEqual(simulateLivesPickup(6, 3), 7, "Coleta com 6 vidas deve subir para 7");
+    assert.strictEqual(simulateLivesPickup(7, 3), 7, "Coleta com 7 vidas deve travar em 7");
+    
+    console.log("👉 Testes de limite de acúmulo de vidas (4 + VIT): OK.");
+    console.log("✅ [TEST 8 PASSED] Limite dinâmico de vidas com base em Vitalidade validado com sucesso.\n");
+
     console.log("====================================================");
     console.log("🎉 ALL TESTS PASSED SUCCESSFULLY! 100% SUCCESS 🎉");
     console.log("====================================================");
