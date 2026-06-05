@@ -105,7 +105,6 @@ var GhostRPG = (function() {
         },
         getGhostDurationMultiplier: function() { return 1 + (state.int * 0.10); },
         getBossJumpDamage: function() { return 1 + Math.floor(state.pow / 3); },
-        getMaxLivesBonus: function() { return Math.floor(state.vit / 5); },
         getMaxLivesCap: function() {
             if (!verifyIntegrity()) return 5;
             return 4 + state.vit;

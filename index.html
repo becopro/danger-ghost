@@ -1461,14 +1461,9 @@
 					this.alive = true; this.xPos = 48; this.yPos = 150;
 					explosionFrame = 0; map_offset = 0;
 
-					// Bônus de Vitalidade (VIT): adiciona vidas passivas com teto dinâmico baseado na Vitalidade
+					// Clampa as vidas atuais pelo teto dinâmico de Vitalidade (sem bônus de ressurreição no respawn)
 					var maxLivesCap = GhostRPG.getMaxLivesCap();
-					var vitBonus = GhostRPG.getMaxLivesBonus();
-					if (vitBonus > 0) {
-						this.lives = Math.min(maxLivesCap, this.lives + vitBonus);
-					} else {
-						this.lives = Math.min(maxLivesCap, this.lives);
-					}
+					this.lives = Math.min(maxLivesCap, this.lives);
 				};
 
 				this.move = function () {
