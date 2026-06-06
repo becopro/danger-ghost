@@ -1493,7 +1493,7 @@
 							this.ghostMode = false;
 						}
 					} else if (this.alive) {
-						var regenRate = 0.1 + (stats.int * 0.10);
+						var regenRate = 0.001 + (stats.int * 0.10);
 						this.mana = Math.min(this.maxMana, this.mana + regenRate);
 					}
 
