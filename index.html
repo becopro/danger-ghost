@@ -918,6 +918,8 @@
 			var sickCrowLeft = new Image(); sickCrowLeft.src = 'assets/sprites/Sickcrow e.png';
 			var cactusRight = new Image(); cactusRight.src = 'assets/sprites/Cactus direita.png';
 			var cactusLeft = new Image(); cactusLeft.src = 'assets/sprites/Cactus esquerda.png';
+			var slimeRight = new Image(); slimeRight.src = 'assets/sprites/Slime direita.png';
+			var slimeLeft = new Image(); slimeLeft.src = 'assets/sprites/Slime esquerda.png';
 
 			var waterFrames = [new Image(), new Image(), new Image(), new Image()];
 			waterFrames[0].src = 'assets2/water1.png'; waterFrames[1].src = 'assets2/water2.png';
@@ -1204,17 +1206,18 @@
 						}
 					}
 
-					if (levelNum == 4 || levelNum == 11 || levelNum == 16 || levelNum == 20) {
+					if (levelNum == 3 || levelNum == 10 || levelNum == 19 || levelNum == 21 || levelNum == 33) {
+						g_boss = new c_Boss(800, levelNum == 33 ? 144 : 192, "slime");
+						g_boss.isOriginal = true;
+						if (levelNum == 33) { g_boss.minX = 200; g_boss.maxX = 1000; }
+						else { g_boss.minX = 600; g_boss.maxX = 1000; }
+					} else if (levelNum == 4 || levelNum == 11 || levelNum == 16 || levelNum == 20) {
 						g_boss = new c_Boss(800, 192);
 						g_boss.isOriginal = true;
 						if (levelNum == 4) { g_boss.minX = 600; g_boss.maxX = 1000; }
 						else if (levelNum == 11) { g_boss.minX = 600; g_boss.maxX = 1100; }
 						else if (levelNum == 16) { g_boss.minX = 400; g_boss.maxX = 900; }
 						else if (levelNum == 20) { g_boss.minX = 500; g_boss.maxX = 1000; }
-					} else if (levelNum == 33) {
-						g_boss = new c_Boss(800, 144, "cactus");
-						g_boss.isOriginal = true;
-						g_boss.minX = 200; g_boss.maxX = 1000;
 					} else {
 						g_boss = null;
 					}
@@ -1325,12 +1328,18 @@
 				this.poisonTicks = 0;
 				this.slowTimer = 0;
 				this.shockTimer = 0;
+				
+				this.isJumping = false;
+				this.vy = 0;
+				this.shootCooldown = 0;
 
 				this.draw = function () {
 					if (!this.alive) return;
 					var sprite;
 					if (this.type === "cactus") {
 						sprite = (this.dir > 0) ? cactusRight : cactusLeft;
+					} else if (this.type === "slime") {
+						sprite = (this.dir > 0) ? slimeLeft : slimeRight;
 					} else {
 						sprite = (this.dir > 0) ? sickCrowLeft : sickCrowRight;
 					}
@@ -1388,6 +1397,71 @@
 					
 					if (this.shockTimer > 0) return; // stunned, skip movement
 					
+					if (this.type === "slime") {
+						if (this.isJumping) {
+							this.yPos += this.vy;
+							this.vy += 0.4;
+							
+							if (this.vy >= 0) {
+								var cl = determinePos(this.xPos + 4);
+								var cr = determinePos(this.xPos + this.width - 4);
+								var cb = determinePos(this.yPos + this.height - 1);
+								if (cl >= 0 && cl < 100 && cr >= 0 && cr < 100 && cb >= 0 && cb < 11) {
+									var t1 = map.bitmap[cb][cl], t2 = map.bitmap[cb][cr];
+									var solid1 = (t1 == 1 || t1 == 2 || t1 == 13 || t1 == 14 || t1 == 15 || t1 == 19);
+									var solid2 = (t2 == 1 || t2 == 2 || t2 == 13 || t2 == 14 || t2 == 15 || t2 == 19);
+									if (solid1 || solid2) {
+										this.yPos = cb * 24 - this.height;
+										this.isJumping = false;
+										this.vy = 0;
+									}
+								}
+							}
+						} else {
+							var cl = determinePos(this.xPos + 4);
+							var cr = determinePos(this.xPos + this.width - 4);
+							var cb = determinePos(this.yPos + this.height);
+							var solid1 = false, solid2 = false;
+							if (cb >= 0 && cb < 11) {
+								if (cl >= 0 && cl < 100) {
+									var t1 = map.bitmap[cb][cl];
+									solid1 = (t1 == 1 || t1 == 2 || t1 == 13 || t1 == 14 || t1 == 15 || t1 == 19);
+								}
+								if (cr >= 0 && cr < 100) {
+									var t2 = map.bitmap[cb][cr];
+									solid2 = (t2 == 1 || t2 == 2 || t2 == 13 || t2 == 14 || t2 == 15 || t2 == 19);
+								}
+							}
+							if (!solid1 && !solid2) {
+								this.isJumping = true;
+								this.vy = 0;
+							}
+						}
+
+						// Pulo aleatório
+						if (!this.isJumping && Math.random() < 0.01) {
+							this.isJumping = true;
+							this.vy = -6;
+						}
+
+						// Ataque aleatório
+						this.shootCooldown = (this.shootCooldown || 0) + 1;
+						if (this.shootCooldown >= 60 && Math.random() < 0.02) {
+							this.shootCooldown = 0;
+							g_projectiles.push({
+								x: this.xPos + this.width / 2,
+								y: this.yPos + this.height / 2,
+								vx: 3.5 * this.dir,
+								vy: 0,
+								type: "slime_orb",
+								isEnemy: true,
+								width: 20,
+								height: 20,
+								life: 120
+							});
+						}
+					}
+					
 					var currentSpeed = this.speed;
 					if (this.slowTimer > 0) currentSpeed *= 0.5; // 50% slow
 					
@@ -1413,6 +1487,7 @@
 				this.isLevelingUpAnim = 0;
 				this.skillCooldowns = [0, 0, 0, 0];
 				this.phantomFormTimer = 0;
+				this.collectedBlueDiamonds = 0;
 
 				this.draw = function () {
 					if (this.alive) {
@@ -1615,7 +1690,13 @@
 								var tile = map.bitmap[r][c];
 								if (tile >= 7 && tile <= 12) {
 									if (tile == 7) { AddScore(50); }
-									else if (tile == 8) { AddScore(100); }
+									else if (tile == 8) {
+										AddScore(100);
+										this.collectedBlueDiamonds = (this.collectedBlueDiamonds || 0) + 1;
+										if (this.collectedBlueDiamonds % 3 === 0) {
+											SpawnBossAtRandomLocation("slime");
+										}
+									}
 									else if (tile == 9) { AddScore(150); }
 									else if (tile == 10) { AddScore(150); }
 									else if (tile == 11) { AddScore(150); }
@@ -1849,6 +1930,15 @@
 						g_ctx.beginPath();
 						g_ctx.arc(screenX, p.y, p.width / 2, 0, Math.PI * 2);
 						g_ctx.fill();
+					} else if (p.type === "slime_orb") {
+						color = "rgba(0, 230, 118, 0.7)";
+						g_ctx.fillStyle = color;
+						g_ctx.beginPath();
+						g_ctx.arc(screenX, p.y, p.width / 2, 0, Math.PI * 2);
+						g_ctx.fill();
+						g_ctx.strokeStyle = "#FFFFFF";
+						g_ctx.lineWidth = 1.5;
+						g_ctx.stroke();
 					} else {
 						if (p.runeId === 1) color = "rgba(255, 69, 0, 0.7)";
 						else if (p.runeId === 2) color = "rgba(0, 229, 255, 0.7)";
@@ -1865,7 +1955,22 @@
 						g_ctx.stroke();
 					}
 
-					if (g_boss && g_boss.alive) {
+					if (p.isEnemy) {
+						if (!DeSoGhost.ghostMode && DeSoGhost.phantomFormTimer <= 0 && DeSoGhost.alive) {
+							var pL = DeSoGhost.xPos + 4;
+							var pR = DeSoGhost.xPos + 20;
+							var pT = DeSoGhost.yPos;
+							var pB = DeSoGhost.yPos + 24;
+							if (p.x + p.width/2 > pL && p.x - p.width/2 < pR &&
+								p.y + p.height/2 > pT && p.y - p.height/2 < pB) {
+								DeSoGhost.alive = false;
+								g_projectiles.splice(i, 1);
+								continue;
+							}
+						}
+					}
+
+					if (!p.isEnemy && g_boss && g_boss.alive) {
 						if (p.x + p.width/2 > g_boss.xPos && p.x - p.width/2 < g_boss.xPos + g_boss.width &&
 							p.y + p.height/2 > g_boss.yPos && p.y - p.height/2 < g_boss.yPos + g_boss.height) {
 
@@ -3898,7 +4003,7 @@
 				return null;
 			}
 
-			function SpawnBossAtRandomLocation() {
+			function SpawnBossAtRandomLocation(bossType) {
 				g_screenShakeTime = 30; // 30 frames de tremor (~1 segundo)
 				g_screenShakeIntensity = 12;
 
@@ -3940,7 +4045,7 @@
 					}
 				}
 
-				g_boss = new c_Boss(spawnX, spawnY, "crow");
+				g_boss = new c_Boss(spawnX, spawnY, bossType || "crow");
 				g_boss.minX = walkMinX;
 				g_boss.maxX = walkMaxX;
 			}
@@ -3954,6 +4059,7 @@
 				_antiCheat.hash = btoa("0" + _antiCheat.salt);
 				DeSoGhost.lives = 3; DeSoGhost.alive = true;
 				DeSoGhost.collectedLives = 0;
+				DeSoGhost.collectedBlueDiamonds = 0;
 				DeSoGhost.xPos = 48; DeSoGhost.yPos = 150;
 				DeSoGhost.jumpNum = 0; DeSoGhost.jumpCounter = 0;
 				DeSoGhost.jumpsPerformed = 0; explosionFrame = 0;
