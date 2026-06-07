@@ -982,12 +982,13 @@
 				g_score += points;
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
 				g_slimeScoreTracker += points;
-				if (g_slimeScoreTracker >= 777) {
-					while (g_slimeScoreTracker >= 777) {
-						g_slimeScoreTracker -= 777;
+				if (g_slimeScoreTracker >= 1000) {
+					while (g_slimeScoreTracker >= 1000) {
+						g_slimeScoreTracker -= 1000;
 						SpawnBossAtRandomLocation("slime");
 					}
 				}
+
 			}
 
 			function GetScore() {
