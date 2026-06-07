@@ -1405,6 +1405,8 @@
 				this.poisonTicks = 0;
 				this.slowTimer = 0;
 				this.shockTimer = 0;
+				this.shootCooldown = Math.floor(Math.random() * 60) + 60;
+
 
 				this.draw = function () {
 					if (!this.alive) return;
@@ -1446,6 +1448,7 @@
 						this.burnTicks--;
 						if (this.burnTicks % 15 === 0) {
 							var burnDmg = 2 + Math.floor(GhostRPG.getStats().weapon.damage * 0.05);
+							if (this.type === "demon_fly") burnDmg = Math.max(1, Math.floor(burnDmg / 2));
 							this.lives -= burnDmg;
 							g_visualEffects.push(createExplosionEffect(this.xPos + this.width/2, this.yPos + this.height/2, "#FF4500", 6));
 						}
@@ -1454,6 +1457,7 @@
 						this.poisonTicks--;
 						if (this.poisonTicks % 20 === 0) {
 							var poisonDmg = 1 + Math.floor(GhostRPG.getStats().weapon.damage * 0.03);
+							if (this.type === "demon_fly") poisonDmg = Math.max(1, Math.floor(poisonDmg / 2));
 							this.lives -= poisonDmg;
 							g_visualEffects.push(createExplosionEffect(this.xPos + this.width/2, this.yPos + this.height/2, "#32CD32", 4));
 						}
@@ -1469,6 +1473,26 @@
 						return;
 					}
 					
+					// Demon Fly Spectral Spark shooting logic (can fire even if slow but not shock)
+					if (this.type === "demon_fly" && this.alive && this.shockTimer <= 0) {
+						if (this.shootCooldown > 0) {
+							this.shootCooldown--;
+						} else {
+							if (Math.random() < 0.015) { // ~1.5% chance per frame after cooldown
+								this.shootCooldown = 90; // 1.5 seconds cooldown
+								var projDir = (DeSoGhost.xPos > this.xPos) ? 1 : -1;
+								var startX = this.xPos + this.width / 2;
+								var startY = this.yPos + this.height / 2;
+								var vx = 6 * projDir;
+								var vy = 0;
+								var p = obtainProjectile(startX, startY, vx, vy, "spark", 0, 8, 8, 100, 0, false);
+								p.isEnemy = true;
+								g_projectiles.push(p);
+								g_visualEffects.push(createExplosionEffect(startX, startY, "#00FFFF", 4));
+							}
+						}
+					}
+
 					if (this.shockTimer > 0) return; // stunned, skip movement
 					
 					var currentSpeed = this.speed;
@@ -1480,6 +1504,7 @@
 					var maxLimit = 2400 - this.width;
 					if (this.xPos > maxLimit) { this.xPos = maxLimit; this.dir = -1; }
 				};
+
 			}
 
 			function c_DeSoGhost(l_x, l_y) {
@@ -1593,7 +1618,11 @@
 									var reduction = Math.min(0.70, (g_boss.level - 1) * 0.04);
 									finalDmg = Math.max(1, Math.floor(dmg * (1 - reduction)));
 								}
+								if (g_boss.type === "demon_fly") {
+									finalDmg = Math.max(1, Math.floor(finalDmg / 2));
+								}
 								g_boss.lives -= finalDmg;
+
 								this.jumpNum = 1; this.jumpCounter = 2;
 								if (g_boss.lives <= 0) { 
 									g_boss.alive = false; 
@@ -1916,53 +1945,69 @@
 						continue;
 					}
 
-
-					if (g_boss && g_boss.alive) {
-						if (p.x + p.width/2 > g_boss.xPos && p.x - p.width/2 < g_boss.xPos + g_boss.width &&
-							p.y + p.height/2 > g_boss.yPos && p.y - p.height/2 < g_boss.yPos + g_boss.height) {
-
-							var canHit = true;
-							if (p.penetrates) {
-								var lastHitTime = p.hits[g_boss.xPos + "_" + g_boss.yPos] || 0;
-								if (g_count - lastHitTime < 10 && lastHitTime !== 0) {
-									canHit = false;
+					if (p.isEnemy) {
+						if (DeSoGhost.alive) {
+							if (p.x + p.width/2 > DeSoGhost.xPos && p.x - p.width/2 < DeSoGhost.xPos + 24 &&
+								p.y + p.height/2 > DeSoGhost.yPos && p.y - p.height/2 < DeSoGhost.yPos + 24) {
+								if (!DeSoGhost.ghostMode && DeSoGhost.phantomFormTimer <= 0) {
+									DeSoGhost.alive = false;
 								}
+								g_visualEffects.push(createExplosionEffect(p.x, p.y, "#FF3366", 6));
+								g_projectiles.splice(i, 1);
+								continue;
 							}
+						}
+					} else {
+						if (g_boss && g_boss.alive) {
+							if (p.x + p.width/2 > g_boss.xPos && p.x - p.width/2 < g_boss.xPos + g_boss.width &&
+								p.y + p.height/2 > g_boss.yPos && p.y - p.height/2 < g_boss.yPos + g_boss.height) {
 
-							if (canHit) {
-								p.hits[g_boss.xPos + "_" + g_boss.yPos] = g_count;
-								var finalDmg = p.damage;
-								if (g_boss.level > 1) {
-									var reduction = Math.min(0.70, (g_boss.level - 1) * 0.04);
-									finalDmg = Math.max(1, Math.floor(p.damage * (1 - reduction)));
-								}
-								g_boss.lives -= finalDmg;
-
-								var color = "#00FFFF";
-								if (p.runeId === 1) color = "#FF4500";
-								else if (p.runeId === 2) color = "#00E5FF";
-								else if (p.runeId === 3) color = "#FFEA00";
-								else if (p.runeId === 4) color = "#00E676";
-								else if (p.runeId === 5) color = "#D500F9";
-
-								if (p.type === "spark") {
-									var genAmount = 15 + Math.floor(stats.int * 0.5);
-									DeSoGhost.mana = Math.min(DeSoGhost.maxMana, DeSoGhost.mana + genAmount);
+								var canHit = true;
+								if (p.penetrates) {
+									var lastHitTime = p.hits[g_boss.xPos + "_" + g_boss.yPos] || 0;
+									if (g_count - lastHitTime < 10 && lastHitTime !== 0) {
+										canHit = false;
+									}
 								}
 
-								applyRuneEffectsToBoss(g_boss, p.runeId);
-								g_visualEffects.push(createExplosionEffect(p.x, p.y, color, p.type === "spark" ? 5 : 10));
+								if (canHit) {
+									p.hits[g_boss.xPos + "_" + g_boss.yPos] = g_count;
+									var finalDmg = p.damage;
+									if (g_boss.level > 1) {
+										var reduction = Math.min(0.70, (g_boss.level - 1) * 0.04);
+										finalDmg = Math.max(1, Math.floor(p.damage * (1 - reduction)));
+									}
+									if (g_boss.type === "demon_fly") {
+										finalDmg = Math.max(1, Math.floor(finalDmg / 2));
+									}
+									g_boss.lives -= finalDmg;
 
-								if (g_boss.lives <= 0) {
-									g_boss.alive = false;
-									AddScore(1000);
-									var bossXp = (g_boss.type === "cactus") ? 1000 : (100 + (g_boss.level - 1) * 30);
-									GhostRPG.addXp(bossXp);
-								}
+									var color = "#00FFFF";
+									if (p.runeId === 1) color = "#FF4500";
+									else if (p.runeId === 2) color = "#00E5FF";
+									else if (p.runeId === 3) color = "#FFEA00";
+									else if (p.runeId === 4) color = "#00E676";
+									else if (p.runeId === 5) color = "#D500F9";
 
-								if (!p.penetrates) {
-									g_projectiles.splice(i, 1);
-									continue;
+									if (p.type === "spark") {
+										var genAmount = 15 + Math.floor(stats.int * 0.5);
+										DeSoGhost.mana = Math.min(DeSoGhost.maxMana, DeSoGhost.mana + genAmount);
+									}
+
+									applyRuneEffectsToBoss(g_boss, p.runeId);
+									g_visualEffects.push(createExplosionEffect(p.x, p.y, color, p.type === "spark" ? 5 : 10));
+
+									if (g_boss.lives <= 0) {
+										g_boss.alive = false;
+										AddScore(1000);
+										var bossXp = (g_boss.type === "cactus") ? 1000 : (100 + (g_boss.level - 1) * 30);
+										GhostRPG.addXp(bossXp);
+									}
+
+									if (!p.penetrates) {
+										g_projectiles.splice(i, 1);
+										continue;
+									}
 								}
 							}
 						}
@@ -1970,12 +2015,21 @@
 				}
 			}
 
+
 			function drawProjectiles() {
 				for (var i = 0; i < g_projectiles.length; i++) {
 					var p = g_projectiles[i];
 					var screenX = p.x + map_offset;
+					if (p.isEnemy) {
+						g_ctx.fillStyle = "#FF3366";
+						g_ctx.beginPath();
+						g_ctx.arc(screenX, p.y, p.width / 2, 0, Math.PI * 2);
+						g_ctx.fill();
+						continue;
+					}
 					var color = "#00FFFF";
 					if (p.type === "spark") {
+
 						if (p.runeId === 1) color = "#FF4500";
 						else if (p.runeId === 2) color = "#00E5FF";
 						else if (p.runeId === 3) color = "#FFEA00";
