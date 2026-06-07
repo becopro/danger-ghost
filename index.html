@@ -509,13 +509,14 @@
 		<!-- External Game Timer -->
 		<div id="externalTimer" style="display: none; font-size: 24px; font-weight: bold; color: #FFFFFF; font-family: 'Courier New', monospace; margin: 10px auto; text-shadow: 0 0 10px #FFFFFF; letter-spacing: 2px;">TIME: 00:00</div>
 		
-		<!-- Horizontal Navigation Menu -->
 		<div id="gameNavbar" style="display: flex; justify-content: center; align-items: center; gap: 15px; margin: 15px auto; max-width: 640px; font-family: 'Courier New'; font-weight: bold; box-sizing: border-box; padding: 0 10px;">
-			<button id="btnNavScore" onclick="ToggleNavbarTab('score')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #00FFFF; border-radius: 5px; color: #00FFFF; cursor: pointer; text-shadow: 0 0 5px #00FFFF; box-shadow: 0 0 5px rgba(0,255,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">🏆 SCORE RANK</button>
-			<button id="btnNavTime" onclick="ToggleNavbarTab('time')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FF00FF; border-radius: 5px; color: #FF00FF; cursor: pointer; text-shadow: 0 0 5px #FF00FF; box-shadow: 0 0 5px rgba(255,0,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">⚡ TIME RANK</button>
+			<button id="btnNavScore" onclick="ToggleNavbarTab('score')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #00FFFF; border-radius: 5px; color: #00FFFF; cursor: pointer; text-shadow: 0 0 5px #00FFFF; box-shadow: 0 0 5px rgba(0,255,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">🏆 SCORE</button>
+			<button id="btnNavTime" onclick="ToggleNavbarTab('time')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FF00FF; border-radius: 5px; color: #FF00FF; cursor: pointer; text-shadow: 0 0 5px #FF00FF; box-shadow: 0 0 5px rgba(255,0,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">⚡ TIME</button>
 			<button id="btnNavControls" onclick="ToggleNavbarTab('controls')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FFFF00; border-radius: 5px; color: #FFFF00; cursor: pointer; text-shadow: 0 0 5px #FFFF00; box-shadow: 0 0 5px rgba(255,255,0,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">🎮 CONTROLS</button>
-			<button id="btnNavRPG" onclick="ToggleNavbarTab('rpg')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #00FF00; border-radius: 5px; color: #00FF00; cursor: pointer; text-shadow: 0 0 5px #00FF00; box-shadow: 0 0 5px rgba(0,255,0,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">👤 CHARACTER</button>
+			<button id="btnNavRPG" onclick="ToggleNavbarTab('rpg')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #00FF00; border-radius: 5px; color: #00FF00; cursor: pointer; text-shadow: 0 0 5px #00FF00; box-shadow: 0 0 5px rgba(0,255,0,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">👤 HERO</button>
+			<button id="btnNavBag" onclick="ToggleNavbarTab('bag')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FFA500; border-radius: 5px; color: #FFA500; cursor: pointer; text-shadow: 0 0 5px #FFA500; box-shadow: 0 0 5px rgba(255,165,0,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">🎒 BAG</button>
 		</div>
+
 
 		<div style="position: relative; display: inline-block;">
 			<canvas id="myCanvas" width="640" height="300"
@@ -637,6 +638,7 @@
 					var btnTime = document.getElementById("btnNavTime");
 					var btnControls = document.getElementById("btnNavControls");
 					var btnRPG = document.getElementById("btnNavRPG");
+					var btnBag = document.getElementById("btnNavBag");
 					
 					if (btnScore) {
 						btnScore.style.background = "rgba(0,0,0,0.8)";
@@ -653,6 +655,10 @@
 					if (btnRPG) {
 						btnRPG.style.background = "rgba(0,0,0,0.8)";
 						btnRPG.style.boxShadow = "0 0 5px rgba(0,255,0,0.3)";
+					}
+					if (btnBag) {
+						btnBag.style.background = "rgba(0,0,0,0.8)";
+						btnBag.style.boxShadow = "0 0 5px rgba(255,165,0,0.3)";
 					}
 
 					if (g_activeTab === tab) {
@@ -714,12 +720,21 @@
 								"<div><b>P</b><br><span style='color:#FFFF00;'>Secret Password</span></div>" +
 								"<div><b>M</b><br><span style='color:#FFFF00;'>Mute Music</span></div>" +
 								"</div>";
+						} else if (tab === 'bag') {
+							rightPanel.style.borderColor = "#FFA500";
+							rightPanel.style.boxShadow = "0 0 15px #FFA500";
+							if (btnBag) {
+								btnBag.style.background = "rgba(255,165,0,0.2)";
+								btnBag.style.boxShadow = "0 0 15px #FFA500";
+							}
+							UpdateNavbarBag();
 						}
 					}
 				} catch(err) {
 					console.warn("ToggleNavbarTab Error", err);
 				}
 			}
+
 
 			function UpdateNavbarScore() {
 				try {
@@ -751,10 +766,61 @@
 				}
 			}
 
+			var g_selectedBagItemId = null;
+			function UpdateNavbarBag() {
+				try {
+					var panelContent = document.getElementById("navbarPanelContent");
+					if (!panelContent) return;
+					
+					var stats = GhostRPG.getStats();
+					var items = stats.inventory || [];
+					
+					var gridHTML = "<div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px;'>";
+					
+					for (var i = 0; i < 12; i++) {
+						if (i < items.length) {
+							var item = items[i];
+							var isSelected = (item.id === g_selectedBagItemId) ? "border: 2px solid #FFA500; box-shadow: 0 0 8px #FFA500;" : "border: 1px solid #995500;";
+							gridHTML += "<div onclick=\"SelectBagItem('" + escapeHTML(item.id) + "')\" style='aspect-ratio: 1/1; background: rgba(50, 25, 0, 0.45); " + isSelected + " border-radius: 4px; display: flex; justify-content: center; align-items: center; font-size: 20px; cursor: pointer; position: relative; transition: all 0.1s ease;' title='" + escapeHTML(item.name) + "'>" +
+								item.icon + 
+								(item.count > 1 ? "<span style='position: absolute; bottom: 2px; right: 4px; font-size: 9px; font-weight: bold; background: #000; color: #FFA500; padding: 0px 3px; border-radius: 3px; border: 1px solid #FFA500;'>x" + item.count + "</span>" : "") +
+								"</div>";
+						} else {
+							gridHTML += "<div style='aspect-ratio: 1/1; background: rgba(0,0,0,0.5); border: 1px dashed rgba(255,165,0,0.25); border-radius: 4px; display: flex; justify-content: center; align-items: center; color: rgba(255,255,255,0.15); font-size: 14px;'>-</div>";
+						}
+					}
+					gridHTML += "</div>";
+					
+					var detailsHTML = "<div id='bagDetailsBox' style='background: rgba(0,0,0,0.6); border: 1px solid rgba(255,165,0,0.3); border-radius: 6px; padding: 8px; font-size: 11px; color: #DDD; min-height: 80px;'>";
+					
+					var selectedItem = items.find(function(item) { return item.id === g_selectedBagItemId; });
+					if (selectedItem) {
+						detailsHTML += "<div style='color: #FFA500; font-weight: bold; font-size: 12px; margin-bottom: 4px; display: flex; align-items: center; gap: 5px;'><span>" + selectedItem.icon + "</span> " + escapeHTML(selectedItem.name) + "</div>" +
+							"<div style='line-height: 14px;'>" + escapeHTML(selectedItem.description) + "</div>";
+					} else {
+						detailsHTML += "<p style='text-align: center; color: #888; font-size: 11px; margin-top: 20px;'>SELECT AN ITEM FOR DETAILS</p>";
+					}
+					detailsHTML += "</div>";
+					
+					panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FFA500; text-align: center; letter-spacing: 2px;'>🎒 GHOST BAG</h3>" +
+						gridHTML +
+						detailsHTML;
+				} catch(err) {
+					console.warn("UpdateNavbarBag Error", err);
+				}
+			}
+			
+			function SelectBagItem(itemId) {
+				g_selectedBagItemId = itemId;
+				UpdateNavbarBag();
+			}
+
 			// Exposição explícita das funções de controle da Navbar no escopo global
 			window.ToggleNavbarTab = ToggleNavbarTab;
 			window.UpdateNavbarScore = UpdateNavbarScore;
 			window.UpdateNavbarTime = UpdateNavbarTime;
+			window.UpdateNavbarBag = UpdateNavbarBag;
+			window.SelectBagItem = SelectBagItem;
 
 			// Método A: Vinculação Dinâmica no DOMContentLoaded (Segurança AAA)
 			document.addEventListener("DOMContentLoaded", function() {
@@ -762,6 +828,7 @@
 				var elTime = document.getElementById("btnNavTime");
 				var elControls = document.getElementById("btnNavControls");
 				var elRPG = document.getElementById("btnNavRPG");
+				var elBag = document.getElementById("btnNavBag");
 
 				if (elScore) {
 					elScore.addEventListener("click", function() { ToggleNavbarTab('score'); });
@@ -774,6 +841,9 @@
 				}
 				if (elRPG) {
 					elRPG.addEventListener("click", function() { ToggleNavbarTab('rpg'); });
+				}
+				if (elBag) {
+					elBag.addEventListener("click", function() { ToggleNavbarTab('bag'); });
 				}
 
 				// Abre o painel de Controles por padrão ao carregar a página para abrir as informações para todos
@@ -788,6 +858,7 @@
 				var elTime = document.getElementById("btnNavTime");
 				var elControls = document.getElementById("btnNavControls");
 				var elRPG = document.getElementById("btnNavRPG");
+				var elBag = document.getElementById("btnNavBag");
 
 				if (elScore) {
 					elScore.onclick = function() { ToggleNavbarTab('score'); };
@@ -801,7 +872,11 @@
 				if (elRPG) {
 					elRPG.onclick = function() { ToggleNavbarTab('rpg'); };
 				}
+				if (elBag) {
+					elBag.onclick = function() { ToggleNavbarTab('bag'); };
+				}
 			})();
+
 
 			// --- ANTI-CHEAT CAIXA PRETA (IIFE) ---
 			(function() {

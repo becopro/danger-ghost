@@ -8,7 +8,8 @@ var GhostRPG = (function() {
         equippedSkills: [0, 1, 2, 3],
         equippedRunes: [0, 0, 0, 0],
         equippedPassives: [-1, -1],
-        weapon: { name: 'Starter Dirk', damage: 10 }
+        weapon: { name: 'Starter Dirk', damage: 10 },
+        inventory: []
     };
 
     var rpgAntiCheat = {
@@ -17,22 +18,25 @@ var GhostRPG = (function() {
     };
 
     function updateIntegrityHash() {
+        var invStr = (state.inventory || []).map(function(item) { return item.id + ":" + item.count; }).join(",");
         var dataStr = [
             state.level, state.xp, state.vit, state.agi, state.int, state.pow, state.mag, state.pointsToDistribute, state.characterId,
             state.equippedSkills.join(","), state.equippedRunes.join(","), state.equippedPassives.join(","),
-            state.weapon.name, state.weapon.damage
+            state.weapon.name, state.weapon.damage, invStr
         ].join("-");
         rpgAntiCheat.hash = btoa(dataStr + rpgAntiCheat.salt);
     }
 
     function verifyIntegrity() {
+        var invStr = (state.inventory || []).map(function(item) { return item.id + ":" + item.count; }).join(",");
         var dataStr = [
             state.level, state.xp, state.vit, state.agi, state.int, state.pow, state.mag, state.pointsToDistribute, state.characterId,
             state.equippedSkills.join(","), state.equippedRunes.join(","), state.equippedPassives.join(","),
-            state.weapon.name, state.weapon.damage
+            state.weapon.name, state.weapon.damage, invStr
         ].join("-");
         return btoa(dataStr + rpgAntiCheat.salt) === rpgAntiCheat.hash;
     }
+
 
     function calculateXpRequired(lvl) {
         return Math.floor(BASE_XP * Math.pow(lvl, XP_EXPONENT));
@@ -48,10 +52,12 @@ var GhostRPG = (function() {
             state = { 
                 level: 1, xp: 0, xpRequired: 100, pointsToDistribute: 0, vit: 1, agi: 1, int: 1, pow: 1, mag: 1, characterId: "",
                 equippedSkills: [0, 1, 2, 3], equippedRunes: [0, 0, 0, 0], equippedPassives: [-1, -1],
-                weapon: { name: 'Starter Dirk', damage: 10 }
+                weapon: { name: 'Starter Dirk', damage: 10 },
+                inventory: []
             };
             updateIntegrityHash(); this.saveLocalStorage();
         },
+
         addXp: function(amount) {
             if (!verifyIntegrity()) return;
             var maxLevel = 100000000000;
@@ -163,6 +169,7 @@ var GhostRPG = (function() {
                     if (!state.equippedRunes) state.equippedRunes = [0, 0, 0, 0];
                     if (!state.equippedPassives) state.equippedPassives = [-1, -1];
                     if (!state.weapon) state.weapon = { name: 'Starter Dirk', damage: 10 };
+                    if (!state.inventory) state.inventory = [];
                     state.xpRequired = calculateXpRequired(state.level);
                     updateIntegrityHash();
                 }
@@ -183,12 +190,61 @@ var GhostRPG = (function() {
             state.equippedRunes = equippedRunes || [0, 0, 0, 0];
             state.equippedPassives = equippedPassives || [-1, -1];
             state.weapon = weapon || { name: 'Starter Dirk', damage: 10 };
+            if (!state.inventory) state.inventory = [];
             updateIntegrityHash(); this.saveLocalStorage();
             if (typeof RenderRPGStatusDrawer === "function") { RenderRPGStatusDrawer(); }
         },
+
         getDeSoMetadataString: function() {
             return " [RPG Level: " + state.level + " | VIT: " + state.vit + " | AGI: " + state.agi + " | INT: " + state.int + " | POW: " + state.pow + " | MAG: " + state.mag + " | CharID: " + state.characterId.substring(0,8) + "...]";
+        },
+        addItem: function(item) {
+            if (!verifyIntegrity()) return;
+            if (!state.inventory) state.inventory = [];
+            var existing = state.inventory.find(function(i) { return i.id === item.id; });
+            if (existing) {
+                existing.count = (existing.count || 1) + (item.count || 1);
+            } else {
+                state.inventory.push({
+                    id: item.id,
+                    name: item.name,
+                    icon: item.icon,
+                    description: item.description,
+                    count: item.count || 1
+                });
+            }
+            updateIntegrityHash();
+            this.saveLocalStorage();
+            if (typeof UpdateNavbarBag === "function" && window.g_activeTab === 'bag') {
+                UpdateNavbarBag();
+            }
+        },
+        removeItem: function(itemId) {
+            if (!verifyIntegrity()) return false;
+            if (!state.inventory) return false;
+            var idx = state.inventory.findIndex(function(i) { return i.id === itemId; });
+            if (idx !== -1) {
+                var item = state.inventory[idx];
+                if (item.count > 1) {
+                    item.count--;
+                } else {
+                    state.inventory.splice(idx, 1);
+                }
+                updateIntegrityHash();
+                this.saveLocalStorage();
+                if (typeof UpdateNavbarBag === "function" && window.g_activeTab === 'bag') {
+                    UpdateNavbarBag();
+                }
+                return true;
+            }
+            return false;
+        },
+        hasItem: function(itemId) {
+            if (!verifyIntegrity()) return false;
+            if (!state.inventory) return false;
+            return state.inventory.some(function(i) { return i.id === itemId; });
         }
+
     };
 })();
 GhostRPG.init();
@@ -293,3 +349,14 @@ function RenderRPGStatusDrawer() {
 
 window.GhostRPG = GhostRPG;
 window.RenderRPGStatusDrawer = RenderRPGStatusDrawer;
+
+window.AddInventoryItem = function(id, name, icon, description, count) {
+    GhostRPG.addItem({ id: id, name: name, icon: icon, description: description, count: count });
+};
+window.RemoveInventoryItem = function(id) {
+    return GhostRPG.removeItem(id);
+};
+window.HasInventoryItem = function(id) {
+    return GhostRPG.hasItem(id);
+};
+
