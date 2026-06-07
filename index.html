@@ -918,6 +918,9 @@
 			var sickCrowLeft = new Image(); sickCrowLeft.src = 'assets/sprites/Sickcrow e.png';
 			var cactusRight = new Image(); cactusRight.src = 'assets/sprites/Cactus direita.png';
 			var cactusLeft = new Image(); cactusLeft.src = 'assets/sprites/Cactus esquerda.png';
+			var demonFlyRight = new Image(); demonFlyRight.src = 'assets/sprites/demon fly direita.png';
+			var demonFlyLeft = new Image(); demonFlyLeft.src = 'assets/sprites/demon fly esquerda.png';
+
 
 			var waterFrames = [new Image(), new Image(), new Image(), new Image()];
 			waterFrames[0].src = 'assets2/water1.png'; waterFrames[1].src = 'assets2/water2.png';
@@ -1282,6 +1285,9 @@
 						else if (levelNum == 11) { g_boss.minX = 600; g_boss.maxX = 1100; }
 						else if (levelNum == 16) { g_boss.minX = 400; g_boss.maxX = 900; }
 						else if (levelNum == 20) { g_boss.minX = 500; g_boss.maxX = 1000; }
+					} else if (levelNum == 5 || levelNum == 10 || levelNum == 17 || levelNum == 21) {
+						g_boss = new c_Boss(800, 144, "demon_fly");
+						g_boss.isOriginal = true;
 					} else if (levelNum == 33) {
 						g_boss = new c_Boss(800, 144, "cactus");
 						g_boss.isOriginal = true;
@@ -1289,6 +1295,7 @@
 					} else {
 						g_boss = null;
 					}
+
 
 					// Colocar a porta nova (tile 21) na coluna 1, linha 7 (acima do chão na linha 8)
 					if (levelNum > 1) {
@@ -1404,9 +1411,12 @@
 					var sprite;
 					if (this.type === "cactus") {
 						sprite = (this.dir > 0) ? cactusRight : cactusLeft;
+					} else if (this.type === "demon_fly") {
+						sprite = (this.dir > 0) ? demonFlyRight : demonFlyLeft;
 					} else {
 						sprite = (this.dir > 0) ? sickCrowLeft : sickCrowRight;
 					}
+
 					g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, this.width, this.height);
 					
 					// Draw overlays for active status effects
@@ -1476,6 +1486,8 @@
 				this.xPos = l_x; this.yPos = l_y;
 				this.lives = 3; this.face = 1;
 				this.collectedLives = 0;
+				this.collectedBlueDiamonds = 0;
+
 				this.acceleration = [0, 0, 6.5, 6, 5.5, 5, 4.5, 4, 3.5, 3, 2.5, 2, 2, 1.5, 1.5, 0.75, 0.75, 0.5, 0.5, 0.5, 0.25, 0.25, 0, 0];
 				this.jumpCounter = 0; this.jumpNum = 0;
 				this.jumpsPerformed = 0; this.jumpPressed = false;
@@ -1695,7 +1707,14 @@
 								var tile = map.bitmap[r][c];
 								if (tile >= 7 && tile <= 12) {
 									if (tile == 7) { AddScore(50); }
-									else if (tile == 8) { AddScore(100); }
+									else if (tile == 8) {
+										AddScore(100);
+										this.collectedBlueDiamonds = (this.collectedBlueDiamonds || 0) + 1;
+										if (this.collectedBlueDiamonds % 3 === 0) {
+											SpawnBossAtRandomLocation("demon_fly");
+										}
+									}
+
 									else if (tile == 9) { AddScore(150); }
 									else if (tile == 10) { AddScore(150); }
 									else if (tile == 11) { AddScore(150); }
@@ -4006,7 +4025,8 @@
 				return null;
 			}
 
-			function SpawnBossAtRandomLocation() {
+			function SpawnBossAtRandomLocation(bossType) {
+				bossType = bossType || "crow";
 				g_screenShakeTime = 30; // 30 frames de tremor (~1 segundo)
 				g_screenShakeIntensity = 12;
 
@@ -4048,10 +4068,11 @@
 					}
 				}
 
-				g_boss = new c_Boss(spawnX, spawnY, "crow");
+				g_boss = new c_Boss(spawnX, spawnY, bossType);
 				g_boss.minX = walkMinX;
 				g_boss.maxX = walkMaxX;
 			}
+
 
 			function ResetGame(l) {
 				g_globalStartTime = Date.now();
@@ -4062,6 +4083,8 @@
 				_antiCheat.hash = btoa("0" + _antiCheat.salt);
 				DeSoGhost.lives = 3; DeSoGhost.alive = true;
 				DeSoGhost.collectedLives = 0;
+				DeSoGhost.collectedBlueDiamonds = 0;
+
 				DeSoGhost.xPos = 48; DeSoGhost.yPos = 150;
 				DeSoGhost.jumpNum = 0; DeSoGhost.jumpCounter = 0;
 				DeSoGhost.jumpsPerformed = 0; explosionFrame = 0;
