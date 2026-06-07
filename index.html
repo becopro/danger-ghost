@@ -920,6 +920,9 @@
 			var cactusLeft = new Image(); cactusLeft.src = 'assets/sprites/Cactus esquerda.png';
 			var demonFlyRight = new Image(); demonFlyRight.src = 'assets/sprites/demon fly direita.png';
 			var demonFlyLeft = new Image(); demonFlyLeft.src = 'assets/sprites/demon fly esquerda.png';
+			var slimeRight = new Image(); slimeRight.src = 'assets/sprites/Slime direita.png';
+			var slimeLeft = new Image(); slimeLeft.src = 'assets/sprites/Slime esquerda.png';
+
 
 
 			var waterFrames = [new Image(), new Image(), new Image(), new Image()];
@@ -973,10 +976,19 @@
 			};
 			_antiCheat.hash = btoa("0" + _antiCheat.salt); // Init score 0
 			
+			var g_slimeScoreTracker = 0;
 			function AddScore(points) {
 				g_score += points;
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
+				g_slimeScoreTracker += points;
+				if (g_slimeScoreTracker >= 777) {
+					while (g_slimeScoreTracker >= 777) {
+						g_slimeScoreTracker -= 777;
+						SpawnBossAtRandomLocation("slime");
+					}
+				}
 			}
+
 			function GetScore() {
 				if (btoa(g_score + _antiCheat.salt) !== _antiCheat.hash) return 0;
 				return g_score;
@@ -1115,6 +1127,8 @@
 				this.loadLevel = function (levelNum) {
 					g_levelStartTime = Date.now();
 					g_timeRemaining = 240;
+					g_slimeScoreTracker = 0;
+
 					var predominantTile = 2; // Default fallback
 					var idx = levelNum - 1;
 					if (idx < 0) idx = 0;
@@ -1278,15 +1292,17 @@
 						}
 					}
 
-					if (levelNum == 4 || levelNum == 11 || levelNum == 16 || levelNum == 20) {
+					if (levelNum == 4 || levelNum == 16 || levelNum == 20) {
 						g_boss = new c_Boss(800, 192);
 						g_boss.isOriginal = true;
 						if (levelNum == 4) { g_boss.minX = 600; g_boss.maxX = 1000; }
-						else if (levelNum == 11) { g_boss.minX = 600; g_boss.maxX = 1100; }
 						else if (levelNum == 16) { g_boss.minX = 400; g_boss.maxX = 900; }
 						else if (levelNum == 20) { g_boss.minX = 500; g_boss.maxX = 1000; }
 					} else if (levelNum == 5 || levelNum == 10 || levelNum == 17 || levelNum == 21) {
 						g_boss = new c_Boss(800, 144, "demon_fly");
+						g_boss.isOriginal = true;
+					} else if (levelNum == 6 || levelNum == 11 || levelNum == 18 || levelNum == 22) {
+						g_boss = new c_Boss(800, 144, "slime");
 						g_boss.isOriginal = true;
 					} else if (levelNum == 33) {
 						g_boss = new c_Boss(800, 144, "cactus");
@@ -1295,6 +1311,7 @@
 					} else {
 						g_boss = null;
 					}
+
 
 
 					// Colocar a porta nova (tile 21) na coluna 1, linha 7 (acima do chão na linha 8)
@@ -1415,9 +1432,12 @@
 						sprite = (this.dir > 0) ? cactusRight : cactusLeft;
 					} else if (this.type === "demon_fly") {
 						sprite = (this.dir > 0) ? demonFlyRight : demonFlyLeft;
+					} else if (this.type === "slime") {
+						sprite = (this.dir > 0) ? slimeRight : slimeLeft;
 					} else {
 						sprite = (this.dir > 0) ? sickCrowLeft : sickCrowRight;
 					}
+
 
 					g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, this.width, this.height);
 					
@@ -1448,7 +1468,7 @@
 						this.burnTicks--;
 						if (this.burnTicks % 15 === 0) {
 							var burnDmg = 2 + Math.floor(GhostRPG.getStats().weapon.damage * 0.05);
-							if (this.type === "demon_fly") burnDmg = Math.max(1, Math.floor(burnDmg / 2));
+							if (this.type === "demon_fly" || this.type === "slime") burnDmg = Math.max(1, Math.floor(burnDmg / 2));
 							this.lives -= burnDmg;
 							g_visualEffects.push(createExplosionEffect(this.xPos + this.width/2, this.yPos + this.height/2, "#FF4500", 6));
 						}
@@ -1457,7 +1477,7 @@
 						this.poisonTicks--;
 						if (this.poisonTicks % 20 === 0) {
 							var poisonDmg = 1 + Math.floor(GhostRPG.getStats().weapon.damage * 0.03);
-							if (this.type === "demon_fly") poisonDmg = Math.max(1, Math.floor(poisonDmg / 2));
+							if (this.type === "demon_fly" || this.type === "slime") poisonDmg = Math.max(1, Math.floor(poisonDmg / 2));
 							this.lives -= poisonDmg;
 							g_visualEffects.push(createExplosionEffect(this.xPos + this.width/2, this.yPos + this.height/2, "#32CD32", 4));
 						}
@@ -1473,8 +1493,8 @@
 						return;
 					}
 					
-					// Demon Fly Spectral Spark shooting logic (can fire even if slow but not shock)
-					if (this.type === "demon_fly" && this.alive && this.shockTimer <= 0) {
+					// Demon Fly & Slime Spectral Spark shooting logic (can fire even if slow but not shock)
+					if ((this.type === "demon_fly" || this.type === "slime") && this.alive && this.shockTimer <= 0) {
 						if (this.shootCooldown > 0) {
 							this.shootCooldown--;
 						} else {
@@ -1618,9 +1638,10 @@
 									var reduction = Math.min(0.70, (g_boss.level - 1) * 0.04);
 									finalDmg = Math.max(1, Math.floor(dmg * (1 - reduction)));
 								}
-								if (g_boss.type === "demon_fly") {
+								if (g_boss.type === "demon_fly" || g_boss.type === "slime") {
 									finalDmg = Math.max(1, Math.floor(finalDmg / 2));
 								}
+
 								g_boss.lives -= finalDmg;
 
 								this.jumpNum = 1; this.jumpCounter = 2;
@@ -1977,9 +1998,10 @@
 										var reduction = Math.min(0.70, (g_boss.level - 1) * 0.04);
 										finalDmg = Math.max(1, Math.floor(p.damage * (1 - reduction)));
 									}
-									if (g_boss.type === "demon_fly") {
+									if (g_boss.type === "demon_fly" || g_boss.type === "slime") {
 										finalDmg = Math.max(1, Math.floor(finalDmg / 2));
 									}
+
 									g_boss.lives -= finalDmg;
 
 									var color = "#00FFFF";
