@@ -1404,7 +1404,9 @@
 
 			function c_Boss(l_x, l_y, type) {
 				this.type = type || "crow";
-				this.xPos = l_x; this.yPos = l_y;
+				this.xPos = l_x; this.yPos = (this.type === "slime") ? l_y + 8 : l_y;
+
+
 				
 				var stats = GhostRPG.getStats();
 				this.level = stats.level || 1;
@@ -1433,8 +1435,9 @@
 					} else if (this.type === "demon_fly") {
 						sprite = (this.dir > 0) ? demonFlyRight : demonFlyLeft;
 					} else if (this.type === "slime") {
-						sprite = (this.dir > 0) ? slimeRight : slimeLeft;
-					} else {
+						sprite = (this.dir > 0) ? slimeLeft : slimeRight;
+					}
+ else {
 						sprite = (this.dir > 0) ? sickCrowLeft : sickCrowRight;
 					}
 
