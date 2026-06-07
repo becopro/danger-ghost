@@ -918,8 +918,6 @@
 			var sickCrowLeft = new Image(); sickCrowLeft.src = 'assets/sprites/Sickcrow e.png';
 			var cactusRight = new Image(); cactusRight.src = 'assets/sprites/Cactus direita.png';
 			var cactusLeft = new Image(); cactusLeft.src = 'assets/sprites/Cactus esquerda.png';
-			var slimeRight = new Image(); slimeRight.src = 'assets/sprites/Slime direita.png';
-			var slimeLeft = new Image(); slimeLeft.src = 'assets/sprites/Slime esquerda.png';
 
 			var waterFrames = [new Image(), new Image(), new Image(), new Image()];
 			waterFrames[0].src = 'assets2/water1.png'; waterFrames[1].src = 'assets2/water2.png';
@@ -999,6 +997,77 @@
 			var g_screenShakeIntensity = 10;
 			var g_projectiles = [];
 			var g_visualEffects = [];
+
+			var g_tempGhostRect = {l: 0, r: 0, t: 0, b: 0};
+			var g_tempIslandRect = {l: 0, r: 0, t: 0, b: 0};
+
+			// --- OBJECT POOLS ---
+			var g_projectilePool = [];
+			var g_projectilePoolIndex = 0;
+			for (var i = 0; i < 200; i++) {
+				g_projectilePool.push({
+					x: 0, y: 0, vx: 0, vy: 0, type: "", runeId: 0, width: 0, height: 0, life: 0, damage: 0, penetrates: false, hits: {}
+				});
+			}
+			function obtainProjectile(x, y, vx, vy, type, runeId, width, height, life, damage, penetrates) {
+				var p = g_projectilePool[g_projectilePoolIndex];
+				g_projectilePoolIndex = (g_projectilePoolIndex + 1) % g_projectilePool.length;
+				p.x = x;
+				p.y = y;
+				p.vx = vx;
+				p.vy = vy;
+				p.type = type;
+				p.runeId = runeId;
+				p.width = width;
+				p.height = height;
+				p.life = life;
+				p.damage = damage;
+				p.penetrates = penetrates;
+				for (var key in p.hits) {
+					delete p.hits[key];
+				}
+				return p;
+			}
+
+			var g_fxPool = [];
+			var g_fxPoolIndex = 0;
+			for (var i = 0; i < 50; i++) {
+				var fx = {
+					type: "explosion",
+					x: 0,
+					y: 0,
+					particles: [],
+					life: 0,
+					maxLife: 15
+				};
+				for (var j = 0; j < 15; j++) {
+					fx.particles.push({ x: 0, y: 0, vx: 0, vy: 0, color: "", size: 0 });
+				}
+				g_fxPool.push(fx);
+			}
+			function obtainExplosionEffect(x, y, color, particleCount) {
+				var fx = g_fxPool[g_fxPoolIndex];
+				g_fxPoolIndex = (g_fxPoolIndex + 1) % g_fxPool.length;
+				fx.type = "explosion";
+				fx.x = x;
+				fx.y = y;
+				fx.life = 15;
+				fx.maxLife = 15;
+				var count = Math.min(particleCount, 15);
+				fx.particles.length = count;
+				for (var i = 0; i < count; i++) {
+					var p = fx.particles[i];
+					var angle = Math.random() * Math.PI * 2;
+					var speed = 1 + Math.random() * 3;
+					p.x = 0;
+					p.y = 0;
+					p.vx = Math.cos(angle) * speed;
+					p.vy = Math.sin(angle) * speed;
+					p.color = color;
+					p.size = 2 + Math.random() * 3;
+				}
+				return fx;
+			}
 
 			// --- LEVEL DATA (33 UNIQUE LEVELS) ---
 			var g_levels = [
@@ -1206,18 +1275,17 @@
 						}
 					}
 
-					if (levelNum == 3 || levelNum == 10 || levelNum == 19 || levelNum == 21 || levelNum == 33) {
-						g_boss = new c_Boss(800, levelNum == 33 ? 144 : 192, "slime");
-						g_boss.isOriginal = true;
-						if (levelNum == 33) { g_boss.minX = 200; g_boss.maxX = 1000; }
-						else { g_boss.minX = 600; g_boss.maxX = 1000; }
-					} else if (levelNum == 4 || levelNum == 11 || levelNum == 16 || levelNum == 20) {
+					if (levelNum == 4 || levelNum == 11 || levelNum == 16 || levelNum == 20) {
 						g_boss = new c_Boss(800, 192);
 						g_boss.isOriginal = true;
 						if (levelNum == 4) { g_boss.minX = 600; g_boss.maxX = 1000; }
 						else if (levelNum == 11) { g_boss.minX = 600; g_boss.maxX = 1100; }
 						else if (levelNum == 16) { g_boss.minX = 400; g_boss.maxX = 900; }
 						else if (levelNum == 20) { g_boss.minX = 500; g_boss.maxX = 1000; }
+					} else if (levelNum == 33) {
+						g_boss = new c_Boss(800, 144, "cactus");
+						g_boss.isOriginal = true;
+						g_boss.minX = 200; g_boss.maxX = 1000;
 					} else {
 						g_boss = null;
 					}
@@ -1235,8 +1303,10 @@
 				this.loadLevel(g_currentLevel);
 
 				this.draw = function () {
+					var startCol = Math.max(0, Math.floor(-map_offset / 24));
+					var endCol = Math.min(99, Math.floor((-map_offset + g_canvas.width) / 24));
 					for (var i = 0; i < 11; i++) {
-						for (var j = 0; j < 100; j++) {
+						for (var j = startCol; j <= endCol; j++) {
 							var x = (j * 24) + map_offset;
 							var y = i * 24;
 							var tile = this.bitmap[i][j];
@@ -1328,18 +1398,12 @@
 				this.poisonTicks = 0;
 				this.slowTimer = 0;
 				this.shockTimer = 0;
-				
-				this.isJumping = false;
-				this.vy = 0;
-				this.shootCooldown = 0;
 
 				this.draw = function () {
 					if (!this.alive) return;
 					var sprite;
 					if (this.type === "cactus") {
 						sprite = (this.dir > 0) ? cactusRight : cactusLeft;
-					} else if (this.type === "slime") {
-						sprite = (this.dir > 0) ? slimeLeft : slimeRight;
 					} else {
 						sprite = (this.dir > 0) ? sickCrowLeft : sickCrowRight;
 					}
@@ -1397,71 +1461,6 @@
 					
 					if (this.shockTimer > 0) return; // stunned, skip movement
 					
-					if (this.type === "slime") {
-						if (this.isJumping) {
-							this.yPos += this.vy;
-							this.vy += 0.4;
-							
-							if (this.vy >= 0) {
-								var cl = determinePos(this.xPos + 4);
-								var cr = determinePos(this.xPos + this.width - 4);
-								var cb = determinePos(this.yPos + this.height - 1);
-								if (cl >= 0 && cl < 100 && cr >= 0 && cr < 100 && cb >= 0 && cb < 11) {
-									var t1 = map.bitmap[cb][cl], t2 = map.bitmap[cb][cr];
-									var solid1 = (t1 == 1 || t1 == 2 || t1 == 13 || t1 == 14 || t1 == 15 || t1 == 19);
-									var solid2 = (t2 == 1 || t2 == 2 || t2 == 13 || t2 == 14 || t2 == 15 || t2 == 19);
-									if (solid1 || solid2) {
-										this.yPos = cb * 24 - this.height;
-										this.isJumping = false;
-										this.vy = 0;
-									}
-								}
-							}
-						} else {
-							var cl = determinePos(this.xPos + 4);
-							var cr = determinePos(this.xPos + this.width - 4);
-							var cb = determinePos(this.yPos + this.height);
-							var solid1 = false, solid2 = false;
-							if (cb >= 0 && cb < 11) {
-								if (cl >= 0 && cl < 100) {
-									var t1 = map.bitmap[cb][cl];
-									solid1 = (t1 == 1 || t1 == 2 || t1 == 13 || t1 == 14 || t1 == 15 || t1 == 19);
-								}
-								if (cr >= 0 && cr < 100) {
-									var t2 = map.bitmap[cb][cr];
-									solid2 = (t2 == 1 || t2 == 2 || t2 == 13 || t2 == 14 || t2 == 15 || t2 == 19);
-								}
-							}
-							if (!solid1 && !solid2) {
-								this.isJumping = true;
-								this.vy = 0;
-							}
-						}
-
-						// Pulo aleatório
-						if (!this.isJumping && Math.random() < 0.01) {
-							this.isJumping = true;
-							this.vy = -6;
-						}
-
-						// Ataque aleatório
-						this.shootCooldown = (this.shootCooldown || 0) + 1;
-						if (this.shootCooldown >= 60 && Math.random() < 0.02) {
-							this.shootCooldown = 0;
-							g_projectiles.push({
-								x: this.xPos + this.width / 2,
-								y: this.yPos + this.height / 2,
-								vx: 3.5 * this.dir,
-								vy: 0,
-								type: "slime_orb",
-								isEnemy: true,
-								width: 20,
-								height: 20,
-								life: 120
-							});
-						}
-					}
-					
 					var currentSpeed = this.speed;
 					if (this.slowTimer > 0) currentSpeed *= 0.5; // 50% slow
 					
@@ -1487,7 +1486,6 @@
 				this.isLevelingUpAnim = 0;
 				this.skillCooldowns = [0, 0, 0, 0];
 				this.phantomFormTimer = 0;
-				this.collectedBlueDiamonds = 0;
 
 				this.draw = function () {
 					if (this.alive) {
@@ -1614,6 +1612,7 @@
 					}
 
 					var prevX = this.xPos;
+					var prevY = this.yPos;
 					this.xPos += dx;
 					if (this.xPos < 0) this.xPos = 0;
 					if (this.xPos > 100 * 24 - 24) this.xPos = 100 * 24 - 24; // Limitador à direita (2376px)
@@ -1627,12 +1626,18 @@
 						if (!this.ghostMode && (s1 || s2)) this.xPos = prevX;
 
 						if (!this.ghostMode) {
-							var ghostRect = {l: this.xPos + 4, r: this.xPos + 20, t: this.yPos, b: this.yPos + 23};
+							g_tempGhostRect.l = this.xPos + 4;
+							g_tempGhostRect.r = this.xPos + 20;
+							g_tempGhostRect.t = this.yPos;
+							g_tempGhostRect.b = this.yPos + 23;
 							for (var isl = 0; isl < g_activeIslands.length; isl++) {
 								var island = g_activeIslands[isl];
 								if (island.state == 'falling') continue;
-								var iRect = {l: island.x, r: island.x + island.w, t: island.y - island.visualYOffset, b: island.y - island.visualYOffset + island.h};
-								if (ghostRect.r > iRect.l && ghostRect.l < iRect.r && ghostRect.b > iRect.t && ghostRect.t < iRect.b) {
+								g_tempIslandRect.l = island.x;
+								g_tempIslandRect.r = island.x + island.w;
+								g_tempIslandRect.t = island.y - island.visualYOffset;
+								g_tempIslandRect.b = island.y - island.visualYOffset + island.h;
+								if (g_tempGhostRect.r > g_tempIslandRect.l && g_tempGhostRect.l < g_tempIslandRect.r && g_tempGhostRect.b > g_tempIslandRect.t && g_tempGhostRect.t < g_tempIslandRect.b) {
 									this.xPos = prevX;
 								}
 							}
@@ -1690,13 +1695,7 @@
 								var tile = map.bitmap[r][c];
 								if (tile >= 7 && tile <= 12) {
 									if (tile == 7) { AddScore(50); }
-									else if (tile == 8) {
-										AddScore(100);
-										this.collectedBlueDiamonds = (this.collectedBlueDiamonds || 0) + 1;
-										if (this.collectedBlueDiamonds % 3 === 0) {
-											SpawnBossAtRandomLocation("slime");
-										}
-									}
+									else if (tile == 8) { AddScore(100); }
 									else if (tile == 9) { AddScore(150); }
 									else if (tile == 10) { AddScore(150); }
 									else if (tile == 11) { AddScore(150); }
@@ -1718,19 +1717,25 @@
 					}
 					
 					if (!this.ghostMode) {
-						var ghostRect = {l: this.xPos + 4, r: this.xPos + 20, t: this.yPos, b: this.yPos + 23};
+						g_tempGhostRect.l = this.xPos + 4;
+						g_tempGhostRect.r = this.xPos + 20;
+						g_tempGhostRect.t = this.yPos;
+						g_tempGhostRect.b = this.yPos + 23;
 						for (var isl = 0; isl < g_activeIslands.length; isl++) {
 							var island = g_activeIslands[isl];
 							if (island.state == 'falling') continue;
-							var iRect = {l: island.x, r: island.x + island.w, t: island.y - island.visualYOffset, b: island.y - island.visualYOffset + island.h};
+							g_tempIslandRect.l = island.x;
+							g_tempIslandRect.r = island.x + island.w;
+							g_tempIslandRect.t = island.y - island.visualYOffset;
+							g_tempIslandRect.b = island.y - island.visualYOffset + island.h;
 							
-							if (ghostRect.r > iRect.l && ghostRect.l < iRect.r) {
-								if (prevY + 23 <= iRect.t && ghostRect.b >= iRect.t) {
-									this.yPos = iRect.t - 24;
+							if (g_tempGhostRect.r > g_tempIslandRect.l && g_tempGhostRect.l < g_tempIslandRect.r) {
+								if (prevY + 23 <= g_tempIslandRect.t && g_tempGhostRect.b >= g_tempIslandRect.t) {
+									this.yPos = g_tempIslandRect.t - 24;
 									this.jumpNum = 0; this.jumpCounter = 0; this.jumpsPerformed = 0;
 									if (island.state == 'idle') island.state = 'countdown';
-								} else if (this.jumpNum == 1 && prevY >= iRect.b && ghostRect.t <= iRect.b) {
-									this.yPos = iRect.b;
+								} else if (this.jumpNum == 1 && prevY >= g_tempIslandRect.b && g_tempGhostRect.t <= g_tempIslandRect.b) {
+									this.yPos = g_tempIslandRect.b;
 									this.jumpNum = 2;
 								}
 							}
@@ -1851,20 +1856,14 @@
 				var startX = DeSoGhost.xPos + 12;
 				var startY = DeSoGhost.yPos + 12;
 
-				var p = {
-					x: startX,
-					y: startY,
-					vx: (type === "spark" ? 8 : 3.5) * direction,
-					vy: 0,
-					type: type,
-					runeId: runeId,
-					width: type === "spark" ? 8 : 20,
-					height: type === "spark" ? 8 : 20,
-					life: type === "spark" ? 60 : 120,
-					damage: 0,
-					penetrates: type === "orb",
-					hits: {}
-				};
+				var vx = (type === "spark" ? 8 : 3.5) * direction;
+				var vy = 0;
+				var width = type === "spark" ? 8 : 20;
+				var height = type === "spark" ? 8 : 20;
+				var life = type === "spark" ? 60 : 120;
+				var penetrates = type === "orb";
+
+				var p = obtainProjectile(startX, startY, vx, vy, type, runeId, width, height, life, 0, penetrates);
 
 				if (type === "spark") {
 					p.damage = Math.floor(weaponDmg * 0.8);
@@ -1880,30 +1879,10 @@
 			}
 
 			function createExplosionEffect(x, y, color, particleCount) {
-				var fx = {
-					type: "explosion",
-					x: x,
-					y: y,
-					particles: [],
-					life: 15,
-					maxLife: 15
-				};
-				for (var i = 0; i < particleCount; i++) {
-					var angle = Math.random() * Math.PI * 2;
-					var speed = 1 + Math.random() * 3;
-					fx.particles.push({
-						x: 0,
-						y: 0,
-						vx: Math.cos(angle) * speed,
-						vy: Math.sin(angle) * speed,
-						color: color,
-						size: 2 + Math.random() * 3
-					});
-				}
-				return fx;
+				return obtainExplosionEffect(x, y, color, particleCount);
 			}
 
-			function updateAndDrawProjectiles() {
+			function updateProjectiles() {
 				var stats = GhostRPG.getStats();
 				for (var i = g_projectiles.length - 1; i >= 0; i--) {
 					var p = g_projectiles[i];
@@ -1918,59 +1897,7 @@
 						continue;
 					}
 
-					var color = "#00FFFF";
-					if (p.type === "spark") {
-						if (p.runeId === 1) color = "#FF4500";
-						else if (p.runeId === 2) color = "#00E5FF";
-						else if (p.runeId === 3) color = "#FFEA00";
-						else if (p.runeId === 4) color = "#00E676";
-						else if (p.runeId === 5) color = "#D500F9";
-
-						g_ctx.fillStyle = color;
-						g_ctx.beginPath();
-						g_ctx.arc(screenX, p.y, p.width / 2, 0, Math.PI * 2);
-						g_ctx.fill();
-					} else if (p.type === "slime_orb") {
-						color = "rgba(0, 230, 118, 0.7)";
-						g_ctx.fillStyle = color;
-						g_ctx.beginPath();
-						g_ctx.arc(screenX, p.y, p.width / 2, 0, Math.PI * 2);
-						g_ctx.fill();
-						g_ctx.strokeStyle = "#FFFFFF";
-						g_ctx.lineWidth = 1.5;
-						g_ctx.stroke();
-					} else {
-						if (p.runeId === 1) color = "rgba(255, 69, 0, 0.7)";
-						else if (p.runeId === 2) color = "rgba(0, 229, 255, 0.7)";
-						else if (p.runeId === 3) color = "rgba(255, 234, 0, 0.7)";
-						else if (p.runeId === 4) color = "rgba(0, 230, 118, 0.7)";
-						else if (p.runeId === 5) color = "rgba(213, 0, 249, 0.7)";
-
-						g_ctx.fillStyle = color;
-						g_ctx.beginPath();
-						g_ctx.arc(screenX, p.y, p.width / 2, 0, Math.PI * 2);
-						g_ctx.fill();
-						g_ctx.strokeStyle = "#FFFFFF";
-						g_ctx.lineWidth = 1.5;
-						g_ctx.stroke();
-					}
-
-					if (p.isEnemy) {
-						if (!DeSoGhost.ghostMode && DeSoGhost.phantomFormTimer <= 0 && DeSoGhost.alive) {
-							var pL = DeSoGhost.xPos + 4;
-							var pR = DeSoGhost.xPos + 20;
-							var pT = DeSoGhost.yPos;
-							var pB = DeSoGhost.yPos + 24;
-							if (p.x + p.width/2 > pL && p.x - p.width/2 < pR &&
-								p.y + p.height/2 > pT && p.y - p.height/2 < pB) {
-								DeSoGhost.alive = false;
-								g_projectiles.splice(i, 1);
-								continue;
-							}
-						}
-					}
-
-					if (!p.isEnemy && g_boss && g_boss.alive) {
+					if (g_boss && g_boss.alive) {
 						if (p.x + p.width/2 > g_boss.xPos && p.x - p.width/2 < g_boss.xPos + g_boss.width &&
 							p.y + p.height/2 > g_boss.yPos && p.y - p.height/2 < g_boss.yPos + g_boss.height) {
 
@@ -1991,6 +1918,13 @@
 								}
 								g_boss.lives -= finalDmg;
 
+								var color = "#00FFFF";
+								if (p.runeId === 1) color = "#FF4500";
+								else if (p.runeId === 2) color = "#00E5FF";
+								else if (p.runeId === 3) color = "#FFEA00";
+								else if (p.runeId === 4) color = "#00E676";
+								else if (p.runeId === 5) color = "#D500F9";
+
 								if (p.type === "spark") {
 									var genAmount = 15 + Math.floor(stats.int * 0.5);
 									DeSoGhost.mana = Math.min(DeSoGhost.maxMana, DeSoGhost.mana + genAmount);
@@ -2008,10 +1942,44 @@
 
 								if (!p.penetrates) {
 									g_projectiles.splice(i, 1);
-									break;
+									continue;
 								}
 							}
 						}
+					}
+				}
+			}
+
+			function drawProjectiles() {
+				for (var i = 0; i < g_projectiles.length; i++) {
+					var p = g_projectiles[i];
+					var screenX = p.x + map_offset;
+					var color = "#00FFFF";
+					if (p.type === "spark") {
+						if (p.runeId === 1) color = "#FF4500";
+						else if (p.runeId === 2) color = "#00E5FF";
+						else if (p.runeId === 3) color = "#FFEA00";
+						else if (p.runeId === 4) color = "#00E676";
+						else if (p.runeId === 5) color = "#D500F9";
+
+						g_ctx.fillStyle = color;
+						g_ctx.beginPath();
+						g_ctx.arc(screenX, p.y, p.width / 2, 0, Math.PI * 2);
+						g_ctx.fill();
+					} else {
+						if (p.runeId === 1) color = "rgba(255, 69, 0, 0.7)";
+						else if (p.runeId === 2) color = "rgba(0, 229, 255, 0.7)";
+						else if (p.runeId === 3) color = "rgba(255, 234, 0, 0.7)";
+						else if (p.runeId === 4) color = "rgba(0, 230, 118, 0.7)";
+						else if (p.runeId === 5) color = "rgba(213, 0, 249, 0.7)";
+
+						g_ctx.fillStyle = color;
+						g_ctx.beginPath();
+						g_ctx.arc(screenX, p.y, p.width / 2, 0, Math.PI * 2);
+						g_ctx.fill();
+						g_ctx.strokeStyle = "#FFFFFF";
+						g_ctx.lineWidth = 1.5;
+						g_ctx.stroke();
 					}
 				}
 			}
@@ -2023,7 +1991,7 @@
 				else if (runeId === 4) boss.poisonTicks = 240;
 			}
 
-			function updateAndDrawVisualEffects() {
+			function updateVisualEffects() {
 				for (var i = g_visualEffects.length - 1; i >= 0; i--) {
 					var fx = g_visualEffects[i];
 					fx.life--;
@@ -2032,13 +2000,23 @@
 						continue;
 					}
 
-					var screenX = fx.x + map_offset;
-
 					if (fx.type === "explosion") {
 						for (var p = 0; p < fx.particles.length; p++) {
 							var pt = fx.particles[p];
 							pt.x += pt.vx;
 							pt.y += pt.vy;
+						}
+					}
+				}
+			}
+
+			function drawVisualEffects() {
+				for (var i = 0; i < g_visualEffects.length; i++) {
+					var fx = g_visualEffects[i];
+					var screenX = fx.x + map_offset;
+					if (fx.type === "explosion") {
+						for (var p = 0; p < fx.particles.length; p++) {
+							var pt = fx.particles[p];
 							g_ctx.fillStyle = pt.color;
 							g_ctx.globalAlpha = fx.life / fx.maxLife;
 							g_ctx.fillRect(screenX + pt.x, fx.y + pt.y, pt.size, pt.size);
@@ -2055,6 +2033,30 @@
 						g_ctx.globalAlpha = 1.0;
 					}
 				}
+			}
+
+			function updateBinaryBackground(isStartScreen) {
+				if (g_currentLevel != 26 && !isStartScreen) return;
+				for (var i = 0; i < g_binaryBits.length; i++) {
+					var b = g_binaryBits[i];
+					b.y += b.speed;
+					if (b.y > 300) { b.y = 0; b.x = Math.random() * 640; }
+				}
+			}
+
+			function drawBinaryBackground(isStartScreen) {
+				if (g_currentLevel != 26 && !isStartScreen) return;
+				g_ctx.font = isStartScreen ? "bold 14px 'Courier New'" : "14px 'Courier New'";
+				g_ctx.fillStyle = isStartScreen ? "#00FF00" : "#003800";
+				for (var i = 0; i < g_binaryBits.length; i++) {
+					var b = g_binaryBits[i];
+					g_ctx.fillText(b.val, b.x, b.y);
+				}
+			}
+
+			function UpdateAndDrawBinaryBackground(isStartScreen) {
+				updateBinaryBackground(isStartScreen);
+				drawBinaryBackground(isStartScreen);
 			}
 
 			function Print_HUD() {
@@ -4003,7 +4005,7 @@
 				return null;
 			}
 
-			function SpawnBossAtRandomLocation(bossType) {
+			function SpawnBossAtRandomLocation() {
 				g_screenShakeTime = 30; // 30 frames de tremor (~1 segundo)
 				g_screenShakeIntensity = 12;
 
@@ -4045,7 +4047,7 @@
 					}
 				}
 
-				g_boss = new c_Boss(spawnX, spawnY, bossType || "crow");
+				g_boss = new c_Boss(spawnX, spawnY, "crow");
 				g_boss.minX = walkMinX;
 				g_boss.maxX = walkMaxX;
 			}
@@ -4059,7 +4061,6 @@
 				_antiCheat.hash = btoa("0" + _antiCheat.salt);
 				DeSoGhost.lives = 3; DeSoGhost.alive = true;
 				DeSoGhost.collectedLives = 0;
-				DeSoGhost.collectedBlueDiamonds = 0;
 				DeSoGhost.xPos = 48; DeSoGhost.yPos = 150;
 				DeSoGhost.jumpNum = 0; DeSoGhost.jumpCounter = 0;
 				DeSoGhost.jumpsPerformed = 0; explosionFrame = 0;
@@ -4070,9 +4071,7 @@
 			// --- INITIALIZATION ---
 			var map = new Initialize_Map_Array();
 			var DeSoGhost = new c_DeSoGhost(48, 150);
-
-			// Matrix Background for Level 26
-			var g_binaryBits = [];
+var g_binaryBits = [];
 			for (var i = 0; i < 60; i++) {
 				g_binaryBits.push({
 					x: Math.random() * 640,
@@ -4082,37 +4081,9 @@
 				});
 			}
 
-			function UpdateAndDrawBinaryBackground(isStartScreen) {
-				if (g_currentLevel != 26 && !isStartScreen) return;
-				g_ctx.font = isStartScreen ? "bold 14px 'Courier New'" : "14px 'Courier New'";
-				g_ctx.fillStyle = isStartScreen ? "#00FF00" : "#003800";
-				for (var i = 0; i < g_binaryBits.length; i++) {
-					var b = g_binaryBits[i];
-					g_ctx.fillText(b.val, b.x, b.y);
-					b.y += b.speed;
-					if (b.y > 300) { b.y = 0; b.x = Math.random() * 640; }
-				}
-			}
-
-			function Game_Loop() {
-				var extTimer = document.getElementById("externalTimer");
-				if (extTimer) {
-					extTimer.style.display = (g_gameState === G_PLAY || g_gameState === G_PAUSE) ? "block" : "none";
-				}
-				g_ctx.clearRect(0, 0, g_canvas.width, g_canvas.height);
-				
-				g_ctx.save();
-				if (g_screenShakeTime > 0) {
-					var dx = (Math.random() - 0.5) * g_screenShakeIntensity;
-					var dy = (Math.random() - 0.5) * g_screenShakeIntensity;
-					g_ctx.translate(dx, dy);
-					g_screenShakeTime--;
-				}
-				
-				if (g_gameState == G_START) DrawStartScreen();
-				else if (g_gameState == G_CUTSCENE || g_gameState == G_END_CUTSCENE) {
-					// Tela preta de fundo pro Canvas enquanto o GIF toca pelo DOM
-					g_ctx.fillStyle = "#000"; g_ctx.fillRect(0, 0, g_canvas.width, g_canvas.height);
+			function Game_Step_Logic() {
+				if (g_gameState == G_START) {
+					updateBinaryBackground(true);
 				}
 				else if (g_gameState == G_PLAY) {
 					var elapsed = Math.floor((Date.now() - g_levelStartTime) / 1000);
@@ -4123,89 +4094,109 @@
 						DeSoGhost.lives = 0; // Força Opção B (Game Over absoluto após a explosão)
 					}
 
-					UpdateAndDrawBinaryBackground(false);
-					map.draw(); map.updateMap();
-					if (g_boss) { g_boss.update(); g_boss.draw(); }
+					updateBinaryBackground(false);
+					map.updateMap();
+					if (g_boss) { g_boss.update(); }
 					DeSoGhost.move();
-					updateAndDrawProjectiles();
+					updateProjectiles();
+					updateVisualEffects();
+				}
+				else if (g_gameState == G_PAUSE) {
+					updateBinaryBackground(false);
+				}
+			}
+
+			function Game_Step_Render() {
+				var extTimer = document.getElementById("externalTimer");
+				if (extTimer) {
+					extTimer.style.display = (g_gameState === G_PLAY || g_gameState === G_PAUSE) ? "block" : "none";
+				}
+				g_ctx.clearRect(0, 0, g_canvas.width, g_canvas.height);
+				
+				g_ctx.save();
+				if (g_gameState == G_PLAY && g_screenShakeTime > 0) {
+					var dx = (Math.random() - 0.5) * g_screenShakeIntensity;
+					var dy = (Math.random() - 0.5) * g_screenShakeIntensity;
+					g_ctx.translate(dx, dy);
+					g_screenShakeTime--;
+				}
+				
+				if (g_gameState == G_START) {
+					drawBinaryBackground(true);
+					DrawStartScreen();
+				}
+				else if (g_gameState == G_CUTSCENE || g_gameState == G_END_CUTSCENE) {
+					// Tela preta de fundo pro Canvas enquanto o GIF toca pelo DOM
+					g_ctx.fillStyle = "#000"; g_ctx.fillRect(0, 0, g_canvas.width, g_canvas.height);
+				}
+				else if (g_gameState == G_PLAY) {
+					drawBinaryBackground(false);
+					map.draw();
+					if (g_boss) { g_boss.draw(); }
+					drawProjectiles();
 					DeSoGhost.draw();
-					updateAndDrawVisualEffects();
+					drawVisualEffects();
 					Print_HUD();
 				}
 				else if (g_gameState == G_WIN) DrawWinScreen();
 				else if (g_gameState == G_GAMEOVER) DrawGameOverScreen();
 				else if (g_gameState == G_PAUSE) {
-					UpdateAndDrawBinaryBackground(false);
+					drawBinaryBackground(false);
 					map.draw();
 					if (g_boss) { g_boss.draw(); }
-					
-					// Draw spells and effects statically during pause
-					for (var i = 0; i < g_projectiles.length; i++) {
-						var p = g_projectiles[i];
-						var screenX = p.x + map_offset;
-						var color = "#00FFFF";
-						if (p.type === "spark") {
-							if (p.runeId === 1) color = "#FF4500";
-							else if (p.runeId === 2) color = "#00E5FF";
-							else if (p.runeId === 3) color = "#FFEA00";
-							else if (p.runeId === 4) color = "#00E676";
-							else if (p.runeId === 5) color = "#D500F9";
-							g_ctx.fillStyle = color;
-							g_ctx.beginPath();
-							g_ctx.arc(screenX, p.y, p.width / 2, 0, Math.PI * 2);
-							g_ctx.fill();
-						} else {
-							if (p.runeId === 1) color = "rgba(255, 69, 0, 0.7)";
-							else if (p.runeId === 2) color = "rgba(0, 229, 255, 0.7)";
-							else if (p.runeId === 3) color = "rgba(255, 234, 0, 0.7)";
-							else if (p.runeId === 4) color = "rgba(0, 230, 118, 0.7)";
-							else if (p.runeId === 5) color = "rgba(213, 0, 249, 0.7)";
-							g_ctx.fillStyle = color;
-							g_ctx.beginPath();
-							g_ctx.arc(screenX, p.y, p.width / 2, 0, Math.PI * 2);
-							g_ctx.fill();
-							g_ctx.strokeStyle = "#FFFFFF";
-							g_ctx.lineWidth = 1.5;
-							g_ctx.stroke();
-						}
-					}
-					for (var i = 0; i < g_visualEffects.length; i++) {
-						var fx = g_visualEffects[i];
-						var screenX = fx.x + map_offset;
-						if (fx.type === "explosion") {
-							for (var p = 0; p < fx.particles.length; p++) {
-								var pt = fx.particles[p];
-								g_ctx.fillStyle = pt.color;
-								g_ctx.globalAlpha = fx.life / fx.maxLife;
-								g_ctx.fillRect(screenX + pt.x, fx.y + pt.y, pt.size, pt.size);
-							}
-							g_ctx.globalAlpha = 1.0;
-						} else if (fx.type === "expand") {
-							g_ctx.strokeStyle = fx.color;
-							g_ctx.globalAlpha = fx.life / fx.maxLife;
-							g_ctx.lineWidth = 2;
-							var radius = fx.radius + (1 - fx.life / fx.maxLife) * (fx.maxRadius - fx.radius);
-							g_ctx.beginPath();
-							g_ctx.arc(screenX, fx.y, radius, 0, Math.PI * 2);
-							g_ctx.stroke();
-							g_ctx.globalAlpha = 1.0;
-						}
-					}
-					DeSoGhost.draw(); Print_HUD();
+					drawProjectiles();
+					drawVisualEffects();
+					DeSoGhost.draw();
+					Print_HUD();
 					
 					g_ctx.fillStyle = "rgba(0,0,0,0.7)"; g_ctx.fillRect(0, 0, g_canvas.width, g_canvas.height);
 					g_ctx.font = "bold 40px 'Courier New'"; g_ctx.fillStyle = "#FF00FF"; g_ctx.textAlign = "center";
 					g_ctx.fillText("PAUSED", g_canvas.width / 2, 140);
 					g_ctx.font = "bold 20px 'Courier New'"; g_ctx.fillStyle = "#FFF";
 					g_ctx.fillText("PRESS SPACE TO RESUME", g_canvas.width / 2, 180);
-					g_ctx.textAlign = "left"; 
+					g_ctx.textAlign = "left";
 				}
 				
 				g_ctx.restore();
 			}
 
-			var g_gameInterval = setInterval(Game_Loop, 33);
+			function Game_Loop() {
+				Game_Step_Logic();
+				Game_Step_Render();
+			}
+
 			var g_isFast = false;
+			var g_lastTime = 0;
+			var g_physicsAccumulator = 0;
+
+			function Game_Step(currentTime) {
+				if (!g_lastTime) g_lastTime = currentTime;
+				var dt = currentTime - g_lastTime;
+				g_lastTime = currentTime;
+
+				if (dt > 250) dt = 250; // clamp to prevent spiral of death
+
+				g_physicsAccumulator += dt;
+				var currentTimestep = g_isFast ? 16.66 : 33.33;
+				
+				var updates = 0;
+				while (g_physicsAccumulator >= currentTimestep) {
+					Game_Step_Logic();
+					g_physicsAccumulator -= currentTimestep;
+					updates++;
+					if (updates > 10) {
+						g_physicsAccumulator = 0;
+						break;
+					}
+				}
+
+				Game_Step_Render();
+
+				requestAnimationFrame(Game_Step);
+			}
+
+			// Iniciar o loop requestAnimationFrame
+			requestAnimationFrame(Game_Step);
 
 			window.addEventListener("keydown", function (e) {
 				if (document.activeElement && document.activeElement.tagName === "INPUT") return;
@@ -4216,8 +4207,6 @@
 				}
 				if (e.keyCode == 84 && !g_isFast) { // T (Fast Forward)
 					g_isFast = true;
-					clearInterval(g_gameInterval);
-					g_gameInterval = setInterval(Game_Loop, 16);
 				}
 				if (e.keyCode == 86 && !e.repeat) { useSlotSkill(0); } // V
 				if (e.keyCode == 70) { // F
@@ -4285,8 +4274,6 @@
 			window.addEventListener("keyup", function (e) {
 				if (e.keyCode == 84 && g_isFast) { // T (Fast Forward)
 					g_isFast = false;
-					clearInterval(g_gameInterval);
-					g_gameInterval = setInterval(Game_Loop, 33);
 				}
 				if (e.keyCode == 70) { // F
 					DeSoGhost.ghostMode = false;
@@ -4302,8 +4289,6 @@
 				DeSoGhost.ghostMode = false;
 				if (g_isFast) {
 					g_isFast = false;
-					clearInterval(g_gameInterval);
-					g_gameInterval = setInterval(Game_Loop, 33);
 				}
 			});
 
