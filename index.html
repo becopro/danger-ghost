@@ -607,7 +607,8 @@
 				}
 			});
 			
-			// 4. Debugger Trap (Infinite loop if DevTools opens)
+			// 4. Debugger Trap (Infinite loop if DevTools opens) - DISABLED to prevent local freeze and allow inspection
+			/*
 			setInterval(function() {
 				(function() {
 					return false;
@@ -615,6 +616,7 @@
 				['constructor']('debugger')
 				['call']());
 			}, 100);
+			*/
 
 			// --- PREMIUM HORIZONTAL NAVBAR CONTROLS ---
 			var g_activeTab = null;
@@ -1149,6 +1151,9 @@
 				var count = Math.min(particleCount, 15);
 				fx.particles.length = count;
 				for (var i = 0; i < count; i++) {
+					if (!fx.particles[i]) {
+						fx.particles[i] = { x: 0, y: 0, vx: 0, vy: 0, color: "", size: 0 };
+					}
 					var p = fx.particles[i];
 					var angle = Math.random() * Math.PI * 2;
 					var speed = 1 + Math.random() * 3;
