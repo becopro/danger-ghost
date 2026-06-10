@@ -934,6 +934,7 @@
 			var grassImage = new Image(); grassImage.src = 'assets2/grass.png';
 			var logoImage = new Image(); logoImage.src = 'assets/sprites/Logo DeSoGhost.png';
 			var logoDesoImage = new Image(); logoDesoImage.src = 'assets/sprites/Logo DeSo.png';
+			var blueKeyImage = new Image(); blueKeyImage.src = 'assets/sprites/Blue key (1).png';
 			var water1Image = new Image(); water1Image.src = 'assets2/water1.png';
 			var water2Image = new Image(); water2Image.src = 'assets2/water2.png';
 			var water3Image = new Image(); water3Image.src = 'assets2/water3.png';
@@ -1443,6 +1444,9 @@
 					if (levelNum == 3) {
 						this.bitmap[5][18] = 22; // Porta secreta acima da plataforma flutuante original (col 18, linha 5)
 					}
+					if (levelNum == 6) {
+						this.bitmap[3][35] = 23; // Blue Key acima do topo das plataformas no nível 6
+					}
 				};
 
 
@@ -1490,6 +1494,8 @@
 								g_ctx.textAlign = "center";
 								g_ctx.fillText("cave1", x + 12, y - 6);
 								g_ctx.textAlign = "start";
+							} else if (tile == 23) {
+								g_ctx.drawImage(blueKeyImage, x, y, 24, 24);
 							}
 						}
 
@@ -1905,7 +1911,7 @@
 							var r = tiles[t];
 							if (r >= 0 && r < 11) {
 								var tile = map.bitmap[r][c];
-								if (tile >= 7 && tile <= 12) {
+								if ((tile >= 7 && tile <= 12) || tile == 23) {
 									if (tile == 7) { AddScore(50); }
 									else if (tile == 8) {
 										AddScore(100);
@@ -1928,6 +1934,12 @@
 										if (this.collectedLives % 3 === 0) {
 											SpawnBossAtRandomLocation();
 										}
+									}
+									else if (tile == 23) {
+										if (window.AddInventoryItem) {
+											window.AddInventoryItem("blue_key", "Blue Key", "🔑", "Unlocks CAVE1", 1);
+										}
+										AddScore(300);
 									}
 									map.bitmap[r][c] = 0;
 								}
