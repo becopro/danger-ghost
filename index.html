@@ -1118,6 +1118,7 @@
 				p.life = life;
 				p.damage = damage;
 				p.penetrates = penetrates;
+				p.isEnemy = false; // Reset de segurança para evitar vazamento do pool e suicídio do Fantasma
 				for (var key in p.hits) {
 					delete p.hits[key];
 				}
