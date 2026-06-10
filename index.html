@@ -1207,6 +1207,39 @@
 					g_timeRemaining = 240;
 					g_slimeScoreTracker = 0;
 
+					if (levelNum === "cave1") {
+						this.bitmap = [];
+						for (var r = 0; r < 11; r++) {
+							var row = [];
+							for (var c = 0; c < 100; c++) row.push(0);
+							this.bitmap.push(row);
+						}
+						for (var c = 0; c < 100; c++) {
+							this.bitmap[0][c] = 1;
+							this.bitmap[1][c] = 1;
+							this.bitmap[9][c] = 1;
+							this.bitmap[10][c] = 1;
+						}
+						for (var c = 10; c < 90; c += 8) {
+							for (var len = 0; len < 5; len++) {
+								var col = c + len;
+								this.bitmap[6][col] = 2;
+								this.bitmap[5][col] = 8;
+								this.bitmap[4][col] = 2;
+								this.bitmap[3][col] = 8;
+							}
+						}
+						for (var c = 5; c < 95; c += 4) {
+							if (this.bitmap[8][c] === 0) this.bitmap[8][c] = 8;
+						}
+						this.bitmap[8][95] = 4;
+						this.bitmap[8][1] = 2;
+						this.bitmap[7][1] = 21;
+						g_boss = null;
+						return;
+					}
+
+
 					var predominantTile = 2; // Default fallback
 					var idx = levelNum - 1;
 					if (idx < 0) idx = 0;
@@ -1401,7 +1434,12 @@
 							this.bitmap[7][1] = 21;
 						}
 					}
+					if (levelNum == 3) {
+						this.bitmap[8][46] = 22;
+					}
 				};
+
+
 				this.loadLevel(g_currentLevel);
 
 				this.draw = function () {
@@ -1439,8 +1477,16 @@
 								g_ctx.textAlign = "center";
 								g_ctx.fillText("back", x + 12, y - 6);
 								g_ctx.textAlign = "start";
+							} else if (tile == 22) {
+								g_ctx.drawImage(doorImage, x, y, 24, 24);
+								g_ctx.font = "bold 9px 'Courier New'";
+								g_ctx.fillStyle = "#00FFFF";
+								g_ctx.textAlign = "center";
+								g_ctx.fillText("cave1", x + 12, y - 6);
+								g_ctx.textAlign = "start";
 							}
 						}
+
 					}
 					
 					for (var isl = 0; isl < g_activeIslands.length; isl++) {
@@ -1830,6 +1876,23 @@
 						if (cb >= 0 && cb < 11 && map.bitmap[cb][c] == 21 && this.jump) {
 							this.prevLevel();
 						}
+						if (((ct >= 0 && ct < 11 && map.bitmap[ct][c] == 22) || (cb >= 0 && cb < 11 && map.bitmap[cb][c] == 22)) && this.jump) {
+							if (window.HasInventoryItem && window.HasInventoryItem("blue_key")) {
+								window.RemoveInventoryItem("blue_key");
+								g_currentLevel = "cave1";
+								this.xPos = 48; this.yPos = 150; map_offset = 0;
+								g_projectiles = [];
+								g_visualEffects = [];
+								this.phantomFormTimer = 0;
+								this.skillCooldowns = [0, 0, 0, 0];
+								map.loadLevel(g_currentLevel);
+								this.jump = false; this.jumpNum = 0;
+							} else {
+								alert("🔒 This door is locked! You need the Blue Key to enter CAVE1.");
+								this.jump = false;
+							}
+						}
+
 
 						var tiles = [ct, cb];
 						for (var t = 0; t < tiles.length; t++) {
@@ -1904,12 +1967,16 @@
 						window.g_completedLevels[g_currentLevel] = true;
 					}
 					g_doorsUsed++;
-					if (g_currentLevel >= 33) { 
-						g_globalTotalTime = Math.floor((Date.now() - g_globalStartTime) / 1000);
-						StartEndCutscene();
-						return; 
+					if (g_currentLevel === "cave1") {
+						g_currentLevel = 4;
+					} else {
+						if (g_currentLevel >= 33) { 
+							g_globalTotalTime = Math.floor((Date.now() - g_globalStartTime) / 1000);
+							StartEndCutscene();
+							return; 
+						}
+						g_currentLevel++;
 					}
-					g_currentLevel++;
 					if (window.g_completedLevels) {
 						window.g_completedLevels[g_currentLevel] = true;
 					}
@@ -1930,8 +1997,12 @@
 				};
 
 				this.prevLevel = function () {
-					if (g_currentLevel <= 1) return;
-					g_currentLevel--;
+					if (g_currentLevel === "cave1") {
+						g_currentLevel = 3;
+					} else {
+						if (g_currentLevel <= 1) return;
+						g_currentLevel--;
+					}
 					if (g_doorsUsed > 0) g_doorsUsed--;
 					if (window.g_completedLevels) {
 						window.g_completedLevels[g_currentLevel] = true;
@@ -1951,6 +2022,7 @@
 					map.loadLevel(g_currentLevel);
 					this.jump = false; this.jumpNum = 0;
 				};
+
 			}
 
 			function useSlotSkill(slotIndex) {
