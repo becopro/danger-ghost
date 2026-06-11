@@ -1604,7 +1604,7 @@
 					if (this.type === "cactus") {
 						sprite = (this.dir > 0) ? cactusRight : cactusLeft;
 					} else if (this.type === "skull") {
-						sprite = (this.dir > 0) ? skullRight : skullLeft;
+						sprite = (this.dir > 0) ? skullLeft : skullRight;
 					} else if (this.type === "demon_fly") {
 						sprite = (this.dir > 0) ? demonFlyRight : demonFlyLeft;
 					} else if (this.type === "slime") {
@@ -1664,7 +1664,7 @@
 					if (this.lives <= 0) {
 						this.alive = false;
 						AddScore((this.type === "skull") ? 3000 : 1000);
-						var bossXp = (g_boss.type === "cactus") ? 1000 : ((g_boss.type === "skull") ? 2000 : (100 + (g_boss.level - 1) * 30));
+						var bossXp = (this.type === "cactus") ? 1000 : ((this.type === "skull") ? 2000 : (100 + (this.level - 1) * 30));
 						GhostRPG.addXp(bossXp);
 						if (this.type === "skull") {
 							spawnCave1Diamonds();
@@ -4614,6 +4614,15 @@ var g_binaryBits = [];
 			window.PostToDeSo = PostToDeSo;
 			window.DownloadScreenshot = DownloadScreenshot;
 			window.ToggleMute = ToggleMute;
+
+			Object.defineProperty(window, 'map', { get: function() { return map; }, configurable: true });
+			Object.defineProperty(window, 'DeSoGhost', { get: function() { return DeSoGhost; }, configurable: true });
+			Object.defineProperty(window, 'g_boss', { get: function() { return g_boss; }, configurable: true });
+			Object.defineProperty(window, 'g_currentLevel', { 
+				get: function() { return g_currentLevel; }, 
+				set: function(val) { g_currentLevel = val; },
+				configurable: true 
+			});
 			})(); // Fecha IIFE Caixa Preta
 		</script>
 	</div>
