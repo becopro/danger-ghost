@@ -1249,7 +1249,7 @@
 						this.bitmap[8][95] = 4;
 						this.bitmap[8][1] = 2;
 						this.bitmap[7][1] = 21;
-						g_boss = new c_Boss(800, 144, "skull");
+						g_boss = new c_Boss(800, 48, "skull");
 						g_boss.isOriginal = true;
 						g_boss.minX = 200; g_boss.maxX = 1000;
 						return;
@@ -1587,8 +1587,8 @@
 				var baseHp = (this.type === "cactus") ? 9 : ((this.type === "skull") ? 33 : 4);
 				this.lives = baseHp * this.level;
 				
-				this.width = (this.type === "cactus" || this.type === "skull") ? 288 : 48; 
-				this.height = (this.type === "cactus" || this.type === "skull") ? 288 : 48;
+				this.width = (this.type === "cactus") ? 288 : ((this.type === "skull") ? 168 : 48); 
+				this.height = (this.type === "cactus") ? 288 : ((this.type === "skull") ? 168 : 48);
 				this.speed = 2; this.dir = 1;
 				this.alive = true;
 				this.isOriginal = false;
