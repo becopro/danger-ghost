@@ -201,7 +201,8 @@ function runLeaderboardParsingTest() {
         Posts: [
             {
                 PosterPublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn", // VIP (HODLer) e Oficial
-                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerVIP\nScore: 25000\nTime: 12:34\nLevels Completed: 33 / 33\n[RPG Level: 15]\n#DangerGhost #Web3"
+                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerVIP_Char\nScore: 25000\nTime: 12:34\nLevels Completed: 33 / 33\n[RPG Level: 15]\n#DangerGhost #Web3",
+                ProfileEntryResponse: { Username: "PlayerVIP" }
             },
             {
                 PosterPublicKeyBase58Check: "BC1NonVIPAddressHere", // Não-oficial (tentando injetar bloco consolidado falso)
@@ -213,11 +214,13 @@ function runLeaderboardParsingTest() {
             },
             {
                 PosterPublicKeyBase58Check: "BC1NonVIPAddressHere", // Não-oficial individual válido
-                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerA\nScore: 12000\nTime: 10:15\nLevels Completed: 33 / 33\n[RPG Level: 45]\n#DangerGhost"
+                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerA_Char\nScore: 12000\nTime: 10:15\nLevels Completed: 33 / 33\n[RPG Level: 45]\n#DangerGhost",
+                ProfileEntryResponse: { Username: "PlayerA" }
             },
             {
                 PosterPublicKeyBase58Check: "BC1NonVIPAddressHere", // Não-oficial individual
-                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerBad\nScore: 10000\nTime: 05:22\nLevels Completed: 12 / 33\n[RPG Level: 5]\n#DangerGhost"
+                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerBad_Char\nScore: 10000\nTime: 05:22\nLevels Completed: 12 / 33\n[RPG Level: 5]\n#DangerGhost",
+                ProfileEntryResponse: { Username: "PlayerBad" }
             },
             {
                 PosterPublicKeyBase58Check: "BC1NonVIPAddressHere",
@@ -264,6 +267,7 @@ function runLeaderboardParsingTest() {
                         if (match) {
                             list.push({ 
                                 name: match[1].trim(), 
+                                accountKey: match[1].trim(),
                                 score: parseInt(match[2], 10),
                                 isVip: isVip,
                                 rpgLevel: rpgLvl
@@ -285,6 +289,7 @@ function runLeaderboardParsingTest() {
                         if (match) {
                             list.push({ 
                                 name: match[1].trim(), 
+                                accountKey: match[1].trim(),
                                 rpgLevel: parseInt(match[2], 10),
                                 isVip: isVip
                             });
@@ -295,8 +300,14 @@ function runLeaderboardParsingTest() {
             const matchScore = cleanBody.match(/Score:\s*(\d+)/i);
             const matchName = cleanBody.match(/Ghost Hunter:\s*(.+)/i);
             if (matchScore && matchName) {
+                var desoUsername = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : matchName[1].substring(0, 15).trim();
+                if (!desoUsername && posterKey) {
+                    desoUsername = posterKey.substring(0, 11) + "...";
+                }
+                var accountKey = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : (posterKey || desoUsername);
                 list.push({
-                    name: matchName[1].substring(0, 15).trim(),
+                    name: desoUsername,
+                    accountKey: accountKey,
                     score: parseInt(matchScore[1], 10),
                     isVip: isVip,
                     rpgLevel: rpgLvl
@@ -305,17 +316,18 @@ function runLeaderboardParsingTest() {
         }
     }
 
-    // Deduplicação por nome para o Ranking de Level (mantendo APENAS o level mais alto)
+    // Deduplicação por conta para o Ranking de Level (mantendo APENAS o level mais alto)
     const uniqueLevelMap = {};
     for (let k = 0; k < list.length; k++) {
         const p = list[k];
+        const key = p.accountKey || p.name;
         const currentLvl = p.rpgLevel || 1;
-        if (!uniqueLevelMap[p.name]) {
-            uniqueLevelMap[p.name] = p;
+        if (!uniqueLevelMap[key]) {
+            uniqueLevelMap[key] = p;
         } else {
-            const existingLvl = uniqueLevelMap[p.name].rpgLevel || 1;
+            const existingLvl = uniqueLevelMap[key].rpgLevel || 1;
             if (currentLvl > existingLvl) {
-                uniqueLevelMap[p.name] = p;
+                uniqueLevelMap[key] = p;
             }
         }
     }

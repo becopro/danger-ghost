@@ -2880,6 +2880,7 @@
 										if (match) {
 											list.push({ 
 												name: match[1].trim(), 
+												accountKey: match[1].trim(),
 												score: parseInt(match[2], 10),
 												time: match[3] ? match[3].trim() : "",
 												isVip: isVip,
@@ -2891,6 +2892,7 @@
 										if (match) {
 											list.push({
 												name: match[1].trim(),
+												accountKey: match[1].trim(),
 												rpgLevel: parseInt(match[2], 10),
 												isVip: isVip
 											});
@@ -2911,8 +2913,14 @@
 											isEligibleTime = true;
 										}
 									}
+									var desoUsername = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : matchName[1].substring(0, 15).trim();
+									if (!desoUsername && posterKey) {
+										desoUsername = posterKey.substring(0, 11) + "...";
+									}
+									var accountKey = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : (posterKey || desoUsername);
 									list.push({
-										name: matchName[1].substring(0, 15).trim(),
+										name: desoUsername,
+										accountKey: accountKey,
 										score: parseInt(matchScore[1], 10),
 										time: (matchTime && isEligibleTime) ? matchTime[1].trim() : "",
 										isVip: isVip,
@@ -2922,22 +2930,23 @@
 							}
 						}
 						
-						// 3. Deduplicar por nome para o Ranking de Pontos (mantendo APENAS a pontuação mais alta)
+						// 3. Deduplicar por conta para o Ranking de Pontos (mantendo APENAS a pontuação mais alta)
 						var uniqueScoreMap = {};
 						for (var k = 0; k < list.length; k++) {
 							var p = list[k];
-							if (!uniqueScoreMap[p.name]) {
-								uniqueScoreMap[p.name] = p;
+							var key = p.accountKey || p.name;
+							if (!uniqueScoreMap[key]) {
+								uniqueScoreMap[key] = p;
 							} else {
-								if (p.score > uniqueScoreMap[p.name].score) {
-									var oldLvl = uniqueScoreMap[p.name].rpgLevel || 1;
-									uniqueScoreMap[p.name] = p;
-									if (!uniqueScoreMap[p.name].rpgLevel || uniqueScoreMap[p.name].rpgLevel < oldLvl) {
-										uniqueScoreMap[p.name].rpgLevel = oldLvl;
+								if (p.score > uniqueScoreMap[key].score) {
+									var oldLvl = uniqueScoreMap[key].rpgLevel || 1;
+									uniqueScoreMap[key] = p;
+									if (!uniqueScoreMap[key].rpgLevel || uniqueScoreMap[key].rpgLevel < oldLvl) {
+										uniqueScoreMap[key].rpgLevel = oldLvl;
 									}
 								}
-								if (p.rpgLevel && p.rpgLevel > (uniqueScoreMap[p.name].rpgLevel || 1)) {
-									uniqueScoreMap[p.name].rpgLevel = p.rpgLevel;
+								if (p.rpgLevel && p.rpgLevel > (uniqueScoreMap[key].rpgLevel || 1)) {
+									uniqueScoreMap[key].rpgLevel = p.rpgLevel;
 								}
 							}
 						}
@@ -2947,17 +2956,18 @@
 						finalScoreList.sort(function(a, b) { return b.score - a.score; });
 						g_leaderboardList = finalScoreList.slice(0, 10);
 
-						// 5. Deduplicar por nome para o Ranking de Level (mantendo APENAS o level mais alto)
+						// 5. Deduplicar por conta para o Ranking de Level (mantendo APENAS o level mais alto)
 						var uniqueLevelMap = {};
 						for (var k = 0; k < list.length; k++) {
 							var p = list[k];
+							var key = p.accountKey || p.name;
 							var currentLvl = p.rpgLevel || 1;
-							if (!uniqueLevelMap[p.name]) {
-								uniqueLevelMap[p.name] = p;
+							if (!uniqueLevelMap[key]) {
+								uniqueLevelMap[key] = p;
 							} else {
-								var existingLvl = uniqueLevelMap[p.name].rpgLevel || 1;
+								var existingLvl = uniqueLevelMap[key].rpgLevel || 1;
 								if (currentLvl > existingLvl) {
-									uniqueLevelMap[p.name] = p;
+									uniqueLevelMap[key] = p;
 								}
 							}
 						}
@@ -3580,38 +3590,43 @@
 							top10Text += (i+1) + ". " + item.name + " - " + item.score + " pts" + (item.time ? " (" + item.time + ")" : "") + "\n";
 						}
 
-						// 2. Atualizar o ranking de tempo localmente para a postagem (apenas se elegível)
+						// 2. Atualizar o ranking de level localmente para a postagem
 						if (!g_timeLeaderboardList) g_timeLeaderboardList = [];
-						if (eligibleForTime) {
-							var foundMeTime = false;
-							for (var k = 0; k < g_timeLeaderboardList.length; k++) {
-								if (g_timeLeaderboardList[k].name === newPName) {
-									var oldSecs = timeToSeconds(g_timeLeaderboardList[k].time);
-									var newSecs = timeToSeconds(timeStr);
-									if (newSecs < oldSecs) {
-										g_timeLeaderboardList[k].time = timeStr;
-										g_timeLeaderboardList[k].score = g_score;
-									}
-									foundMeTime = true; break;
+						var playerLvl = GhostRPG.getStats().level;
+						var foundMeLvl = false;
+						var localAccountName = newPName;
+						
+						for (var k = 0; k < g_timeLeaderboardList.length; k++) {
+							if (g_timeLeaderboardList[k].name === localAccountName) {
+								var oldLvl = g_timeLeaderboardList[k].rpgLevel || 1;
+								if (playerLvl > oldLvl) {
+									g_timeLeaderboardList[k].rpgLevel = playerLvl;
 								}
+								foundMeLvl = true; break;
 							}
-							if (!foundMeTime) g_timeLeaderboardList.push({ name: newPName, score: g_score, time: timeStr });
-							
-							g_timeLeaderboardList.sort(function(a, b) {
-								return timeToSeconds(a.time) - timeToSeconds(b.time);
+						}
+						if (!foundMeLvl) {
+							g_timeLeaderboardList.push({
+								name: localAccountName,
+								rpgLevel: playerLvl,
+								isVip: (window.g_desoPublicKey && vipMap && vipMap[window.g_desoPublicKey]) ? true : false
 							});
-							g_timeLeaderboardList = g_timeLeaderboardList.slice(0, 10);
 						}
 						
-						var timeTop10Text = "\n\n⚡ DANGER GHOST SPEEDRUN TOP 10 ⚡\n";
+						g_timeLeaderboardList.sort(function(a, b) {
+							return (b.rpgLevel || 1) - (a.rpgLevel || 1);
+						});
+						g_timeLeaderboardList = g_timeLeaderboardList.slice(0, 10);
+						
+						var levelTop10Text = "\n\n🌀 DANGER GHOST LEVEL TOP 10 🌀\n";
 						for (var i = 0; i < g_timeLeaderboardList.length; i++) {
 							var item = g_timeLeaderboardList[i];
-							timeTop10Text += (i+1) + ". " + item.name + " - " + item.time + " (" + item.score + " pts)\n";
+							levelTop10Text += (i+1) + ". " + item.name + " - Level " + (item.rpgLevel || 1) + "\n";
 						}
 
 						var rpgMetadata = GhostRPG.getDeSoMetadataString();
 						var doorsStr = g_doorsUsed.toString().padStart(2, '0');
-						var bodyText = "🎮 I just conquered DANGER GHOST!" + rpgMetadata + "\n\nGhost Hunter: " + pName + "\nScore: " + g_score + "\nTime: " + postTimeStr + "\nLevels Completed: " + doorsStr + " / 33" + top10Text + timeTop10Text + "\n#DangerGhost #Web3Gaming #DeSo";
+						var bodyText = "🎮 I just conquered DANGER GHOST!" + rpgMetadata + "\n\nGhost Hunter: " + pName + "\nScore: " + g_score + "\nTime: " + postTimeStr + "\nLevels Completed: " + doorsStr + " / 33" + top10Text + levelTop10Text + "\n#DangerGhost #Web3Gaming #DeSo";
 						
 						var postReq = {
 							UpdaterPublicKeyBase58Check: window.g_desoPublicKey,
