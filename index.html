@@ -511,7 +511,7 @@
 		
 		<div id="gameNavbar" style="display: flex; justify-content: center; align-items: center; gap: 15px; margin: 15px auto; max-width: 640px; font-family: 'Courier New'; font-weight: bold; box-sizing: border-box; padding: 0 10px;">
 			<button id="btnNavScore" onclick="ToggleNavbarTab('score')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #00FFFF; border-radius: 5px; color: #00FFFF; cursor: pointer; text-shadow: 0 0 5px #00FFFF; box-shadow: 0 0 5px rgba(0,255,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">🏆 SCORE</button>
-			<button id="btnNavTime" onclick="ToggleNavbarTab('time')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FF00FF; border-radius: 5px; color: #FF00FF; cursor: pointer; text-shadow: 0 0 5px #FF00FF; box-shadow: 0 0 5px rgba(255,0,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">⚡ TIME</button>
+			<button id="btnNavTime" onclick="ToggleNavbarTab('time')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FF00FF; border-radius: 5px; color: #FF00FF; cursor: pointer; text-shadow: 0 0 5px #FF00FF; box-shadow: 0 0 5px rgba(255,0,255,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">🌀 LEVEL</button>
 			<button id="btnNavControls" onclick="ToggleNavbarTab('controls')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FFFF00; border-radius: 5px; color: #FFFF00; cursor: pointer; text-shadow: 0 0 5px #FFFF00; box-shadow: 0 0 5px rgba(255,255,0,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">🎮 CONTROLS</button>
 			<button id="btnNavRPG" onclick="ToggleNavbarTab('rpg')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #00FF00; border-radius: 5px; color: #00FF00; cursor: pointer; text-shadow: 0 0 5px #00FF00; box-shadow: 0 0 5px rgba(0,255,0,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">👤 HERO</button>
 			<button id="btnNavBag" onclick="ToggleNavbarTab('bag')" style="flex: 1; padding: 10px; background: rgba(0,0,0,0.8); border: 2px solid #FFA500; border-radius: 5px; color: #FFA500; cursor: pointer; text-shadow: 0 0 5px #FFA500; box-shadow: 0 0 5px rgba(255,165,0,0.3); font-weight: bold; font-family: 'Courier New'; transition: all 0.05s ease;">🎒 BAG</button>
@@ -762,7 +762,7 @@
 					if (!timeLbHtml || timeLbHtml.trim() === "") {
 						timeLbHtml = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>LOADING RANKING...</p>";
 					}
-					panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FF00FF; text-align: center; letter-spacing: 2px;'>⚡ SPEEDRUN TIME RANK</h3>" + timeLbHtml;
+					panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FF00FF; text-align: center; letter-spacing: 2px;'>🌀 GHOST LEVEL RANK</h3>" + timeLbHtml;
 				} catch(err) {
 					console.warn("UpdateNavbarTime Error", err);
 				}
@@ -2864,7 +2864,7 @@
 										inTimeRank = false;
 										continue;
 									}
-									if (line.includes("DANGER GHOST SPEEDRUN TOP 10") || line.includes("SPEEDRUN TIME RANK")) {
+									if (line.includes("DANGER GHOST SPEEDRUN TOP 10") || line.includes("SPEEDRUN TIME RANK") || line.includes("LEVEL RANK") || line.includes("DANGER GHOST LEVEL TOP 10")) {
 										inScoreRank = false;
 										inTimeRank = isOfficialPost;
 										continue;
@@ -2887,14 +2887,12 @@
 											});
 										}
 									} else if (inTimeRank) {
-										var match = line.match(/^\d+\.\s+(.+?)\s+-\s+(\d+:\d+)(?:\s+\((\d+)\s+pts\))?/i);
+										var match = line.match(/^\d+\.\s+(.+?)\s+-\s+Level\s+(\d+)/i);
 										if (match) {
 											list.push({
 												name: match[1].trim(),
-												time: match[2].trim(),
-												score: match[3] ? parseInt(match[3], 10) : 0,
-												isVip: isVip,
-												rpgLevel: rpgLvl
+												rpgLevel: parseInt(match[2], 10),
+												isVip: isVip
 											});
 										}
 									}
@@ -2949,37 +2947,27 @@
 						finalScoreList.sort(function(a, b) { return b.score - a.score; });
 						g_leaderboardList = finalScoreList.slice(0, 10);
 
-						// 5. Deduplicar por nome para o Ranking de Tempo (mantendo APENAS o tempo mais baixo/rápido)
-						var validTimeRuns = list.filter(function(item) {
-							return item.time && item.time !== "" && timeToSeconds(item.time) !== Infinity;
-						});
-						var uniqueTimeMap = {};
-						for (var k = 0; k < validTimeRuns.length; k++) {
-							var p = validTimeRuns[k];
-							if (!uniqueTimeMap[p.name]) {
-								uniqueTimeMap[p.name] = p;
+						// 5. Deduplicar por nome para o Ranking de Level (mantendo APENAS o level mais alto)
+						var uniqueLevelMap = {};
+						for (var k = 0; k < list.length; k++) {
+							var p = list[k];
+							var currentLvl = p.rpgLevel || 1;
+							if (!uniqueLevelMap[p.name]) {
+								uniqueLevelMap[p.name] = p;
 							} else {
-								var newSecs = timeToSeconds(p.time);
-								var oldSecs = timeToSeconds(uniqueTimeMap[p.name].time);
-								if (newSecs < oldSecs) {
-									var oldLvl = uniqueTimeMap[p.name].rpgLevel || 1;
-									uniqueTimeMap[p.name] = p;
-									if (!uniqueTimeMap[p.name].rpgLevel || uniqueTimeMap[p.name].rpgLevel < oldLvl) {
-										uniqueTimeMap[p.name].rpgLevel = oldLvl;
-									}
-								}
-								if (p.rpgLevel && p.rpgLevel > (uniqueTimeMap[p.name].rpgLevel || 1)) {
-									uniqueTimeMap[p.name].rpgLevel = p.rpgLevel;
+								var existingLvl = uniqueLevelMap[p.name].rpgLevel || 1;
+								if (currentLvl > existingLvl) {
+									uniqueLevelMap[p.name] = p;
 								}
 							}
 						}
-						var finalTimeList = Object.values(uniqueTimeMap);
+						var finalLevelList = Object.values(uniqueLevelMap);
 						
-						// 6. Ordenar crescente por tempo e fatiar no Top 10
-						finalTimeList.sort(function(a, b) {
-							return timeToSeconds(a.time) - timeToSeconds(b.time);
+						// 6. Ordenar decrescente por level e fatiar no Top 10
+						finalLevelList.sort(function(a, b) {
+							return (b.rpgLevel || 1) - (a.rpgLevel || 1);
 						});
-						g_timeLeaderboardList = finalTimeList.slice(0, 10);
+						g_timeLeaderboardList = finalLevelList.slice(0, 10);
 
 						// 5. Renderização do HTML do ranking de pontos
 						var html = "";
@@ -3011,7 +2999,7 @@
 						}
 						if (container) container.innerHTML = html;
 
-						// 6. Renderização do HTML do ranking de tempo
+						// 6. Renderização do HTML do ranking de level
 						var timeHtml = "";
 						if (g_timeLeaderboardList.length > 0) {
 							for (var i = 0; i < g_timeLeaderboardList.length; i++) {
@@ -3024,28 +3012,23 @@
 								
 								var vipTag = item.isVip ? " <span style='color: #FF00FF; font-weight: bold; font-size: 10px; text-shadow: 0 0 4px #FF00FF; background: rgba(255,0,255,0.15); padding: 1px 3px; border-radius: 3px; margin-left: 3px;'>VIP</span>" : "";
 								var rpgLvlVal = item.rpgLevel || 1;
-								var rpgTag = " <span style='color: #00FF00; font-weight: bold; font-size: 10px; text-shadow: 0 0 4px #00FF00; background: rgba(0,255,0,0.15); padding: 1px 3px; border-radius: 3px; margin-left: 3px;'>Lvl." + rpgLvlVal + "</span>";
 								var displayName = pos + ". " + escapeHTML(item.name);
 								
 								timeHtml += "<div style='display: flex; justify-content: space-between; align-items: center; margin: 6px 0; border-bottom: 1px dashed rgba(0, 255, 255, 0.2); font-size: 12px;'>" +
 										"<div style='display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;'>" +
 										"<span style='color: " + nameColor + "; font-weight: bold;'>" + displayName + "</span>" +
 										vipTag +
-										rpgTag +
 										"</div>" +
-										"<div style='display: flex; align-items: center;'>" +
-										"<span style='color: #00FF00; font-weight: bold;'>" + item.time + "</span>" +
-										" <span style='color: #888; font-size: 11px; margin-left: 4px;'>(" + item.score + ")</span>" +
-										"</div>" +
+										"<span style='color: #00FF00; font-weight: bold;'>Level " + rpgLvlVal + "</span>" +
 										"</div>";
 							}
 						} else {
-							timeHtml = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>NO RUNS FOUND</p>";
+							timeHtml = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>NO LEVELS FOUND</p>";
 						}
 						if (timeContainer) timeContainer.innerHTML = timeHtml;
 					} else {
 						if (container) container.innerHTML = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>NO SCORES FOUND</p>";
-						if (timeContainer) timeContainer.innerHTML = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>NO SCORES FOUND</p>";
+						if (timeContainer) timeContainer.innerHTML = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>NO LEVELS FOUND</p>";
 					}
 					
 					// Reatividade de atualização em tempo real para a Navbar ativa

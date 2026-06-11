@@ -201,23 +201,23 @@ function runLeaderboardParsingTest() {
         Posts: [
             {
                 PosterPublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn", // VIP (HODLer) e Oficial
-                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerVIP\nScore: 25000\nTime: 12:34\nLevels Completed: 33 / 33\n#DangerGhost #Web3"
+                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerVIP\nScore: 25000\nTime: 12:34\nLevels Completed: 33 / 33\n[RPG Level: 15]\n#DangerGhost #Web3"
             },
             {
                 PosterPublicKeyBase58Check: "BC1NonVIPAddressHere", // Não-oficial (tentando injetar bloco consolidado falso)
-                Body: "🏆 DANGER GHOST GLOBAL TOP 10 🏆\n1. HackerConsolidated - 99999 pts\n#DangerGhost"
+                Body: "🏆 DANGER GHOST LEVEL TOP 10 🏆\n1. HackerConsolidated - Level 999\n#DangerGhost"
             },
             {
                 PosterPublicKeyBase58Check: "BC1YLgwuSYXasawyfX5D8wiVSvC7qS1usfPA9QCnJ3ZRndyRcRmKdUG", // Oficial DeSoGhost (Não-VIP)
-                Body: "🏆 DANGER GHOST GLOBAL TOP 10 🏆\n1. PlayerA - 50000 pts\n2. PlayerB - 35000 pts\n#DangerGhost"
+                Body: "🏆 DANGER GHOST LEVEL TOP 10 🏆\n1. PlayerA - Level 50\n2. PlayerB - Level 30\n#DangerGhost"
             },
             {
                 PosterPublicKeyBase58Check: "BC1NonVIPAddressHere", // Não-oficial individual válido
-                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerA\nScore: 12000\nTime: 10:15\nLevels Completed: 33 / 33\n#DangerGhost"
+                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerA\nScore: 12000\nTime: 10:15\nLevels Completed: 33 / 33\n[RPG Level: 45]\n#DangerGhost"
             },
             {
-                PosterPublicKeyBase58Check: "BC1NonVIPAddressHere", // Não-oficial individual INVÁLIDO (menos de 33 fases)
-                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerBad\nScore: 10000\nTime: 05:22\nLevels Completed: 12 / 33\n#DangerGhost"
+                PosterPublicKeyBase58Check: "BC1NonVIPAddressHere", // Não-oficial individual
+                Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerBad\nScore: 10000\nTime: 05:22\nLevels Completed: 12 / 33\n[RPG Level: 5]\n#DangerGhost"
             },
             {
                 PosterPublicKeyBase58Check: "BC1NonVIPAddressHere",
@@ -243,12 +243,16 @@ function runLeaderboardParsingTest() {
     for (let i = 0; i < postsList.length; i++) {
         const post = postsList[i];
         if (post.Body) {
+            const cleanBody = post.Body.replace(/\r/g, "");
             const posterKey = post.PosterPublicKeyBase58Check;
             const isVip = vipMap[posterKey] ? true : false;
             const isOfficialPost = officialKeys[posterKey] ? true : false;
 
-            if (post.Body.includes("🏆 DANGER GHOST GLOBAL TOP 10 🏆") || post.Body.includes("DANGER GHOST GLOBAL TOP 10")) {
-                const lines = post.Body.split("\n");
+            const matchRpg = cleanBody.match(/RPG Level:\s*(\d+)/i);
+            const rpgLvl = matchRpg ? parseInt(matchRpg[1], 10) : 1;
+
+            if (cleanBody.includes("🏆 DANGER GHOST GLOBAL TOP 10 🏆") || cleanBody.includes("DANGER GHOST GLOBAL TOP 10")) {
+                const lines = cleanBody.split("\n");
                 let inLeaderboard = false;
                 for (let j = 0; j < lines.length; j++) {
                     if (lines[j].includes("DANGER GHOST GLOBAL TOP 10")) {
@@ -261,79 +265,89 @@ function runLeaderboardParsingTest() {
                             list.push({ 
                                 name: match[1].trim(), 
                                 score: parseInt(match[2], 10),
-                                time: match[3] ? match[3].trim() : "",
+                                isVip: isVip,
+                                rpgLevel: rpgLvl
+                            });
+                        }
+                    }
+                }
+            }
+            if (cleanBody.includes("🏆 DANGER GHOST LEVEL TOP 10 🏆") || cleanBody.includes("DANGER GHOST LEVEL TOP 10") || cleanBody.includes("LEVEL RANK") || cleanBody.includes("DANGER GHOST LEVEL TOP 10")) {
+                const lines = cleanBody.split("\n");
+                let inLevelLeaderboard = false;
+                for (let j = 0; j < lines.length; j++) {
+                    if (lines[j].includes("DANGER GHOST LEVEL TOP 10")) {
+                        inLevelLeaderboard = isOfficialPost; continue;
+                    }
+                    if (inLevelLeaderboard) {
+                        if (lines[j].includes("#DangerGhost")) break;
+                        const match = lines[j].match(/^\d+\.\s+(.+?)\s+-\s+Level\s+(\d+)/i);
+                        if (match) {
+                            list.push({ 
+                                name: match[1].trim(), 
+                                rpgLevel: parseInt(match[2], 10),
                                 isVip: isVip
                             });
                         }
                     }
                 }
             }
-            const matchScore = post.Body.match(/Score:\s*(\d+)/i);
-            const matchName = post.Body.match(/Ghost Hunter:\s*(.+)/i);
-            const matchTime = post.Body.match(/Time:\s*(\d+:\d+)/i);
+            const matchScore = cleanBody.match(/Score:\s*(\d+)/i);
+            const matchName = cleanBody.match(/Ghost Hunter:\s*(.+)/i);
             if (matchScore && matchName) {
-                let isEligibleTime = true;
-                const matchLevels = post.Body.match(/Levels Completed:\s*(\d+)\s*\/\s*33/i);
-                if (matchLevels) {
-                    const completedCount = parseInt(matchLevels[1], 10);
-                    if (completedCount < 33) {
-                        isEligibleTime = false;
-                    }
-                }
                 list.push({
                     name: matchName[1].substring(0, 15).trim(),
                     score: parseInt(matchScore[1], 10),
-                    time: (matchTime && isEligibleTime) ? matchTime[1].trim() : "",
-                    isVip: isVip
+                    isVip: isVip,
+                    rpgLevel: rpgLvl
                 });
             }
         }
     }
 
-    // Deduplicação (mantendo o maior score de cada jogador)
-    const uniqueMap = {};
+    // Deduplicação por nome para o Ranking de Level (mantendo APENAS o level mais alto)
+    const uniqueLevelMap = {};
     for (let k = 0; k < list.length; k++) {
         const p = list[k];
-        if (!uniqueMap[p.name] || uniqueMap[p.name].score < p.score) {
-            uniqueMap[p.name] = p;
+        const currentLvl = p.rpgLevel || 1;
+        if (!uniqueLevelMap[p.name]) {
+            uniqueLevelMap[p.name] = p;
+        } else {
+            const existingLvl = uniqueLevelMap[p.name].rpgLevel || 1;
+            if (currentLvl > existingLvl) {
+                uniqueLevelMap[p.name] = p;
+            }
         }
     }
-    let parsedList = Object.values(uniqueMap);
+    const finalLevelList = Object.values(uniqueLevelMap);
 
-    // Ordenação Decrescente de Scores
-    parsedList.sort((a, b) => b.score - a.score);
-    const leaderboardList = parsedList.slice(0, 10);
-
-    // Deduplicação de tempos válidos (apenas se tiver tempo válido)
-    const validTimeRuns = list.filter(item => item.time && item.time !== "");
-    const uniqueTimeMap = {};
-    for (let k = 0; k < validTimeRuns.length; k++) {
-        const p = validTimeRuns[k];
-        if (!uniqueTimeMap[p.name]) {
-            uniqueTimeMap[p.name] = p;
-        }
-    }
-    const finalTimeList = Object.values(uniqueTimeMap);
+    // Ordenação Decrescente de Levels
+    finalLevelList.sort((a, b) => (b.rpgLevel || 1) - (a.rpgLevel || 1));
+    const levelLeaderboardList = finalLevelList.slice(0, 10);
 
     // Asserções do Ranking
-    // Deve ignorar o falso bloco do hacker e ignorar o tempo do PlayerBad (só concluiu 12/33 fases)
-    assert.strictEqual(leaderboardList.some(p => p.name === "HackerConsolidated"), false, "Falso bloco de ranking consolidado do Hacker deve ser descartado!");
-    assert.strictEqual(finalTimeList.some(p => p.name === "PlayerBad"), false, "PlayerBad (fases concluídas < 33) não pode entrar no Ranking de Tempo!");
+    // Deve ignorar o falso bloco do hacker
+    assert.strictEqual(levelLeaderboardList.some(p => p.name === "HackerConsolidated"), false, "Falso bloco de ranking consolidado do Hacker deve ser descartado!");
     
-    assert.strictEqual(leaderboardList.length, 4, "Devem ser extraídos exatamente 4 registros únicos de jogadores (PlayerA, PlayerB, PlayerVIP, PlayerBad).");
+    assert.strictEqual(levelLeaderboardList.length, 4, "Devem ser extraídos exatamente 4 registros únicos de jogadores.");
     
-    // PlayerA deve reter o score de 50000 e ser Rank 1
-    assert.strictEqual(leaderboardList[0].name, "PlayerA");
-    assert.strictEqual(leaderboardList[0].score, 50000, "Deduplicação de score de PlayerA falhou (devia manter o maior: 50000).");
-    assert.strictEqual(leaderboardList[0].isVip, false, "PlayerA não deve ter tag VIP.");
+    // PlayerA deve ser Rank 1 com nível 50
+    assert.strictEqual(levelLeaderboardList[0].name, "PlayerA");
+    assert.strictEqual(levelLeaderboardList[0].rpgLevel, 50, "Deduplicação de level de PlayerA falhou (devia manter o maior: 50).");
+    assert.strictEqual(levelLeaderboardList[0].isVip, false, "PlayerA não deve ter tag VIP.");
 
-    // PlayerB deve ser Rank 2 com 35000
-    assert.strictEqual(leaderboardList[1].name, "PlayerB");
-    assert.strictEqual(leaderboardList[1].score, 35000);
+    // PlayerB deve ser Rank 2 com nível 30
+    assert.strictEqual(levelLeaderboardList[1].name, "PlayerB");
+    assert.strictEqual(levelLeaderboardList[1].rpgLevel, 30);
 
-    // PlayerVIP deve ser Rank 3 e ter status VIP reconhecido
-    assert.strictEqual(leaderboardList[2].name, "PlayerVIP");
-    assert.strictEqual(leaderboardList[2].isVip, true, "PlayerVIP devia ter a tag VIP ativa por ser HODLer do token.");
+    // PlayerVIP deve ser Rank 3 com nível 15 e ter status VIP
+    assert.strictEqual(levelLeaderboardList[2].name, "PlayerVIP");
+    assert.strictEqual(levelLeaderboardList[2].rpgLevel, 15);
+    assert.strictEqual(levelLeaderboardList[2].isVip, true, "PlayerVIP devia ter a tag VIP ativa.");
+
+    // PlayerBad deve ser Rank 4 com nível 5
+    assert.strictEqual(levelLeaderboardList[3].name, "PlayerBad");
+    assert.strictEqual(levelLeaderboardList[3].rpgLevel, 5);
 
     console.log("✅ [TEST 6 PASSED] Parsing de payload, ordenação de ranking, deduplicação e VIP checks validados.\n");
 
