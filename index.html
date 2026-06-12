@@ -621,6 +621,7 @@
 			// --- PREMIUM HORIZONTAL NAVBAR CONTROLS ---
 			var g_activeTab = null;
 			var g_lastTabClickTick = 0; // Tick-based event loop guard to prevent double-firing in Triple-Redundant click architectures
+			var g_hasFetchedLeaderboard = false;
 
 			function ToggleNavbarTab(tab) {
 				try {
@@ -695,6 +696,9 @@
 								btnScore.style.boxShadow = "0 0 15px #00FFFF";
 							}
 							UpdateNavbarScore();
+							if (!g_hasFetchedLeaderboard) {
+								FetchLeaderboard();
+							}
 						} else if (tab === 'time') {
 							rightPanel.style.borderColor = "#FF00FF";
 							rightPanel.style.boxShadow = "0 0 15px #FF00FF";
@@ -703,6 +707,9 @@
 								btnTime.style.boxShadow = "0 0 15px #FF00FF";
 							}
 							UpdateNavbarTime();
+							if (!g_hasFetchedLeaderboard) {
+								FetchLeaderboard();
+							}
 						} else if (tab === 'controls') {
 							rightPanel.style.borderColor = "#FFFF00";
 							rightPanel.style.boxShadow = "0 0 15px #FFFF00";
@@ -2744,6 +2751,7 @@
 			}
 
 			async function FetchLeaderboard() {
+				g_hasFetchedLeaderboard = true;
 				var container = document.getElementById("leaderboardContent");
 				var timeContainer = document.getElementById("timeLeaderboardContent");
 				try {
@@ -2844,21 +2852,33 @@
 								// Extração do nível RPG (Hero Status) do PostExtraData ou do texto do post
 								var matchRpg = cleanBody.match(/RPG Level:\s*(\d+)/i);
 								var rpgLvl = 1;
+								var hasSaveState = false;
 								if (post.PostExtraData && post.PostExtraData["DangerGhost_SaveState"]) {
 									try {
 										var decrypted = atob(post.PostExtraData["DangerGhost_SaveState"]);
 										var stats = JSON.parse(decrypted);
+										var rawLvl = undefined;
 										if (stats && typeof stats.level !== "undefined") {
-											rpgLvl = parseInt(stats.level, 10);
+											rawLvl = stats.level;
 										} else if (stats && typeof stats.Level !== "undefined") {
-											rpgLvl = parseInt(stats.Level, 10);
+											rawLvl = stats.Level;
+										}
+										if (rawLvl !== undefined) {
+											var parsedLvl = parseInt(rawLvl, 10);
+											if (!isNaN(parsedLvl)) {
+												rpgLvl = parsedLvl;
+												hasSaveState = true;
+											}
 										}
 									} catch(e) {
 										console.warn("Erro ao descriptografar DangerGhost_SaveState para ranking", e);
 									}
 								}
 								if (rpgLvl === 1 && matchRpg) {
-									rpgLvl = parseInt(matchRpg[1], 10);
+									var parsedMatch = parseInt(matchRpg[1], 10);
+									if (!isNaN(parsedMatch)) {
+										rpgLvl = parsedMatch;
+									}
 								}
 
 								// Parse clássico de placares embutidos em blocos globais de ranking
@@ -2894,24 +2914,30 @@
 									if (inScoreRank) {
 										var match = line.match(/^\d+\.\s+(.+?)\s+-\s+(\d+)\s+pts(?:\s+\((\d+:\d+)\))?/i);
 										if (match) {
-											list.push({ 
-												name: match[1].trim(), 
-												accountKey: match[1].trim(),
-												score: parseInt(match[2], 10),
-												time: match[3] ? match[3].trim() : "",
-												isVip: isVip,
-												rpgLevel: rpgLvl
-											});
+											var parsedScore = parseInt(match[2], 10);
+											if (!isNaN(parsedScore)) {
+												list.push({ 
+													name: match[1].trim(), 
+													accountKey: match[1].trim(),
+													score: parsedScore,
+													time: match[3] ? match[3].trim() : "",
+													isVip: isVip,
+													rpgLevel: rpgLvl
+												});
+											}
 										}
 									} else if (inTimeRank) {
 										var match = line.match(/^\d+\.\s+(.+?)\s+-\s+Level\s+(\d+)/i);
 										if (match) {
-											list.push({
-												name: match[1].trim(),
-												accountKey: match[1].trim(),
-												rpgLevel: parseInt(match[2], 10),
-												isVip: isVip
-											});
+											var parsedLvl = parseInt(match[2], 10);
+											if (!isNaN(parsedLvl)) {
+												list.push({
+													name: match[1].trim(),
+													accountKey: match[1].trim(),
+													rpgLevel: parsedLvl,
+													isVip: isVip
+												});
+											}
 										}
 									}
 								}
@@ -2921,28 +2947,36 @@
 								var matchName = cleanBody.match(/Ghost Hunter:\s*(.+)/i);
 								var matchTime = cleanBody.match(/Time:\s*(\d+:\d+)/i);
 								if ((matchScore && matchName) || matchRpg) {
-									var isEligibleTime = false;
-									var matchLevels = cleanBody.match(/Levels Completed:\s*(\d+)\s*\/\s*33/i);
-									if (matchLevels) {
-										var completedCount = parseInt(matchLevels[1], 10);
-										if (completedCount === 33) {
-											isEligibleTime = true;
+									// Jogadores comuns devem obrigatoriamente possuir DangerGhost_SaveState.
+									// Postagens sem metadados só se isOfficialPost for true.
+									if (hasSaveState || isOfficialPost) {
+										var isEligibleTime = false;
+										var matchLevels = cleanBody.match(/Levels Completed:\s*(\d+)\s*\/\s*33/i);
+										if (matchLevels) {
+											var completedCount = parseInt(matchLevels[1], 10);
+											if (!isNaN(completedCount) && completedCount === 33) {
+												isEligibleTime = true;
+											}
 										}
+										var displayCharacterName = matchName ? matchName[1].substring(0, 15).trim() : "";
+										var desoUsername = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : displayCharacterName;
+										if (!desoUsername && posterKey) {
+											desoUsername = posterKey.substring(0, 11) + "...";
+										}
+										var accountKey = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : (posterKey || desoUsername);
+										
+										var parsedScoreVal = matchScore ? parseInt(matchScore[1], 10) : 0;
+										if (isNaN(parsedScoreVal)) parsedScoreVal = 0;
+
+										list.push({
+											name: desoUsername,
+											accountKey: accountKey,
+											score: parsedScoreVal,
+											time: (matchTime && isEligibleTime) ? matchTime[1].trim() : "",
+											isVip: isVip,
+											rpgLevel: rpgLvl
+										});
 									}
-									var displayCharacterName = matchName ? matchName[1].substring(0, 15).trim() : "";
-									var desoUsername = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : displayCharacterName;
-									if (!desoUsername && posterKey) {
-										desoUsername = posterKey.substring(0, 11) + "...";
-									}
-									var accountKey = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : (posterKey || desoUsername);
-									list.push({
-										name: desoUsername,
-										accountKey: accountKey,
-										score: matchScore ? parseInt(matchScore[1], 10) : 0,
-										time: (matchTime && isEligibleTime) ? matchTime[1].trim() : "",
-										isVip: isVip,
-										rpgLevel: rpgLvl
-									});
 								}
 							}
 						}
@@ -2951,7 +2985,7 @@
 						var uniqueScoreMap = {};
 						for (var k = 0; k < list.length; k++) {
 							var p = list[k];
-							var key = p.accountKey || p.name;
+							var key = (p.accountKey || p.name || "unknown").toLowerCase().trim();
 							if (!uniqueScoreMap[key]) {
 								uniqueScoreMap[key] = p;
 							} else {
@@ -2977,7 +3011,7 @@
 						var uniqueLevelMap = {};
 						for (var k = 0; k < list.length; k++) {
 							var p = list[k];
-							var key = p.accountKey || p.name;
+							var key = (p.accountKey || p.name || "unknown").toLowerCase().trim();
 							var currentLvl = p.rpgLevel || 1;
 							if (!uniqueLevelMap[key]) {
 								uniqueLevelMap[key] = p;
@@ -2992,7 +3026,12 @@
 						
 						// 6. Ordenar decrescente por level e fatiar no Top 10
 						finalLevelList.sort(function(a, b) {
-							return (b.rpgLevel || 1) - (a.rpgLevel || 1);
+							var lvlA = a.rpgLevel || 1;
+							var lvlB = b.rpgLevel || 1;
+							if (lvlB !== lvlA) {
+								return lvlB - lvlA;
+							}
+							return (b.score || 0) - (a.score || 0); // Desempate pelo Score
 						});
 						g_timeLeaderboardList = finalLevelList.slice(0, 10);
 
@@ -3085,8 +3124,12 @@
 				}
 			}
 			// --- PREMIUM HORIZONTAL NAVBAR CONTROLS BOOTSTRAP ---
-			FetchLeaderboard();
-			setInterval(FetchLeaderboard, 20000);
+			// Lazy loaded: FetchLeaderboard is called when first opening score/time tabs.
+			setInterval(function() {
+				if (g_activeTab === 'score' || g_activeTab === 'time') {
+					FetchLeaderboard();
+				}
+			}, 60000);
 
 			async function CreateDeSoNFT(postHashHex) {
 				var btn = document.getElementById("desoPostBtn");

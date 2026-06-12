@@ -267,21 +267,33 @@ function runLeaderboardParsingTest() {
 
             const matchRpg = cleanBody.match(/RPG Level:\s*(\d+)/i);
             let rpgLvl = 1;
+            let hasSaveState = false;
             if (post.PostExtraData && post.PostExtraData["DangerGhost_SaveState"]) {
                 try {
                     const decrypted = atob(post.PostExtraData["DangerGhost_SaveState"]);
                     const stats = JSON.parse(decrypted);
+                    let rawLvl = undefined;
                     if (stats && typeof stats.level !== "undefined") {
-                        rpgLvl = parseInt(stats.level, 10);
+                        rawLvl = stats.level;
                     } else if (stats && typeof stats.Level !== "undefined") {
-                        rpgLvl = parseInt(stats.Level, 10);
+                        rawLvl = stats.Level;
+                    }
+                    if (rawLvl !== undefined) {
+                        const parsedLvl = parseInt(rawLvl, 10);
+                        if (!isNaN(parsedLvl)) {
+                            rpgLvl = parsedLvl;
+                            hasSaveState = true;
+                        }
                     }
                 } catch(e) {
                     console.warn("Erro ao descriptografar DangerGhost_SaveState no teste", e);
                 }
             }
             if (rpgLvl === 1 && matchRpg) {
-                rpgLvl = parseInt(matchRpg[1], 10);
+                const parsedMatch = parseInt(matchRpg[1], 10);
+                if (!isNaN(parsedMatch)) {
+                    rpgLvl = parsedMatch;
+                }
             }
 
             if (cleanBody.includes("🏆 DANGER GHOST GLOBAL TOP 10 🏆") || cleanBody.includes("DANGER GHOST GLOBAL TOP 10")) {
@@ -295,13 +307,16 @@ function runLeaderboardParsingTest() {
                         if (lines[j].includes("#DangerGhost")) break;
                         const match = lines[j].match(/^\d+\.\s+(.+?)\s+-\s+(\d+)\s+pts(?:\s+\((\d+:\d+)\))?/);
                         if (match) {
-                            list.push({ 
-                                name: match[1].trim(), 
-                                accountKey: match[1].trim(),
-                                score: parseInt(match[2], 10),
-                                isVip: isVip,
-                                rpgLevel: rpgLvl
-                            });
+                            const parsedScore = parseInt(match[2], 10);
+                            if (!isNaN(parsedScore)) {
+                                list.push({ 
+                                    name: match[1].trim(), 
+                                    accountKey: match[1].trim(),
+                                    score: parsedScore,
+                                    isVip: isVip,
+                                    rpgLevel: rpgLvl
+                                });
+                            }
                         }
                     }
                 }
@@ -317,12 +332,15 @@ function runLeaderboardParsingTest() {
                         if (lines[j].includes("#DangerGhost")) break;
                         const match = lines[j].match(/^\d+\.\s+(.+?)\s+-\s+Level\s+(\d+)/i);
                         if (match) {
-                            list.push({ 
-                                name: match[1].trim(), 
-                                accountKey: match[1].trim(),
-                                rpgLevel: parseInt(match[2], 10),
-                                isVip: isVip
-                            });
+                            const parsedLvl = parseInt(match[2], 10);
+                            if (!isNaN(parsedLvl)) {
+                                list.push({ 
+                                    name: match[1].trim(), 
+                                    accountKey: match[1].trim(),
+                                    rpgLevel: parsedLvl,
+                                    isVip: isVip
+                                });
+                            }
                         }
                     }
                 }
@@ -330,19 +348,25 @@ function runLeaderboardParsingTest() {
             const matchScore = cleanBody.match(/Score:\s*(\d+)/i);
             const matchName = cleanBody.match(/Ghost Hunter:\s*(.+)/i);
             if ((matchScore && matchName) || matchRpg) {
-                var displayCharacterName = matchName ? matchName[1].substring(0, 15).trim() : "";
-                var desoUsername = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : displayCharacterName;
-                if (!desoUsername && posterKey) {
-                    desoUsername = posterKey.substring(0, 11) + "...";
+                if (hasSaveState || isOfficialPost) {
+                    var displayCharacterName = matchName ? matchName[1].substring(0, 15).trim() : "";
+                    var desoUsername = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : displayCharacterName;
+                    if (!desoUsername && posterKey) {
+                        desoUsername = posterKey.substring(0, 11) + "...";
+                    }
+                    var accountKey = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : (posterKey || desoUsername);
+                    
+                    var parsedScoreVal = matchScore ? parseInt(matchScore[1], 10) : 0;
+                    if (isNaN(parsedScoreVal)) parsedScoreVal = 0;
+                    
+                    list.push({
+                        name: desoUsername,
+                        accountKey: accountKey,
+                        score: parsedScoreVal,
+                        isVip: isVip,
+                        rpgLevel: rpgLvl
+                    });
                 }
-                var accountKey = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : (posterKey || desoUsername);
-                list.push({
-                    name: desoUsername,
-                    accountKey: accountKey,
-                    score: matchScore ? parseInt(matchScore[1], 10) : 0,
-                    isVip: isVip,
-                    rpgLevel: rpgLvl
-                });
             }
         }
     }
@@ -351,7 +375,7 @@ function runLeaderboardParsingTest() {
     const uniqueLevelMap = {};
     for (let k = 0; k < list.length; k++) {
         const p = list[k];
-        const key = p.accountKey || p.name;
+        const key = (p.accountKey || p.name || "unknown").toLowerCase().trim();
         const currentLvl = p.rpgLevel || 1;
         if (!uniqueLevelMap[key]) {
             uniqueLevelMap[key] = p;
@@ -364,15 +388,25 @@ function runLeaderboardParsingTest() {
     }
     const finalLevelList = Object.values(uniqueLevelMap);
 
-    // Ordenação Decrescente de Levels
-    finalLevelList.sort((a, b) => (b.rpgLevel || 1) - (a.rpgLevel || 1));
+    // Ordenação Decrescente de Levels com desempate
+    finalLevelList.sort((a, b) => {
+        var lvlA = a.rpgLevel || 1;
+        var lvlB = b.rpgLevel || 1;
+        if (lvlB !== lvlA) {
+            return lvlB - lvlA;
+        }
+        return (b.score || 0) - (a.score || 0); // Desempate pelo Score
+    });
     const levelLeaderboardList = finalLevelList.slice(0, 10);
 
     // Asserções do Ranking
     // Deve ignorar o falso bloco do hacker
     assert.strictEqual(levelLeaderboardList.some(p => p.name === "HackerConsolidated"), false, "Falso bloco de ranking consolidado do Hacker deve ser descartado!");
     
-    assert.strictEqual(levelLeaderboardList.length, 5, "Devem ser extraídos exatamente 5 registros únicos de jogadores.");
+    // Deve ignorar PlayerBad porque não possui DangerGhost_SaveState e não é oficial
+    assert.strictEqual(levelLeaderboardList.some(p => p.name === "PlayerBad"), false, "Postagem individual de PlayerBad sem metadados de SaveState deve ser descartada!");
+
+    assert.strictEqual(levelLeaderboardList.length, 4, "Devem ser extraídos exatamente 4 registros únicos de jogadores válidos (PlayerBad descartado).");
     
     // PlayerA deve ser Rank 1 com nível 50
     assert.strictEqual(levelLeaderboardList[0].name, "PlayerA");
@@ -391,10 +425,6 @@ function runLeaderboardParsingTest() {
     assert.strictEqual(levelLeaderboardList[3].name, "PlayerVIP");
     assert.strictEqual(levelLeaderboardList[3].rpgLevel, 15);
     assert.strictEqual(levelLeaderboardList[3].isVip, true, "PlayerVIP devia ter a tag VIP ativa.");
-
-    // PlayerBad deve ser Rank 5 com nível 5
-    assert.strictEqual(levelLeaderboardList[4].name, "PlayerBad");
-    assert.strictEqual(levelLeaderboardList[4].rpgLevel, 5);
 
     console.log("✅ [TEST 6 PASSED] Parsing de payload, ordenação de ranking, deduplicação e VIP checks validados.\n");
 
