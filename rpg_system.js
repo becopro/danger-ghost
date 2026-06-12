@@ -177,14 +177,37 @@ var GhostRPG = (function() {
         },
         loadBlockchainState: function(lvl, vit, agi, int, pow, characterId, xp, pointsToDistribute, mag, equippedSkills, equippedRunes, equippedPassives, weapon) {
             var maxLevel = 100000000000;
-            state.level = Math.min(lvl, maxLevel);
-            state.vit = vit; state.agi = agi; state.int = int; state.pow = pow;
-            state.mag = typeof mag !== "undefined" ? mag : 1; state.characterId = characterId || "";
-            state.xp = typeof xp !== "undefined" ? xp : 0;
+            
+            var parsedLvl = parseInt(lvl, 10);
+            state.level = (!isNaN(parsedLvl)) ? Math.min(parsedLvl, maxLevel) : 1;
+            
+            var parsedVit = parseInt(vit, 10);
+            state.vit = (!isNaN(parsedVit)) ? parsedVit : 1;
+            
+            var parsedAgi = parseInt(agi, 10);
+            state.agi = (!isNaN(parsedAgi)) ? parsedAgi : 1;
+            
+            var parsedInt = parseInt(int, 10);
+            state.int = (!isNaN(parsedInt)) ? parsedInt : 1;
+            
+            var parsedPow = parseInt(pow, 10);
+            state.pow = (!isNaN(parsedPow)) ? parsedPow : 1;
+            
+            var parsedMag = parseInt(mag, 10);
+            state.mag = (!isNaN(parsedMag)) ? parsedMag : 1;
+            
+            state.characterId = characterId || "";
+            
+            var parsedXp = parseInt(xp, 10);
+            state.xp = (!isNaN(parsedXp)) ? parsedXp : 0;
+            
             if (state.level >= maxLevel) {
                 state.xp = 0;
             }
-            state.pointsToDistribute = typeof pointsToDistribute !== "undefined" ? pointsToDistribute : 0;
+            
+            var parsedPoints = parseInt(pointsToDistribute, 10);
+            state.pointsToDistribute = (!isNaN(parsedPoints)) ? parsedPoints : 0;
+            
             state.xpRequired = calculateXpRequired(state.level);
             state.equippedSkills = equippedSkills || [0, 1, 2, 3];
             state.equippedRunes = equippedRunes || [0, 0, 0, 0];

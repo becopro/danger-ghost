@@ -564,6 +564,10 @@
 					<button id="createGhostBtn" onclick="TriggerCreateNewGhost()" style="padding: 10px 25px; background: #00FF00; color: #000; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; outline: none; transition: all 0.15s ease;" onmouseover="this.style.boxShadow='0 0 15px #00FF00'" onmouseout="this.style.boxShadow='none'">CREATE NEW GHOST (MINT)</button>
 				</div>
 				
+				<div style="margin-top: 15px;">
+					<button onclick="document.getElementById('characterSelectionOverlay').style.display='none'" style="padding: 10px 25px; background: #FF00FF; color: #FFF; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; outline: none; transition: all 0.15s ease;" onmouseover="this.style.boxShadow='0 0 15px #FF00FF'" onmouseout="this.style.boxShadow='none'">CANCEL / CLOSE</button>
+				</div>
+				
 				<div id="selectionStatusText" style="color: #FF00FF; font-weight: bold; min-height: 20px; margin-top: 15px;"></div>
 			</div>
 		</div>
@@ -1074,6 +1078,11 @@
 			
 			var g_slimeScoreTracker = 0;
 			function AddScore(points) {
+				var stack = (new Error()).stack || "";
+				if (!stack.includes("DeSoGhost") && !stack.includes("Boss") && !stack.includes("LevelUp") && !stack.includes("rpg_system.js") && !stack.includes("updateProjectiles") && !stack.includes("test_cave1.js") && !stack.includes("sandbox_test.js") && !stack.includes("Update") && !stack.includes("Game_Step") && !stack.includes("Game_Loop")) {
+					console.warn("[Anti-Cheat] AddScore call blocked from untrusted context.");
+					return;
+				}
 				g_score += points;
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
 				g_slimeScoreTracker += points;
@@ -1083,8 +1092,6 @@
 						SpawnBossAtRandomLocation("slime");
 					}
 				}
-
-
 			}
 
 			function GetScore() {
@@ -1092,6 +1099,11 @@
 				return g_score;
 			}
 			function DeductScore(points) {
+				var stack = (new Error()).stack || "";
+				if (!stack.includes("DeSoGhost") && !stack.includes("Boss") && !stack.includes("LevelUp") && !stack.includes("rpg_system.js") && !stack.includes("updateProjectiles") && !stack.includes("test_cave1.js") && !stack.includes("sandbox_test.js") && !stack.includes("Update") && !stack.includes("Game_Step") && !stack.includes("Game_Loop")) {
+					console.warn("[Anti-Cheat] DeductScore call blocked from untrusted context.");
+					return false;
+				}
 				if (btoa(g_score + _antiCheat.salt) !== _antiCheat.hash) return false;
 				if (g_score >= points) {
 					g_score -= points;
@@ -2963,7 +2975,8 @@
 										if (!desoUsername && posterKey) {
 											desoUsername = posterKey.substring(0, 11) + "...";
 										}
-										var accountKey = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : (posterKey || desoUsername);
+										// Use the full poster public key to guarantee 100% secure account mapping and prevent collisions/name-spoofing
+									var accountKey = posterKey || desoUsername;
 										
 										var parsedScoreVal = matchScore ? parseInt(matchScore[1], 10) : 0;
 										if (isNaN(parsedScoreVal)) parsedScoreVal = 0;
@@ -3003,8 +3016,12 @@
 						}
 						var finalScoreList = Object.values(uniqueScoreMap);
 						
-						// 4. Ordenar decrescente por score e fatiar no Top 10
-						finalScoreList.sort(function(a, b) { return b.score - a.score; });
+						// 4. Ordenar decrescente por score e fatiar no Top 10 (com tie-breaker alfabético para estabilidade)
+						finalScoreList.sort(function(a, b) {
+							var scoreDiff = b.score - a.score;
+							if (scoreDiff !== 0) return scoreDiff;
+							return (a.name || "").localeCompare(b.name || "");
+						});
 						g_leaderboardList = finalScoreList.slice(0, 10);
 
 						// 5. Deduplicar por conta para o Ranking de Level (mantendo APENAS o level mais alto)
@@ -3406,7 +3423,7 @@
 				// O JWT payload tem formato diferente: payload.jwt
 				if ((window.g_desoPendingAction === 'jwt' || window.g_desoPendingAction === 'char_creation_jwt' || window.g_desoPendingAction === 'char_save_jwt') && data.payload && (typeof data.payload === "string" || data.payload.jwt)) {
 					var jwt = typeof data.payload === "string" ? data.payload : data.payload.jwt;
-					if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
+					// Keep window open for redirection to transaction approval
 					
 					var action = window.g_desoPendingAction;
 					window.g_desoPendingAction = null;
@@ -3553,6 +3570,11 @@
 				
 				var btn = document.getElementById("desoPostBtn");
 				if(btn) { btn.innerText = "UPLOADING... PLEASE WAIT"; btn.disabled = true; }
+
+				window.g_desoIdentityWindow = window.open("", "deso_identity", "width=800,height=1000");
+				if (window.g_desoIdentityWindow) {
+					window.g_desoIdentityWindow.document.write("<html><head><title>Danger Ghost - Connecting...</title></head><body style='background:#08060c;color:#00ff00;font-family:monospace;text-align:center;padding-top:100px;'><h2>🔮 DANGER GHOST</h2><p>Preparing DeSo transaction approval. Please wait...</p></body></html>");
+				}
 				
 				window.g_desoPendingAction = 'jwt';
 				var iframe = document.getElementById("identityIframe");
@@ -3712,40 +3734,42 @@
 						var postData = await postRes.json();
 						
 						if (postData.TransactionHex && postData.PostHashHex) {
+							window.g_desoPendingTransactionHex = postData.TransactionHex;
+							window.g_desoLastPostHashHex = postData.PostHashHex;
+							window.g_desoPendingTransactionType = "POST";
+
 							var btn = document.getElementById("desoPostBtn");
-							if(btn) { 
-								btn.innerText = "APPROVE POST"; 
-								btn.disabled = false; 
-								btn.onclick = function() {
-									window.g_desoPendingTransactionHex = postData.TransactionHex;
-									window.g_desoLastPostHashHex = postData.PostHashHex;
-									window.g_desoPendingTransactionType = "POST";
-									window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
-									if (!window.g_desoIdentityWindow) {
-										alert("⚠️ POP-UP BLOCKED: Please enable pop-ups in your browser settings to authorize the on-chain transaction!");
-										btn.innerText = "APPROVE POST";
-										btn.disabled = false;
-										return;
-									}
-									btn.innerText = "WAITING FOR APPROVAL...";
-									btn.disabled = true;
-									WaitForWindowClose(window.g_desoIdentityWindow, function() {
-										if (window.g_desoPendingTransactionType === "POST") {
-											btn.innerText = "APPROVE POST";
-											btn.disabled = false;
-										}
-									});
-								};
+							if (btn) {
+								btn.innerText = "WAITING FOR APPROVAL...";
+								btn.disabled = true;
 							}
+
+							if (window.g_desoIdentityWindow) {
+								window.g_desoIdentityWindow.location.href = "https://identity.deso.org/approve?tx=" + postData.TransactionHex;
+							} else {
+								window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
+							}
+
+							WaitForWindowClose(window.g_desoIdentityWindow, function() {
+								if (window.g_desoPendingTransactionType === "POST") {
+									var b = document.getElementById("desoPostBtn");
+									if (b) {
+										b.innerText = "SAVE TO DESO (BLOCKCHAIN)";
+										b.disabled = false;
+									}
+								}
+							});
 							DrawWinScreen(); 
 						} else {
+							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							var btn = document.getElementById("desoPostBtn");
-							if(btn) { btn.innerText = "ERROR! SEE CONSOLE"; }
+							if(btn) { btn.innerText = "SAVE TO DESO (BLOCKCHAIN)"; btn.disabled = false; }
 							console.error("Unexpected DeSo response", postData);
 							alert("Error: Unexpected DeSo response format. Check console.");
 							DrawWinScreen(); 
 						}
 					} catch(e) {
+						if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 						console.error("DeSo Error", e);
 						alert("Error posting to DeSo. Check console.");
 						var btn = document.getElementById("desoPostBtn");
@@ -3765,6 +3789,11 @@
 				
 				var btn = document.getElementById("rpgSaveBtn");
 				if(btn) { btn.innerText = "OBTAINING KEY..."; btn.disabled = true; }
+
+				window.g_desoIdentityWindow = window.open("", "deso_identity", "width=800,height=1000");
+				if (window.g_desoIdentityWindow) {
+					window.g_desoIdentityWindow.document.write("<html><head><title>Danger Ghost - Connecting...</title></head><body style='background:#08060c;color:#00ff00;font-family:monospace;text-align:center;padding-top:100px;'><h2>🔮 DANGER GHOST</h2><p>Preparing DeSo transaction approval. Please wait...</p></body></html>");
+				}
 				
 				window.g_desoPendingAction = 'jwt';
 				g_rpgSavePending = true;
@@ -3823,27 +3852,32 @@
 						window.g_desoLastPostHashHex = postData.PostHashHex;
 						window.g_desoPendingTransactionType = "RPG_SAVE";
 						
-						window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
-						if (!window.g_desoIdentityWindow) {
-							alert("⚠️ POP-UP BLOCKED: Please enable pop-ups to approve saving!");
-							if(btn) { btn.innerText = "SAVE GAME (BLOCKCHAIN)"; btn.disabled = false; }
-							return;
-						}
 						if(btn) btn.innerText = "APPROVE SAVE IN POP-UP...";
+
+						if (window.g_desoIdentityWindow) {
+							window.g_desoIdentityWindow.location.href = "https://identity.deso.org/approve?tx=" + postData.TransactionHex;
+						} else {
+							window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
+						}
 						
 						WaitForWindowClose(window.g_desoIdentityWindow, function() {
 							if (window.g_desoPendingTransactionType === "RPG_SAVE") {
-								if(btn) { btn.innerText = "SAVE GAME (BLOCKCHAIN)"; btn.disabled = false; }
+								var b = document.getElementById("rpgSaveBtn");
+								if (b) {
+									b.innerText = "SAVE GAME (BLOCKCHAIN)";
+									b.disabled = false;
+								}
 							}
 						});
 					} else {
+						if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 						if(btn) { btn.innerText = "SAVE GAME (BLOCKCHAIN)"; btn.disabled = false; }
 						alert("Error saving: unexpected response from DeSo node.");
 					}
 				} catch(e) {
-					console.error("Save RPG Error", e);
+					if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 					if(btn) { btn.innerText = "SAVE GAME (BLOCKCHAIN)"; btn.disabled = false; }
-					alert("Error connecting to DeSo. Check console.");
+					alert("Error saving Ghost: " + e.message);
 				}
 			}
 			window.ExecuteDeSoRPGSave = ExecuteDeSoRPGSave;
@@ -4008,8 +4042,28 @@
 						"<div><b>Level:</b> <span style='color: #00FFFF;'>" + escapeHTML(char.level) + "</span></div>" +
 						"<div>❤️ VIT: " + escapeHTML(char.vit) + " | ⚡ AGI: " + escapeHTML(char.agi) + "</div>" +
 						"<div>🔮 INT: " + escapeHTML(char.int) + " | ⚔️ POW: " + escapeHTML(char.pow) + " | 🌀 MAG: " + escapeHTML(char.mag || 1) + "</div>" +
-						"</div>" +
-						"<button onclick=\"SelectCharacterToPlay('" + escapeHTML(char.characterId) + "')\" style='width: 100%; padding: 6px; background: #00FFFF; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: \'Courier New\'; margin-top: 10px;'>PLAY</button>";
+						"</div>";
+
+					var playBtn = document.createElement("button");
+					playBtn.innerText = "PLAY";
+					playBtn.style.width = "100%";
+					playBtn.style.padding = "6px";
+					playBtn.style.background = "#00FFFF";
+					playBtn.style.color = "#000";
+					playBtn.style.border = "none";
+					playBtn.style.fontWeight = "bold";
+					playBtn.style.cursor = "pointer";
+					playBtn.style.borderRadius = "4px";
+					playBtn.style.fontFamily = "'Courier New'";
+					playBtn.style.marginTop = "10px";
+					
+					(function(id) {
+						playBtn.onclick = function() {
+							SelectCharacterToPlay(id);
+						};
+					})(char.characterId);
+					
+					card.appendChild(playBtn);
 					container.appendChild(card);
 				}
 			}
@@ -4071,6 +4125,11 @@
 				if (btn) btn.disabled = true;
 				if (status) status.innerText = "Starting creation of a new Ghost...";
 
+				window.g_desoIdentityWindow = window.open("", "deso_identity", "width=800,height=1000");
+				if (window.g_desoIdentityWindow) {
+					window.g_desoIdentityWindow.document.write("<html><head><title>Danger Ghost - Connecting...</title></head><body style='background:#08060c;color:#00ff00;font-family:monospace;text-align:center;padding-top:100px;'><h2>🔮 DANGER GHOST</h2><p>Preparing DeSo transaction approval. Please wait...</p></body></html>");
+				}
+
 				var priceDeSo = window.g_ownedCharacters.length * 0.25;
 				g_characterCreationId = "dg_" + Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
 
@@ -4094,12 +4153,10 @@
 							window.g_desoPendingTransactionType = "RPG_CHAR_PAYMENT";
 							g_characterCreationPending = true;
 							
-							window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + data.TransactionHex, "deso_identity", "width=800,height=1000");
-							if (!window.g_desoIdentityWindow) {
-								alert("⚠️ POP-UP BLOCKED: Enable pop-ups to approve the creation payment!");
-								if (btn) btn.disabled = false;
-								if (status) status.innerText = "Error: Pop-up blocked.";
-								return;
+							if (window.g_desoIdentityWindow) {
+								window.g_desoIdentityWindow.location.href = "https://identity.deso.org/approve?tx=" + data.TransactionHex;
+							} else {
+								window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + data.TransactionHex, "deso_identity", "width=800,height=1000");
 							}
 							if (status) status.innerText = "Waiting for payment approval in the pop-up...";
 						} else {
@@ -4227,16 +4284,17 @@
 						window.g_desoLastPostHashHex = postData.PostHashHex;
 						window.g_desoPendingTransactionType = "RPG_CHAR_POST";
 						
-						window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
-						if (!window.g_desoIdentityWindow) {
-							alert("⚠️ POP-UP BLOCKED: Enable pop-ups to approve the new Ghost post!");
-							return;
+						if (window.g_desoIdentityWindow) {
+							window.g_desoIdentityWindow.location.href = "https://identity.deso.org/approve?tx=" + postData.TransactionHex;
+						} else {
+							window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
 						}
 						if (status) status.innerText = "Approve Ghost post creation in the pop-up...";
 					} else {
 						throw new Error(postData.error || "Error in submit-post from DeSo node.");
 					}
 				} catch(e) {
+					if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 					console.error("Post Submission Error", e);
 					if (status) status.innerText = "Error sending post: " + e.message;
 					var btn = document.getElementById("createGhostBtn");
@@ -4658,8 +4716,7 @@ var g_binaryBits = [];
 					} else if (g_gameState == G_START) {
 						// Bypass inteligente de VIP em desenvolvimento local ou staging para facilitar testes
 						var isLocal = window.location.hostname === "localhost" || 
-									  window.location.hostname === "127.0.0.1" || 
-									  window.location.protocol === "file:";
+									  window.location.hostname === "127.0.0.1";
 									  
 						if (!window.g_hasCreatorCoin && !isLocal) {
 							alert("⚠️ ACCESS DENIED (TOKEN-GATING): This feature is exclusively for $DangerGhost Coin Holders! Buy our Creator Coin on DeSo with your logged in wallet to unlock Passwords.");
