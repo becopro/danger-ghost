@@ -2841,9 +2841,25 @@
 								var posterKey = post.PosterPublicKeyBase58Check;
 								var isVip = vipMap[posterKey] ? true : false;
 
-								// Extração do nível RPG se presente no post
+								// Extração do nível RPG (Hero Status) do PostExtraData ou do texto do post
 								var matchRpg = cleanBody.match(/RPG Level:\s*(\d+)/i);
-								var rpgLvl = matchRpg ? parseInt(matchRpg[1], 10) : 1;
+								var rpgLvl = 1;
+								if (post.PostExtraData && post.PostExtraData["DangerGhost_SaveState"]) {
+									try {
+										var decrypted = atob(post.PostExtraData["DangerGhost_SaveState"]);
+										var stats = JSON.parse(decrypted);
+										if (stats && typeof stats.level !== "undefined") {
+											rpgLvl = parseInt(stats.level, 10);
+										} else if (stats && typeof stats.Level !== "undefined") {
+											rpgLvl = parseInt(stats.Level, 10);
+										}
+									} catch(e) {
+										console.warn("Erro ao descriptografar DangerGhost_SaveState para ranking", e);
+									}
+								}
+								if (rpgLvl === 1 && matchRpg) {
+									rpgLvl = parseInt(matchRpg[1], 10);
+								}
 
 								// Parse clássico de placares embutidos em blocos globais de ranking
 								// Apenas aceitamos blocos de rankings consolidados vindos de perfis oficiais para evitar injeção de falsos rankings via hashtag feed
@@ -3629,12 +3645,18 @@
 						var doorsStr = g_doorsUsed.toString().padStart(2, '0');
 						var bodyText = "🎮 I just conquered DANGER GHOST!" + rpgMetadata + "\n\nGhost Hunter: " + pName + "\nScore: " + g_score + "\nTime: " + postTimeStr + "\nLevels Completed: " + doorsStr + " / 33" + top10Text + levelTop10Text + "\n#DangerGhost #Web3Gaming #DeSo";
 						
+						var stats = GhostRPG.getStats();
 						var postReq = {
 							UpdaterPublicKeyBase58Check: window.g_desoPublicKey,
 							ParentStakeID: "fd622ab4b7723a8a4d17fe0d7bd2bcc11e22832dde0a4a45ad637760ee89cd40", // Link Permanente ao Post de Ranking Oficial
 							BodyObj: {
 								Body: bodyText,
 								ImageURLs: [imageUrl]
+							},
+							PostExtraData: {
+								"DangerGhost_CharacterID": stats.characterId,
+								"DangerGhost_SaveState": btoa(JSON.stringify(stats)),
+								"DangerGhost_GameApp": "v1.0.0"
 							},
 							MinFeeRateNanosPerKB: 1000
 						};

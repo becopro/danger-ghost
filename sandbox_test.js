@@ -202,7 +202,10 @@ function runLeaderboardParsingTest() {
             {
                 PosterPublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn", // VIP (HODLer) e Oficial
                 Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerVIP_Char\nScore: 25000\nTime: 12:34\nLevels Completed: 33 / 33\n[RPG Level: 15]\n#DangerGhost #Web3",
-                ProfileEntryResponse: { Username: "PlayerVIP" }
+                ProfileEntryResponse: { Username: "PlayerVIP" },
+                PostExtraData: {
+                    "DangerGhost_SaveState": "eyJsZXZlbCI6MTV9" // {"level": 15}
+                }
             },
             {
                 PosterPublicKeyBase58Check: "BC1NonVIPAddressHere", // Não-oficial (tentando injetar bloco consolidado falso)
@@ -215,7 +218,10 @@ function runLeaderboardParsingTest() {
             {
                 PosterPublicKeyBase58Check: "BC1NonVIPAddressHere", // Não-oficial individual válido
                 Body: "🎮 I just conquered DANGER GHOST!\n\nGhost Hunter: PlayerA_Char\nScore: 12000\nTime: 10:15\nLevels Completed: 33 / 33\n[RPG Level: 45]\n#DangerGhost",
-                ProfileEntryResponse: { Username: "PlayerA" }
+                ProfileEntryResponse: { Username: "PlayerA" },
+                PostExtraData: {
+                    "DangerGhost_SaveState": "eyJsZXZlbCI6NDV9" // {"level": 45}
+                }
             },
             {
                 PosterPublicKeyBase58Check: "BC1NonVIPAddressHere", // Não-oficial individual
@@ -225,7 +231,10 @@ function runLeaderboardParsingTest() {
             {
                 PosterPublicKeyBase58Check: "BC1NonVIPSavePlayerKey", // Salve de progresso individual
                 Body: "🛡️ Danger Ghost - Permanent Progress Save\n\nMy Ghost is evolving! [RPG Level: 27 | VIT: 5 | AGI: 3 | INT: 2 | POW: 4 | MAG: 1 | CharID: test_save]\n\n#DangerGhost #RPGSave #Web3 #DeSo",
-                ProfileEntryResponse: { Username: "PlayerSave" }
+                ProfileEntryResponse: { Username: "PlayerSave" },
+                PostExtraData: {
+                    "DangerGhost_SaveState": "eyJsZXZlbCI6Mjd9" // {"level": 27}
+                }
             },
             {
                 PosterPublicKeyBase58Check: "BC1NonVIPAddressHere",
@@ -257,7 +266,23 @@ function runLeaderboardParsingTest() {
             const isOfficialPost = officialKeys[posterKey] ? true : false;
 
             const matchRpg = cleanBody.match(/RPG Level:\s*(\d+)/i);
-            const rpgLvl = matchRpg ? parseInt(matchRpg[1], 10) : 1;
+            let rpgLvl = 1;
+            if (post.PostExtraData && post.PostExtraData["DangerGhost_SaveState"]) {
+                try {
+                    const decrypted = atob(post.PostExtraData["DangerGhost_SaveState"]);
+                    const stats = JSON.parse(decrypted);
+                    if (stats && typeof stats.level !== "undefined") {
+                        rpgLvl = parseInt(stats.level, 10);
+                    } else if (stats && typeof stats.Level !== "undefined") {
+                        rpgLvl = parseInt(stats.Level, 10);
+                    }
+                } catch(e) {
+                    console.warn("Erro ao descriptografar DangerGhost_SaveState no teste", e);
+                }
+            }
+            if (rpgLvl === 1 && matchRpg) {
+                rpgLvl = parseInt(matchRpg[1], 10);
+            }
 
             if (cleanBody.includes("🏆 DANGER GHOST GLOBAL TOP 10 🏆") || cleanBody.includes("DANGER GHOST GLOBAL TOP 10")) {
                 const lines = cleanBody.split("\n");
