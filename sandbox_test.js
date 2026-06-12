@@ -223,6 +223,11 @@ function runLeaderboardParsingTest() {
                 ProfileEntryResponse: { Username: "PlayerBad" }
             },
             {
+                PosterPublicKeyBase58Check: "BC1NonVIPSavePlayerKey", // Salve de progresso individual
+                Body: "🛡️ Danger Ghost - Permanent Progress Save\n\nMy Ghost is evolving! [RPG Level: 27 | VIT: 5 | AGI: 3 | INT: 2 | POW: 4 | MAG: 1 | CharID: test_save]\n\n#DangerGhost #RPGSave #Web3 #DeSo",
+                ProfileEntryResponse: { Username: "PlayerSave" }
+            },
+            {
                 PosterPublicKeyBase58Check: "BC1NonVIPAddressHere",
                 Body: "Postagem qualquer contendo a hashtag #DangerGhost sem seguir o formato do leaderboard."
             }
@@ -299,8 +304,9 @@ function runLeaderboardParsingTest() {
             }
             const matchScore = cleanBody.match(/Score:\s*(\d+)/i);
             const matchName = cleanBody.match(/Ghost Hunter:\s*(.+)/i);
-            if (matchScore && matchName) {
-                var desoUsername = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : matchName[1].substring(0, 15).trim();
+            if ((matchScore && matchName) || matchRpg) {
+                var displayCharacterName = matchName ? matchName[1].substring(0, 15).trim() : "";
+                var desoUsername = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : displayCharacterName;
                 if (!desoUsername && posterKey) {
                     desoUsername = posterKey.substring(0, 11) + "...";
                 }
@@ -308,7 +314,7 @@ function runLeaderboardParsingTest() {
                 list.push({
                     name: desoUsername,
                     accountKey: accountKey,
-                    score: parseInt(matchScore[1], 10),
+                    score: matchScore ? parseInt(matchScore[1], 10) : 0,
                     isVip: isVip,
                     rpgLevel: rpgLvl
                 });
@@ -341,7 +347,7 @@ function runLeaderboardParsingTest() {
     // Deve ignorar o falso bloco do hacker
     assert.strictEqual(levelLeaderboardList.some(p => p.name === "HackerConsolidated"), false, "Falso bloco de ranking consolidado do Hacker deve ser descartado!");
     
-    assert.strictEqual(levelLeaderboardList.length, 4, "Devem ser extraídos exatamente 4 registros únicos de jogadores.");
+    assert.strictEqual(levelLeaderboardList.length, 5, "Devem ser extraídos exatamente 5 registros únicos de jogadores.");
     
     // PlayerA deve ser Rank 1 com nível 50
     assert.strictEqual(levelLeaderboardList[0].name, "PlayerA");
@@ -352,14 +358,18 @@ function runLeaderboardParsingTest() {
     assert.strictEqual(levelLeaderboardList[1].name, "PlayerB");
     assert.strictEqual(levelLeaderboardList[1].rpgLevel, 30);
 
-    // PlayerVIP deve ser Rank 3 com nível 15 e ter status VIP
-    assert.strictEqual(levelLeaderboardList[2].name, "PlayerVIP");
-    assert.strictEqual(levelLeaderboardList[2].rpgLevel, 15);
-    assert.strictEqual(levelLeaderboardList[2].isVip, true, "PlayerVIP devia ter a tag VIP ativa.");
+    // PlayerSave deve ser Rank 3 com nível 27 (vindo de um RPG Save sem score)
+    assert.strictEqual(levelLeaderboardList[2].name, "PlayerSave");
+    assert.strictEqual(levelLeaderboardList[2].rpgLevel, 27, "O level extraído do RPG Save de PlayerSave deve ser 27!");
 
-    // PlayerBad deve ser Rank 4 com nível 5
-    assert.strictEqual(levelLeaderboardList[3].name, "PlayerBad");
-    assert.strictEqual(levelLeaderboardList[3].rpgLevel, 5);
+    // PlayerVIP deve ser Rank 4 com nível 15 e ter status VIP
+    assert.strictEqual(levelLeaderboardList[3].name, "PlayerVIP");
+    assert.strictEqual(levelLeaderboardList[3].rpgLevel, 15);
+    assert.strictEqual(levelLeaderboardList[3].isVip, true, "PlayerVIP devia ter a tag VIP ativa.");
+
+    // PlayerBad deve ser Rank 5 com nível 5
+    assert.strictEqual(levelLeaderboardList[4].name, "PlayerBad");
+    assert.strictEqual(levelLeaderboardList[4].rpgLevel, 5);
 
     console.log("✅ [TEST 6 PASSED] Parsing de payload, ordenação de ranking, deduplicação e VIP checks validados.\n");
 

@@ -2900,11 +2900,11 @@
 									}
 								}
 								
-								// Parse individual de vitórias (como fallback e suporte a posts antigos)
+								// Parse de postagens individuais de vitória ou saves de progresso
 								var matchScore = cleanBody.match(/Score:\s*(\d+)/i);
 								var matchName = cleanBody.match(/Ghost Hunter:\s*(.+)/i);
 								var matchTime = cleanBody.match(/Time:\s*(\d+:\d+)/i);
-								if (matchScore && matchName) {
+								if ((matchScore && matchName) || matchRpg) {
 									var isEligibleTime = false;
 									var matchLevels = cleanBody.match(/Levels Completed:\s*(\d+)\s*\/\s*33/i);
 									if (matchLevels) {
@@ -2913,7 +2913,8 @@
 											isEligibleTime = true;
 										}
 									}
-									var desoUsername = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : matchName[1].substring(0, 15).trim();
+									var displayCharacterName = matchName ? matchName[1].substring(0, 15).trim() : "";
+									var desoUsername = (post.ProfileEntryResponse && post.ProfileEntryResponse.Username) ? post.ProfileEntryResponse.Username : displayCharacterName;
 									if (!desoUsername && posterKey) {
 										desoUsername = posterKey.substring(0, 11) + "...";
 									}
@@ -2921,7 +2922,7 @@
 									list.push({
 										name: desoUsername,
 										accountKey: accountKey,
-										score: parseInt(matchScore[1], 10),
+										score: matchScore ? parseInt(matchScore[1], 10) : 0,
 										time: (matchTime && isEligibleTime) ? matchTime[1].trim() : "",
 										isVip: isVip,
 										rpgLevel: rpgLvl
