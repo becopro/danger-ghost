@@ -4339,61 +4339,95 @@
 				}
 
 				try {
-					var res = await fetch("https://node.deso.org/api/v0/get-posts-for-public-key", {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							PublicKeyBase58Check: publicKey,
-							NumToFetch: 100
+					// Buscamos em paralelo as postagens principais do usuário e os comentários da thread de ranking oficial
+					var [res, singlePostRes] = await Promise.all([
+						fetch("https://node.deso.org/api/v0/get-posts-for-public-key", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({
+								PublicKeyBase58Check: publicKey,
+								NumToFetch: 100
+							})
+						}),
+						fetch("https://node.deso.org/api/v0/get-single-post", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({
+								PostHashHex: "fd622ab4b7723a8a4d17fe0d7bd2bcc11e22832dde0a4a45ad637760ee89cd40",
+								CommentLimit: 1000
+							})
 						})
+					]);
+					
+					var posts = [];
+					if (res.ok) {
+						var data = await res.json();
+						if (data.Posts) {
+							posts = posts.concat(data.Posts);
+						}
+					}
+					if (singlePostRes.ok) {
+						var singlePostData = await singlePostRes.json();
+						if (singlePostData && singlePostData.PostFound && singlePostData.PostFound.Comments) {
+							var userComments = singlePostData.PostFound.Comments.filter(function(c) {
+								return c && c.PosterPublicKeyBase58Check === publicKey;
+							});
+							posts = posts.concat(userComments);
+						}
+					}
+
+					// Ordenação de precisão por data de postagem (newest first)
+					posts.sort(function(a, b) {
+						var timeA = a.TimestampNanos || 0;
+						var timeB = b.TimestampNanos || 0;
+						if (timeB !== timeA) {
+							return timeB > timeA ? 1 : -1;
+						}
+						return 0;
 					});
 					
 					var uniqueCharacters = [];
-					if (res.ok) {
-						var data = await res.json();
-						var posts = data.Posts;
-						if (posts && posts.length > 0) {
-							// 1. Identificar IDs de personagens legitimamente mintados (NFTs) pelo usuário
-							var validCharIds = {};
-							for (var i = 0; i < posts.length; i++) {
-								var post = posts[i];
-								if (post && post.IsNFT && post.PostExtraData && post.PostExtraData["DangerGhost_CharacterID"]) {
-									var charId = post.PostExtraData["DangerGhost_CharacterID"];
-									validCharIds[charId] = true;
-								}
+					if (posts.length > 0) {
+						// 1. Identificar IDs de personagens legitimamente mintados (NFTs) pelo usuário
+						var validCharIds = {};
+						for (var i = 0; i < posts.length; i++) {
+							var post = posts[i];
+							if (post && post.IsNFT && post.PostExtraData && post.PostExtraData["DangerGhost_CharacterID"]) {
+								var charId = post.PostExtraData["DangerGhost_CharacterID"];
+								validCharIds[charId] = true;
 							}
+						}
 
-							// 2. Para cada ID válido, obter o estado mais recente (NFT ou salvamento de progresso)
-							var charactersMap = {};
-							for (var i = 0; i < posts.length; i++) {
-								var post = posts[i];
-								if (post && post.PostExtraData && post.PostExtraData["DangerGhost_SaveState"]) {
-									var charId = post.PostExtraData["DangerGhost_CharacterID"];
-									if (charId && validCharIds[charId]) {
-										if (!charactersMap[charId]) {
-											try {
-												var decrypted = atob(post.PostExtraData["DangerGhost_SaveState"]);
-												var stats = JSON.parse(decrypted);
-												stats.characterId = charId;
-												stats.mag = stats.mag || 1;
-												stats.imageUrl = post.ImageURLs && post.ImageURLs[0] ? post.ImageURLs[0] : "";
-												stats.postHashHex = post.PostHashHex;
-												charactersMap[charId] = stats;
-											} catch(err) {
-												console.error("Ficha corrompida para o fantasma ID " + charId, err);
-											}
-										} else {
-											// Se a ficha mais recente já foi carregada, mas não tem imagem,
-											// herdar a imagem de postagens anteriores (como a do NFT original) se disponível
-											if (!charactersMap[charId].imageUrl && post.ImageURLs && post.ImageURLs[0]) {
-												charactersMap[charId].imageUrl = post.ImageURLs[0];
-											}
+						// 2. Para cada ID válido, obter o estado mais recente (NFT ou salvamento de progresso)
+						var charactersMap = {};
+						for (var i = 0; i < posts.length; i++) {
+							var post = posts[i];
+							if (post && post.PostExtraData && post.PostExtraData["DangerGhost_SaveState"]) {
+								var charId = post.PostExtraData["DangerGhost_CharacterID"];
+								if (charId && validCharIds[charId]) {
+									if (!charactersMap[charId]) {
+										try {
+											var decrypted = atob(post.PostExtraData["DangerGhost_SaveState"]);
+											var stats = JSON.parse(decrypted);
+											stats.characterId = charId;
+											stats.mag = stats.mag || 1;
+											stats.imageUrl = post.ImageURLs && post.ImageURLs[0] ? post.ImageURLs[0] : "";
+											stats.postHashHex = post.PostHashHex;
+											charactersMap[charId] = stats;
+										} catch(err) {
+											console.error("Ficha corrompida para o fantasma ID " + charId, err);
+										}
+									} else {
+										// Se a ficha mais recente já foi carregada, mas não tem imagem,
+										// herdar a imagem de postagens anteriores (como a do NFT original) se disponível
+										if (!charactersMap[charId].imageUrl && post.ImageURLs && post.ImageURLs[0]) {
+											charactersMap[charId].imageUrl = post.ImageURLs[0];
 										}
 									}
 								}
 							}
-							uniqueCharacters = Object.values(charactersMap);
 						}
+						uniqueCharacters = Object.values(charactersMap);
 					}
 					
 					DisplayCharacterSelectionScreen(uniqueCharacters);
