@@ -3718,7 +3718,7 @@
 							g_timeLeaderboardList.push({
 								name: localAccountName,
 								rpgLevel: playerLvl,
-								isVip: (window.g_desoPublicKey && vipMap && vipMap[window.g_desoPublicKey]) ? true : false
+								isVip: window.g_hasCreatorCoin ? true : false
 							});
 						}
 						
