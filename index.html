@@ -336,12 +336,25 @@
 				formData.append("UserPublicKeyBase58Check", window.g_desoPublicKey);
 				formData.append("JWT", jwt);
 
-				var uploadRes = await fetch("https://node.deso.org/api/v0/upload-image", {
-					method: "POST",
-					body: formData
-				});
-				var uploadData = await uploadRes.json();
-				var imageUrl = uploadData.ImageURL;
+				var imageUrls = [];
+				try {
+					var uploadRes = await fetch("https://node.deso.org/api/v0/upload-image", {
+						method: "POST",
+						body: formData
+					});
+					if (uploadRes.ok) {
+						var uploadData = await uploadRes.json();
+						if (uploadData && uploadData.ImageURL) {
+							imageUrls.push(uploadData.ImageURL);
+						} else {
+							console.warn("DeSo save image upload did not return ImageURL:", uploadData);
+						}
+					} else {
+						console.warn("DeSo save image upload failed with status:", uploadRes.status);
+					}
+				} catch (uploadErr) {
+					console.warn("DeSo save image upload failed, proceeding without image:", uploadErr);
+				}
 
 				if(btn) btn.innerText = "SUBMITTING SAVE...";
 				var bodyText = "🎮 Danger Ghost - Saved Ghost Progress!\n\n" +
@@ -352,9 +365,10 @@
 
 				var postReq = {
 					UpdaterPublicKeyBase58Check: window.g_desoPublicKey,
+					ParentStakeID: "fd622ab4b7723a8a4d17fe0d7bd2bcc11e22832dde0a4a45ad637760ee89cd40", // Link Permanente ao Post de Ranking Oficial
 					BodyObj: {
 						Body: bodyText,
-						ImageURLs: [imageUrl]
+						ImageURLs: imageUrls
 					},
 					PostExtraData: {
 						"DangerGhost_CharacterID": saveObj.characterId,
@@ -3619,12 +3633,25 @@
 						formData.append("UserPublicKeyBase58Check", window.g_desoPublicKey);
 						formData.append("JWT", jwt);
 
-						var uploadRes = await fetch("https://node.deso.org/api/v0/upload-image", {
-							method: "POST",
-							body: formData
-						});
-						var uploadData = await uploadRes.json();
-						var imageUrl = uploadData.ImageURL;
+						var imageUrls = [];
+						try {
+							var uploadRes = await fetch("https://node.deso.org/api/v0/upload-image", {
+								method: "POST",
+								body: formData
+							});
+							if (uploadRes.ok) {
+								var uploadData = await uploadRes.json();
+								if (uploadData && uploadData.ImageURL) {
+									imageUrls.push(uploadData.ImageURL);
+								} else {
+									console.warn("DeSo image upload response did not contain ImageURL:", uploadData);
+								}
+							} else {
+								console.warn("DeSo image upload failed with status:", uploadRes.status);
+							}
+						} catch (uploadErr) {
+							console.warn("DeSo image upload failed, proceeding without image:", uploadErr);
+						}
 
 						var mins = Math.floor(g_globalTotalTime / 60);
 						var secs = g_globalTotalTime % 60;
@@ -3716,7 +3743,7 @@
 							ParentStakeID: "fd622ab4b7723a8a4d17fe0d7bd2bcc11e22832dde0a4a45ad637760ee89cd40", // Link Permanente ao Post de Ranking Oficial
 							BodyObj: {
 								Body: bodyText,
-								ImageURLs: [imageUrl]
+								ImageURLs: imageUrls
 							},
 							PostExtraData: {
 								"DangerGhost_CharacterID": stats.characterId,
@@ -3828,6 +3855,7 @@
 					
 					var postReq = {
 						UpdaterPublicKeyBase58Check: window.g_desoPublicKey,
+						ParentStakeID: "fd622ab4b7723a8a4d17fe0d7bd2bcc11e22832dde0a4a45ad637760ee89cd40", // Link Permanente ao Post de Ranking Oficial
 						BodyObj: {
 							Body: bodyText,
 							ImageURLs: []
