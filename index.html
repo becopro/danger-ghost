@@ -74,67 +74,6 @@
 			align-items: center;
 		}
 
-		.header-center-art-container {
-			position: absolute;
-			left: 50%;
-			top: 0;
-			transform: translateX(-50%);
-			width: 140px;
-			height: 90px;
-			z-index: 1001;
-			pointer-events: none;
-		}
-
-		.header-center-art-shield {
-			width: 100%;
-			height: 85px;
-			background: #070708;
-			clip-path: polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%);
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			pointer-events: auto;
-			box-sizing: border-box;
-			border: 1px solid rgba(255, 255, 255, 0.05);
-		}
-
-		.nav-center-img {
-			width: 110px;
-			height: 50px;
-			object-fit: contain;
-			margin-top: -12px;
-		}
-
-		.header-center-art-bracket-left,
-		.header-center-art-bracket-right {
-			position: absolute;
-			height: 3px;
-			background: hsl(355, 100%, 50%);
-			box-shadow: 0 0 10px hsl(355, 100%, 50%);
-			z-index: 1002;
-			width: 77px;
-		}
-
-		.header-center-art-bracket-left {
-			left: -2px;
-			bottom: 9px;
-			transform: rotate(20.5deg);
-			transform-origin: left center;
-		}
-
-		.header-center-art-bracket-right {
-			right: -2px;
-			bottom: 9px;
-			transform: rotate(-20.5deg);
-			transform-origin: right center;
-		}
-
-		@media (max-width: 900px) {
-			.header-center-art-container {
-				display: none;
-			}
-		}
-
 		.header-logo {
 			display: flex;
 			align-items: center;
@@ -758,13 +697,6 @@
 	<header class="site-header">
 		<div class="header-logo">
 			<h1 class="neon-title">DANGER GHOST</h1>
-		</div>
-		<div class="header-center-art-container">
-			<div class="header-center-art-shield">
-				<img src="UI/Gemini_Generated_Image_ahxnpaahxnpaahxn (2).png" alt="Danger Ghost Art" class="nav-center-img" />
-			</div>
-			<div class="header-center-art-bracket-left"></div>
-			<div class="header-center-art-bracket-right"></div>
 		</div>
 		<div id="gameNavbar">
 			<button id="btnNavControls" onclick="ToggleNavbarTab('controls')">🎮 CONTROLS</button>
