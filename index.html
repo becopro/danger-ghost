@@ -31,6 +31,10 @@
 		/* Global styling adjustments */
 		body {
 			background-color: var(--bg-dark);
+			background-image: url('UI/Arte vertical.jpg');
+			background-size: cover;
+			background-attachment: fixed;
+			background-position: center;
 			color: var(--white);
 			font-family: var(--font-title);
 			margin: 0;
@@ -68,6 +72,67 @@
 			display: flex;
 			justify-content: space-between;
 			align-items: center;
+		}
+
+		.header-center-art-container {
+			position: absolute;
+			left: 50%;
+			top: 0;
+			transform: translateX(-50%);
+			width: 140px;
+			height: 90px;
+			z-index: 1001;
+			pointer-events: none;
+		}
+
+		.header-center-art-shield {
+			width: 100%;
+			height: 85px;
+			background: #070708;
+			clip-path: polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%);
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			pointer-events: auto;
+			box-sizing: border-box;
+			border: 1px solid rgba(255, 255, 255, 0.05);
+		}
+
+		.nav-center-img {
+			width: 110px;
+			height: 50px;
+			object-fit: contain;
+			margin-top: -12px;
+		}
+
+		.header-center-art-bracket-left,
+		.header-center-art-bracket-right {
+			position: absolute;
+			height: 3px;
+			background: hsl(355, 100%, 50%);
+			box-shadow: 0 0 10px hsl(355, 100%, 50%);
+			z-index: 1002;
+			width: 77px;
+		}
+
+		.header-center-art-bracket-left {
+			left: -2px;
+			bottom: 9px;
+			transform: rotate(20.5deg);
+			transform-origin: left center;
+		}
+
+		.header-center-art-bracket-right {
+			right: -2px;
+			bottom: 9px;
+			transform: rotate(-20.5deg);
+			transform-origin: right center;
+		}
+
+		@media (max-width: 900px) {
+			.header-center-art-container {
+				display: none;
+			}
 		}
 
 		.header-logo {
@@ -693,6 +758,13 @@
 	<header class="site-header">
 		<div class="header-logo">
 			<h1 class="neon-title">DANGER GHOST</h1>
+		</div>
+		<div class="header-center-art-container">
+			<div class="header-center-art-shield">
+				<img src="UI/Gemini_Generated_Image_ahxnpaahxnpaahxn (2).png" alt="Danger Ghost Art" class="nav-center-img" />
+			</div>
+			<div class="header-center-art-bracket-left"></div>
+			<div class="header-center-art-bracket-right"></div>
 		</div>
 		<div id="gameNavbar">
 			<button id="btnNavControls" onclick="ToggleNavbarTab('controls')">🎮 CONTROLS</button>
@@ -5129,21 +5201,14 @@ var g_binaryBits = [];
 				if (e.keyCode == 69 && !e.repeat) { useSlotSkill(2); } // E
 				if (e.keyCode == 82 && !e.repeat) { useSlotSkill(3); } // R
 				if (e.keyCode == 32) { 
-					if (g_gameState == G_START) {
-						StartCutscene();
-					} else if (g_gameState == G_CUTSCENE) {
-						EndCutscene();
-					} else if (g_gameState == G_END_CUTSCENE) {
-						FinishEndCutscene();
-					} else if (g_gameState == G_PLAY) {
+					e.preventDefault();
+					if (g_gameState == G_PLAY) {
 						SetGameState(G_PAUSE);
 						g_pauseStartTime = Date.now();
 					} else if (g_gameState == G_PAUSE) {
 						SetGameState(G_PLAY);
 						g_levelStartTime += (Date.now() - g_pauseStartTime);
-					} else { 
-						ResetGame(); 
-					} 
+					}
 				}
 				if (e.keyCode == 80) { // P
 					if (g_gameState == G_PLAY) {
