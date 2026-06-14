@@ -5201,14 +5201,33 @@ var g_binaryBits = [];
 				if (e.keyCode == 69 && !e.repeat) { useSlotSkill(2); } // E
 				if (e.keyCode == 82 && !e.repeat) { useSlotSkill(3); } // R
 				if (e.keyCode == 32) { 
+					if (document.activeElement && (
+						document.activeElement.tagName === "INPUT" || 
+						document.activeElement.tagName === "TEXTAREA" ||
+						document.activeElement.tagName === "SELECT" ||
+						document.activeElement.isContentEditable
+					)) {
+						return; 
+					}
+					if (document.activeElement && document.activeElement.tagName === "BUTTON") {
+						document.activeElement.blur();
+					}
 					e.preventDefault();
-					if (g_gameState == G_PLAY) {
+					if (g_gameState == G_START) {
+						StartCutscene();
+					} else if (g_gameState == G_CUTSCENE) {
+						EndCutscene();
+					} else if (g_gameState == G_END_CUTSCENE) {
+						FinishEndCutscene();
+					} else if (g_gameState == G_PLAY) {
 						SetGameState(G_PAUSE);
 						g_pauseStartTime = Date.now();
 					} else if (g_gameState == G_PAUSE) {
 						SetGameState(G_PLAY);
 						g_levelStartTime += (Date.now() - g_pauseStartTime);
-					}
+					} else { 
+						ResetGame(); 
+					} 
 				}
 				if (e.keyCode == 80) { // P
 					if (g_gameState == G_PLAY) {
