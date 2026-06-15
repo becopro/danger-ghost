@@ -305,6 +305,54 @@
 			box-shadow: 0 0 20px rgba(255, 0, 255, 0.15) !important;
 		}
 
+		/* Founder Bio Custom Buttons */
+		.founder-btn {
+			font-family: var(--font-title);
+			font-weight: 700;
+			font-size: 11px;
+			letter-spacing: 1.5px;
+			padding: 8px 12px;
+			border-radius: 0px;
+			cursor: pointer;
+			text-transform: uppercase;
+			text-decoration: none;
+			background: rgba(0, 0, 0, 0.6);
+			display: inline-block;
+			text-align: center;
+			flex: 1;
+			transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+		}
+		.founder-btn-deso {
+			border: 1.5px solid var(--cyan-neon);
+			color: var(--cyan-neon);
+			box-shadow: 0 0 5px rgba(0, 255, 255, 0.15);
+		}
+		.founder-btn-deso:hover {
+			background: var(--cyan-neon);
+			color: #000;
+			box-shadow: 0 0 15px var(--cyan-neon);
+		}
+		.founder-btn-twitter {
+			border: 1.5px solid var(--purple-neon);
+			color: var(--purple-neon);
+			box-shadow: 0 0 5px rgba(186, 85, 211, 0.15);
+		}
+		.founder-btn-twitter:hover {
+			background: var(--purple-neon);
+			color: #000;
+			box-shadow: 0 0 15px var(--purple-neon);
+		}
+		.founder-btn-site {
+			border: 1.5px solid var(--yellow-neon);
+			color: var(--yellow-neon);
+			box-shadow: 0 0 5px rgba(255, 215, 0, 0.15);
+		}
+		.founder-btn-site:hover {
+			background: var(--yellow-neon);
+			color: #000;
+			box-shadow: 0 0 15px var(--yellow-neon);
+		}
+
 		/* Section Base Styling */
 		.section-container {
 			max-width: 1200px;
@@ -1149,8 +1197,13 @@
 			<div class="section-accent-bar" style="background: var(--purple-neon);"></div>
 			
 			<div class="lore-wrap">
-				<div class="lore-image-container" style="width: 300px;">
-					<img src="UI/becopro.png" alt="BecoPro Founder" class="lore-image" style="border-radius: 0px;" />
+				<div class="lore-image-container" style="width: 300px; display: flex; flex-direction: column; gap: 10px; align-items: center;">
+					<img src="UI/becopro.png" alt="BecoPro Founder" class="lore-image" style="border-radius: 0px; margin-bottom: 5px;" />
+					<div style="display: flex; gap: 8px; width: 100%; justify-content: center; box-sizing: border-box;">
+						<a href="https://mydesospace.com/u/becopro?tab=posts" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-deso">DeSo</a>
+						<a href="https://x.com/becoproart" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-twitter">Twitter</a>
+						<a href="https://becopro.art.br" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-site">Site</a>
+					</div>
 				</div>
 				<div class="lore-text">
 					<h3 style="font-family: var(--font-title); font-size: 24px; color: var(--purple-neon); text-transform: uppercase; margin-bottom: 15px;">BecoPro</h3>
