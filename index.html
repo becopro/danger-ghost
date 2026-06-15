@@ -1487,7 +1487,7 @@
 						});
 					}
 
-					var cached = localStorage.getItem("dg_chat_history_v1");
+					var cached = sessionStorage.getItem("dg_chat_history_v1");
 					if (cached) {
 						try {
 							g_chatHistory = JSON.parse(cached);
@@ -1565,7 +1565,7 @@
 				if (g_chatHistory.length > 50) {
 					g_chatHistory.shift();
 				}
-				localStorage.setItem("dg_chat_history_v1", JSON.stringify(g_chatHistory));
+				sessionStorage.setItem("dg_chat_history_v1", JSON.stringify(g_chatHistory));
 				RenderChatHistory();
 			}
 
