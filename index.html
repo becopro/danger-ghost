@@ -133,6 +133,16 @@
 			box-shadow: 0 0 15px var(--magenta-neon) !important;
 		}
 
+		#btnNavChat {
+			border: 1.5px solid var(--cyan-neon) !important;
+			color: var(--cyan-neon) !important;
+		}
+		#btnNavChat:hover {
+			background: var(--cyan-neon) !important;
+			color: #000 !important;
+			box-shadow: 0 0 15px var(--cyan-neon) !important;
+		}
+
 		/* Game Area Container */
 		#game-section {
 			padding: 40px 20px;
@@ -592,6 +602,7 @@
 		}
 	</style>
 	
+	<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 	<script>
 		// Secure HTML Escaping function to shield against stored XSS attacks
 		function escapeHTML(str) {
@@ -795,6 +806,7 @@
 			<button id="btnNavControls" onclick="ToggleNavbarTab('controls')">🎮 CONTROLS</button>
 			<button id="btnNavRPG" onclick="ToggleNavbarTab('rpg')">👤 HERO</button>
 			<button id="btnNavBag" onclick="ToggleNavbarTab('bag')">🎒 BAG</button>
+			<button id="btnNavChat" onclick="ToggleNavbarTab('chat')">💬 CHAT</button>
 		</div>
 	</header>
 
@@ -845,6 +857,27 @@
 			<!-- Shared Collapsible Drawer (Positioned Absolutely on the Left Side of the Canvas for RPG) -->
 			<div id="rpgPanel" style="display: none; position: absolute; left: -220px; top: 0px; width: 200px; background: rgba(0,0,0,0.9); border: 2px solid #00FF00; border-radius: 5px; padding: 12px; box-shadow: 0 0 15px #00FF00; box-sizing: border-box; text-align: left; font-family: 'Courier New'; font-size: 13px; z-index: 100;">
 				<div id="rpgPanelContent" style="color: #FFF; line-height: 18px;"></div>
+			</div>
+
+			<!-- Shared Collapsible Drawer (Positioned Absolutely on the Left Side of the Canvas for Chat) -->
+			<div id="chatPanel" style="display: none; position: absolute; left: -240px; top: 0px; width: 220px; height: 300px; background: rgba(8, 6, 12, 0.95); border: 2px solid var(--cyan-neon); border-radius: 0px; padding: 10px; box-shadow: 0 0 15px var(--cyan-neon); box-sizing: border-box; text-align: left; font-family: var(--font-title); font-size: 12px; z-index: 100; flex-direction: column;">
+				<h3 style="margin: 0 0 8px 0; color: var(--cyan-neon); text-align: center; letter-spacing: 2px; font-size: 14px; text-transform: uppercase;">💬 GLOBAL CHAT</h3>
+				
+				<!-- Nickname Setup -->
+				<div style="margin-bottom: 6px; display: flex; gap: 4px; align-items: center;">
+					<span style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; white-space: nowrap;">NICK:</span>
+					<input type="text" id="chatNickInput" placeholder="GUEST_GHOST" style="background: #000; border: 1px solid var(--border-light); color: #FFF; font-size: 10px; padding: 2px 4px; width: 100%; box-sizing: border-box; outline: none; border-radius: 0;" />
+				</div>
+
+				<!-- Scrollable Message Area -->
+				<div id="chatMessages" style="flex-grow: 1; overflow-y: auto; background: #000; border: 1px solid var(--border-light); padding: 6px; margin-bottom: 6px; display: flex; flex-direction: column; gap: 4px; font-family: var(--font-mono); font-size: 10px; word-break: break-all;">
+				</div>
+
+				<!-- Message Input Area -->
+				<div style="display: flex; gap: 4px;">
+					<input type="text" id="chatMsgInput" placeholder="TYPE MESSAGE..." style="background: #000; border: 1px solid var(--border-light); color: #FFF; font-size: 10px; padding: 4px; flex-grow: 1; outline: none; border-radius: 0;" />
+					<button id="chatSendBtn" style="background: var(--cyan-neon); color: #000; border: none; padding: 4px 8px; font-weight: bold; cursor: pointer; font-size: 10px; font-family: var(--font-title); text-transform: uppercase;">SEND</button>
+				</div>
 			</div>
 
 			<!-- Shared Collapsible Drawer (Positioned Absolutely on the Right Side of the Canvas) -->
@@ -1189,15 +1222,17 @@
 
 					var rightPanel = document.getElementById("navbarPanel");
 					var leftPanel = document.getElementById("rpgPanel");
+					var chatPanel = document.getElementById("chatPanel");
 					var rightContent = document.getElementById("navbarPanelContent");
 					var leftContent = document.getElementById("rpgPanelContent");
-					if (!rightPanel || !rightContent || !leftPanel || !leftContent) return;
+					if (!rightPanel || !rightContent || !leftPanel || !leftContent || !chatPanel) return;
 					
 					var btnScore = document.getElementById("btnNavScore");
 					var btnTime = document.getElementById("btnNavTime");
 					var btnControls = document.getElementById("btnNavControls");
 					var btnRPG = document.getElementById("btnNavRPG");
 					var btnBag = document.getElementById("btnNavBag");
+					var btnChat = document.getElementById("btnNavChat");
 					
 					if (btnScore) {
 						btnScore.style.background = "rgba(0,0,0,0.8)";
@@ -1219,10 +1254,15 @@
 						btnBag.style.background = "rgba(0,0,0,0.8)";
 						btnBag.style.boxShadow = "0 0 5px rgba(255,165,0,0.3)";
 					}
+					if (btnChat) {
+						btnChat.style.background = "rgba(0,0,0,0.8)";
+						btnChat.style.boxShadow = "0 0 5px rgba(0,255,255,0.3)";
+					}
 
 					if (g_activeTab === tab) {
 						rightPanel.style.display = "none";
 						leftPanel.style.display = "none";
+						chatPanel.style.display = "none";
 						g_activeTab = null;
 						return;
 					}
@@ -1230,6 +1270,7 @@
 					// Close both first, then open the chosen one
 					rightPanel.style.display = "none";
 					leftPanel.style.display = "none";
+					chatPanel.style.display = "none";
 
 					g_activeTab = tab;
 
@@ -1241,6 +1282,15 @@
 						}
 						if (typeof RenderRPGStatusDrawer === "function") {
 							RenderRPGStatusDrawer();
+						}
+					} else if (tab === 'chat') {
+						chatPanel.style.display = "flex";
+						if (btnChat) {
+							btnChat.style.background = "rgba(0,255,255,0.2)";
+							btnChat.style.boxShadow = "0 0 15px var(--cyan-neon)";
+						}
+						if (typeof RenderChatHistory === "function") {
+							RenderChatHistory();
 						}
 					} else {
 						rightPanel.style.display = "block";
@@ -1388,12 +1438,150 @@
 				UpdateNavbarBag();
 			}
 
+			// --- Live Global Chat System ---
+			var g_mqttClient = null;
+			var g_chatHistory = [];
+
+			function InitGlobalChat() {
+				try {
+					var savedNick = localStorage.getItem("dg_chat_nick");
+					var nickInput = document.getElementById("chatNickInput");
+					if (nickInput) {
+						if (savedNick) {
+							nickInput.value = savedNick;
+						} else {
+							var randomId = Math.floor(1000 + Math.random() * 9000);
+							nickInput.value = "GUEST_" + randomId;
+							localStorage.setItem("dg_chat_nick", nickInput.value);
+						}
+						nickInput.addEventListener("change", function() {
+							var val = nickInput.value.trim().replace(/[^a-zA-Z0-9_]/g, "");
+							if (!val) val = "GUEST_" + Math.floor(1000 + Math.random() * 9000);
+							nickInput.value = val;
+							localStorage.setItem("dg_chat_nick", val);
+						});
+					}
+
+					var cached = localStorage.getItem("dg_chat_history_v1");
+					if (cached) {
+						try {
+							g_chatHistory = JSON.parse(cached);
+							RenderChatHistory();
+						} catch(e) {
+							g_chatHistory = [];
+						}
+					} else {
+						AddChatMessage({ nick: "SYSTEM", msg: "Welcome to Danger Ghost Global Chat! Choose your name and start typing.", time: Date.now() });
+					}
+
+					// Connect to EMQX public MQTT Broker over WebSockets
+					g_mqttClient = mqtt.connect("wss://broker.emqx.io:8084/mqtt", {
+						keepalive: 60,
+						clientId: "dg_client_" + Math.random().toString(16).substring(2, 10),
+						clean: true
+					});
+
+					g_mqttClient.on("connect", function() {
+						g_mqttClient.subscribe("danger-ghost/global-chat-room-v1", function(err) {
+							if (!err) {
+								console.log("Subscribed to global chat topic");
+							}
+						});
+					});
+
+					g_mqttClient.on("message", function(topic, payload) {
+						try {
+							var data = JSON.parse(payload.toString());
+							if (data && data.nick && data.msg) {
+								AddChatMessage(data);
+							}
+						} catch(err) {
+							console.warn("Error parsing chat message", err);
+						}
+					});
+
+					var msgInput = document.getElementById("chatMsgInput");
+					var sendBtn = document.getElementById("chatSendBtn");
+
+					function doSend() {
+						if (!msgInput || !g_mqttClient) return;
+						var msgText = msgInput.value.trim();
+						if (!msgText) return;
+						
+						var currentNick = (nickInput ? nickInput.value.trim() : "") || "GUEST_GHOST";
+						var payload = {
+							nick: currentNick,
+							msg: msgText,
+							time: Date.now()
+						};
+
+						g_mqttClient.publish("danger-ghost/global-chat-room-v1", JSON.stringify(payload));
+						msgInput.value = "";
+					}
+
+					if (sendBtn) {
+						sendBtn.addEventListener("click", doSend);
+					}
+					if (msgInput) {
+						msgInput.addEventListener("keydown", function(e) {
+							if (e.key === "Enter") {
+								doSend();
+							}
+						});
+					}
+
+				} catch(e) {
+					console.warn("Global chat initialization error", e);
+				}
+			}
+
+			function AddChatMessage(msgObj) {
+				g_chatHistory.push(msgObj);
+				if (g_chatHistory.length > 50) {
+					g_chatHistory.shift();
+				}
+				localStorage.setItem("dg_chat_history_v1", JSON.stringify(g_chatHistory));
+				RenderChatHistory();
+			}
+
+			function RenderChatHistory() {
+				var container = document.getElementById("chatMessages");
+				if (!container) return;
+
+				var html = "";
+				g_chatHistory.forEach(function(item) {
+					var date = new Date(item.time);
+					var timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+					var escapedNick = escapeHTML(item.nick);
+					var escapedMsg = escapeHTML(item.msg);
+
+					var nickColor = "var(--cyan-neon)";
+					if (item.nick === "SYSTEM") {
+						nickColor = "var(--yellow-neon)";
+					} else if (item.nick === localStorage.getItem("dg_chat_nick")) {
+						nickColor = "var(--green-neon)";
+					}
+
+					html += "<div style='margin-bottom: 4px; line-height: 14px;'>" +
+								"<span style='color: var(--text-muted); font-size: 8px; margin-right: 4px;'>[" + timeStr + "]</span>" +
+								"<span style='color: " + nickColor + "; font-weight: bold; margin-right: 4px;'>&lt;" + escapedNick + "&gt;</span>" +
+								"<span style='color: #FFF;'>" + escapedMsg + "</span>" +
+							"</div>";
+				});
+
+				container.innerHTML = html;
+				container.scrollTop = container.scrollHeight;
+			}
+
 			// Exposição explícita das funções de controle da Navbar no escopo global
 			window.ToggleNavbarTab = ToggleNavbarTab;
 			window.UpdateNavbarScore = UpdateNavbarScore;
 			window.UpdateNavbarTime = UpdateNavbarTime;
 			window.UpdateNavbarBag = UpdateNavbarBag;
 			window.SelectBagItem = SelectBagItem;
+			window.InitGlobalChat = InitGlobalChat;
+			window.AddChatMessage = AddChatMessage;
+			window.RenderChatHistory = RenderChatHistory;
 
 			// Método A: Vinculação Dinâmica no DOMContentLoaded (Segurança AAA)
 			document.addEventListener("DOMContentLoaded", function() {
@@ -1402,6 +1590,7 @@
 				var elControls = document.getElementById("btnNavControls");
 				var elRPG = document.getElementById("btnNavRPG");
 				var elBag = document.getElementById("btnNavBag");
+				var elChat = document.getElementById("btnNavChat");
 
 				if (elScore) {
 					elScore.addEventListener("click", function() { ToggleNavbarTab('score'); });
@@ -1418,6 +1607,14 @@
 				if (elBag) {
 					elBag.addEventListener("click", function() { ToggleNavbarTab('bag'); });
 				}
+				if (elChat) {
+					elChat.addEventListener("click", function() { ToggleNavbarTab('chat'); });
+				}
+
+				// Inicializa o chat global em tempo real
+				try {
+					InitGlobalChat();
+				} catch(e) {}
 
 				// Abre o painel de Controles por padrão ao carregar a página para abrir as informações para todos
 				try {
@@ -1432,6 +1629,7 @@
 				var elControls = document.getElementById("btnNavControls");
 				var elRPG = document.getElementById("btnNavRPG");
 				var elBag = document.getElementById("btnNavBag");
+				var elChat = document.getElementById("btnNavChat");
 
 				if (elScore) {
 					elScore.onclick = function() { ToggleNavbarTab('score'); };
@@ -1447,6 +1645,9 @@
 				}
 				if (elBag) {
 					elBag.onclick = function() { ToggleNavbarTab('bag'); };
+				}
+				if (elChat) {
+					elChat.onclick = function() { ToggleNavbarTab('chat'); };
 				}
 			})();
 
