@@ -333,13 +333,13 @@ function RenderRPGStatusDrawer() {
     for (var i = 0; i < 4; i++) {
         var activeSkill = stats.equippedSkills[i];
         var activeRune = stats.equippedRunes[i];
-        var skillSelect = "<select onchange='GhostRPG.setSkill(" + i + ", this.value); RenderRPGStatusDrawer();' style='background:#222; color:#FFF; border:1px solid #555; font-family:\"Courier New\"; font-size:10px; padding:1px; width:100px;'>";
+        var skillSelect = "<select onchange='GhostRPG.setSkill(" + i + ", this.value); RenderRPGStatusDrawer();' style='background:#222; color:#FFF; border:1px solid #555; font-family:\"Courier New\"; font-size:10px; padding:1px; width:140px;'>";
         for (var s = 0; s < skillsList.length; s++) {
             skillSelect += "<option value='" + skillsList[s].id + "' " + (skillsList[s].id === activeSkill ? "selected" : "") + ">" + skillsList[s].name + "</option>";
         }
         skillSelect += "</select>";
 
-        var runeSelect = "<select onchange='GhostRPG.setRune(" + i + ", this.value); RenderRPGStatusDrawer();' style='background:#222; color:#FFF; border:1px solid #555; font-family:\"Courier New\"; font-size:10px; padding:1px; width:70px;'>";
+        var runeSelect = "<select onchange='GhostRPG.setRune(" + i + ", this.value); RenderRPGStatusDrawer();' style='background:#222; color:#FFF; border:1px solid #555; font-family:\"Courier New\"; font-size:10px; padding:1px; width:90px;'>";
         for (var r = 0; r < runesList.length; r++) {
             runeSelect += "<option value='" + runesList[r].id + "' " + (runesList[r].id === activeRune ? "selected" : "") + ">" + runesList[r].name + "</option>";
         }
