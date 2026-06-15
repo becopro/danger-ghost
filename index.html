@@ -29,6 +29,31 @@
 			--font-mono: 'Courier New', monospace;
 		}
 
+		/* Neo-Tokyo Futuristic Neon Scrollbar Stylings */
+		::-webkit-scrollbar {
+			width: 8px;
+			height: 8px;
+		}
+		::-webkit-scrollbar-track {
+			background: rgba(7, 7, 8, 0.95);
+			border: 1px solid var(--border-light);
+		}
+		::-webkit-scrollbar-thumb {
+			background: linear-gradient(180deg, var(--cyan-neon), var(--purple-neon));
+			border-radius: 0px;
+			box-shadow: inset 0 0 4px var(--cyan-neon);
+		}
+		::-webkit-scrollbar-thumb:hover {
+			background: linear-gradient(180deg, var(--magenta-neon), var(--purple-neon));
+			box-shadow: inset 0 0 6px var(--magenta-neon);
+		}
+		
+		/* Firefox scrollbar compatibility */
+		* {
+			scrollbar-width: thin;
+			scrollbar-color: var(--cyan-neon) rgba(7, 7, 8, 0.95);
+		}
+
 		/* Global styling adjustments */
 		body {
 			background-color: var(--bg-dark);
