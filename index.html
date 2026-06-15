@@ -70,6 +70,21 @@
 			cursor: url('assets/sprites/Ftasma_cursor.png'), auto;
 		}
 
+		/* Fume Tinted Frosted Glass Overlay (above background, below content) */
+		body::before {
+			content: "";
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background: rgba(7, 7, 8, 0.78); /* Dark smoke tint */
+			backdrop-filter: blur(3px); /* Frosted glass look */
+			-webkit-backdrop-filter: blur(3px);
+			z-index: -1; /* Layered exactly behind all page content */
+			pointer-events: none;
+		}
+
 		/* Premium Animated Title - Ghostrunner Slanted Cyberpunk Style */
 		.neon-title {
 			color: #fff;
