@@ -498,6 +498,97 @@
 			border: 1px solid rgba(255, 255, 255, 0.05);
 			background: #000;
 		}
+
+		/* Social & Contacts bar styling below sticky header */
+		.social-link-bar {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			flex-wrap: wrap;
+			gap: 24px;
+			background: rgba(13, 13, 16, 0.7);
+			backdrop-filter: blur(8px);
+			-webkit-backdrop-filter: blur(8px);
+			border-bottom: 1px solid var(--border-light);
+			padding: 12px 20px;
+			box-sizing: border-box;
+			width: 100%;
+			z-index: 999;
+		}
+
+		.social-icon-link {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			text-decoration: none;
+			color: var(--text-muted);
+			font-family: var(--font-title);
+			font-weight: 700;
+			font-size: 13px;
+			letter-spacing: 1.5px;
+			text-transform: uppercase;
+			transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+			padding: 6px 16px;
+			border: 1.5px solid transparent;
+			background: transparent;
+		}
+
+		.social-svg {
+			width: 18px;
+			height: 18px;
+			transition: transform 0.25s ease;
+		}
+
+		/* Brand Specific Neon Glows */
+		.deso-link:hover {
+			color: var(--cyan-neon) !important;
+			text-shadow: 0 0 8px var(--cyan-neon);
+			border-color: var(--cyan-neon) !important;
+			background: rgba(0, 255, 255, 0.05) !important;
+		}
+		.deso-link:hover .social-svg {
+			transform: scale(1.1);
+		}
+
+		.gmail-link:hover {
+			color: hsl(0, 100%, 60%) !important;
+			text-shadow: 0 0 8px hsl(0, 100%, 60%);
+			border-color: hsl(0, 100%, 60%) !important;
+			background: rgba(255, 0, 0, 0.05) !important;
+		}
+		.gmail-link:hover .social-svg {
+			transform: scale(1.1);
+		}
+
+		.twitter-link:hover {
+			color: #ffffff !important;
+			text-shadow: 0 0 8px #ffffff;
+			border-color: #ffffff !important;
+			background: rgba(255, 255, 255, 0.05) !important;
+		}
+		.twitter-link:hover .social-svg {
+			transform: scale(1.1);
+		}
+
+		.telegram-link:hover {
+			color: hsl(200, 100%, 55%) !important;
+			text-shadow: 0 0 8px hsl(200, 100%, 55%);
+			border-color: hsl(200, 100%, 55%) !important;
+			background: rgba(0, 172, 255, 0.05) !important;
+		}
+		.telegram-link:hover .social-svg {
+			transform: scale(1.1);
+		}
+
+		.hyperfy-link:hover {
+			color: var(--purple-neon) !important;
+			text-shadow: 0 0 8px var(--purple-neon);
+			border-color: var(--purple-neon) !important;
+			background: rgba(180, 0, 255, 0.05) !important;
+		}
+		.hyperfy-link:hover .social-svg {
+			transform: scale(1.1);
+		}
 	</style>
 	
 	<script>
@@ -705,6 +796,40 @@
 			<button id="btnNavBag" onclick="ToggleNavbarTab('bag')">🎒 BAG</button>
 		</div>
 	</header>
+
+	<!-- Social & Link Bar below Header -->
+	<div class="social-link-bar">
+		<a href="https://mydesospace.com/u/DangerGhost?tab=posts" target="_blank" rel="noopener noreferrer" title="DeSo" class="social-icon-link deso-link">
+			<svg class="social-svg" viewBox="0 0 24 24">
+				<path fill="currentColor" d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.8L19.2 8 12 11.2 4.8 8 12 4.8zM4.5 10.3l6.5 2.9v6.5l-6.5-2.9v-6.5zm15 0v6.5l-6.5 2.9v-6.5l6.5-2.9z"/>
+			</svg>
+			<span>DeSo</span>
+		</a>
+		<a href="mailto:ghostgamesniteroi@gmail.com" target="_blank" rel="noopener noreferrer" title="Gmail" class="social-icon-link gmail-link">
+			<svg class="social-svg" viewBox="0 0 24 24">
+				<path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+			</svg>
+			<span>Gmail</span>
+		</a>
+		<a href="https://x.com/GhostGamesnit" target="_blank" rel="noopener noreferrer" title="Twitter" class="social-icon-link twitter-link">
+			<svg class="social-svg" viewBox="0 0 24 24">
+				<path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+			</svg>
+			<span>Twitter</span>
+		</a>
+		<a href="https://t.me/+UjvGrGA-Ia40YjIx" target="_blank" rel="noopener noreferrer" title="Telegram" class="social-icon-link telegram-link">
+			<svg class="social-svg" viewBox="0 0 24 24">
+				<path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-1-.65-.35-1 .22-1.6 1.5-1.55 2.75-2.6 2.75-2.6.01-.12.02-.2-.04-.25s-.18-.02-.31.02c-.19.06-3.13 2-6.19 4.07-.47.31-.89.47-1.26.46-.4-.01-1.18-.23-1.76-.42-.71-.23-1.27-.35-1.22-.75.02-.2.31-.4 1-.63 4.25-1.85 7.08-3.08 8.5-3.69 4.05-1.74 4.89-2.04 5.44-2.05.12 0 .39.03.56.17.14.12.18.28.2.4-.02.04-.02.1-.02.16z"/>
+			</svg>
+			<span>Telegram</span>
+		</a>
+		<a href="https://hyperfy.io/desoghostmansion" target="_blank" rel="noopener noreferrer" title="Hyperfy" class="social-icon-link hyperfy-link">
+			<svg class="social-svg" viewBox="0 0 24 24">
+				<path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+			</svg>
+			<span>Hyperfy</span>
+		</a>
+	</div>
 
 	<!-- Section 1: The Game (Canvas Area) -->
 	<section id="game-section">
