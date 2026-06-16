@@ -80,4 +80,5 @@ setTimeout(() => {
     console.log("\n====================================================");
     console.log("Audit de tempo de execução (JSDOM) concluído.");
     console.log("====================================================");
+    process.exit(0);
 }, 3500);
