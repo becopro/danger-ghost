@@ -3281,7 +3281,9 @@
 									if (g_boss.type === "skull" && p.type === "orb") {
 										finalDmg = Math.max(1, Math.floor(finalDmg * 0.20));
 									}
-
+									if (p.type === "spell_fireball") {
+										finalDmg = g_boss.lives;
+									}
 									g_boss.lives -= finalDmg;
 
 									var color = "#00FFFF";
@@ -5749,7 +5751,10 @@ var g_binaryBits = [];
 				}
 				
 				if (!g_musicStarted) {
-					bgMusic.play().catch(function(err){});
+					var p = bgMusic.play();
+					if (p !== undefined) {
+						p.catch(function(err){});
+					}
 					g_musicStarted = true;
 				}
 				if (e.keyCode == 77 && !e.repeat) { // M (Mute/Unmute)
@@ -5764,17 +5769,18 @@ var g_binaryBits = [];
 					if (g_gameState === G_PLAY && !DeSoGhost.dead) {
 						var eq = window.GetEquipmentState ? window.GetEquipmentState() : { spell: null };
 						if (eq.spell && eq.spell.count > 0) {
-							var speed = 8;
-							var vx = (DeSoGhost.facing === "left") ? -speed : speed;
-							var px = DeSoGhost.x + (DeSoGhost.facing === "left" ? -10 : 30);
-							var py = DeSoGhost.y + 10;
+							var speed = 3.5;
+							var isLeft = DeSoGhost.face !== 1;
+							var vx = isLeft ? -speed : speed;
+							var px = DeSoGhost.xPos + (isLeft ? -10 : 30);
+							var py = DeSoGhost.yPos + 10;
 							
 							var stats = GhostRPG.getStats();
 							var intPowMult = 1 + (stats.int + stats.pow) * 0.05;
 							var baseDamage = 35;
 							var spellDmg = Math.round(baseDamage * intPowMult);
 							
-							var p = obtainProjectile(px, py, vx, 0, "spell_fireball", 0, 24, 24, 60, spellDmg, true);
+							var p = obtainProjectile(px, py, vx, 0, "spell_fireball", 0, 20, 20, 120, spellDmg, true);
 							g_projectiles.push(p);
 							
 							g_visualEffects.push(obtainExplosionEffect(px, py, "#ffaa00", 8));

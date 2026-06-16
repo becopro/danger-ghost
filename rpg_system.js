@@ -54,11 +54,14 @@ var GhostRPG = (function() {
             return state;
         },
         resetStats: function() {
+            var oldInventory = state.inventory || [];
+            var oldEquipment = state.equipment || { helmet: null, spell: null };
             state = { 
                 level: 1, xp: 0, xpRequired: 100, pointsToDistribute: 0, vit: 1, agi: 1, int: 1, pow: 1, mag: 1, characterId: "",
                 equippedSkills: [0, 1, 2, 3], equippedRunes: [0, 0, 0, 0], equippedPassives: [-1, -1],
                 weapon: { name: 'Starter Dirk', damage: 10 },
-                inventory: []
+                inventory: oldInventory,
+                equipment: oldEquipment
             };
             updateIntegrityHash(); this.saveLocalStorage();
         },
