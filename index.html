@@ -2440,6 +2440,19 @@
 			}
 			window.spawnCave1Diamonds = spawnCave1Diamonds;
 
+			function getPhaseMultiplier(levelNum) {
+				if (levelNum === "cave1" || levelNum === "CAVE1") {
+					return 500;
+				}
+				var lvl = parseInt(levelNum, 10);
+				if (isNaN(lvl)) return 1;
+				if (lvl === 33) return 666;
+				if (lvl >= 10 && lvl <= 32) {
+					return lvl * 10;
+				}
+				return lvl;
+			}
+
 			function c_Boss(l_x, l_y, type) {
 				this.type = type || "crow";
 				this.xPos = l_x; this.yPos = (this.type === "slime") ? l_y + 8 : l_y;
@@ -2450,7 +2463,9 @@
 				this.level = stats.level || 1;
 				
 				var baseHp = (this.type === "cactus") ? 9 : ((this.type === "skull") ? 33 : 4);
-				this.lives = baseHp * this.level;
+				var phaseMult = getPhaseMultiplier(g_currentLevel);
+				this.maxHp = baseHp * this.level * phaseMult;
+				this.lives = this.maxHp;
 				
 				this.width = (this.type === "cactus") ? 288 : ((this.type === "skull") ? 168 : 48); 
 				this.height = (this.type === "cactus") ? 288 : ((this.type === "skull") ? 168 : 48);
@@ -2598,6 +2613,7 @@
 				this.lives = 3; this.face = 1;
 				this.collectedLives = 0;
 				this.collectedBlueDiamonds = 0;
+				this.pendingLivesLoss = 1;
 
 				this.acceleration = [0, 0, 6.5, 6, 5.5, 5, 4.5, 4, 3.5, 3, 2.5, 2, 2, 1.5, 1.5, 0.75, 0.75, 0.5, 0.5, 0.5, 0.25, 0.25, 0, 0];
 				this.jumpCounter = 0; this.jumpNum = 0;
@@ -2647,7 +2663,9 @@
 				};
 
 				this.respawn = function () {
-					this.lives--;
+					var loss = this.pendingLivesLoss || 1;
+					this.lives -= loss;
+					this.pendingLivesLoss = 1; // reset to default
 					g_projectiles = [];
 					g_visualEffects = [];
 					this.skillCooldowns = [0, 0, 0, 0];
@@ -2723,6 +2741,7 @@
 									}
 								}
 							} else if (!this.ghostMode && this.phantomFormTimer <= 0) { // Immune during Phantom Form
+								this.pendingLivesLoss = getPhaseMultiplier(g_currentLevel);
 								this.alive = false;
 							}
 						}
@@ -3074,6 +3093,7 @@
 							if (p.x + p.width/2 > DeSoGhost.xPos && p.x - p.width/2 < DeSoGhost.xPos + 24 &&
 								p.y + p.height/2 > DeSoGhost.yPos && p.y - p.height/2 < DeSoGhost.yPos + 24) {
 								if (!DeSoGhost.ghostMode && DeSoGhost.phantomFormTimer <= 0) {
+									DeSoGhost.pendingLivesLoss = getPhaseMultiplier(g_currentLevel);
 									DeSoGhost.alive = false;
 								}
 								g_visualEffects.push(createExplosionEffect(p.x, p.y, "#FF3366", 6));
@@ -3308,7 +3328,7 @@
 					
 					// Calculate fill percentage
 					var baseHp = (g_boss.type === "cactus") ? 9 : ((g_boss.type === "skull") ? 33 : 4);
-					var maxHp = baseHp * g_boss.level;
+					var maxHp = g_boss.maxHp || (baseHp * g_boss.level);
 					var pct = Math.max(0, g_boss.lives / maxHp);
 					
 					// Draw filled health bar
