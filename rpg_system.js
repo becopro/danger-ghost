@@ -157,7 +157,7 @@ var GhostRPG = (function() {
         saveLocalStorage: function() {
             try {
                 var dataToSave = JSON.stringify(state);
-                var encrypted = btoa(dataToSave + "||" + rpgAntiCheat.hash);
+                var encrypted = (window.SafeBtoa || btoa)(dataToSave + "||" + rpgAntiCheat.hash);
                 localStorage.setItem("DangerGhost_RPG_Save", encrypted);
             } catch(e) {}
         },
@@ -165,7 +165,7 @@ var GhostRPG = (function() {
             try {
                 var saved = localStorage.getItem("DangerGhost_RPG_Save");
                 if (saved) {
-                    var decrypted = atob(saved);
+                    var decrypted = (window.SafeAtob || atob)(saved);
                     var parts = decrypted.split("||");
                     var data = JSON.parse(parts[0]);
                     state = data;

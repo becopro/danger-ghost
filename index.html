@@ -714,6 +714,30 @@
 		}
 		window.escapeHTML = escapeHTML;
 
+		function SafeBtoa(str) {
+			try {
+				return btoa(unescape(encodeURIComponent(str)));
+			} catch (err) {
+				console.error("SafeBtoa failed:", err);
+				return btoa(str);
+			}
+		}
+		function SafeAtob(str) {
+			try {
+				var raw = atob(str);
+				try {
+					return decodeURIComponent(escape(raw));
+				} catch (e) {
+					return raw;
+				}
+			} catch (err) {
+				console.error("SafeAtob failed:", err);
+				return atob(str);
+			}
+		}
+		window.SafeBtoa = SafeBtoa;
+		window.SafeAtob = SafeAtob;
+
 		// --- Web3 DeSo NFT/Save Helpers ---
 		async function CreateDeSoNFTForRPG(postHashHex, buttonId) {
 			var bId = buttonId || "rpgSaveBtn";
@@ -844,7 +868,7 @@
 					},
 					PostExtraData: {
 						"DangerGhost_CharacterID": saveObj.characterId,
-						"DangerGhost_SaveState": btoa(JSON.stringify(saveObj)),
+						"DangerGhost_SaveState": SafeBtoa(JSON.stringify(saveObj)),
 						"DangerGhost_GameApp": "v1.0.0"
 					},
 					MinFeeRateNanosPerKB: 1000
@@ -3892,7 +3916,7 @@
 								var hasSaveState = false;
 								if (post.PostExtraData && post.PostExtraData["DangerGhost_SaveState"]) {
 									try {
-										var decrypted = atob(post.PostExtraData["DangerGhost_SaveState"]);
+										var decrypted = SafeAtob(post.PostExtraData["DangerGhost_SaveState"]);
 										var stats = JSON.parse(decrypted);
 										var rawLvl = undefined;
 										if (stats && typeof stats.level !== "undefined") {
@@ -4758,7 +4782,7 @@
 							},
 							PostExtraData: {
 								"DangerGhost_CharacterID": stats.characterId,
-								"DangerGhost_SaveState": btoa(JSON.stringify(stats)),
+								"DangerGhost_SaveState": SafeBtoa(JSON.stringify(stats)),
 								"DangerGhost_GameApp": "v1.0.0"
 							},
 							MinFeeRateNanosPerKB: 1000
@@ -4873,7 +4897,7 @@
 						},
 						PostExtraData: {
 							"DangerGhost_CharacterID": stats.characterId,
-							"DangerGhost_SaveState": btoa(JSON.stringify(stats)),
+							"DangerGhost_SaveState": SafeBtoa(JSON.stringify(stats)),
 							"DangerGhost_GameApp": "v1.0.0"
 						},
 						MinFeeRateNanosPerKB: 1000
@@ -5305,7 +5329,7 @@
 						},
 						PostExtraData: {
 							"DangerGhost_CharacterID": g_characterCreationId,
-							"DangerGhost_SaveState": btoa(JSON.stringify(defaultStats)),
+							"DangerGhost_SaveState": SafeBtoa(JSON.stringify(defaultStats)),
 							"DangerGhost_GameApp": "v1.0.0"
 						},
 						MinFeeRateNanosPerKB: 1000
@@ -5418,7 +5442,7 @@
 								if (charId && validCharIds[charId]) {
 									if (!charactersMap[charId]) {
 										try {
-											var decrypted = atob(post.PostExtraData["DangerGhost_SaveState"]);
+											var decrypted = SafeAtob(post.PostExtraData["DangerGhost_SaveState"]);
 											var stats = JSON.parse(decrypted);
 											stats.characterId = charId;
 											stats.mag = stats.mag || 1;
