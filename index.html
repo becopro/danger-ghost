@@ -2664,6 +2664,10 @@
 
 				this.respawn = function () {
 					var loss = this.pendingLivesLoss || 1;
+					if (this.lives <= 0) {
+						ResetGame(1);
+						return;
+					}
 					this.lives -= loss;
 					this.pendingLivesLoss = 1; // reset to default
 					g_projectiles = [];
@@ -2671,17 +2675,13 @@
 					this.skillCooldowns = [0, 0, 0, 0];
 					this.phantomFormTimer = 0;
 					this.ghostMode = false;
-					if (this.lives <= 0) {
-						ResetGame(1);
-						return;
-					}
 					this.alive = true; this.xPos = 48; this.yPos = 150;
 					explosionFrame = 0; map_offset = 0;
 					map.loadLevel(g_currentLevel);
 
 					// Clampa as vidas atuais pelo teto dinâmico de Vitalidade (sem bônus de ressurreição no respawn)
 					var maxLivesCap = GhostRPG.getMaxLivesCap();
-					this.lives = Math.min(maxLivesCap, this.lives);
+					this.lives = Math.max(0, Math.min(maxLivesCap, this.lives));
 				};
 
 				this.move = function () {
