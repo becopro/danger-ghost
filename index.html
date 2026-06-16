@@ -1983,6 +1983,11 @@
 			var slimeRight = new Image(); slimeRight.src = 'assets/sprites/Slime direita.png';
 			var slimeLeft = new Image(); slimeLeft.src = 'assets/sprites/Slime esquerda.png';
 
+			var fireballRightImg = new Image(); fireballRightImg.src = 'assets/sprites/Bola de fogo direita.png';
+			var fireballLeftImg = new Image(); fireballLeftImg.src = 'assets/sprites/Bola de fogo esquerda.png';
+			window.fireballRightImg = fireballRightImg;
+			window.fireballLeftImg = fireballLeftImg;
+
 
 
 			var waterFrames = [new Image(), new Image(), new Image(), new Image()];
@@ -2039,7 +2044,7 @@
 			var g_slimeScoreTracker = 0;
 			function AddScore(points) {
 				var stack = (new Error()).stack || "";
-				if (!stack.includes("DeSoGhost") && !stack.includes("Boss") && !stack.includes("LevelUp") && !stack.includes("rpg_system.js") && !stack.includes("updateProjectiles") && !stack.includes("test_cave1.js") && !stack.includes("sandbox_test.js") && !stack.includes("Update") && !stack.includes("Game_Step") && !stack.includes("Game_Loop")) {
+				if (!stack.includes("DeSoGhost") && !stack.includes("Boss") && !stack.includes("LevelUp") && !stack.includes("rpg_system.js") && !stack.includes("updateProjectiles") && !stack.includes("test_cave1.js") && !stack.includes("test_fireball_collect.js") && !stack.includes("sandbox_test.js") && !stack.includes("Update") && !stack.includes("Game_Step") && !stack.includes("Game_Loop")) {
 					console.warn("[Anti-Cheat] AddScore call blocked from untrusted context.");
 					return;
 				}
@@ -2060,7 +2065,7 @@
 			}
 			function DeductScore(points) {
 				var stack = (new Error()).stack || "";
-				if (!stack.includes("DeSoGhost") && !stack.includes("Boss") && !stack.includes("LevelUp") && !stack.includes("rpg_system.js") && !stack.includes("updateProjectiles") && !stack.includes("test_cave1.js") && !stack.includes("sandbox_test.js") && !stack.includes("Update") && !stack.includes("Game_Step") && !stack.includes("Game_Loop")) {
+				if (!stack.includes("DeSoGhost") && !stack.includes("Boss") && !stack.includes("LevelUp") && !stack.includes("rpg_system.js") && !stack.includes("updateProjectiles") && !stack.includes("test_cave1.js") && !stack.includes("test_fireball_collect.js") && !stack.includes("sandbox_test.js") && !stack.includes("Update") && !stack.includes("Game_Step") && !stack.includes("Game_Loop")) {
 					console.warn("[Anti-Cheat] DeductScore call blocked from untrusted context.");
 					return false;
 				}
@@ -2435,6 +2440,29 @@
 					if (levelNum == 6) {
 						this.bitmap[3][35] = 23; // Blue Key acima do topo das plataformas no nível 6
 					}
+
+					if (levelNum == 3 || levelNum == 6 || levelNum == 9 || levelNum == 13 || levelNum == 32) {
+						var doorRow = -1, doorCol = -1;
+						for (var r = 0; r < 11; r++) {
+							for (var c = 0; c < this.bitmap[r].length; c++) {
+								if (this.bitmap[r][c] === 4) {
+									doorRow = r;
+									doorCol = c;
+									break;
+								}
+							}
+							if (doorRow !== -1) break;
+						}
+						if (doorRow !== -1) {
+							if (doorCol > 0 && this.bitmap[doorRow][doorCol - 1] === 0) {
+								this.bitmap[doorRow][doorCol - 1] = 24;
+							} else if (doorCol + 1 < this.bitmap[doorRow].length && this.bitmap[doorRow][doorCol + 1] === 0) {
+								this.bitmap[doorRow][doorCol + 1] = 24;
+							} else if (doorRow + 1 < 11 && this.bitmap[doorRow + 1][doorCol] === 0) {
+								this.bitmap[doorRow + 1][doorCol] = 24;
+							}
+						}
+					}
 				};
 
 
@@ -2484,6 +2512,8 @@
 								g_ctx.textAlign = "start";
 							} else if (tile == 23) {
 								g_ctx.drawImage(blueKeyImage, x, y, 24, 24);
+							} else if (tile == 24) {
+								g_ctx.drawImage(fireballRightImg, x, y, 24, 24);
 							}
 						}
 
@@ -2980,7 +3010,7 @@
 							var r = tiles[t];
 							if (r >= 0 && r < 11) {
 								var tile = map.bitmap[r][c];
-								if ((tile >= 7 && tile <= 12) || tile == 23) {
+								if ((tile >= 7 && tile <= 12) || tile == 23 || tile == 24) {
 									if (tile == 7) { AddScore(50); }
 									else if (tile == 8) {
 										AddScore(100);
@@ -3007,6 +3037,12 @@
 									else if (tile == 23) {
 										if (window.AddInventoryItem) {
 											window.AddInventoryItem("blue_key", "Blue Key", "<img src='assets/sprites/Blue key (1).png' style='width:24px;height:24px;image-rendering:pixelated;vertical-align:middle;' />", "Unlocks CAVE1", 1);
+										}
+										AddScore(300);
+									}
+									else if (tile == 24) {
+										if (window.AddInventoryItem) {
+											window.AddInventoryItem("ghost_spell", "Bola de Fogo", "🔥", "Magia ativa de bola de fogo. Equipe para poder disparar pressionando '1'.", 3);
 										}
 										AddScore(300);
 									}
@@ -3300,19 +3336,8 @@
 					}
 					var color = "#00FFFF";
 					if (p.type === "spell_fireball") {
-						g_ctx.fillStyle = "#FF5500";
-						g_ctx.beginPath();
-						g_ctx.arc(screenX, p.y, p.width / 2, 0, Math.PI * 2);
-						g_ctx.fill();
-						
-						g_ctx.fillStyle = "#FFAA00";
-						g_ctx.beginPath();
-						g_ctx.arc(screenX, p.y, p.width / 3, 0, Math.PI * 2);
-						g_ctx.fill();
-
-						g_ctx.strokeStyle = "#FFFFFF";
-						g_ctx.lineWidth = 2;
-						g_ctx.stroke();
+						var img = (p.vx >= 0) ? fireballRightImg : fireballLeftImg;
+						g_ctx.drawImage(img, screenX - p.width / 2, p.y - p.height / 2, p.width, p.height);
 					} else if (p.type === "spark") {
 
 						if (p.runeId === 1) color = "#FF4500";
