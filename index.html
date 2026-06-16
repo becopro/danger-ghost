@@ -5648,31 +5648,23 @@ var g_binaryBits = [];
 						ResetGame(); 
 					} 
 				}
-				if (e.keyCode == 80) { // P
-					if (g_gameState == G_PLAY) {
-						SetGameState(G_PAUSE);
-						g_pauseStartTime = Date.now();
-					} else if (g_gameState == G_PAUSE) {
-						SetGameState(G_PLAY);
-						g_levelStartTime += (Date.now() - g_pauseStartTime);
-					} else if (g_gameState == G_START) {
-						// Bypass inteligente de VIP em desenvolvimento local ou staging para facilitar testes
-						var isLocal = window.location.hostname === "localhost" || 
-									  window.location.hostname === "127.0.0.1";
-									  
-						if (!window.g_hasCreatorCoin && !isLocal) {
-							alert("⚠️ ACCESS DENIED (TOKEN-GATING): This feature is exclusively for $DangerGhost Coin Holders! Buy our Creator Coin on DeSo with your logged in wallet to unlock Passwords.");
-							return;
-						}
-						var pw = prompt("ENTER VIP PASSWORD");
-						if (pw) {
-							var pwLower = pw.toLowerCase();
-							if (pwLower === "matrix" || pwLower === "becopro" || pwLower === "maximo") {
-								window.g_hasUsedPassword = true;
-								if (pwLower === "matrix") { ResetGame(26); }
-								else if (pwLower === "becopro") { ResetGame(29); }
-								else if (pwLower === "maximo") { ResetGame(33); }
-							}
+				if (e.keyCode == 80) { // P (Passwords)
+					// Bypass inteligente de VIP em desenvolvimento local ou staging para facilitar testes
+					var isLocal = window.location.hostname === "localhost" || 
+								  window.location.hostname === "127.0.0.1";
+								  
+					if (!window.g_hasCreatorCoin && !isLocal) {
+						alert("⚠️ ACCESS DENIED (TOKEN-GATING): This feature is exclusively for $DangerGhost Coin Holders! Buy our Creator Coin on DeSo with your logged in wallet to unlock Passwords.");
+						return;
+					}
+					var pw = prompt("ENTER VIP PASSWORD");
+					if (pw) {
+						var pwLower = pw.toLowerCase();
+						if (pwLower === "matrix" || pwLower === "becopro" || pwLower === "maximo") {
+							window.g_hasUsedPassword = true;
+							if (pwLower === "matrix") { ResetGame(26); }
+							else if (pwLower === "becopro") { ResetGame(29); }
+							else if (pwLower === "maximo") { ResetGame(33); }
 						}
 					}
 				}
