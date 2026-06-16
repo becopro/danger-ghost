@@ -2671,9 +2671,13 @@
 					this.skillCooldowns = [0, 0, 0, 0];
 					this.phantomFormTimer = 0;
 					this.ghostMode = false;
-					if (this.lives <= 0) { SetGameState(G_GAMEOVER); return; }
+					if (this.lives <= 0) {
+						ResetGame(1);
+						return;
+					}
 					this.alive = true; this.xPos = 48; this.yPos = 150;
 					explosionFrame = 0; map_offset = 0;
+					map.loadLevel(g_currentLevel);
 
 					// Clampa as vidas atuais pelo teto dinâmico de Vitalidade (sem bônus de ressurreição no respawn)
 					var maxLivesCap = GhostRPG.getMaxLivesCap();
