@@ -173,6 +173,16 @@
 			box-shadow: 0 0 15px var(--magenta-neon) !important;
 		}
 
+		#btnNavEquip {
+			border: 1.5px solid #ffaa00 !important;
+			color: #ffaa00 !important;
+		}
+		#btnNavEquip:hover {
+			background: #ffaa00 !important;
+			color: #000 !important;
+			box-shadow: 0 0 15px #ffaa00 !important;
+		}
+
 		#btnNavChat {
 			border: 1.5px solid var(--cyan-neon) !important;
 			color: var(--cyan-neon) !important;
@@ -894,6 +904,7 @@
 			<button id="btnNavControls" onclick="ToggleNavbarTab('controls')">🎮 CONTROLS</button>
 			<button id="btnNavRPG" onclick="ToggleNavbarTab('rpg')">👤 HERO</button>
 			<button id="btnNavBag" onclick="ToggleNavbarTab('bag')">🎒 BAG</button>
+			<button id="btnNavEquip" onclick="ToggleNavbarTab('equip')">🛡️ EQUIP</button>
 			<button id="btnNavChat" onclick="ToggleNavbarTab('chat')">💬 CHAT</button>
 		</div>
 	</header>
@@ -1325,6 +1336,7 @@
 					var btnControls = document.getElementById("btnNavControls");
 					var btnRPG = document.getElementById("btnNavRPG");
 					var btnBag = document.getElementById("btnNavBag");
+					var btnEquip = document.getElementById("btnNavEquip");
 					var btnChat = document.getElementById("btnNavChat");
 					
 					if (btnScore) {
@@ -1346,6 +1358,10 @@
 					if (btnBag) {
 						btnBag.style.background = "rgba(0,0,0,0.8)";
 						btnBag.style.boxShadow = "0 0 5px rgba(255,165,0,0.3)";
+					}
+					if (btnEquip) {
+						btnEquip.style.background = "rgba(0,0,0,0.8)";
+						btnEquip.style.boxShadow = "0 0 5px rgba(255,170,0,0.3)";
 					}
 					if (btnChat) {
 						btnChat.style.background = "rgba(0,0,0,0.8)";
@@ -1424,6 +1440,7 @@
 								"<div><b>W (Press 3x)</b><br><span style='color:#FFFF00;'>Triple Jump!</span></div>" +
 								"<div><b>SPACE</b><br><span style='color:#FFFF00;'>Start / Pause</span></div>" +
 								"<div><b>V, F, E, R</b><br><span style='color:#FFFF00;'>Slot Skills (Spectral, Ghost, Orb, Phantom)</span></div>" +
+								"<div><b>1</b><br><span style='color:#FFFF00;'>Cast Equipped Spell</span></div>" +
 								"<div><b>T (Hold)</b><br><span style='color:#FFFF00;'>Fast Mode</span></div>" +
 								"<div><b>P</b><br><span style='color:#FFFF00;'>Secret Password</span></div>" +
 								"<div><b>M</b><br><span style='color:#FFFF00;'>Mute Music</span></div>" +
@@ -1436,6 +1453,14 @@
 								btnBag.style.boxShadow = "0 0 15px #FFA500";
 							}
 							UpdateNavbarBag();
+						} else if (tab === 'equip') {
+							rightPanel.style.borderColor = "#ffaa00";
+							rightPanel.style.boxShadow = "0 0 15px #ffaa00";
+							if (btnEquip) {
+								btnEquip.style.background = "rgba(255,170,0,0.2)";
+								btnEquip.style.boxShadow = "0 0 15px #ffaa00";
+							}
+							UpdateNavbarEquip();
 						}
 					}
 				} catch(err) {
@@ -1511,8 +1536,13 @@
 						if (selectedItem.id === "blue_key") {
 							selectedIconHtml = "<img src='assets/sprites/Blue key (1).png' style='width:24px;height:24px;image-rendering:pixelated;vertical-align:middle;' />";
 						}
+						var actionBtn = "";
+						if (selectedItem.id === "ghost_helmet" || selectedItem.id === "ghost_spell") {
+							actionBtn = "<button onclick=\"EquipBagItem('" + escapeHTML(selectedItem.id) + "')\" style='width: 100%; margin-top: 8px; padding: 4px; background: #ffaa00; border: none; font-weight: bold; color: #000; font-family: \"Exo 2\", sans-serif; cursor: pointer;'>EQUIPAR</button>";
+						}
 						detailsHTML += "<div style='color: #FFA500; font-weight: bold; font-size: 12px; margin-bottom: 4px; display: flex; align-items: center; gap: 5px;'><span>" + selectedIconHtml + "</span> " + escapeHTML(selectedItem.name) + "</div>" +
-							"<div style='line-height: 14px;'>" + escapeHTML(selectedItem.description) + "</div>";
+							"<div style='line-height: 14px;'>" + escapeHTML(selectedItem.description) + "</div>" +
+							actionBtn;
 					} else {
 						detailsHTML += "<p style='text-align: center; color: #888; font-size: 11px; margin-top: 20px;'>SELECT AN ITEM FOR DETAILS</p>";
 					}
@@ -1530,6 +1560,82 @@
 				g_selectedBagItemId = itemId;
 				UpdateNavbarBag();
 			}
+
+			function EquipBagItem(itemId) {
+				if (window.EquipInventoryItem && window.EquipInventoryItem(itemId)) {
+					g_selectedBagItemId = null;
+					UpdateNavbarBag();
+				}
+			}
+
+			function UpdateNavbarEquip() {
+				try {
+					var panelContent = document.getElementById("navbarPanelContent");
+					if (!panelContent) return;
+
+					var eq = window.GetEquipmentState ? window.GetEquipmentState() : { helmet: null, spell: null };
+
+					var helmetHtml = "";
+					if (eq.helmet) {
+						helmetHtml = "<div style='background: rgba(50, 25, 0, 0.45); border: 1.5px solid #ffaa00; border-radius: 4px; padding: 8px; display: flex; align-items: center; justify-content: space-between;'>" +
+							"<div style='display: flex; align-items: center; gap: 8px;'>" +
+							"<span style='font-size: 24px;'>" + eq.helmet.icon + "</span>" +
+							"<div>" +
+							"<div style='color: #ffaa00; font-weight: bold; font-size: 12px;'>" + escapeHTML(eq.helmet.name) + "</div>" +
+							"<div style='font-size: 9px; color: #aaa;'>Equipped (Life Cap +1)</div>" +
+							"</div>" +
+							"</div>" +
+							"<button onclick=\"UnequipItemSlot('helmet')\" style='background: #ff5555; border: none; font-weight: bold; color: #000; padding: 2px 6px; font-size: 10px; cursor: pointer; font-family: \"Exo 2\", sans-serif;'>DESEQUIPAR</button>" +
+							"</div>";
+					} else {
+						helmetHtml = "<div style='border: 1px dashed rgba(255, 170, 0, 0.3); background: rgba(0,0,0,0.3); border-radius: 4px; padding: 12px; text-align: center; color: rgba(255,255,255,0.3); font-size: 11px;'>" +
+							"🪖 HELMET SLOT EMPTY" +
+							"</div>";
+					}
+
+					var spellHtml = "";
+					if (eq.spell) {
+						spellHtml = "<div style='background: rgba(50, 25, 0, 0.45); border: 1.5px solid #ffaa00; border-radius: 4px; padding: 8px; display: flex; align-items: center; justify-content: space-between;'>" +
+							"<div style='display: flex; align-items: center; gap: 8px;'>" +
+							"<span style='font-size: 24px; position: relative;'>" + eq.spell.icon + 
+							"<span style='position: absolute; bottom: -2px; right: -4px; font-size: 8px; font-weight: bold; background: #000; color: #ffaa00; padding: 0px 2px; border-radius: 2px; border: 1px solid #ffaa00;'>x" + eq.spell.count + "</span>" +
+							"</span>" +
+							"<div>" +
+							"<div style='color: #ffaa00; font-weight: bold; font-size: 12px;'>" + escapeHTML(eq.spell.name) + "</div>" +
+							"<div style='font-size: 9px; color: #aaa;'>Equipped (Press '1' to cast)</div>" +
+							"</div>" +
+							"</div>" +
+							"<button onclick=\"UnequipItemSlot('spell')\" style='background: #ff5555; border: none; font-weight: bold; color: #000; padding: 2px 6px; font-size: 10px; cursor: pointer; font-family: \"Exo 2\", sans-serif;'>DESEQUIPAR</button>" +
+							"</div>";
+					} else {
+						spellHtml = "<div style='border: 1px dashed rgba(255, 170, 0, 0.3); background: rgba(0,0,0,0.3); border-radius: 4px; padding: 12px; text-align: center; color: rgba(255,255,255,0.3); font-size: 11px;'>" +
+							"🔥 SPELL SLOT EMPTY" +
+							"</div>";
+					}
+
+					panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #ffaa00; text-align: center; letter-spacing: 2px;'>🛡️ EQUIPMENT</h3>" +
+						"<div style='display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;'>" +
+						"<div style='color: #aaa; font-size: 10px; text-align: center; margin-bottom: 4px;'>GHOST EQUIPMENT SLOTS</div>" +
+						helmetHtml +
+						spellHtml +
+						"</div>" +
+						"<div style='background: rgba(0,0,0,0.4); border: 1px solid rgba(255, 170, 0, 0.2); padding: 8px; border-radius: 4px; font-size: 10px; color: #aaa; line-height: 14px;'>" +
+						"ℹ️ <b>How to equip</b>: Go to the 🎒 BAG tab, click on an item and choose 'EQUIPAR'. To cast active spells during game, press <b>1</b>." +
+						"</div>";
+				} catch(err) {
+					console.warn("UpdateNavbarEquip Error", err);
+				}
+			}
+
+			function UnequipItemSlot(slotName) {
+				if (window.UnequipEquipmentItem && window.UnequipEquipmentItem(slotName)) {
+					UpdateNavbarEquip();
+				}
+			}
+
+			window.EquipBagItem = EquipBagItem;
+			window.UpdateNavbarEquip = UpdateNavbarEquip;
+			window.UnequipItemSlot = UnequipItemSlot;
 
 			// --- Live Global Chat System ---
 			var g_mqttClient = null;
@@ -1683,6 +1789,7 @@
 				var elControls = document.getElementById("btnNavControls");
 				var elRPG = document.getElementById("btnNavRPG");
 				var elBag = document.getElementById("btnNavBag");
+				var elEquip = document.getElementById("btnNavEquip");
 				var elChat = document.getElementById("btnNavChat");
 
 				if (elScore) {
@@ -1699,6 +1806,9 @@
 				}
 				if (elBag) {
 					elBag.addEventListener("click", function() { ToggleNavbarTab('bag'); });
+				}
+				if (elEquip) {
+					elEquip.addEventListener("click", function() { ToggleNavbarTab('equip'); });
 				}
 				if (elChat) {
 					elChat.addEventListener("click", function() { ToggleNavbarTab('chat'); });
@@ -1722,6 +1832,7 @@
 				var elControls = document.getElementById("btnNavControls");
 				var elRPG = document.getElementById("btnNavRPG");
 				var elBag = document.getElementById("btnNavBag");
+				var elEquip = document.getElementById("btnNavEquip");
 				var elChat = document.getElementById("btnNavChat");
 
 				if (elScore) {
@@ -1738,6 +1849,9 @@
 				}
 				if (elBag) {
 					elBag.onclick = function() { ToggleNavbarTab('bag'); };
+				}
+				if (elEquip) {
+					elEquip.onclick = function() { ToggleNavbarTab('equip'); };
 				}
 				if (elChat) {
 					elChat.onclick = function() { ToggleNavbarTab('chat'); };
@@ -3185,7 +3299,21 @@
 						continue;
 					}
 					var color = "#00FFFF";
-					if (p.type === "spark") {
+					if (p.type === "spell_fireball") {
+						g_ctx.fillStyle = "#FF5500";
+						g_ctx.beginPath();
+						g_ctx.arc(screenX, p.y, p.width / 2, 0, Math.PI * 2);
+						g_ctx.fill();
+						
+						g_ctx.fillStyle = "#FFAA00";
+						g_ctx.beginPath();
+						g_ctx.arc(screenX, p.y, p.width / 3, 0, Math.PI * 2);
+						g_ctx.fill();
+
+						g_ctx.strokeStyle = "#FFFFFF";
+						g_ctx.lineWidth = 2;
+						g_ctx.stroke();
+					} else if (p.type === "spark") {
 
 						if (p.runeId === 1) color = "#FF4500";
 						else if (p.runeId === 2) color = "#00E5FF";
@@ -5606,6 +5734,31 @@ var g_binaryBits = [];
 				}
 				if (e.keyCode == 84 && !g_isFast) { // T (Fast Forward)
 					g_isFast = true;
+				}
+				if (e.keyCode == 49 && !e.repeat) { // 1 (Cast Equipped Spell)
+					if (g_gameState === G_PLAY && !DeSoGhost.dead) {
+						var eq = window.GetEquipmentState ? window.GetEquipmentState() : { spell: null };
+						if (eq.spell && eq.spell.count > 0) {
+							var speed = 8;
+							var vx = (DeSoGhost.facing === "left") ? -speed : speed;
+							var px = DeSoGhost.x + (DeSoGhost.facing === "left" ? -10 : 30);
+							var py = DeSoGhost.y + 10;
+							
+							var stats = GhostRPG.getStats();
+							var intPowMult = 1 + (stats.int + stats.pow) * 0.05;
+							var baseDamage = 35;
+							var spellDmg = Math.round(baseDamage * intPowMult);
+							
+							var p = obtainProjectile(px, py, vx, 0, "spell_fireball", 0, 24, 24, 60, spellDmg, true);
+							g_projectiles.push(p);
+							
+							g_visualEffects.push(obtainExplosionEffect(px, py, "#ffaa00", 8));
+							
+							if (window.ConsumeSpellUse) {
+								window.ConsumeSpellUse();
+							}
+						}
+					}
 				}
 				if (e.keyCode == 86 && !e.repeat) { useSlotSkill(0); } // V
 				if (e.keyCode == 70) { // F

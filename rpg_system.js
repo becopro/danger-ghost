@@ -9,7 +9,8 @@ var GhostRPG = (function() {
         equippedRunes: [0, 0, 0, 0],
         equippedPassives: [-1, -1],
         weapon: { name: 'Starter Dirk', damage: 10 },
-        inventory: []
+        inventory: [],
+        equipment: { helmet: null, spell: null }
     };
 
     var rpgAntiCheat = {
@@ -19,20 +20,24 @@ var GhostRPG = (function() {
 
     function updateIntegrityHash() {
         var invStr = (state.inventory || []).map(function(item) { return item.id + ":" + item.count; }).join(",");
+        var eqHelmet = (state.equipment && state.equipment.helmet) ? state.equipment.helmet.id : "";
+        var eqSpell = (state.equipment && state.equipment.spell) ? (state.equipment.spell.id + ":" + (state.equipment.spell.count || 1)) : "";
         var dataStr = [
             state.level, state.xp, state.vit, state.agi, state.int, state.pow, state.mag, state.pointsToDistribute, state.characterId,
             state.equippedSkills.join(","), state.equippedRunes.join(","), state.equippedPassives.join(","),
-            state.weapon.name, state.weapon.damage, invStr
+            state.weapon.name, state.weapon.damage, invStr, eqHelmet, eqSpell
         ].join("-");
         rpgAntiCheat.hash = btoa(dataStr + rpgAntiCheat.salt);
     }
 
     function verifyIntegrity() {
         var invStr = (state.inventory || []).map(function(item) { return item.id + ":" + item.count; }).join(",");
+        var eqHelmet = (state.equipment && state.equipment.helmet) ? state.equipment.helmet.id : "";
+        var eqSpell = (state.equipment && state.equipment.spell) ? (state.equipment.spell.id + ":" + (state.equipment.spell.count || 1)) : "";
         var dataStr = [
             state.level, state.xp, state.vit, state.agi, state.int, state.pow, state.mag, state.pointsToDistribute, state.characterId,
             state.equippedSkills.join(","), state.equippedRunes.join(","), state.equippedPassives.join(","),
-            state.weapon.name, state.weapon.damage, invStr
+            state.weapon.name, state.weapon.damage, invStr, eqHelmet, eqSpell
         ].join("-");
         return btoa(dataStr + rpgAntiCheat.salt) === rpgAntiCheat.hash;
     }
@@ -113,7 +118,8 @@ var GhostRPG = (function() {
         getBossJumpDamage: function() { return 1 + Math.floor(state.pow / 3); },
         getMaxLivesCap: function() {
             if (!verifyIntegrity()) return 5;
-            return 4 + state.vit;
+            var helmetBonus = (state.equipment && state.equipment.helmet) ? 1 : 0;
+            return 4 + state.vit + helmetBonus;
         },
         getMaxMana: function() {
             if (!verifyIntegrity()) return 100;
@@ -170,6 +176,7 @@ var GhostRPG = (function() {
                     if (!state.equippedPassives) state.equippedPassives = [-1, -1];
                     if (!state.weapon) state.weapon = { name: 'Starter Dirk', damage: 10 };
                     if (!state.inventory) state.inventory = [];
+                    if (!state.equipment) state.equipment = { helmet: null, spell: null };
                     state.xpRequired = calculateXpRequired(state.level);
                     updateIntegrityHash();
                 }
@@ -214,6 +221,7 @@ var GhostRPG = (function() {
             state.equippedPassives = equippedPassives || [-1, -1];
             state.weapon = weapon || { name: 'Starter Dirk', damage: 10 };
             if (!state.inventory) state.inventory = [];
+            if (!state.equipment) state.equipment = { helmet: null, spell: null };
             updateIntegrityHash(); this.saveLocalStorage();
             if (typeof RenderRPGStatusDrawer === "function") { RenderRPGStatusDrawer(); }
         },
@@ -266,6 +274,90 @@ var GhostRPG = (function() {
             if (!verifyIntegrity()) return false;
             if (!state.inventory) return false;
             return state.inventory.some(function(i) { return i.id === itemId; });
+        },
+        equipItem: function(itemId) {
+            if (!verifyIntegrity()) return false;
+            if (!state.inventory) return false;
+            var idx = state.inventory.findIndex(function(i) { return i.id === itemId; });
+            if (idx === -1) return false;
+            var item = state.inventory[idx];
+
+            if (!state.equipment) state.equipment = { helmet: null, spell: null };
+
+            if (item.id === "ghost_helmet") {
+                if (state.equipment.helmet) {
+                    this.unequipItem("helmet");
+                }
+                state.equipment.helmet = {
+                    id: item.id,
+                    name: item.name,
+                    icon: item.icon,
+                    description: item.description
+                };
+                state.inventory.splice(idx, 1);
+            } else if (item.id === "ghost_spell") {
+                if (state.equipment.spell) {
+                    this.unequipItem("spell");
+                }
+                state.equipment.spell = {
+                    id: item.id,
+                    name: item.name,
+                    icon: item.icon,
+                    description: item.description,
+                    count: item.count || 1
+                };
+                state.inventory.splice(idx, 1);
+            } else {
+                return false;
+            }
+
+            updateIntegrityHash();
+            this.saveLocalStorage();
+            if (typeof UpdateNavbarBag === "function" && window.g_activeTab === 'bag') {
+                UpdateNavbarBag();
+            }
+            if (typeof UpdateNavbarEquip === "function" && window.g_activeTab === 'equip') {
+                UpdateNavbarEquip();
+            }
+            return true;
+        },
+        unequipItem: function(slotName) {
+            if (!verifyIntegrity()) return false;
+            if (!state.equipment) return false;
+            var item = state.equipment[slotName];
+            if (!item) return false;
+
+            this.addItem(item);
+            state.equipment[slotName] = null;
+
+            updateIntegrityHash();
+            this.saveLocalStorage();
+            if (typeof UpdateNavbarBag === "function" && window.g_activeTab === 'bag') {
+                UpdateNavbarBag();
+            }
+            if (typeof UpdateNavbarEquip === "function" && window.g_activeTab === 'equip') {
+                UpdateNavbarEquip();
+            }
+            return true;
+        },
+        consumeSpellUse: function() {
+            if (!verifyIntegrity()) return false;
+            if (!state.equipment || !state.equipment.spell) return false;
+            state.equipment.spell.count--;
+            if (state.equipment.spell.count <= 0) {
+                state.equipment.spell = null;
+            }
+            updateIntegrityHash();
+            this.saveLocalStorage();
+            if (typeof UpdateNavbarEquip === "function" && window.g_activeTab === 'equip') {
+                UpdateNavbarEquip();
+            }
+            return true;
+        },
+        getEquipment: function() {
+            if (!verifyIntegrity()) return { helmet: null, spell: null };
+            if (!state.equipment) state.equipment = { helmet: null, spell: null };
+            return state.equipment;
         }
 
     };
@@ -381,5 +473,17 @@ window.RemoveInventoryItem = function(id) {
 };
 window.HasInventoryItem = function(id) {
     return GhostRPG.hasItem(id);
+};
+window.EquipInventoryItem = function(id) {
+    return GhostRPG.equipItem(id);
+};
+window.UnequipEquipmentItem = function(slotName) {
+    return GhostRPG.unequipItem(slotName);
+};
+window.ConsumeSpellUse = function() {
+    return GhostRPG.consumeSpellUse();
+};
+window.GetEquipmentState = function() {
+    return GhostRPG.getEquipment();
 };
 
