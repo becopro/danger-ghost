@@ -185,7 +185,7 @@ var GhostRPG = (function() {
                 }
             } catch(e) { this.resetStats(); }
         },
-        loadBlockchainState: function(lvl, vit, agi, int, pow, characterId, xp, pointsToDistribute, mag, equippedSkills, equippedRunes, equippedPassives, weapon) {
+        loadBlockchainState: function(lvl, vit, agi, int, pow, characterId, xp, pointsToDistribute, mag, equippedSkills, equippedRunes, equippedPassives, weapon, inventory, equipment) {
             var maxLevel = 100000000000;
             
             var parsedLvl = parseInt(lvl, 10);
@@ -223,8 +223,8 @@ var GhostRPG = (function() {
             state.equippedRunes = equippedRunes || [0, 0, 0, 0];
             state.equippedPassives = equippedPassives || [-1, -1];
             state.weapon = weapon || { name: 'Starter Dirk', damage: 10 };
-            if (!state.inventory) state.inventory = [];
-            if (!state.equipment) state.equipment = { helmet: null, spell: null };
+            state.inventory = inventory || [];
+            state.equipment = equipment || { helmet: null, spell: null };
             updateIntegrityHash(); this.saveLocalStorage();
             if (typeof RenderRPGStatusDrawer === "function") { RenderRPGStatusDrawer(); }
         },
