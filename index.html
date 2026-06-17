@@ -5785,11 +5785,11 @@
 					
 					var uniqueCharacters = [];
 					if (posts.length > 0) {
-						// 1. Identificar IDs de personagens legitimamente mintados (NFTs) pelo usuário
+						// 1. Identificar IDs de personagens do usuário (qualquer postagem contendo o ID)
 						var validCharIds = {};
 						for (var i = 0; i < posts.length; i++) {
 							var post = posts[i];
-							if (post && post.IsNFT && post.PostExtraData && post.PostExtraData["DangerGhost_CharacterID"]) {
+							if (post && post.PostExtraData && post.PostExtraData["DangerGhost_CharacterID"]) {
 								var charId = post.PostExtraData["DangerGhost_CharacterID"];
 								validCharIds[charId] = true;
 							}
@@ -5810,6 +5810,7 @@
 											stats.mag = stats.mag || 1;
 											stats.imageUrl = post.ImageURLs && post.ImageURLs[0] ? post.ImageURLs[0] : "";
 											stats.postHashHex = post.PostHashHex;
+											stats.timestamp = post.TimestampNanos || 0; // Guardar timestamp para identificar o último save
 											charactersMap[charId] = stats;
 										} catch(err) {
 											console.error("Corrupted sheet for ghost ID " + charId, err);
@@ -5829,8 +5830,22 @@
 					
 					DisplayCharacterSelectionScreen(uniqueCharacters);
 					
-					GhostRPG.resetStats();
-					RenderRPGStatusDrawer();
+					// Encontrar o personagem com o save mais recente (maior timestamp)
+					var newestChar = null;
+					for (var i = 0; i < uniqueCharacters.length; i++) {
+						var char = uniqueCharacters[i];
+						if (!newestChar || char.timestamp > newestChar.timestamp) {
+							newestChar = char;
+						}
+					}
+
+					if (newestChar) {
+						console.log("Auto-loading latest DeSo save state for character ID: " + newestChar.characterId);
+						SelectCharacterToPlay(newestChar.characterId);
+					} else {
+						GhostRPG.resetStats();
+						RenderRPGStatusDrawer();
+					}
 				} catch(e) {
 					console.error("Load RPG DeSo Error", e);
 					GhostRPG.resetStats();
