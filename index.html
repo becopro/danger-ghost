@@ -5830,22 +5830,8 @@
 					
 					DisplayCharacterSelectionScreen(uniqueCharacters);
 					
-					// Encontrar o personagem com o save mais recente (maior timestamp)
-					var newestChar = null;
-					for (var i = 0; i < uniqueCharacters.length; i++) {
-						var char = uniqueCharacters[i];
-						if (!newestChar || char.timestamp > newestChar.timestamp) {
-							newestChar = char;
-						}
-					}
-
-					if (newestChar) {
-						console.log("Auto-loading latest DeSo save state for character ID: " + newestChar.characterId);
-						SelectCharacterToPlay(newestChar.characterId);
-					} else {
-						GhostRPG.resetStats();
-						RenderRPGStatusDrawer();
-					}
+					GhostRPG.resetStats();
+					RenderRPGStatusDrawer();
 				} catch(e) {
 					console.error("Load RPG DeSo Error", e);
 					GhostRPG.resetStats();
