@@ -5736,8 +5736,8 @@
 				}
 
 				try {
-					// Buscamos em paralelo as postagens principais do usuário e os comentários da thread de ranking oficial
-					var [res, singlePostRes] = await Promise.all([
+					// Buscamos em paralelo as postagens principais, os comentários de ranking e os NFTs do usuário
+					var [res, singlePostRes, nftRes] = await Promise.all([
 						fetch("https://node.deso.org/api/v0/get-posts-for-public-key", {
 							method: "POST",
 							headers: { "Content-Type": "application/json" },
@@ -5752,6 +5752,13 @@
 							body: JSON.stringify({
 								PostHashHex: "fd622ab4b7723a8a4d17fe0d7bd2bcc11e22832dde0a4a45ad637760ee89cd40",
 								CommentLimit: 1000
+							})
+						}),
+						fetch("https://node.deso.org/api/v0/get-nfts-for-user", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({
+								UserPublicKeyBase58Check: publicKey
 							})
 						})
 					]);
@@ -5770,6 +5777,15 @@
 								return c && c.PosterPublicKeyBase58Check === publicKey;
 							});
 							posts = posts.concat(userComments);
+						}
+					}
+					if (nftRes.ok) {
+						var nftData = await nftRes.json();
+						if (nftData && nftData.NFTsMap) {
+							var nftPosts = Object.values(nftData.NFTsMap)
+								.map(function(nft) { return nft.PostEntryResponse; })
+								.filter(function(p) { return p && p.PosterPublicKeyBase58Check === publicKey; });
+							posts = posts.concat(nftPosts);
 						}
 					}
 
