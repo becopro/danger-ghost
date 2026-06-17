@@ -5785,11 +5785,11 @@
 					
 					var uniqueCharacters = [];
 					if (posts.length > 0) {
-						// 1. Identificar IDs de personagens do usuário (qualquer postagem contendo o ID)
+						// 1. Identificar IDs de personagens legitimamente mintados (NFTs) pelo usuário
 						var validCharIds = {};
 						for (var i = 0; i < posts.length; i++) {
 							var post = posts[i];
-							if (post && post.PostExtraData && post.PostExtraData["DangerGhost_CharacterID"]) {
+							if (post && post.IsNFT && post.PostExtraData && post.PostExtraData["DangerGhost_CharacterID"]) {
 								var charId = post.PostExtraData["DangerGhost_CharacterID"];
 								validCharIds[charId] = true;
 							}
