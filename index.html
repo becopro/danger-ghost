@@ -698,6 +698,196 @@
 		.hyperfy-link:hover .social-svg {
 			transform: scale(1.1);
 		}
+
+		/* Interactive Onboarding Tutorial Modal Styles */
+		.tutorial-pulsate-btn:hover {
+			box-shadow: 0 0 20px var(--cyan-neon) !important;
+			background: var(--cyan-neon) !important;
+			color: #000 !important;
+		}
+
+		.tutorial-modal-overlay {
+			display: none;
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(8, 6, 12, 0.97);
+			z-index: 2000;
+			overflow-y: auto;
+			font-family: 'Exo 2', sans-serif;
+			color: #FFF;
+			padding: 40px 20px;
+			box-sizing: border-box;
+		}
+
+		.tutorial-modal-container {
+			max-width: 900px;
+			margin: 0 auto;
+			background: rgba(15, 12, 22, 0.85);
+			border: 2px solid var(--cyan-neon);
+			box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+			display: flex;
+			flex-direction: column;
+			min-height: 580px;
+			position: relative;
+			border-radius: 0px;
+		}
+
+		.tutorial-modal-header {
+			padding: 20px;
+			border-bottom: 1px solid var(--border-light);
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+
+		.tutorial-modal-header h2 {
+			margin: 0;
+			font-size: 22px;
+			color: var(--cyan-neon);
+			letter-spacing: 2px;
+			text-transform: uppercase;
+			text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+		}
+
+		.tutorial-close-btn {
+			background: transparent;
+			border: 1px solid var(--magenta-neon);
+			color: var(--magenta-neon);
+			font-size: 14px;
+			font-weight: bold;
+			padding: 6px 12px;
+			cursor: pointer;
+			text-transform: uppercase;
+			transition: all 0.2s ease;
+		}
+
+		.tutorial-close-btn:hover {
+			background: var(--magenta-neon);
+			color: #000;
+			box-shadow: 0 0 10px var(--magenta-neon);
+		}
+
+		.tutorial-modal-body {
+			display: flex;
+			flex-grow: 1;
+		}
+
+		.tutorial-sidebar {
+			width: 200px;
+			border-right: 1px solid var(--border-light);
+			background: rgba(0, 0, 0, 0.3);
+			display: flex;
+			flex-direction: column;
+		}
+
+		.tutorial-tab-btn {
+			background: transparent;
+			border: none;
+			border-bottom: 1px solid rgba(255,255,255,0.05);
+			color: #888;
+			padding: 16px 20px;
+			text-align: left;
+			font-family: var(--font-title);
+			font-size: 13px;
+			font-weight: bold;
+			cursor: pointer;
+			text-transform: uppercase;
+			transition: all 0.2s ease;
+			outline: none;
+		}
+
+		.tutorial-tab-btn:hover {
+			color: #FFF;
+			background: rgba(255,255,255,0.02);
+		}
+
+		.tutorial-tab-btn.active {
+			color: var(--cyan-neon);
+			background: rgba(0, 255, 255, 0.05);
+			border-left: 3px solid var(--cyan-neon);
+		}
+
+		.tutorial-content-pane {
+			flex-grow: 1;
+			padding: 25px;
+			display: none;
+			box-sizing: border-box;
+		}
+
+		.tutorial-content-pane.active {
+			display: block;
+		}
+
+		/* Sandbox Interactive Styles */
+		.tutorial-canvas-container {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 12px;
+			background: #000;
+			padding: 15px;
+			border: 1px solid var(--border-light);
+			margin-top: 15px;
+		}
+
+		#tutorialCanvas {
+			background: #0a0810;
+			border: 2px solid #333;
+			image-rendering: pixelated;
+		}
+
+		.tutorial-feedback-overlay {
+			color: var(--yellow-neon);
+			font-family: var(--font-mono);
+			font-size: 13px;
+			min-height: 20px;
+			text-shadow: 0 0 5px rgba(255, 214, 0, 0.5);
+			text-align: center;
+		}
+
+		/* Blockchain Simulator Styles */
+		.tutorial-flow-node {
+			background: rgba(255,255,255,0.02);
+			border: 1px solid var(--border-light);
+			padding: 12px;
+			margin-bottom: 8px;
+			font-size: 12px;
+			border-radius: 2px;
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			transition: all 0.3s ease;
+		}
+
+		.tutorial-flow-node.active {
+			border-color: var(--yellow-neon);
+			background: rgba(255, 214, 0, 0.05);
+			box-shadow: 0 0 10px rgba(255, 214, 0, 0.1);
+		}
+
+		.tutorial-flow-node.success {
+			border-color: var(--green-neon);
+			background: rgba(0, 255, 0, 0.05);
+			box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+		}
+
+		.tutorial-console-output {
+			background: #000;
+			border: 1px solid #333;
+			color: #00FF00;
+			font-family: var(--font-mono);
+			font-size: 11px;
+			padding: 10px;
+			height: 100px;
+			overflow-y: auto;
+			white-space: pre-wrap;
+			word-break: break-all;
+			margin-top: 15px;
+			border-radius: 2px;
+		}
 	</style>
 	
 	<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
@@ -1021,6 +1211,152 @@
 			<button id="desoPostBtn" onclick="PostToDeSo()" class="glass-action-btn">SAVE TO DESO (BLOCKCHAIN)</button>
 		</div>
 	</section>
+
+	<!-- Playable Tutorial Section -->
+	<section id="tutorial-btn-section" style="width: 100%; text-align: center; margin: 30px 0 15px 0;">
+		<div class="section-container" style="max-width: 640px; margin: 0 auto; padding: 0 20px; box-sizing: border-box;">
+			<button id="openTutorialBtn" class="glass-action-btn tutorial-pulsate-btn" onclick="OpenInteractiveTutorial()" style="background: #000; border: 2px solid var(--cyan-neon) !important; color: var(--cyan-neon) !important; font-family: var(--font-title); font-size: 14px; letter-spacing: 2.5px; font-weight: bold; width: 100%; padding: 16px; border-radius: 0px; text-shadow: 0 0 8px var(--cyan-neon); box-shadow: 0 0 15px rgba(0, 255, 255, 0.1); cursor: pointer; transition: all 0.25s ease;">
+				⚡ PLAYABLE INTERACTIVE TUTORIAL ⚡
+			</button>
+		</div>
+	</section>
+
+	<!-- Interactive Tutorial Modal Overlay -->
+	<div id="interactiveTutorialModal" class="tutorial-modal-overlay">
+		<div class="tutorial-modal-container">
+			<div class="tutorial-modal-header">
+				<h2>⚡ Danger Ghost - Playable Onboarding & Guide</h2>
+				<button class="tutorial-close-btn" onclick="CloseInteractiveTutorial()">Close [X]</button>
+			</div>
+			<div class="tutorial-modal-body">
+				<!-- Sidebar tabs -->
+				<div class="tutorial-sidebar">
+					<button id="tabBtnSandbox" class="tutorial-tab-btn active" onclick="SwitchTutorialTab('sandbox')">🎮 Play Sandbox</button>
+					<button id="tabBtnSpells" class="tutorial-tab-btn" onclick="SwitchTutorialTab('spells')">🔮 Spells & Runes</button>
+					<button id="tabBtnBlockchain" class="tutorial-tab-btn" onclick="SwitchTutorialTab('blockchain')">💾 Blockchain Saves</button>
+					<button id="tabBtnGettingStarted" class="tutorial-tab-btn" onclick="SwitchTutorialTab('start')">🚀 Getting Started</button>
+				</div>
+				<!-- Content panes -->
+				<div class="tutorial-content-pane active" id="paneSandbox">
+					<h3 style="color: var(--cyan-neon); margin: 0 0 10px 0; text-transform: uppercase;">Interactive Physics Sandbox</h3>
+					<p style="font-size: 13px; color: var(--text-muted); margin: 0 0 15px 0; line-height: 18px;">
+						Practice movement and spells below! Press keys on your keyboard and watch Ftasma react in real-time. Use it to learn before entering the main game.
+					</p>
+					
+					<div class="tutorial-canvas-container">
+						<div id="tutorialFeedback" class="tutorial-feedback-overlay">Press A / D to walk.</div>
+						<canvas id="tutorialCanvas" width="560" height="180"></canvas>
+						<div style="font-size: 11px; color: #888; text-transform: uppercase;">
+							Keys: Walk [A / D] | Jump / Triple Jump [W] | Spark [V] | Ghost Mode [Hold F] | Orb [E] | Form [R]
+						</div>
+					</div>
+				</div>
+
+				<div class="tutorial-content-pane" id="paneSpells">
+					<h3 style="color: var(--magenta-neon); margin: 0 0 10px 0; text-transform: uppercase;">Rune & Elemental Magic Simulator</h3>
+					<p style="font-size: 13px; color: var(--text-muted); margin: 0 0 15px 0; line-height: 18px;">
+						Ftasma infuses spells with element Runes to apply status modifications to enemies. Select an element Rune below to view its visual projectile effect.
+					</p>
+					
+					<div style="display: flex; gap: 20px; align-items: flex-start; margin-top: 15px;">
+						<div style="flex: 1; display: flex; flex-direction: column; gap: 12px;">
+							<div style="display: flex; flex-direction: column; gap: 5px;">
+								<label style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Select Element Rune:</label>
+								<select id="tutorialRuneSelect" onchange="UpdateTutorialRunePreview()" style="background: #000; color: #FFF; border: 1px solid var(--border-light); font-family: var(--font-title); font-size: 13px; padding: 6px; outline: none; border-radius: 0; cursor: pointer;">
+									<option value="arcane">Arcane (No Rune / Pure Magic)</option>
+									<option value="fire">Fire Rune (Burning Damage)</option>
+									<option value="cold">Cold Rune (Slows Speed by 50%)</option>
+									<option value="lightning">Lightning Rune (Stuns Enemies)</option>
+									<option value="poison">Poison Rune (Corrosive Ticks)</option>
+								</select>
+							</div>
+							
+							<div id="tutorialRuneDesc" style="font-size: 12px; line-height: 18px; color: #FFF; background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 12px; border-radius: 2px;">
+								<strong>Arcane Element:</strong> Amplifies raw spell damage by 40% with pure ectoplasm. Good for raw damage output.
+							</div>
+						</div>
+						
+						<!-- Projectile simulation screen -->
+						<div style="width: 240px; background: #000; border: 1px solid var(--border-light); padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; min-height: 160px; box-sizing: border-box; position: relative;">
+							<div style="position: absolute; top: 6px; left: 10px; font-size: 9px; color: #555; text-transform: uppercase;">Visual Projectile Preview</div>
+							<div id="tutorialRuneOrb" style="width: 32px; height: 32px; border-radius: 50%; background: radial-gradient(circle, #FFF 0%, #D500F9 70%); box-shadow: 0 0 20px #D500F9; transition: all 0.3s ease;"></div>
+							<button onclick="TriggerTutorialRuneBlast()" class="glass-action-btn" style="padding: 5px 12px; font-size: 11px; border: 1px solid var(--cyan-neon); color: var(--cyan-neon); background: transparent; cursor: pointer;">Simulate Blast</button>
+						</div>
+					</div>
+				</div>
+
+				<div class="tutorial-content-pane" id="paneBlockchain">
+					<h3 style="color: var(--yellow-neon); margin: 0 0 10px 0; text-transform: uppercase;">Blockchain Cloud Save Simulator</h3>
+					<p style="font-size: 13px; color: var(--text-muted); margin: 0 0 15px 0; line-height: 18px;">
+						Learn how Ftasma saves stats, weapons, and levels securely on the DeSo ledger. We explain this with simple gaming analogies.
+					</p>
+					
+					<div style="display: flex; gap: 15px; margin-top: 15px;">
+						<!-- Analogy Cards -->
+						<div style="flex: 1; display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 5px;">
+							<div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 10px; border-radius: 2px;">
+								<span style="color: var(--cyan-neon); font-size: 13px; font-weight: bold;">🔑 Derived Keys (Hotel Room Keycard)</span>
+								<p style="font-size: 11px; color: var(--text-muted); margin: 4px 0 0 0; line-height: 15px;">
+									A temporary permission slip that lets the game save your progress automatically without exposing your main wallet balance. Safe, zero-fee, and pop-up free.
+								</p>
+							</div>
+							<div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 10px; border-radius: 2px;">
+								<span style="color: var(--yellow-neon); font-size: 13px; font-weight: bold;">💾 On-Chain Save (Hall of Records)</span>
+								<p style="font-size: 11px; color: var(--text-muted); margin: 4px 0 0 0; line-height: 15px;">
+									A permanent record written directly into the blockchain ledger. Even if you format your PC or clear your browser cache, your stats, weapon, and bag items remain safe forever.
+								</p>
+							</div>
+							<div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 10px; border-radius: 2px;">
+								<span style="color: var(--magenta-neon); font-size: 13px; font-weight: bold;">🏆 NFT Minting (Physical Trophy Cabinet)</span>
+								<p style="font-size: 11px; color: var(--text-muted); margin: 4px 0 0 0; line-height: 15px;">
+									Turn your final win screenshots and character sheet stats into unique digital trophies inside your wallet. Showcase them on social feeds or trade with other hunters.
+								</p>
+							</div>
+						</div>
+						
+						<!-- Interactive simulator panel -->
+						<div style="width: 280px; background: #000; border: 1px solid var(--border-light); padding: 15px; box-sizing: border-box; display: flex; flex-direction: column;">
+							<div style="font-size: 11px; font-weight: bold; color: var(--yellow-neon); margin-bottom: 10px; text-transform: uppercase; text-align: center;">Transaction Sequencer</div>
+							<div style="display: flex; flex-direction: column; gap: 6px; flex-grow: 1;">
+								<div id="simNode1" class="tutorial-flow-node"><span>1.</span> Envelope RPG JSON Data</div>
+								<div id="simNode2" class="tutorial-flow-node"><span>2.</span> Hash check with client salt</div>
+								<div id="simNode3" class="tutorial-flow-node"><span>3.</span> Derived Key Sign (secp256k1)</div>
+								<div id="simNode4" class="tutorial-flow-node"><span>4.</span> Broadcast to DeSo node</div>
+							</div>
+							<button id="simSaveBtn" onclick="RunTutorialSaveSimulation()" class="glass-action-btn" style="width: 100%; padding: 8px; margin-top: 10px; background: var(--yellow-neon); color: #000; font-weight: bold; border: none; cursor: pointer;">🔬 RUN SAVE SIMULATOR</button>
+						</div>
+					</div>
+					
+					<div id="tutorialConsole" class="tutorial-console-output">Console ready. Click "RUN SAVE SIMULATOR" to begin.</div>
+				</div>
+
+				<div class="tutorial-content-pane" id="paneGettingStarted">
+					<h3 style="color: var(--cyan-neon); margin: 0 0 10px 0; text-transform: uppercase;">Danger Ghost Quick Start Guide</h3>
+					<div style="font-size: 13px; line-height: 20px; color: var(--text-muted);">
+						<p style="margin: 0 0 10px 0;">Follow these 4 simple steps to begin your journey in Nowhere:</p>
+						<ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
+							<li>
+								<strong style="color: #FFF;">Connect Your Wallet:</strong> Click the <span style="color: var(--purple-neon); font-weight: bold;">CONNECT DESO WALLET</span> button on the start screen. This generates your permanent account link.
+							</li>
+							<li>
+								<strong style="color: #FFF;">Select Your Character:</strong> Choose your Ghost NFT from the list, or mint your first one 100% free (only pay tiny network cents) to begin with Level 1 stats.
+							</li>
+							<li>
+								<strong style="color: #FFF;">Allocate Stat Points:</strong> Collect score in game to level up. When you do, press <strong style="color: var(--green-neon);">K</strong> to open the RPG drawer and allocate attributes (VIT, AGI, INT, POW, MAG).
+							</li>
+							<li>
+								<strong style="color: #FFF;">Upgrade Weapon:</strong> Check your weapon stats in the status drawer. If you collect enough points, click the gold upgrade button to increase your attack power.
+							</li>
+						</ol>
+						<div style="margin-top: 20px; padding: 12px; background: rgba(0, 255, 255, 0.05); border: 1px dashed var(--cyan-neon); color: #FFF; font-size: 12px;">
+							💡 <strong>Pro Tip:</strong> Hold <strong>T</strong> in-game to speed up the simulation speed (2x physics) for fast-paced dungeon clearance!
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
 
 	<!-- Section 2: Lore of Danger Ghost -->
 	<section id="lore-section" style="background-color: var(--surface-dark); border-top: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light); width: 100%;">
@@ -5907,6 +6243,497 @@ var g_binaryBits = [];
 			window.PostToDeSo = PostToDeSo;
 			window.DownloadScreenshot = DownloadScreenshot;
 			window.ToggleMute = ToggleMute;
+
+			// --- INTERACTIVE ONBOARDING TUTORIAL SYSTEM ---
+			var tutCanvas = document.getElementById("tutorialCanvas");
+			var tutCtx = tutCanvas ? tutCanvas.getContext("2d") : null;
+			var tutActive = false;
+			var tutLoopId = null;
+			var tutTab = "sandbox";
+
+			// Tutorial Player State
+			var tp = {
+				x: 60, y: 120, vx: 0, vy: 0,
+				width: 16, height: 16,
+				jumps: 0, maxJumps: 3,
+				facingLeft: false,
+				ghostMode: false,
+				mana: 100, maxMana: 100,
+				phantomActive: false,
+				phantomTimer: 0,
+				sparks: [],
+				orbs: []
+			};
+
+			var tutKeys = { A: false, D: false, W: false, V: false, F: false, E: false, R: false };
+
+			function OpenInteractiveTutorial() {
+				document.getElementById("interactiveTutorialModal").style.display = "block";
+				tutActive = true;
+				SwitchTutorialTab("sandbox");
+				InitTutorialKeys();
+				InitTutorialSandbox();
+			}
+
+			function CloseInteractiveTutorial() {
+				document.getElementById("interactiveTutorialModal").style.display = "none";
+				tutActive = false;
+				if (tutLoopId) {
+					cancelAnimationFrame(tutLoopId);
+					tutLoopId = null;
+				}
+				RemoveTutorialKeys();
+			}
+
+			function SwitchTutorialTab(tabId) {
+				tutTab = tabId;
+				// Reset all tabs
+				var tabs = ["Sandbox", "Spells", "Blockchain", "GettingStarted"];
+				tabs.forEach(function(t) {
+					var btn = document.getElementById("tabBtn" + t);
+					if (btn) btn.classList.remove("active");
+				});
+				var panes = ["paneSandbox", "paneSpells", "paneBlockchain", "paneGettingStarted"];
+				panes.forEach(function(p) {
+					var pane = document.getElementById(p);
+					if (pane) pane.classList.remove("active");
+				});
+
+				// Active specific
+				if (tabId === "sandbox") {
+					document.getElementById("tabBtnSandbox").classList.add("active");
+					document.getElementById("paneSandbox").classList.add("active");
+					// Start loop if not already
+					if (tutActive && !tutLoopId) InitTutorialSandbox();
+				} else if (tabId === "spells") {
+					document.getElementById("tabBtnSpells").classList.add("active");
+					document.getElementById("paneSpells").classList.add("active");
+					UpdateTutorialRunePreview();
+				} else if (tabId === "blockchain") {
+					document.getElementById("tabBtnBlockchain").classList.add("active");
+					document.getElementById("paneBlockchain").classList.add("active");
+				} else if (tabId === "start") {
+					document.getElementById("tabBtnGettingStarted").classList.add("active");
+					document.getElementById("paneGettingStarted").classList.add("active");
+				}
+			}
+
+			// Capture keys inside tutorial modal only
+			function handleTutKeyDown(e) {
+				if (!tutActive || tutTab !== "sandbox") return;
+				
+				var key = e.keyCode;
+				var handled = false;
+				if (key === 65 || key === 37) { tutKeys.A = true; handled = true; } // A, Left
+				if (key === 68 || key === 39) { tutKeys.D = true; handled = true; } // D, Right
+				if (key === 87 || key === 38) { // W, Up
+					if (!tutKeys.W) {
+						if (tp.jumps < tp.maxJumps) {
+							tp.vy = -6.5;
+							tp.jumps++;
+							ShowTutorialFeedback("Jump level: " + tp.jumps + " / 3!");
+						}
+					}
+					tutKeys.W = true;
+					handled = true;
+				}
+				if (key === 70) { tutKeys.F = true; handled = true; } // F
+				if (key === 86 && !e.repeat) { // V
+					tutKeys.V = true;
+					CastTutorialSpark();
+					handled = true;
+				}
+				if (key === 69 && !e.repeat) { // E
+					tutKeys.E = true;
+					CastTutorialOrb();
+					handled = true;
+				}
+				if (key === 82 && !e.repeat) { // R
+					tutKeys.R = true;
+					TriggerTutorialPhantom();
+					handled = true;
+				}
+
+				if (handled) {
+					e.preventDefault();
+					e.stopPropagation();
+				}
+			}
+
+			function handleTutKeyUp(e) {
+				if (!tutActive || tutTab !== "sandbox") return;
+				var key = e.keyCode;
+				if (key === 65 || key === 37) { tutKeys.A = false; }
+				if (key === 68 || key === 39) { tutKeys.D = false; }
+				if (key === 87 || key === 38) { tutKeys.W = false; }
+				if (key === 70) { tutKeys.F = false; }
+				if (key === 86) { tutKeys.V = false; }
+				if (key === 69) { tutKeys.E = false; }
+				if (key === 82) { tutKeys.R = false; }
+			}
+
+			function InitTutorialKeys() {
+				window.addEventListener("keydown", handleTutKeyDown, true);
+				window.addEventListener("keyup", handleTutKeyUp, true);
+			}
+
+			function RemoveTutorialKeys() {
+				window.removeEventListener("keydown", handleTutKeyDown, true);
+				window.removeEventListener("keyup", handleTutKeyUp, true);
+			}
+
+			function ShowTutorialFeedback(text) {
+				var fb = document.getElementById("tutorialFeedback");
+				if (fb) fb.innerHTML = text;
+			}
+
+			// Cast Spells inside tutorial sandbox
+			function CastTutorialSpark() {
+				var speed = tp.facingLeft ? -4.5 : 4.5;
+				tp.sparks.push({ x: tp.x + (tp.facingLeft ? -4 : 16), y: tp.y + 6, vx: speed });
+				tp.mana = Math.min(tp.maxMana, tp.mana + 5); // Regenerates mana on cast (Spectral Spark generator)
+				ShowTutorialFeedback("Spectral Spark cast! Regenerates mana +5.");
+			}
+
+			function CastTutorialOrb() {
+				if (tp.mana >= 30) {
+					tp.mana -= 30;
+					var speed = tp.facingLeft ? -2.5 : 2.5;
+					tp.orbs.push({ x: tp.x + (tp.facingLeft ? -10 : 16), y: tp.y + 4, vx: speed, r: 8 });
+					ShowTutorialFeedback("Plasma Orb cast! Drains 30 mana.");
+				} else {
+					ShowTutorialFeedback("⚠️ Not enough mana for Plasma Orb!");
+				}
+			}
+
+			function TriggerTutorialPhantom() {
+				if (tp.mana >= 50) {
+					tp.mana -= 50;
+					tp.phantomActive = true;
+					tp.phantomTimer = 180; // 3 seconds
+					ShowTutorialFeedback("Phantom Form active! +Speed and Invulnerability.");
+				} else {
+					ShowTutorialFeedback("⚠️ Not enough mana for Phantom Form!");
+				}
+			}
+
+			// Loop of Physics and Draw
+			function InitTutorialSandbox() {
+				if (!tutCanvas) {
+					tutCanvas = document.getElementById("tutorialCanvas");
+					if (tutCanvas) tutCtx = tutCanvas.getContext("2d");
+				}
+				if (!tutCanvas) return;
+
+				tp.x = 60;
+				tp.y = 120;
+				tp.vx = 0;
+				tp.vy = 0;
+				tp.jumps = 0;
+				tp.mana = 100;
+				tp.phantomActive = false;
+				tp.phantomTimer = 0;
+				tp.sparks = [];
+				tp.orbs = [];
+
+				function loop() {
+					if (!tutActive || tutTab !== "sandbox") {
+						tutLoopId = null;
+						return;
+					}
+					update();
+					render();
+					tutLoopId = requestAnimationFrame(loop);
+				}
+				tutLoopId = requestAnimationFrame(loop);
+			}
+
+			function update() {
+				// Horizontal Movement
+				var baseSpeed = tp.phantomActive ? 4.5 : 3.0;
+				if (tutKeys.A) {
+					tp.vx = -baseSpeed;
+					tp.facingLeft = true;
+				} else if (tutKeys.D) {
+					tp.vx = baseSpeed;
+					tp.facingLeft = false;
+				} else {
+					tp.vx = 0;
+				}
+
+				// Phasing / Ghost Mode logic
+				tp.ghostMode = tutKeys.F && tp.mana > 0;
+				if (tp.ghostMode) {
+					tp.mana = Math.max(0, tp.mana - 0.3); // Continuous drain
+				} else {
+					tp.mana = Math.min(tp.maxMana, tp.mana + 0.1); // Passive regen
+				}
+
+				// Gravity
+				tp.vy += 0.35; // Gravity
+
+				tp.x += tp.vx;
+				tp.y += tp.vy;
+
+				// Floor collision
+				if (tp.y >= 120) {
+					tp.y = 120;
+					tp.vy = 0;
+					tp.jumps = 0;
+				}
+
+				// Screen boundaries
+				if (tp.x < 0) tp.x = 0;
+				if (tp.x + tp.width > tutCanvas.width) tp.x = tutCanvas.width - tp.width;
+
+				// Obstacle Wall: x = 270, width = 20, height = 100 (y = 40 to y = 140)
+				var wallX = 270;
+				var wallW = 20;
+				var wallH = 100;
+				var wallY = 140 - wallH;
+
+				if (!tp.ghostMode) {
+					// Left-side collision
+					if (tp.x + tp.width >= wallX && tp.x < wallX && tp.y + tp.height > wallY) {
+						tp.x = wallX - tp.width;
+					}
+					// Right-side collision
+					if (tp.x <= wallX + wallW && tp.x + tp.width > wallX + wallW && tp.y + tp.height > wallY) {
+						tp.x = wallX + wallW;
+					}
+				}
+
+				// Update Projectiles
+				tp.sparks.forEach(function(s, idx) {
+					s.x += s.vx;
+					if (s.x < 0 || s.x > tutCanvas.width) tp.sparks.splice(idx, 1);
+				});
+
+				tp.orbs.forEach(function(o, idx) {
+					o.x += o.vx;
+					if (o.x < 0 || o.x > tutCanvas.width) tp.orbs.splice(idx, 1);
+				});
+
+				// Phantom Form Timer
+				if (tp.phantomActive) {
+					tp.phantomTimer--;
+					if (tp.phantomTimer <= 0) {
+						tp.phantomActive = false;
+						ShowTutorialFeedback("Phantom Form expired.");
+					}
+				}
+			}
+
+			function render() {
+				if (!tutCanvas || !tutCtx) return;
+				tutCtx.clearRect(0, 0, tutCanvas.width, tutCanvas.height);
+
+				// Draw background Grid
+				tutCtx.strokeStyle = "rgba(0, 255, 255, 0.03)";
+				tutCtx.lineWidth = 1;
+				for (var gx = 0; gx < tutCanvas.width; gx += 20) {
+					tutCtx.beginPath();
+					tutCtx.moveTo(gx, 0);
+					tutCtx.lineTo(gx, tutCanvas.height);
+					tutCtx.stroke();
+				}
+				for (var gy = 0; gy < tutCanvas.height; gy += 20) {
+					tutCtx.beginPath();
+					tutCtx.moveTo(0, gy);
+					tutCtx.lineTo(tutCanvas.width, gy);
+					tutCtx.stroke();
+				}
+
+				// Draw Floor
+				tutCtx.fillStyle = "#161322";
+				tutCtx.fillRect(0, 136, tutCanvas.width, tutCanvas.height - 136);
+				tutCtx.fillStyle = "var(--cyan-neon)";
+				tutCtx.fillRect(0, 136, tutCanvas.width, 2);
+
+				// Draw Wall
+				var wallX = 270;
+				var wallW = 20;
+				var wallY = 40;
+				var wallH = 100;
+				
+				if (tp.ghostMode) {
+					tutCtx.fillStyle = "rgba(180, 0, 255, 0.25)";
+					tutCtx.fillRect(wallX, wallY, wallW, wallH);
+					tutCtx.strokeStyle = "rgba(180, 0, 255, 0.6)";
+					tutCtx.strokeRect(wallX, wallY, wallW, wallH);
+				} else {
+					tutCtx.fillStyle = "rgba(255, 0, 255, 0.4)";
+					tutCtx.fillRect(wallX, wallY, wallW, wallH);
+					tutCtx.strokeStyle = "var(--magenta-neon)";
+					tutCtx.strokeRect(wallX, wallY, wallW, wallH);
+				}
+
+				// Draw sparks
+				tutCtx.fillStyle = "var(--cyan-neon)";
+				tp.sparks.forEach(function(s) {
+					tutCtx.beginPath();
+					tutCtx.arc(s.x, s.y, 3, 0, Math.PI * 2);
+					tutCtx.fill();
+				});
+
+				// Draw orbs
+				tp.orbs.forEach(function(o) {
+					tutCtx.fillStyle = "rgba(180, 0, 255, 0.5)";
+					tutCtx.beginPath();
+					tutCtx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+					tutCtx.fill();
+					tutCtx.strokeStyle = "var(--purple-neon)";
+					tutCtx.lineWidth = 1.5;
+					tutCtx.stroke();
+				});
+
+				// Draw Player
+				tutCtx.save();
+				if (tp.ghostMode) {
+					tutCtx.globalAlpha = 0.45;
+					tutCtx.fillStyle = "rgba(180, 0, 255, 0.7)";
+					tutCtx.fillRect(tp.x, tp.y, tp.width, tp.height);
+					tutCtx.strokeStyle = "var(--purple-neon)";
+					tutCtx.lineWidth = 2;
+					tutCtx.strokeRect(tp.x, tp.y, tp.width, tp.height);
+				} else if (tp.phantomActive) {
+					tutCtx.fillStyle = "rgba(255, 214, 0, 0.8)";
+					tutCtx.fillRect(tp.x, tp.y, tp.width, tp.height);
+					tutCtx.strokeStyle = "var(--yellow-neon)";
+					tutCtx.lineWidth = 2;
+					tutCtx.strokeRect(tp.x, tp.y, tp.width, tp.height);
+				} else {
+					tutCtx.fillStyle = "rgba(0, 255, 255, 0.7)";
+					tutCtx.fillRect(tp.x, tp.y, tp.width, tp.height);
+					tutCtx.strokeStyle = "var(--cyan-neon)";
+					tutCtx.lineWidth = 2;
+					tutCtx.strokeRect(tp.x, tp.y, tp.width, tp.height);
+				}
+				tutCtx.restore();
+
+				// Draw HUD inside canvas (Mana bar)
+				tutCtx.fillStyle = "#222";
+				tutCtx.fillRect(10, 10, 100, 8);
+				tutCtx.fillStyle = "var(--purple-neon)";
+				tutCtx.fillRect(10, 10, tp.mana, 8);
+				tutCtx.strokeStyle = "#FFF";
+				tutCtx.strokeRect(10, 10, 100, 8);
+				tutCtx.fillStyle = "#FFF";
+				tutCtx.font = "8px 'Courier New'";
+				tutCtx.fillText("MANA: " + Math.round(tp.mana) + "%", 15, 17);
+			}
+
+			// Spells Rune Previewer logic
+			function UpdateTutorialRunePreview() {
+				var sel = document.getElementById("tutorialRuneSelect");
+				var desc = document.getElementById("tutorialRuneDesc");
+				var orb = document.getElementById("tutorialRuneOrb");
+				if (!sel || !desc || !orb) return;
+
+				var val = sel.value;
+				if (val === "arcane") {
+					desc.innerHTML = "<strong>Arcane Element (No Rune / Pure Magic):</strong> Amplifies raw spell damage by 40% with pure ectoplasm. Good for raw damage output.";
+					orb.style.background = "radial-gradient(circle, #FFF 0%, #D500F9 70%)";
+					orb.style.boxShadow = "0 0 20px #D500F9";
+				} else if (val === "fire") {
+					desc.innerHTML = "<strong>Fire Rune:</strong> Ignites enemies upon contact, dealing continuous damage-over-time (burning damage) for 4 seconds.";
+					orb.style.background = "radial-gradient(circle, #FFF 0%, #FF5722 70%)";
+					orb.style.boxShadow = "0 0 20px #FF5722";
+				} else if (val === "cold") {
+					desc.innerHTML = "<strong>Cold Rune:</strong> Freezes enemies on impact, reducing their movement speed and projectile rates by 50% for 3 seconds.";
+					orb.style.background = "radial-gradient(circle, #FFF 0%, #00E5FF 70%)";
+					orb.style.boxShadow = "0 0 20px #00E5FF";
+				} else if (val === "lightning") {
+					desc.innerHTML = "<strong>Lightning Rune:</strong> Discharges a voltage blast that stuns the target enemy for 1.5 seconds, locking them in place.";
+					orb.style.background = "radial-gradient(circle, #FFF 0%, #FFD600 70%)";
+					orb.style.boxShadow = "0 0 20px #FFD600";
+				} else if (val === "poison") {
+					desc.innerHTML = "<strong>Poison Rune:</strong> Sprays toxic corrosion that reduces boss defenses by 30% and deals acid damage over 6 seconds.";
+					orb.style.background = "radial-gradient(circle, #FFF 0%, #00E676 70%)";
+					orb.style.boxShadow = "0 0 20px #00E676";
+				}
+			}
+
+			function TriggerTutorialRuneBlast() {
+				var orb = document.getElementById("tutorialRuneOrb");
+				if (!orb) return;
+				orb.style.transform = "scale(1.5)";
+				setTimeout(function() {
+					orb.style.transform = "scale(1.0)";
+				}, 150);
+			}
+
+			// Blockchain Save Simulator step-by-step logic
+			function RunTutorialSaveSimulation() {
+				var simBtn = document.getElementById("simSaveBtn");
+				var consoleBox = document.getElementById("tutorialConsole");
+				if (!simBtn || !consoleBox) return;
+
+				simBtn.disabled = true;
+				consoleBox.innerHTML = "";
+
+				// Reset flow nodes
+				for (var i = 1; i <= 4; i++) {
+					var node = document.getElementById("simNode" + i);
+					if (node) {
+						node.classList.remove("active", "success");
+					}
+				}
+
+				// Step 1
+				setTimeout(function() {
+					var node = document.getElementById("simNode1");
+					if (node) node.classList.add("active");
+					consoleBox.innerHTML += "> [SYSTEM] Enveloping RPG Game State:\n  level: 42, vit: 15, agi: 20, int: 10, pow: 8, mag: 12...\n";
+				}, 200);
+
+				// Step 2
+				setTimeout(function() {
+					var node1 = document.getElementById("simNode1");
+					if (node1) { node1.classList.remove("active"); node1.classList.add("success"); }
+					var node2 = document.getElementById("simNode2");
+					if (node2) node2.classList.add("active");
+					consoleBox.innerHTML += "> [ANTI-CHEAT] Generating integrity hash using random client salt:\n  Hash check matches original storage state.\n";
+				}, 1000);
+
+				// Step 3
+				setTimeout(function() {
+					var node2 = document.getElementById("simNode2");
+					if (node2) { node2.classList.remove("active"); node2.classList.add("success"); }
+					var node3 = document.getElementById("simNode3");
+					if (node3) node3.classList.add("active");
+					consoleBox.innerHTML += "> [IDENTITY] Derived Key signature generated:\n  Signing hex payload using secp256k1 derived curve...\n";
+				}, 1800);
+
+				// Step 4
+				setTimeout(function() {
+					var node3 = document.getElementById("simNode3");
+					if (node3) { node3.classList.remove("active"); node3.classList.add("success"); }
+					var node4 = document.getElementById("simNode4");
+					if (node4) node4.classList.add("active");
+					consoleBox.innerHTML += "> [NETWORK] Broadcasting post payload (Base64) to DeSo node...\n";
+				}, 2600);
+
+				// Final
+				setTimeout(function() {
+					var node4 = document.getElementById("simNode4");
+					if (node4) { node4.classList.remove("active"); node4.classList.add("success"); }
+					
+					var mockPayload = "eyJsZXZlbCI6NDIsInhwIjoxNTAwLCJjaGFyYWN0ZXJJZCI6ImRnX2ZhbnRhc21hIiwiYXR0cmlidXRlcyI6eyJ2aXQiOjE1LCJhZ2kiOjIwLCJpbnQiOjEwLCJwb3ciOjgsIm1hZyI6MTJ9fQ==";
+					consoleBox.innerHTML += "\n✅ SUCCESS: Save Post Published! PostHashHex: 5b4c73ef2...\n";
+					consoleBox.innerHTML += "> Payload: " + mockPayload + "\n";
+					consoleBox.innerHTML += "> Status: SYNCHRONIZED ON BLOCKCHAIN 🏆";
+					simBtn.disabled = false;
+				}, 3500);
+			}
+
+			// Expõe as funções globais do tutorial
+			window.OpenInteractiveTutorial = OpenInteractiveTutorial;
+			window.CloseInteractiveTutorial = CloseInteractiveTutorial;
+			window.SwitchTutorialTab = SwitchTutorialTab;
+			window.UpdateTutorialRunePreview = UpdateTutorialRunePreview;
+			window.TriggerTutorialRuneBlast = TriggerTutorialRuneBlast;
+			window.RunTutorialSaveSimulation = RunTutorialSaveSimulation;
 
 			Object.defineProperty(window, 'map', { get: function() { return map; }, configurable: true });
 			Object.defineProperty(window, 'DeSoGhost', { get: function() { return DeSoGhost; }, configurable: true });
