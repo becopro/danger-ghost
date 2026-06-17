@@ -3832,7 +3832,7 @@
 							}
 							return null;
 						} catch(e) {
-							console.warn(`[Leaderboard Audit] Fonte '${name}' indisponível ou estourou timeout de 6s:`, e);
+							console.warn(`[Leaderboard Audit] Source '${name}' unavailable or timed out after 6s:`, e);
 							return null;
 						}
 					}
@@ -3932,7 +3932,7 @@
 											}
 										}
 									} catch(e) {
-										console.warn("Erro ao descriptografar DangerGhost_SaveState para ranking", e);
+										console.warn("Error decrypting DangerGhost_SaveState for ranking", e);
 									}
 								}
 								if (rpgLvl === 1 && matchRpg) {
@@ -5240,7 +5240,7 @@
 
 			async function ExecuteCharacterPostCreation() {
 				var status = document.getElementById("selectionStatusText");
-				if (status) status.innerText = "Renderizando imagem do NFT do Fantasma...";
+				if (status) status.innerText = "Rendering Ghost NFT image...";
 
 				var defaultStats = {
 					level: 1,
@@ -5257,7 +5257,7 @@
 				};
 
 				RenderCharacterNFTBlob(defaultStats, async function(blob) {
-					if (status) status.innerText = "Fazendo upload da imagem do NFT...";
+					if (status) status.innerText = "Uploading NFT image...";
 					try {
 						window.g_desoPendingAction = 'char_creation_jwt';
 						
@@ -5279,7 +5279,7 @@
 						}, "https://identity.deso.org");
 					} catch(err) {
 						console.error("Blob upload prep error", err);
-						if (status) status.innerText = "Erro ao preparar upload.";
+						if (status) status.innerText = "Error preparing upload.";
 						var btn = document.getElementById("createGhostBtn");
 						if (btn) btn.disabled = false;
 					}
@@ -5450,7 +5450,7 @@
 											stats.postHashHex = post.PostHashHex;
 											charactersMap[charId] = stats;
 										} catch(err) {
-											console.error("Ficha corrompida para o fantasma ID " + charId, err);
+											console.error("Corrupted sheet for ghost ID " + charId, err);
 										}
 									} else {
 										// Se a ficha mais recente já foi carregada, mas não tem imagem,
