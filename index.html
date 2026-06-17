@@ -5130,6 +5130,18 @@
 							body: JSON.stringify(postReq)
 						});
 						var postData = await postRes.json();
+
+						// FALLBACK: Se falhar ao comentar na thread principal, tentar postar como postagem primária (sem ParentStakeID)
+						if (!postData.TransactionHex) {
+							console.warn("Submit-post comment failed for score, trying primary post fallback...", postData.error);
+							delete postReq.ParentStakeID;
+							postRes = await fetch("https://node.deso.org/api/v0/submit-post", {
+								method: "POST",
+								headers: { "Content-Type": "application/json" },
+								body: JSON.stringify(postReq)
+							});
+							postData = await postRes.json();
+						}
 						
 						if (postData.TransactionHex && postData.PostHashHex) {
 							window.g_desoPendingTransactionHex = postData.TransactionHex;
@@ -5142,7 +5154,7 @@
 								btn.disabled = true;
 							}
 
-							if (window.g_desoIdentityWindow) {
+							if (window.g_desoIdentityWindow && !window.g_desoIdentityWindow.closed) {
 								window.g_desoIdentityWindow.location.href = "https://identity.deso.org/approve?tx=" + postData.TransactionHex;
 							} else {
 								window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
@@ -5245,6 +5257,18 @@
 						body: JSON.stringify(postReq)
 					});
 					var postData = await postRes.json();
+
+					// FALLBACK: Se falhar ao comentar na thread principal, tentar postar como postagem primária (sem ParentStakeID)
+					if (!postData.TransactionHex) {
+						console.warn("Submit-post comment failed for RPG save, trying primary post fallback...", postData.error);
+						delete postReq.ParentStakeID;
+						postRes = await fetch("https://node.deso.org/api/v0/submit-post", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify(postReq)
+						});
+						postData = await postRes.json();
+					}
 					
 					if (postData.TransactionHex && postData.PostHashHex) {
 						window.g_desoPendingTransactionHex = postData.TransactionHex;
@@ -5253,7 +5277,7 @@
 						
 						if(btn) btn.innerText = "APPROVE SAVE IN POP-UP...";
 
-						if (window.g_desoIdentityWindow) {
+						if (window.g_desoIdentityWindow && !window.g_desoIdentityWindow.closed) {
 							window.g_desoIdentityWindow.location.href = "https://identity.deso.org/approve?tx=" + postData.TransactionHex;
 						} else {
 							window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
@@ -5554,7 +5578,7 @@
 							window.g_desoPendingTransactionType = "RPG_CHAR_PAYMENT";
 							g_characterCreationPending = true;
 							
-							if (window.g_desoIdentityWindow) {
+							if (window.g_desoIdentityWindow && !window.g_desoIdentityWindow.closed) {
 								window.g_desoIdentityWindow.location.href = "https://identity.deso.org/approve?tx=" + data.TransactionHex;
 							} else {
 								window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + data.TransactionHex, "deso_identity", "width=800,height=1000");
@@ -5685,7 +5709,7 @@
 						window.g_desoLastPostHashHex = postData.PostHashHex;
 						window.g_desoPendingTransactionType = "RPG_CHAR_POST";
 						
-						if (window.g_desoIdentityWindow) {
+						if (window.g_desoIdentityWindow && !window.g_desoIdentityWindow.closed) {
 							window.g_desoIdentityWindow.location.href = "https://identity.deso.org/approve?tx=" + postData.TransactionHex;
 						} else {
 							window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
