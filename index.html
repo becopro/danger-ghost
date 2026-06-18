@@ -2183,6 +2183,31 @@
 				try {
 					ToggleNavbarTab('controls');
 				} catch(e) {}
+
+				// Restaura sessão DeSo anterior se disponível para manter o login consistente entre atualizações
+				try {
+					var savedKey = localStorage.getItem("dg_deso_public_key");
+					var savedObj = localStorage.getItem("dg_deso_user_obj");
+					if (savedKey) {
+						window.g_desoPublicKey = savedKey;
+						if (savedObj) {
+							window.g_desoUserObj = JSON.parse(savedObj);
+						}
+						
+						var dBtn = document.getElementById("desoBtn");
+						if (dBtn) {
+							dBtn.innerText = "LOGGED IN: " + window.g_desoPublicKey.substring(0,8) + "...";
+							dBtn.style.borderColor = "#00FF00";
+							dBtn.style.color = "#00FF00";
+						}
+						CheckVIPStatus(window.g_desoPublicKey);
+						if (typeof LoadRPGStateFromDeSo === "function") {
+							LoadRPGStateFromDeSo(window.g_desoPublicKey);
+						}
+					}
+				} catch(sessionErr) {
+					console.warn("Failed to restore DeSo session:", sessionErr);
+				}
 			});
 
 			// Método B: Vinculação Instantânea em tempo de parse do Script (Redundância Direta)
@@ -4788,6 +4813,12 @@
 					for (var key in data.payload.users) {
 						window.g_desoPublicKey = key; 
 						window.g_desoUserObj = data.payload.users[key];
+						try {
+							localStorage.setItem("dg_deso_public_key", window.g_desoPublicKey);
+							localStorage.setItem("dg_deso_user_obj", JSON.stringify(window.g_desoUserObj));
+						} catch(e) {
+							console.error("Failed to store DeSo session in localStorage", e);
+						}
 						break;
 					}
 					if (window.g_desoPublicKey) {
