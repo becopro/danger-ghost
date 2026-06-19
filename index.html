@@ -5815,7 +5815,8 @@
 							headers: { "Content-Type": "application/json" },
 							body: JSON.stringify({
 								PostHashHex: "fd622ab4b7723a8a4d17fe0d7bd2bcc11e22832dde0a4a45ad637760ee89cd40",
-								CommentLimit: 1000
+								CommentLimit: 100000,
+								CommentOffset: 0
 							})
 						});
 						if (singlePostRes.ok) {
@@ -5861,8 +5862,8 @@
 
 					// Ordenação de precisão por data de postagem (newest first) com fallback de RPG Progress
 					posts.sort(function(a, b) {
-						var timeA = parseInt(a.TimestampNanos, 10) || 0;
-						var timeB = parseInt(b.TimestampNanos, 10) || 0;
+						var timeA = BigInt(a.TimestampNanos || 0);
+						var timeB = BigInt(b.TimestampNanos || 0);
 						if (timeB !== timeA) {
 							return timeB > timeA ? 1 : -1;
 						}
