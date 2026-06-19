@@ -5754,53 +5754,31 @@
 					
 					var uniqueCharacters = [];
 					if (posts.length > 0) {
-						// 1. Identificar IDs de personagens validos (NFT ou postado pelo proprio usuario)
-						var validCharIds = {};
-						for (var i = 0; i < posts.length; i++) {
-							var post = posts[i];
-							if (post && post.PostExtraData && post.PostExtraData["DangerGhost_CharacterID"] && (post.IsNFT || post.PosterPublicKeyBase58Check === publicKey)) {
-								var charId = post.PostExtraData["DangerGhost_CharacterID"];
-								validCharIds[charId] = true;
-							}
-						}
-
-						// 2. Para cada ID válido, obter o estado mais recente
-						var charactersMap = {};
+						var strongestStats = null;
 						for (var i = 0; i < posts.length; i++) {
 							var post = posts[i];
 							if (post && post.PostExtraData && post.PostExtraData["DangerGhost_SaveState"]) {
-								var charId = post.PostExtraData["DangerGhost_CharacterID"];
-								if (charId && validCharIds[charId]) {
-									if (!charactersMap[charId]) {
-										try {
-											var decrypted = SafeAtob(post.PostExtraData["DangerGhost_SaveState"]);
-											var stats = JSON.parse(decrypted);
-											stats.characterId = charId;
-											stats.mag = stats.mag || 1;
-											stats.imageUrl = post.ImageURLs && post.ImageURLs[0] ? post.ImageURLs[0] : "";
-											stats.postHashHex = post.PostHashHex;
-											stats.timestamp = post.TimestampNanos || 0;
-											charactersMap[charId] = stats;
-										} catch(err) {
-											console.error("Corrupted sheet for ghost ID " + charId, err);
-										}
-									} else {
-										if (!charactersMap[charId].imageUrl && post.ImageURLs && post.ImageURLs[0]) {
-											charactersMap[charId].imageUrl = post.ImageURLs[0];
-										}
+								if (post.IsNFT || post.PosterPublicKeyBase58Check === publicKey) {
+									try {
+										var decrypted = SafeAtob(post.PostExtraData["DangerGhost_SaveState"]);
+										var stats = JSON.parse(decrypted);
+										stats.characterId = post.PostExtraData["DangerGhost_CharacterID"] || "legacy_char";
+										stats.mag = stats.mag || 1;
+										stats.imageUrl = post.ImageURLs && post.ImageURLs[0] ? post.ImageURLs[0] : "";
+										stats.postHashHex = post.PostHashHex;
+										stats.timestamp = post.TimestampNanos || 0;
+										
+										strongestStats = stats;
+										break;
+									} catch(err) {
+										console.error("Corrupted sheet", err);
 									}
 								}
 							}
 						}
-						uniqueCharacters = Object.values(charactersMap);
-						
-						// Garantia final de deduplicação (seguro extra contra duplicatas)
-						var seenIds = {};
-						uniqueCharacters = uniqueCharacters.filter(function(c) {
-							if (!c || !c.characterId || seenIds[c.characterId]) return false;
-							seenIds[c.characterId] = true;
-							return true;
-						});
+						if (strongestStats) {
+							uniqueCharacters = [strongestStats];
+						}
 					}
 
 					console.log('[DeSo Sync] Characters loaded:', uniqueCharacters.length, uniqueCharacters.map(function(c){return c.characterId;}));
