@@ -5859,14 +5859,28 @@
 						console.warn("Failed to fetch user NFTs from DeSo:", nftErr);
 					}
 
-					// Ordenação de precisão por data de postagem (newest first)
+					// Ordenação de precisão por data de postagem (newest first) com fallback de RPG Progress
 					posts.sort(function(a, b) {
-						var timeA = a.TimestampNanos || 0;
-						var timeB = b.TimestampNanos || 0;
+						var timeA = parseInt(a.TimestampNanos, 10) || 0;
+						var timeB = parseInt(b.TimestampNanos, 10) || 0;
 						if (timeB !== timeA) {
 							return timeB > timeA ? 1 : -1;
 						}
-						return 0;
+						// Fallback de progressão (vital para comments sem TimestampNanos ou timestamps corrompidos)
+						var scoreA = 0, scoreB = 0;
+						try { 
+							if(a.PostExtraData && a.PostExtraData["DangerGhost_SaveState"]) { 
+								var stA = JSON.parse(window.SafeAtob ? window.SafeAtob(a.PostExtraData["DangerGhost_SaveState"]) : atob(a.PostExtraData["DangerGhost_SaveState"]));
+								scoreA = (parseInt(stA.level, 10) || 1) * 1000000 + (parseInt(stA.xp, 10) || 0);
+							} 
+						} catch(e){}
+						try { 
+							if(b.PostExtraData && b.PostExtraData["DangerGhost_SaveState"]) { 
+								var stB = JSON.parse(window.SafeAtob ? window.SafeAtob(b.PostExtraData["DangerGhost_SaveState"]) : atob(b.PostExtraData["DangerGhost_SaveState"]));
+								scoreB = (parseInt(stB.level, 10) || 1) * 1000000 + (parseInt(stB.xp, 10) || 0);
+							} 
+						} catch(e){}
+						return scoreB - scoreA;
 					});
 					
 					var uniqueCharacters = [];
