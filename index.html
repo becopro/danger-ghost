@@ -1051,7 +1051,6 @@
 
 				var postReq = {
 					UpdaterPublicKeyBase58Check: window.g_desoPublicKey,
-					ParentStakeID: "fd622ab4b7723a8a4d17fe0d7bd2bcc11e22832dde0a4a45ad637760ee89cd40", // Link Permanente ao Post de Ranking Oficial
 					BodyObj: {
 						Body: bodyText,
 						ImageURLs: imageUrls
@@ -1198,9 +1197,7 @@
 				<div id="navbarPanelContent" style="color: #FFF; line-height: 18px;"></div>
 			</div>
 
-			<!-- Hidden Containers to preserve full compatibility with original FetchLeaderboard() calls -->
-			<div id="leaderboardHelp" style="display: none;"><div id="leaderboardContent"></div></div>
-			<div id="timeLeaderboardHelp" style="display: none;"><div id="timeLeaderboardContent"></div></div>
+
 		</div>
 		<br>
 		<button id="desoBtn" onclick="LoginDeSo()" class="glass-action-btn">LOGIN DESO</button>
@@ -1829,35 +1826,7 @@
 			}
 
 
-			function UpdateNavbarScore() {
-				try {
-					var panelContent = document.getElementById("navbarPanelContent");
-					var lbContainer = document.getElementById("leaderboardContent");
-					if (!panelContent || !lbContainer) return;
-					var lbHtml = lbContainer.innerHTML;
-					if (!lbHtml || lbHtml.trim() === "") {
-						lbHtml = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>LOADING RANKING...</p>";
-					}
-					panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #00FFFF; text-align: center; letter-spacing: 2px;'>🏆 GLOBAL SCORE RANK</h3>" + lbHtml;
-				} catch(err) {
-					console.warn("UpdateNavbarScore Error", err);
-				}
-			}
 
-			function UpdateNavbarTime() {
-				try {
-					var panelContent = document.getElementById("navbarPanelContent");
-					var timeLbContainer = document.getElementById("timeLeaderboardContent");
-					if (!panelContent || !timeLbContainer) return;
-					var timeLbHtml = timeLbContainer.innerHTML;
-					if (!timeLbHtml || timeLbHtml.trim() === "") {
-						timeLbHtml = "<p style='text-align: center; color: #888; font-size: 11px; margin: 10px 0;'>LOADING RANKING...</p>";
-					}
-					panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #FF00FF; text-align: center; letter-spacing: 2px;'>🌀 GHOST LEVEL RANK</h3>" + timeLbHtml;
-				} catch(err) {
-					console.warn("UpdateNavbarTime Error", err);
-				}
-			}
 
 			var g_selectedBagItemId = null;
 			function UpdateNavbarBag() {
@@ -2134,8 +2103,7 @@
 
 			// Exposição explícita das funções de controle da Navbar no escopo global
 			window.ToggleNavbarTab = ToggleNavbarTab;
-			window.UpdateNavbarScore = UpdateNavbarScore;
-			window.UpdateNavbarTime = UpdateNavbarTime;
+
 			window.UpdateNavbarBag = UpdateNavbarBag;
 			window.SelectBagItem = SelectBagItem;
 			window.InitGlobalChat = InitGlobalChat;
@@ -4151,8 +4119,7 @@
 			window.g_desoLastPostHashHex = null;
 			window.g_desoPendingTransactionType = null;
 			window.g_desoCharactersLoading = false;
-			var g_leaderboardList = null;
-			var g_timeLeaderboardList = null;
+
 
 			function timeToSeconds(tStr) {
 				if (!tStr) return Infinity;
@@ -4174,7 +4141,8 @@
 			}
 
 			async function FetchLeaderboard() {
-				g_hasFetchedLeaderboard = true;
+				return;
+/*				g_hasFetchedLeaderboard = true;
 				var container = document.getElementById("leaderboardContent");
 				var timeContainer = document.getElementById("timeLeaderboardContent");
 				try {
@@ -4550,14 +4518,7 @@
 						}
 					}
 				}
-			}
-			// --- PREMIUM HORIZONTAL NAVBAR CONTROLS BOOTSTRAP ---
-			// Lazy loaded: FetchLeaderboard is called when first opening score/time tabs.
-			setInterval(function() {
-				if (g_activeTab === 'score' || g_activeTab === 'time') {
-					FetchLeaderboard();
-				}
-			}, 60000);
+*/			}
 
 			async function CreateDeSoNFT(postHashHex) {
 				var btn = document.getElementById("desoPostBtn");
@@ -5096,70 +5057,15 @@
 						var postTimeStr = eligibleForTime ? timeStr : "N/A (Skipped Levels/Password Used)";
 						var timeParamForScoreList = eligibleForTime ? timeStr : "";
 
-						if (!g_leaderboardList) g_leaderboardList = [];
-						var foundMe = false;
-						for (var k = 0; k < g_leaderboardList.length; k++) {
-							if (g_leaderboardList[k].name === newPName) {
-								if (g_score > g_leaderboardList[k].score) {
-									g_leaderboardList[k].score = g_score;
-									g_leaderboardList[k].time = timeParamForScoreList;
-								}
-								foundMe = true; break;
-							}
-						}
-						if (!foundMe) g_leaderboardList.push({ name: newPName, score: g_score, time: timeParamForScoreList });
-						
-						g_leaderboardList.sort(function(a,b) { return b.score - a.score; });
-						g_leaderboardList = g_leaderboardList.slice(0, 10);
-						
-						var top10Text = "\n\n🏆 DANGER GHOST GLOBAL TOP 10 🏆\n";
-						for (var i = 0; i < g_leaderboardList.length; i++) {
-							var item = g_leaderboardList[i];
-							top10Text += (i+1) + ". " + item.name + " - " + item.score + " pts" + (item.time ? " (" + item.time + ")" : "") + "\n";
-						}
 
-						// 2. Atualizar o ranking de level localmente para a postagem
-						if (!g_timeLeaderboardList) g_timeLeaderboardList = [];
-						var playerLvl = GhostRPG.getStats().level;
-						var foundMeLvl = false;
-						var localAccountName = newPName;
-						
-						for (var k = 0; k < g_timeLeaderboardList.length; k++) {
-							if (g_timeLeaderboardList[k].name === localAccountName) {
-								var oldLvl = g_timeLeaderboardList[k].rpgLevel || 1;
-								if (playerLvl > oldLvl) {
-									g_timeLeaderboardList[k].rpgLevel = playerLvl;
-								}
-								foundMeLvl = true; break;
-							}
-						}
-						if (!foundMeLvl) {
-							g_timeLeaderboardList.push({
-								name: localAccountName,
-								rpgLevel: playerLvl,
-								isVip: window.g_hasCreatorCoin ? true : false
-							});
-						}
-						
-						g_timeLeaderboardList.sort(function(a, b) {
-							return (b.rpgLevel || 1) - (a.rpgLevel || 1);
-						});
-						g_timeLeaderboardList = g_timeLeaderboardList.slice(0, 10);
-						
-						var levelTop10Text = "\n\n🌀 DANGER GHOST LEVEL TOP 10 🌀\n";
-						for (var i = 0; i < g_timeLeaderboardList.length; i++) {
-							var item = g_timeLeaderboardList[i];
-							levelTop10Text += (i+1) + ". " + item.name + " - Level " + (item.rpgLevel || 1) + "\n";
-						}
 
 						var rpgMetadata = GhostRPG.getDeSoMetadataString();
 						var doorsStr = g_doorsUsed.toString().padStart(2, '0');
-						var bodyText = "🎮 I just conquered DANGER GHOST!" + rpgMetadata + "\n\nGhost Hunter: " + pName + "\nScore: " + g_score + "\nTime: " + postTimeStr + "\nLevels Completed: " + doorsStr + " / 33" + top10Text + levelTop10Text + "\n#DangerGhost #Web3Gaming #DeSo";
+						var bodyText = "🎮 I just conquered DANGER GHOST!" + rpgMetadata + "\n\nGhost Hunter: " + pName + "\nScore: " + g_score + "\nTime: " + postTimeStr + "\nLevels Completed: " + doorsStr + " / 33\n#DangerGhost #Web3Gaming #DeSo";
 						
 						var stats = GhostRPG.getStats();
 						var postReq = {
 							UpdaterPublicKeyBase58Check: window.g_desoPublicKey,
-							ParentStakeID: "fd622ab4b7723a8a4d17fe0d7bd2bcc11e22832dde0a4a45ad637760ee89cd40", // Link Permanente ao Post de Ranking Oficial
 							BodyObj: {
 								Body: bodyText,
 								ImageURLs: imageUrls
@@ -5179,17 +5085,7 @@
 						});
 						var postData = await postRes.json();
 
-						// FALLBACK: Se falhar ao comentar na thread principal, tentar postar como postagem primária (sem ParentStakeID)
-						if (!postData.TransactionHex) {
-							console.warn("Submit-post comment failed for score, trying primary post fallback...", postData.error);
-							delete postReq.ParentStakeID;
-							postRes = await fetch("https://node.deso.org/api/v0/submit-post", {
-								method: "POST",
-								headers: { "Content-Type": "application/json" },
-								body: JSON.stringify(postReq)
-							});
-							postData = await postRes.json();
-						}
+
 						
 						if (postData.TransactionHex && postData.PostHashHex) {
 							window.g_desoPendingTransactionHex = postData.TransactionHex;
@@ -5286,7 +5182,6 @@
 					
 					var postReq = {
 						UpdaterPublicKeyBase58Check: window.g_desoPublicKey,
-						ParentStakeID: "fd622ab4b7723a8a4d17fe0d7bd2bcc11e22832dde0a4a45ad637760ee89cd40", // Link Permanente ao Post de Ranking Oficial
 						BodyObj: {
 							Body: bodyText,
 							ImageURLs: []
@@ -5306,17 +5201,7 @@
 					});
 					var postData = await postRes.json();
 
-					// FALLBACK: Se falhar ao comentar na thread principal, tentar postar como postagem primária (sem ParentStakeID)
-					if (!postData.TransactionHex) {
-						console.warn("Submit-post comment failed for RPG save, trying primary post fallback...", postData.error);
-						delete postReq.ParentStakeID;
-						postRes = await fetch("https://node.deso.org/api/v0/submit-post", {
-							method: "POST",
-							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify(postReq)
-						});
-						postData = await postRes.json();
-					}
+
 					
 					if (postData.TransactionHex && postData.PostHashHex) {
 						window.g_desoPendingTransactionHex = postData.TransactionHex;
@@ -5808,29 +5693,7 @@
 						console.warn("Failed to fetch primary DeSo posts:", postsErr);
 					}
 
-					// 2. Buscamos comentários da thread de ranking oficial
-					try {
-						var singlePostRes = await fetch("https://node.deso.org/api/v0/get-single-post", {
-							method: "POST",
-							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify({
-								PostHashHex: "fd622ab4b7723a8a4d17fe0d7bd2bcc11e22832dde0a4a45ad637760ee89cd40",
-								CommentLimit: 100000,
-								CommentOffset: 0
-							})
-						});
-						if (singlePostRes.ok) {
-							var singlePostData = await singlePostRes.json();
-							if (singlePostData && singlePostData.PostFound && singlePostData.PostFound.Comments) {
-								var userComments = singlePostData.PostFound.Comments.filter(function(c) {
-									return c && c.PosterPublicKeyBase58Check === publicKey;
-								});
-								posts = posts.concat(userComments);
-							}
-						}
-					} catch (commentsErr) {
-						console.warn("Failed to fetch DeSo comments:", commentsErr);
-					}
+
 
 					// 3. Buscamos todos os NFTs pertencentes ao usuário (sem filtrar por criador - suporta mercado secundário)
 					try {
