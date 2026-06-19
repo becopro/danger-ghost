@@ -5723,14 +5723,9 @@
 						console.warn("Failed to fetch user NFTs from DeSo:", nftErr);
 					}
 
-					// Ordenação de precisão por data de postagem (newest first) com fallback de RPG Progress
+					// Ordenação corrigida para o Cross-PC: Prioridade MÁXIMA para o progresso do RPG (Level / XP).
+					// Isso previne que posts com TimestampNanos corrompidos (ex: sync em novo PC) sobrescrevam o progresso com NFTs lvl 1.
 					posts.sort(function(a, b) {
-						var timeA = BigInt(a.TimestampNanos || 0);
-						var timeB = BigInt(b.TimestampNanos || 0);
-						if (timeB !== timeA) {
-							return timeB > timeA ? 1 : -1;
-						}
-						// Fallback de progressão (vital para comments sem TimestampNanos ou timestamps corrompidos)
 						var scoreA = 0, scoreB = 0;
 						try { 
 							if(a.PostExtraData && a.PostExtraData["DangerGhost_SaveState"]) { 
@@ -5744,7 +5739,17 @@
 								scoreB = (parseInt(stB.level, 10) || 1) * 1000000 + (parseInt(stB.xp, 10) || 0);
 							} 
 						} catch(e){}
-						return scoreB - scoreA;
+
+						if (scoreB !== scoreA) {
+							return scoreB - scoreA;
+						}
+
+						var timeA = BigInt(a.TimestampNanos || 0);
+						var timeB = BigInt(b.TimestampNanos || 0);
+						if (timeB !== timeA) {
+							return timeB > timeA ? 1 : -1;
+						}
+						return 0;
 					});
 					
 					var uniqueCharacters = [];
