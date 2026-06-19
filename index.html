@@ -4150,6 +4150,7 @@
 			window.g_hasCreatorCoin = false;
 			window.g_desoLastPostHashHex = null;
 			window.g_desoPendingTransactionType = null;
+			window.g_desoCharactersLoading = false;
 			var g_leaderboardList = null;
 			var g_timeLeaderboardList = null;
 
@@ -4769,23 +4770,39 @@
 
 			async function CheckVIPStatus(pubKey) {
 				try {
-					var req = await fetch("https://node.deso.org/api/v0/get-hodlers-for-public-key", {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
+					var hasCoin = false;
+					var keepFetching = true;
+					var lastKey = null;
+					while (keepFetching) {
+						var reqBody = {
 							PublicKeyBase58Check: "BC1YLhtwi4a2pqLTFZWoJuyd3GK6cjQm5Kz7HjZyNrMgaxrtUneMHFn",
 							NumToFetch: 1000
-						})
-					});
-					var data = await req.json();
-					var hasCoin = false;
-					if (data && data.Hodlers) {
-						for (var i = 0; i < data.Hodlers.length; i++) {
-							var h = data.Hodlers[i];
-							if (h.HODLerPublicKeyBase58Check === pubKey && h.BalanceNanos > 0) {
-								hasCoin = true;
-								break;
+						};
+						if (lastKey) reqBody.LastPublicKeyBase58Check = lastKey;
+						var req = await fetch("https://node.deso.org/api/v0/get-hodlers-for-public-key", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify(reqBody)
+						});
+						var data = await req.json();
+						if (data && data.Hodlers && data.Hodlers.length > 0) {
+							for (var i = 0; i < data.Hodlers.length; i++) {
+								var h = data.Hodlers[i];
+								if (h.HODLerPublicKeyBase58Check === pubKey && h.BalanceNanos > 0) {
+									hasCoin = true;
+									keepFetching = false;
+									break;
+								}
 							}
+							if (keepFetching) {
+								if (data.Hodlers.length < 1000) {
+									keepFetching = false;
+								} else {
+									lastKey = data.Hodlers[data.Hodlers.length - 1].HODLerPublicKeyBase58Check;
+								}
+							}
+						} else {
+							keepFetching = false;
 						}
 					}
 					if (hasCoin) {
@@ -5149,7 +5166,7 @@
 							},
 							PostExtraData: {
 								"DangerGhost_CharacterID": stats.characterId,
-								"DangerGhost_SaveState": SafeBtoa(JSON.stringify(stats)),
+								"DangerGhost_SaveState": SafeBtoa(JSON.stringify(Object.assign({}, stats, { score: g_score, time: g_globalTotalTime }))),
 								"DangerGhost_GameApp": "v1.0.0"
 							},
 							MinFeeRateNanosPerKB: 1000
@@ -5276,7 +5293,7 @@
 						},
 						PostExtraData: {
 							"DangerGhost_CharacterID": stats.characterId,
-							"DangerGhost_SaveState": SafeBtoa(JSON.stringify(stats)),
+							"DangerGhost_SaveState": SafeBtoa(JSON.stringify(Object.assign({}, stats, { score: g_score, time: g_globalTotalTime }))),
 							"DangerGhost_GameApp": "v1.0.0"
 						},
 						MinFeeRateNanosPerKB: 1000
@@ -5525,6 +5542,7 @@
 			function SelectCharacterToPlay(charId) {
 				var char = window.g_ownedCharacters.find(function(c) { return c.characterId === charId; });
 				if (char) {
+					try { localStorage.setItem('dg_deso_character_id', charId); } catch(e) {}
 					GhostRPG.loadBlockchainState(
 						parseInt(char.level, 10),
 						parseInt(char.vit, 10),
@@ -5758,18 +5776,19 @@
 				}
 			}
 
-			async function LoadRPGStateFromDeSo(publicKey) {
+			async function LoadRPGStateFromDeSo(publicKey, forceShowOverlay) {
+				window.g_desoCharactersLoading = true;
 				var panelContent = document.getElementById("rpgPanelContent") || document.getElementById("navbarPanelContent");
 				if (panelContent) {
 					panelContent.innerHTML = "<h3 style='margin: 0 0 12px 0; color: #00FF00; text-align: center; letter-spacing: 2px;'>🛡️ HERO STATUS</h3>" +
 											 "<div style='color:#00FF00; font-weight:bold; text-align:center; margin-bottom: 12px; text-shadow: 0 0 5px #00FF00;'>" +
-											 "⚡ LOADING GHOSTS...</div>";
+											 "⚡ LOADING GHOSTS FROM DESO BLOCKCHAIN...</div>";
 				}
 
 				try {
 					var posts = [];
 
-					// 1. Buscamos as postagens principais do usuário (limite aumentado para 1000 para evitar corte do NFT original)
+					// 1. Buscamos as postagens principais do usuário
 					try {
 						var res = await fetch("https://node.deso.org/api/v0/get-posts-for-public-key", {
 							method: "POST",
@@ -5812,7 +5831,7 @@
 						console.warn("Failed to fetch DeSo comments:", commentsErr);
 					}
 
-					// 3. Buscamos todos os NFTs pertencentes ao usuário
+					// 3. Buscamos todos os NFTs pertencentes ao usuário (sem filtrar por criador - suporta mercado secundário)
 					try {
 						var nftRes = await fetch("https://node.deso.org/api/v0/get-nfts-for-user", {
 							method: "POST",
@@ -5826,7 +5845,7 @@
 							if (nftData && nftData.NFTsMap) {
 								var nftPosts = Object.values(nftData.NFTsMap)
 									.map(function(nft) { return nft ? nft.PostEntryResponse : null; })
-									.filter(function(p) { return p && p.PosterPublicKeyBase58Check === publicKey; });
+									.filter(function(p) { return p !== null && p !== undefined; });
 								posts = posts.concat(nftPosts);
 							}
 						}
@@ -5846,17 +5865,17 @@
 					
 					var uniqueCharacters = [];
 					if (posts.length > 0) {
-						// 1. Identificar IDs de personagens legitimamente mintados (NFTs) pelo usuário
+						// 1. Identificar IDs de personagens validos (NFT ou postado pelo proprio usuario)
 						var validCharIds = {};
 						for (var i = 0; i < posts.length; i++) {
 							var post = posts[i];
-							if (post && post.IsNFT && post.PostExtraData && post.PostExtraData["DangerGhost_CharacterID"]) {
+							if (post && post.PostExtraData && post.PostExtraData["DangerGhost_CharacterID"] && (post.IsNFT || post.PosterPublicKeyBase58Check === publicKey)) {
 								var charId = post.PostExtraData["DangerGhost_CharacterID"];
 								validCharIds[charId] = true;
 							}
 						}
 
-						// 2. Para cada ID válido, obter o estado mais recente (NFT ou salvamento de progresso)
+						// 2. Para cada ID válido, obter o estado mais recente
 						var charactersMap = {};
 						for (var i = 0; i < posts.length; i++) {
 							var post = posts[i];
@@ -5871,14 +5890,12 @@
 											stats.mag = stats.mag || 1;
 											stats.imageUrl = post.ImageURLs && post.ImageURLs[0] ? post.ImageURLs[0] : "";
 											stats.postHashHex = post.PostHashHex;
-											stats.timestamp = post.TimestampNanos || 0; // Guardar timestamp para identificar o último save
+											stats.timestamp = post.TimestampNanos || 0;
 											charactersMap[charId] = stats;
 										} catch(err) {
 											console.error("Corrupted sheet for ghost ID " + charId, err);
 										}
 									} else {
-										// Se a ficha mais recente já foi carregada, mas não tem imagem,
-										// herdar a imagem de postagens anteriores (como a do NFT original) se disponível
 										if (!charactersMap[charId].imageUrl && post.ImageURLs && post.ImageURLs[0]) {
 											charactersMap[charId].imageUrl = post.ImageURLs[0];
 										}
@@ -5888,16 +5905,38 @@
 						}
 						uniqueCharacters = Object.values(charactersMap);
 					}
-					
-					DisplayCharacterSelectionScreen(uniqueCharacters);
-					
-					GhostRPG.resetStats();
+
+					// Auto-select saved character if forceShowOverlay is false and we have a saved ID
+					var autoSelected = false;
+					if (!forceShowOverlay && uniqueCharacters.length > 0) {
+						try {
+							var savedCharId = localStorage.getItem('dg_deso_character_id');
+							if (savedCharId) {
+								var savedChar = uniqueCharacters.find(function(c) { return c.characterId === savedCharId; });
+								if (savedChar) {
+									window.g_ownedCharacters = uniqueCharacters;
+									SelectCharacterToPlay(savedCharId);
+									autoSelected = true;
+								}
+							}
+						} catch(lsErr) {}
+					}
+
+					if (!autoSelected) {
+						DisplayCharacterSelectionScreen(uniqueCharacters);
+					}
+
+					if (uniqueCharacters.length === 0) {
+						GhostRPG.resetStats();
+					}
 					RenderRPGStatusDrawer();
 				} catch(e) {
 					console.error("Load RPG DeSo Error", e);
 					GhostRPG.resetStats();
 					RenderRPGStatusDrawer();
-					alert("Error reading Ghosts from Blockchain. Check the console.");
+					alert("Error reading Ghosts from Blockchain. Please check your connection and try again.");
+				} finally {
+					window.g_desoCharactersLoading = false;
 				}
 			}
 			window.LoadRPGStateFromDeSo = LoadRPGStateFromDeSo;
@@ -6260,6 +6299,19 @@ var g_binaryBits = [];
 					)) {
 						return; 
 					}
+					if (window.g_desoPublicKey) {
+						if (window.g_desoCharactersLoading) {
+							alert('Loading your Ghosts from DeSo blockchain, please wait...');
+							return;
+						}
+						var stats = GhostRPG.getStats();
+						if (!stats || !stats.characterId) {
+							var overlay = document.getElementById('characterSelectionOverlay');
+							if (overlay) overlay.style.display = 'block';
+							alert('Please select or create your Ghost character to start playing!');
+							return;
+						}
+					}
 					if (document.activeElement && document.activeElement.tagName === "BUTTON") {
 						document.activeElement.blur();
 					}
@@ -6281,6 +6333,19 @@ var g_binaryBits = [];
 					} 
 				}
 				if (e.keyCode == 80) { // P (Passwords)
+					if (window.g_desoPublicKey) {
+						if (window.g_desoCharactersLoading) {
+							alert('Loading your Ghosts from DeSo blockchain, please wait...');
+							return;
+						}
+						var stats = GhostRPG.getStats();
+						if (!stats || !stats.characterId) {
+							var overlay = document.getElementById('characterSelectionOverlay');
+							if (overlay) overlay.style.display = 'block';
+							alert('Please select or create your Ghost character to start playing!');
+							return;
+						}
+					}
 					// Bypass inteligente de VIP em desenvolvimento local ou staging para facilitar testes
 					var isLocal = window.location.hostname === "localhost" || 
 								  window.location.hostname === "127.0.0.1";

@@ -389,7 +389,7 @@ function RenderRPGStatusDrawer() {
         if (stats.characterId) {
             saveButtonHTML = "<button id='rpgSaveBtn' onclick='window.TriggerRPGSaveToDeSo()' style='width:100%; margin-top:10px; padding:6px; background:#00FF00; color:#000; font-weight:bold; border:none; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>SAVE EVOLUTION (BLOCKCHAIN)</button>";
         } else {
-            saveButtonHTML = "<button onclick='window.LoadRPGStateFromDeSo(window.g_desoPublicKey)' style='width:100%; margin-top:10px; padding:6px; background:#00FFFF; color:#000; font-weight:bold; border:none; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>SELECT GHOST</button>";
+            saveButtonHTML = "<button onclick='window.LoadRPGStateFromDeSo(window.g_desoPublicKey, true)' style='width:100%; margin-top:10px; padding:6px; background:#00FFFF; color:#000; font-weight:bold; border:none; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>SELECT GHOST</button>";
         }
     } else {
         saveButtonHTML = "<button onclick='window.LoginDeSo()' style='width:100%; margin-top:10px; padding:6px; background:#444; color:#AAA; font-weight:bold; border:1px dashed #AAA; cursor:pointer; border-radius:3px; font-family:\"Courier New\"; outline:none;'>CONNECT DESO WALLET</button>";
