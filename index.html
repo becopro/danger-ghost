@@ -5844,7 +5844,13 @@
 							var nftData = await nftRes.json();
 							if (nftData && nftData.NFTsMap) {
 								var nftPosts = Object.values(nftData.NFTsMap)
-									.map(function(nft) { return nft ? nft.PostEntryResponse : null; })
+									.map(function(nft) { 
+										if (nft && nft.PostEntryResponse) {
+											nft.PostEntryResponse.IsNFT = true; // FIX CROSS-PC: Garantir flag de NFT
+											return nft.PostEntryResponse;
+										}
+										return null;
+									})
 									.filter(function(p) { return p !== null && p !== undefined; });
 								posts = posts.concat(nftPosts);
 							}
@@ -5904,7 +5910,17 @@
 							}
 						}
 						uniqueCharacters = Object.values(charactersMap);
+						
+						// Garantia final de deduplicação (seguro extra contra duplicatas)
+						var seenIds = {};
+						uniqueCharacters = uniqueCharacters.filter(function(c) {
+							if (!c || !c.characterId || seenIds[c.characterId]) return false;
+							seenIds[c.characterId] = true;
+							return true;
+						});
 					}
+
+					console.log('[DeSo Sync] Characters loaded:', uniqueCharacters.length, uniqueCharacters.map(function(c){return c.characterId;}));
 
 					// Auto-select saved character if forceShowOverlay is false and we have a saved ID
 					var autoSelected = false;
