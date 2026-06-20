@@ -48,7 +48,10 @@ var GhostRPG = (function() {
     }
 
     return {
-        init: function() { this.loadLocalStorage(); updateIntegrityHash(); },
+        init: function() { 
+            // TEMPORARILY DISABLED FOR PHASE 5 TEST: this.loadLocalStorage(); 
+            updateIntegrityHash(); 
+        },
         getStats: function() {
             if (!verifyIntegrity()) { this.resetStats(); }
             return state;

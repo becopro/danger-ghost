@@ -1,0 +1,883 @@
+
+		canvas {
+			image-rendering: -moz-crisp-edges;
+			image-rendering: -webkit-crisp-edges;
+			image-rendering: pixelated;
+			image-rendering: crisp-edges;
+		}
+
+		:root {
+			--bg-dark: #070708;
+			--surface-dark: #0d0d10;
+			--cyan-neon: hsl(180, 100%, 50%);
+			--magenta-neon: hsl(300, 100%, 50%);
+			--purple-neon: hsl(275, 100%, 60%);
+			--yellow-neon: hsl(50, 100%, 50%);
+			--green-neon: hsl(120, 100%, 45%);
+			--white: #ffffff;
+			--text-muted: #8c8c9a;
+			--border-light: rgba(255, 255, 255, 0.08);
+			--font-title: 'Exo 2', sans-serif;
+			--font-mono: 'Courier New', monospace;
+		}
+
+		/* Neo-Tokyo Futuristic Neon Scrollbar Stylings */
+		::-webkit-scrollbar {
+			width: 8px;
+			height: 8px;
+		}
+		::-webkit-scrollbar-track {
+			background: rgba(7, 7, 8, 0.95);
+			border: 1px solid var(--border-light);
+		}
+		::-webkit-scrollbar-thumb {
+			background: linear-gradient(180deg, var(--cyan-neon), var(--purple-neon));
+			border-radius: 0px;
+			box-shadow: inset 0 0 4px var(--cyan-neon);
+		}
+		::-webkit-scrollbar-thumb:hover {
+			background: linear-gradient(180deg, var(--magenta-neon), var(--purple-neon));
+			box-shadow: inset 0 0 6px var(--magenta-neon);
+		}
+		
+		/* Firefox scrollbar compatibility */
+		* {
+			scrollbar-width: thin;
+			scrollbar-color: var(--cyan-neon) rgba(7, 7, 8, 0.95);
+		}
+
+		/* Global styling adjustments */
+		body {
+			background-color: var(--bg-dark);
+			background-image: url('../UI/Arte vertical.jpg');
+			background-size: cover;
+			background-attachment: scroll;
+			background-position: center;
+			color: var(--white);
+			font-family: var(--font-title);
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+			overflow-x: hidden;
+			cursor: url('../assets/sprites/Ftasma_cursor.webp'), auto;
+		}
+
+		/* Fume Tinted Frosted Glass Overlay (above background, below content) */
+		body::before {
+			content: "";
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background: rgba(7, 7, 8, 0.78); /* Dark smoke tint */
+			backdrop-filter: blur(3px); /* Frosted glass look */
+			-webkit-backdrop-filter: blur(3px);
+			z-index: -1; /* Layered exactly behind all page content */
+			pointer-events: none;
+		}
+
+		/* Premium Animated Title - Ghostrunner Slanted Cyberpunk Style */
+		.neon-title {
+			color: #fff;
+			font-family: var(--font-title) !important;
+			font-weight: 900;
+			font-size: 32px !important;
+			letter-spacing: 6px;
+			margin: 0;
+			text-transform: uppercase;
+			display: inline-block;
+			text-shadow: 0 0 10px var(--cyan-neon);
+			transform: skewX(-5deg);
+		}
+
+		/* Top Navigation Bar */
+		.site-header {
+			position: sticky;
+			top: 0;
+			width: 100%;
+			background: rgba(7, 7, 8, 0.95);
+			backdrop-filter: blur(12px);
+			-webkit-backdrop-filter: blur(12px);
+			border-bottom: 1px solid var(--border-light);
+			z-index: 1000;
+			box-sizing: border-box;
+			padding: 10px 40px;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+
+		.header-logo {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+		}
+
+		/* Tactile Navbar buttons (Ghostrunner Sharp Style) */
+		#gameNavbar {
+			display: flex;
+			gap: 15px;
+			box-sizing: border-box;
+		}
+
+		#gameNavbar button {
+			font-family: var(--font-title) !important;
+			font-weight: 700 !important;
+			font-size: 13px !important;
+			letter-spacing: 1.5px;
+			padding: 10px 24px !important;
+			border-radius: 0px !important; /* Sharp corners */
+			background: transparent !important;
+			cursor: pointer !important;
+			outline: none;
+			text-transform: uppercase;
+			transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+		}
+
+		#btnNavControls {
+			border: 1.5px solid var(--yellow-neon) !important;
+			color: var(--yellow-neon) !important;
+		}
+		#btnNavControls:hover {
+			background: var(--yellow-neon) !important;
+			color: #000 !important;
+			box-shadow: 0 0 15px var(--yellow-neon) !important;
+		}
+
+		#btnNavRPG {
+			border: 1.5px solid var(--green-neon) !important;
+			color: var(--green-neon) !important;
+		}
+		#btnNavRPG:hover {
+			background: var(--green-neon) !important;
+			color: #000 !important;
+			box-shadow: 0 0 15px var(--green-neon) !important;
+		}
+
+		#btnNavBag {
+			border: 1.5px solid var(--magenta-neon) !important;
+			color: var(--magenta-neon) !important;
+		}
+		#btnNavBag:hover {
+			background: var(--magenta-neon) !important;
+			color: #000 !important;
+			box-shadow: 0 0 15px var(--magenta-neon) !important;
+		}
+
+		#btnNavEquip {
+			border: 1.5px solid #ffaa00 !important;
+			color: #ffaa00 !important;
+		}
+		#btnNavEquip:hover {
+			background: #ffaa00 !important;
+			color: #000 !important;
+			box-shadow: 0 0 15px #ffaa00 !important;
+		}
+
+		#btnNavChat {
+			border: 1.5px solid var(--cyan-neon) !important;
+			color: var(--cyan-neon) !important;
+		}
+		#btnNavChat:hover {
+			background: var(--cyan-neon) !important;
+			color: #000 !important;
+			box-shadow: 0 0 15px var(--cyan-neon) !important;
+		}
+
+		/* Game Area Container */
+		#game-section {
+			padding: 40px 20px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			width: 100%;
+			box-sizing: border-box;
+		}
+
+		.canvas-container {
+			position: relative;
+			display: inline-block;
+			background-color: #000;
+			border: 2px solid var(--cyan-neon);
+			box-shadow: 0 0 20px rgba(0, 255, 255, 0.15);
+		}
+
+		#myCanvas {
+			display: block;
+			margin: 0 auto;
+		}
+
+		/* Action Buttons & Input styling - Slanted Sharp Style */
+		.glass-action-btn {
+			font-family: var(--font-title) !important;
+			font-weight: 700 !important;
+			font-size: 14px !important;
+			letter-spacing: 1.5px;
+			padding: 12px 30px !important;
+			border-radius: 0px !important;
+			cursor: pointer !important;
+			transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+			outline: none;
+			text-transform: uppercase;
+		}
+
+		#desoBtn {
+			display: inline-block;
+			margin-top: 25px;
+			background: #000 !important;
+			border: 2px solid var(--purple-neon) !important;
+			color: var(--purple-neon) !important;
+			box-shadow: 0 0 10px rgba(180, 0, 255, 0.1);
+		}
+		#desoBtn:hover {
+			background: var(--purple-neon) !important;
+			color: #000 !important;
+			box-shadow: 0 0 20px var(--purple-neon) !important;
+		}
+
+		#downloadBtn {
+			background: transparent !important;
+			border: 2px solid var(--green-neon) !important;
+			color: var(--green-neon) !important;
+			margin-left: 10px;
+			box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+		}
+		#downloadBtn:hover {
+			background: var(--green-neon) !important;
+			color: #000 !important;
+			box-shadow: 0 0 20px var(--green-neon) !important;
+		}
+
+		#desoPostBtn {
+			background: transparent !important;
+			border: 2px solid var(--magenta-neon) !important;
+			color: var(--magenta-neon) !important;
+			margin-left: 10px;
+			box-shadow: 0 0 10px rgba(255, 0, 255, 0.1);
+		}
+		#desoPostBtn:hover {
+			background: var(--magenta-neon) !important;
+			color: #000 !important;
+			box-shadow: 0 0 20px var(--magenta-neon) !important;
+		}
+
+		#playerNameInput {
+			padding: 12px 20px !important;
+			font-family: var(--font-title) !important;
+			font-weight: 700 !important;
+			font-size: 15px !important;
+			border: 2px solid var(--cyan-neon) !important;
+			border-radius: 0px !important;
+			background: rgba(0, 0, 0, 0.8) !important;
+			color: #FFF !important;
+			outline: none;
+			box-shadow: 0 0 8px rgba(0, 255, 255, 0.2);
+			transition: all 0.25s ease;
+			text-align: center;
+			letter-spacing: 1px;
+		}
+		#playerNameInput:focus {
+			border-color: var(--magenta-neon) !important;
+			box-shadow: 0 0 15px var(--magenta-neon);
+		}
+
+		/* Modern Glassmorphic Side Panels (Sharp Rectangles) */
+		#rpgPanel, #navbarPanel {
+			background: rgba(7, 7, 8, 0.92) !important;
+			backdrop-filter: blur(16px) !important;
+			-webkit-backdrop-filter: blur(16px) !important;
+			border-radius: 0px !important;
+			padding: 16px !important;
+			box-sizing: border-box;
+			font-family: var(--font-mono) !important;
+			font-size: 12px !important;
+			transition: all 0.25s ease;
+			z-index: 100;
+		}
+
+		#rpgPanel {
+			border: 1.5px solid var(--green-neon) !important;
+			box-shadow: 0 0 20px rgba(0, 255, 0, 0.15) !important;
+		}
+
+		#navbarPanel {
+			border: 1.5px solid var(--magenta-neon) !important;
+			box-shadow: 0 0 20px rgba(255, 0, 255, 0.15) !important;
+		}
+
+		/* Founder Bio Custom Buttons */
+		.founder-btn {
+			font-family: var(--font-title);
+			font-weight: 700;
+			font-size: 11px;
+			letter-spacing: 1.5px;
+			padding: 8px 12px;
+			border-radius: 0px;
+			cursor: pointer;
+			text-transform: uppercase;
+			text-decoration: none;
+			background: rgba(0, 0, 0, 0.6);
+			display: inline-block;
+			text-align: center;
+			flex: 1;
+			transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+		}
+		.founder-btn-deso {
+			border: 1.5px solid var(--cyan-neon);
+			color: var(--cyan-neon);
+			box-shadow: 0 0 5px rgba(0, 255, 255, 0.15);
+		}
+		.founder-btn-deso:hover {
+			background: var(--cyan-neon);
+			color: #000;
+			box-shadow: 0 0 15px var(--cyan-neon);
+		}
+		.founder-btn-twitter {
+			border: 1.5px solid var(--purple-neon);
+			color: var(--purple-neon);
+			box-shadow: 0 0 5px rgba(186, 85, 211, 0.15);
+		}
+		.founder-btn-twitter:hover {
+			background: var(--purple-neon);
+			color: #000;
+			box-shadow: 0 0 15px var(--purple-neon);
+		}
+		.founder-btn-site {
+			border: 1.5px solid var(--yellow-neon);
+			color: var(--yellow-neon);
+			box-shadow: 0 0 5px rgba(255, 215, 0, 0.15);
+		}
+		.founder-btn-site:hover {
+			background: var(--yellow-neon);
+			color: #000;
+			box-shadow: 0 0 15px var(--yellow-neon);
+		}
+
+		/* Section Base Styling */
+		.section-container {
+			max-width: 1200px;
+			margin: 0 auto;
+			padding: 80px 20px;
+			box-sizing: border-box;
+		}
+
+		.section-title {
+			font-family: var(--font-title);
+			font-weight: 900;
+			font-size: 32px;
+			letter-spacing: 4px;
+			text-transform: uppercase;
+			color: #fff;
+			margin-bottom: 15px;
+			text-align: center;
+			text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+			transform: skewX(-5deg);
+		}
+
+		.section-accent-bar {
+			width: 60px;
+			height: 4px;
+			background: var(--cyan-neon);
+			margin: 0 auto 40px auto;
+		}
+
+		/* Lore Section Style */
+		.lore-wrap {
+			display: flex;
+			gap: 40px;
+			align-items: center;
+			margin-bottom: 40px;
+		}
+
+		.lore-text {
+			flex: 1;
+			font-family: var(--font-title);
+			font-size: 16px;
+			line-height: 1.7;
+			color: #e2e2e8;
+			text-align: justify;
+		}
+
+		.lore-text p {
+			margin-bottom: 20px;
+		}
+
+		.lore-image-container {
+			width: 450px;
+			flex-shrink: 0;
+			border: 2px solid var(--border-light);
+			position: relative;
+			background: #000;
+		}
+		
+		.lore-image-container::before {
+			content: '';
+			position: absolute;
+			top: -8px; left: -8px;
+			right: -8px; bottom: -8px;
+			border: 1px solid var(--cyan-neon);
+			opacity: 0.3;
+			pointer-events: none;
+		}
+
+		.lore-image {
+			display: block;
+			width: 100%;
+			height: auto;
+		}
+
+		/* Rules and Mechanics Styling */
+		.rules-grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 40px;
+			margin-bottom: 60px;
+		}
+
+		.rules-column {
+			background: var(--surface-dark);
+			border: 1px solid var(--border-light);
+			padding: 30px;
+			box-sizing: border-box;
+		}
+
+		.rules-column h3 {
+			font-family: var(--font-title);
+			font-size: 20px;
+			color: var(--cyan-neon);
+			margin-top: 0;
+			margin-bottom: 20px;
+			text-transform: uppercase;
+			letter-spacing: 2px;
+		}
+
+		.controls-table {
+			width: 100%;
+			border-collapse: collapse;
+			font-family: var(--font-title);
+		}
+
+		.controls-table th, .controls-table td {
+			padding: 12px;
+			text-align: left;
+			border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+		}
+
+		.controls-table th {
+			color: var(--text-muted);
+			font-size: 12px;
+			text-transform: uppercase;
+			letter-spacing: 1px;
+		}
+
+		.controls-table td strong {
+			color: var(--yellow-neon);
+			font-family: var(--font-mono);
+		}
+
+		/* Boss Codex Section */
+		.boss-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+			gap: 24px;
+		}
+
+		.boss-card {
+			background: var(--surface-dark);
+			border: 1px solid var(--border-light);
+			transition: all 0.3s ease;
+			display: flex;
+			flex-direction: column;
+		}
+		
+		.boss-card:hover {
+			border-color: var(--magenta-neon);
+			box-shadow: 0 0 15px rgba(255, 0, 255, 0.15);
+			transform: translateY(-4px);
+		}
+
+		.boss-card-image-wrap {
+			width: 100%;
+			aspect-ratio: 16/10;
+			overflow: hidden;
+			background: #000;
+			border-bottom: 1px solid var(--border-light);
+			position: relative;
+		}
+
+		.boss-card-image {
+			width: 100%;
+			height: 100%;
+			object-fit: contain;
+			image-rendering: pixelated;
+			display: block;
+			transition: transform 0.4s ease;
+		}
+		
+		.boss-card:hover .boss-card-image {
+			transform: scale(1.05);
+		}
+
+		.boss-card-content {
+			padding: 20px;
+			flex: 1;
+			display: flex;
+			flex-direction: column;
+			gap: 8px;
+		}
+
+		.boss-card-title {
+			font-family: var(--font-title);
+			font-size: 18px;
+			font-weight: 700;
+			color: var(--white);
+			text-transform: uppercase;
+			letter-spacing: 1.5px;
+			margin: 0;
+		}
+
+		.boss-card-desc {
+			font-family: var(--font-title);
+			font-size: 13px;
+			line-height: 1.5;
+			color: var(--text-muted);
+			margin: 0;
+			text-align: justify;
+		}
+
+		.boss-card-stat {
+			font-family: var(--font-mono);
+			font-size: 11px;
+			color: var(--magenta-neon);
+			text-transform: uppercase;
+			margin-top: auto;
+			padding-top: 10px;
+			border-top: 1px dashed rgba(255, 255, 255, 0.05);
+		}
+
+		/* Character Selection Overlay (Ghostrunner style) */
+		#characterSelectionOverlay {
+			background: rgba(5, 5, 6, 0.98) !important;
+			backdrop-filter: blur(20px);
+			-webkit-backdrop-filter: blur(20px);
+		}
+
+		.ghost-card {
+			background: var(--surface-dark);
+			border: 1.5px solid var(--border-light);
+			padding: 20px;
+			box-sizing: border-box;
+			width: 200px;
+			cursor: pointer;
+			transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			text-align: center;
+			border-radius: 0px !important;
+		}
+		
+		.ghost-card:hover {
+			border-color: var(--cyan-neon);
+			box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+			transform: scale(1.03);
+		}
+
+		.ghost-card.selected {
+			border-color: var(--green-neon);
+			box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+		}
+
+		.ghost-card-img {
+			width: 120px;
+			height: 120px;
+			object-fit: contain;
+			image-rendering: pixelated;
+			margin-bottom: 12px;
+			border: 1px solid rgba(255, 255, 255, 0.05);
+			background: #000;
+		}
+
+		/* Social & Contacts bar styling below sticky header */
+		.social-link-bar {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			flex-wrap: wrap;
+			gap: 24px;
+			background: rgba(13, 13, 16, 0.7);
+			backdrop-filter: blur(8px);
+			-webkit-backdrop-filter: blur(8px);
+			border-bottom: 1px solid var(--border-light);
+			padding: 12px 20px;
+			box-sizing: border-box;
+			width: 100%;
+			z-index: 999;
+		}
+
+		.social-icon-link {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			text-decoration: none;
+			color: var(--text-muted);
+			font-family: var(--font-title);
+			font-weight: 700;
+			font-size: 13px;
+			letter-spacing: 1.5px;
+			text-transform: uppercase;
+			transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+			padding: 6px 16px;
+			border: 1.5px solid transparent;
+			background: transparent;
+		}
+
+		.social-svg {
+			width: 18px;
+			height: 18px;
+			transition: transform 0.25s ease;
+		}
+
+		/* Brand Specific Neon Glows */
+		.deso-link:hover {
+			color: var(--cyan-neon) !important;
+			text-shadow: 0 0 8px var(--cyan-neon);
+			border-color: var(--cyan-neon) !important;
+			background: rgba(0, 255, 255, 0.05) !important;
+		}
+		.deso-link:hover .social-svg {
+			transform: scale(1.1);
+		}
+
+		.gmail-link:hover {
+			color: hsl(0, 100%, 60%) !important;
+			text-shadow: 0 0 8px hsl(0, 100%, 60%);
+			border-color: hsl(0, 100%, 60%) !important;
+			background: rgba(255, 0, 0, 0.05) !important;
+		}
+		.gmail-link:hover .social-svg {
+			transform: scale(1.1);
+		}
+
+		.twitter-link:hover {
+			color: #ffffff !important;
+			text-shadow: 0 0 8px #ffffff;
+			border-color: #ffffff !important;
+			background: rgba(255, 255, 255, 0.05) !important;
+		}
+		.twitter-link:hover .social-svg {
+			transform: scale(1.1);
+		}
+
+		.telegram-link:hover {
+			color: hsl(200, 100%, 55%) !important;
+			text-shadow: 0 0 8px hsl(200, 100%, 55%);
+			border-color: hsl(200, 100%, 55%) !important;
+			background: rgba(0, 172, 255, 0.05) !important;
+		}
+		.telegram-link:hover .social-svg {
+			transform: scale(1.1);
+		}
+
+		.hyperfy-link:hover {
+			color: var(--purple-neon) !important;
+			text-shadow: 0 0 8px var(--purple-neon);
+			border-color: var(--purple-neon) !important;
+			background: rgba(180, 0, 255, 0.05) !important;
+		}
+		.hyperfy-link:hover .social-svg {
+			transform: scale(1.1);
+		}
+
+		/* Interactive Onboarding Tutorial Modal Styles */
+		.tutorial-pulsate-btn:hover {
+			box-shadow: 0 0 20px var(--cyan-neon) !important;
+			background: var(--cyan-neon) !important;
+			color: #000 !important;
+		}
+
+		.tutorial-modal-overlay {
+			display: none;
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(8, 6, 12, 0.97);
+			z-index: 2000;
+			overflow-y: auto;
+			font-family: 'Exo 2', sans-serif;
+			color: #FFF;
+			padding: 40px 20px;
+			box-sizing: border-box;
+		}
+
+		.tutorial-modal-container {
+			max-width: 900px;
+			margin: 0 auto;
+			background: rgba(15, 12, 22, 0.85);
+			border: 2px solid var(--cyan-neon);
+			box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+			display: flex;
+			flex-direction: column;
+			min-height: 580px;
+			position: relative;
+			border-radius: 0px;
+		}
+
+		.tutorial-modal-header {
+			padding: 20px;
+			border-bottom: 1px solid var(--border-light);
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+
+		.tutorial-modal-header h2 {
+			margin: 0;
+			font-size: 22px;
+			color: var(--cyan-neon);
+			letter-spacing: 2px;
+			text-transform: uppercase;
+			text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+		}
+
+		.tutorial-close-btn {
+			background: transparent;
+			border: 1px solid var(--magenta-neon);
+			color: var(--magenta-neon);
+			font-size: 14px;
+			font-weight: bold;
+			padding: 6px 12px;
+			cursor: pointer;
+			text-transform: uppercase;
+			transition: all 0.2s ease;
+		}
+
+		.tutorial-close-btn:hover {
+			background: var(--magenta-neon);
+			color: #000;
+			box-shadow: 0 0 10px var(--magenta-neon);
+		}
+
+		.tutorial-modal-body {
+			display: flex;
+			flex-grow: 1;
+		}
+
+		.tutorial-sidebar {
+			width: 200px;
+			border-right: 1px solid var(--border-light);
+			background: rgba(0, 0, 0, 0.3);
+			display: flex;
+			flex-direction: column;
+		}
+
+		.tutorial-tab-btn {
+			background: transparent;
+			border: none;
+			border-bottom: 1px solid rgba(255,255,255,0.05);
+			color: #888;
+			padding: 16px 20px;
+			text-align: left;
+			font-family: var(--font-title);
+			font-size: 13px;
+			font-weight: bold;
+			cursor: pointer;
+			text-transform: uppercase;
+			transition: all 0.2s ease;
+			outline: none;
+		}
+
+		.tutorial-tab-btn:hover {
+			color: #FFF;
+			background: rgba(255,255,255,0.02);
+		}
+
+		.tutorial-tab-btn.active {
+			color: var(--cyan-neon);
+			background: rgba(0, 255, 255, 0.05);
+			border-left: 3px solid var(--cyan-neon);
+		}
+
+		.tutorial-content-pane {
+			flex-grow: 1;
+			padding: 25px;
+			display: none;
+			box-sizing: border-box;
+		}
+
+		.tutorial-content-pane.active {
+			display: block;
+		}
+
+		/* Sandbox Interactive Styles */
+		.tutorial-canvas-container {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 12px;
+			background: #000;
+			padding: 15px;
+			border: 1px solid var(--border-light);
+			margin-top: 15px;
+		}
+
+		#tutorialCanvas {
+			background: #0a0810;
+			border: 2px solid #333;
+			image-rendering: pixelated;
+		}
+
+		.tutorial-feedback-overlay {
+			color: var(--yellow-neon);
+			font-family: var(--font-mono);
+			font-size: 13px;
+			min-height: 20px;
+			text-shadow: 0 0 5px rgba(255, 214, 0, 0.5);
+			text-align: center;
+		}
+
+		/* Blockchain Simulator Styles */
+		.tutorial-flow-node {
+			background: rgba(255,255,255,0.02);
+			border: 1px solid var(--border-light);
+			padding: 12px;
+			margin-bottom: 8px;
+			font-size: 12px;
+			border-radius: 2px;
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			transition: all 0.3s ease;
+		}
+
+		.tutorial-flow-node.active {
+			border-color: var(--yellow-neon);
+			background: rgba(255, 214, 0, 0.05);
+			box-shadow: 0 0 10px rgba(255, 214, 0, 0.1);
+		}
+
+		.tutorial-flow-node.success {
+			border-color: var(--green-neon);
+			background: rgba(0, 255, 0, 0.05);
+			box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+		}
+
+		.tutorial-console-output {
+			background: #000;
+			border: 1px solid #333;
+			color: #00FF00;
+			font-family: var(--font-mono);
+			font-size: 11px;
+			padding: 10px;
+			height: 100px;
+			overflow-y: auto;
+			white-space: pre-wrap;
+			word-break: break-all;
+			margin-top: 15px;
+			border-radius: 2px;
+		}
+	

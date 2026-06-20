@@ -4,6 +4,7 @@
   "description": "Experience the definitive edition of DeSoGhost, now expanded to a massive 33-level campaign!",
   "main": "index.js",
   "scripts": {
+    "dev": "npx http-server -p 3000 -c-1",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
