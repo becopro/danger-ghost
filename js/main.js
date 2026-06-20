@@ -4170,19 +4170,12 @@
 							var savedChar = null;
 							
 							if (savedCharId) {
-								savedChar = uniqueCharacters.find(function(c) { return c.characterId === savedCharId; });
-							}
-							
-							// Cross-PC Fix: If no saved character exists in localStorage (e.g. New PC), 
-							// or the saved one wasn't found, auto-select the strongest blockchain character!
-							if (!savedChar && uniqueCharacters.length > 0) {
-								savedChar = uniqueCharacters[0];
-							}
-
-							if (savedChar) {
-								window.g_ownedCharacters = uniqueCharacters;
-								SelectCharacterToPlay(savedChar.characterId);
-								autoSelected = true;
+								var savedChar = uniqueCharacters.find(function(c) { return c.characterId === savedCharId; });
+								if (savedChar) {
+									window.g_ownedCharacters = uniqueCharacters;
+									SelectCharacterToPlay(savedCharId);
+									autoSelected = true;
+								}
 							}
 						} catch(lsErr) {}
 					}
