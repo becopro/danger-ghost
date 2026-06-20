@@ -49,7 +49,7 @@ var GhostRPG = (function() {
 
     return {
         init: function() { 
-            // TEMPORARILY DISABLED FOR PHASE 5 TEST: this.loadLocalStorage(); 
+            this.loadLocalStorage(); 
             updateIntegrityHash(); 
         },
         getStats: function() {

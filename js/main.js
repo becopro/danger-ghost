@@ -1,40 +1,40 @@
 			// --- SHIELD PROTOCOL (ANTI-HACKER / ANTI-DEVTOOLS) ---
 			
 			// 1. Console Blackout (Silence all outputs in production)
-			// console.log = function() {};
-			// console.warn = function() {};
-			// console.error = function() {};
-			// console.info = function() {};
-			// console.dir = function() {};
+			console.log = function() {};
+			console.warn = function() {};
+			console.error = function() {};
+			console.info = function() {};
+			console.dir = function() {};
 			
 			// 2. Block Right-Click (Context Menu)
-			// document.addEventListener('contextmenu', function(e) {
-			// 	e.preventDefault();
-			// });
+			document.addEventListener('contextmenu', function(e) {
+				e.preventDefault();
+			});
 			
 			// 3. Block Developer Tools Shortcuts
-			// document.addEventListener('keydown', function(e) {
-			// 	// F12
-			// 	if (e.keyCode == 123) {
-			// 		e.preventDefault();
-			// 		return false;
-			// 	}
-			// 	// Ctrl+Shift+I (Inspecionar)
-			// 	if (e.ctrlKey && e.shiftKey && e.keyCode == 73) {
-			// 		e.preventDefault();
-			// 		return false;
-			// 	}
-			// 	// Ctrl+Shift+J (Console)
-			// 	if (e.ctrlKey && e.shiftKey && e.keyCode == 74) {
-			// 		e.preventDefault();
-			// 		return false;
-			// 	}
-			// 	// Ctrl+U (Ver Fonte)
-			// 	if (e.ctrlKey && e.keyCode == 85) {
-			// 		e.preventDefault();
-			// 		return false;
-			// 	}
-			// });
+			document.addEventListener('keydown', function(e) {
+				// F12
+				if (e.keyCode == 123) {
+					e.preventDefault();
+					return false;
+				}
+				// Ctrl+Shift+I (Inspecionar)
+				if (e.ctrlKey && e.shiftKey && e.keyCode == 73) {
+					e.preventDefault();
+					return false;
+				}
+				// Ctrl+Shift+J (Console)
+				if (e.ctrlKey && e.shiftKey && e.keyCode == 74) {
+					e.preventDefault();
+					return false;
+				}
+				// Ctrl+U (Ver Fonte)
+				if (e.ctrlKey && e.keyCode == 85) {
+					e.preventDefault();
+					return false;
+				}
+			});
 			
 			// 4. Debugger Trap (Infinite loop if DevTools opens) - DISABLED to prevent local freeze and allow inspection
 			/*
@@ -4167,13 +4167,22 @@
 					if (!forceShowOverlay && uniqueCharacters.length > 0) {
 						try {
 							var savedCharId = localStorage.getItem('dg_deso_character_id');
+							var savedChar = null;
+							
 							if (savedCharId) {
-								var savedChar = uniqueCharacters.find(function(c) { return c.characterId === savedCharId; });
-								if (savedChar) {
-									window.g_ownedCharacters = uniqueCharacters;
-									SelectCharacterToPlay(savedCharId);
-									autoSelected = true;
-								}
+								savedChar = uniqueCharacters.find(function(c) { return c.characterId === savedCharId; });
+							}
+							
+							// Cross-PC Fix: If no saved character exists in localStorage (e.g. New PC), 
+							// or the saved one wasn't found, auto-select the strongest blockchain character!
+							if (!savedChar && uniqueCharacters.length > 0) {
+								savedChar = uniqueCharacters[0];
+							}
+
+							if (savedChar) {
+								window.g_ownedCharacters = uniqueCharacters;
+								SelectCharacterToPlay(savedChar.characterId);
+								autoSelected = true;
 							}
 						} catch(lsErr) {}
 					}
