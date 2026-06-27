@@ -882,8 +882,9 @@ body::before {
 }
 
 .tutorial-modal-container {
-    max-width: 900px;
-    margin: 0 auto;
+    max-width: 1060px;
+    width: 95%;
+    margin: 40px auto;
     background: rgba(13, 10, 20, 0.8);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -979,7 +980,7 @@ body::before {
 
 .tutorial-content-pane {
     flex-grow: 1;
-    padding: 25px;
+    padding: 15px 20px;
     display: none;
     box-sizing: border-box;
     background: rgba(0, 0, 0, 0.15);
@@ -996,7 +997,7 @@ body::before {
     align-items: center;
     gap: 12px;
     background: rgba(0, 0, 0, 0.6);
-    padding: 20px;
+    padding: 12px;
     border: 1px solid var(--border-light);
     margin-top: 15px;
     border-radius: 6px;
