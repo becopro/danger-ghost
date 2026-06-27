@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Danger Ghost v2.0 | Immersive Fullscreen</title>
+    <!-- Fontes do Sistema de Design (Acessibilidade) -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Scripts Externos -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="js/core/event_bus.js"></script>
+    <script src="js/globals.js"></script>
+    <script src="js/web3/deso_api.js"></script>
+    <script src="rpg_system.js"></script>
+    <script src="js/ui/ui_manager.js"></script>
+</head>
+<body>
+    <iframe id="identityIframe" src="https://identity.deso.org/embed?v=2" style="display: none;"></iframe>
+
+    <!-- Container Principal do Viewport -->
+    <div id="gameViewport">
+        <!-- Canvas Principal do Jogo (Ocupa 100% da tela ou escalonado com Letterbox) -->
+        <canvas id="myCanvas" width="640" height="300"></canvas>
+        <img id="cutsceneGif" src="assets/sprites/Dream 36.gif" style="display: none;" />
+
+        <!-- HUD Superior Minimalista e Flutuante (In-Game) -->
+        <div id="gameHUD" class="hud-container">
+            <div class="hud-left">
+                <span id="hudLevel">LVL: 1</span>
+                <div class="bar-container hp-bar-bg"><div id="hudHP" class="bar-fill hp-bar"></div></div>
+                <div class="bar-container mp-bar-bg"><div id="hudMP" class="bar-fill mp-bar"></div></div>
+            </div>
+            
+            <div class="hud-center">
+                <h1 class="hud-title">DANGER GHOST</h1>
+            </div>
+
+            <div class="hud-right">
+                <button id="hudBtnControls" class="hud-tab-btn" onclick="ToggleNavbarTab('controls')">🎮</button>
+                <button id="hudBtnRPG" class="hud-tab-btn" onclick="ToggleNavbarTab('rpg')">👤</button>
+                <button id="hudBtnBag" class="hud-tab-btn" onclick="ToggleNavbarTab('bag')">🎒</button>
+                <button id="hudBtnEquip" class="hud-tab-btn" onclick="ToggleNavbarTab('equip')">🛡️</button>
+                <button id="hudBtnChat" class="hud-tab-btn" onclick="ToggleNavbarTab('chat')">💬</button>
+                <button id="hudMuteBtn" class="hud-tab-btn" onclick="ToggleMute()">🔊</button>
+                <button id="hudFullscreenBtn" class="hud-tab-btn" onclick="ToggleFullscreen()">⛶</button>
+            </div>
+        </div>
+
+        <!-- Overlays de Interface Flutuantes (Z-Index: 100) -->
+        <!-- Painel Esquerdo (RPG & Status) -->
+        <div id="rpgPanel" class="overlay-panel panel-left" style="display: none;">
+            <div id="rpgPanelContent"></div>
+        </div>
+
+        <!-- Painel de Chat (Esquerda) -->
+        <div id="chatPanel" class="overlay-panel panel-left" style="display: none;">
+            <h3 class="panel-header">💬 GLOBAL CHAT</h3>
+            <div class="chat-nick-row">
+                <span>NICK:</span>
+                <input type="text" id="chatNickInput" placeholder="GUEST_GHOST" />
+            </div>
+            <div id="chatMessages" class="chat-log"></div>
+            <div class="chat-input-row">
+                <input type="text" id="chatMsgInput" placeholder="TYPE MESSAGE..." />
+                <button id="chatSendBtn">SEND</button>
+            </div>
+        </div>
+
+        <!-- Painel Direito (Bag, Equipamentos, Controles, Leaderboard) -->
+        <div id="navbarPanel" class="overlay-panel panel-right" style="display: none;">
+            <div id="navbarPanelContent"></div>
+        </div>
+
+        <!-- Overlay de Seleção de Personagem (Z-Index: 300) -->
+        <div id="characterSelectionOverlay" class="modal-overlay immersive-menu" style="display: none;">
+            <!-- Efeito de Grid 3D de fundo -->
+            <div class="particles-bg"></div>
+            
+            <div class="menu-content-wrapper character-selection-wrapper">
+                <div class="title-container">
+                    <h1 class="menu-title glitched" data-text="VESSEL HUB" style="font-size: 56px;">VESSEL HUB</h1>
+                    <p class="menu-subtitle cyber-text">SYNCHRONIZE GHOST DATA</p>
+                </div>
+                
+                <div id="characterCardsContainer" class="cards-grid"></div>
+                
+                <div class="new-ghost-box">
+                    <h3 class="cyber-text" style="color: var(--white); font-size: 20px; margin: 0 0 8px 0; letter-spacing: 2px;">CREATE NEW VESSEL</h3>
+                    <p id="newGhostPriceText" style="color: var(--text-muted); font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Your first Ghost is 100% free.</p>
+                    <button id="createGhostBtn" onclick="TriggerCreateNewGhost()" class="cyber-btn green-neon" style="width: auto; margin: 0 auto;">
+                        <span class="btn-content">
+                            <span class="btn-icon">+</span>
+                            <span class="btn-text" style="color: var(--white);">MINT NEW GHOST</span>
+                        </span>
+                    </button>
+                </div>
+                
+                <button onclick="CancelCharacterSelection()" class="cyber-btn magenta-neon" style="width: auto; margin: 20px auto 0 auto;">
+                    <span class="btn-content">
+                        <span class="btn-icon">✗</span>
+                        <span class="btn-text" style="color: var(--white);">ABORT SEQUENCE</span>
+                    </span>
+                </button>
+                <div id="selectionStatusText" style="color: var(--yellow-neon); font-size: 16px; line-height: 1.5; margin-top: 10px;"></div>
+            </div>
+        </div>
+
+        <!-- Menu Inicial Imersivo (Z-Index: 400) -->
+        <div id="mainMenuOverlay" class="modal-overlay immersive-menu">
+            <!-- Efeito de Grid 3D de fundo -->
+            <div class="particles-bg"></div>
+            
+            <div class="menu-content-wrapper">
+                <div class="title-container">
+                    <h1 class="menu-title glitched" data-text="DANGER GHOST">DANGER GHOST</h1>
+                    <p class="menu-subtitle cyber-text">v2.0 // NOWHERE IMMERSION</p>
+                </div>
+                
+                <div class="menu-actions">
+                    <!-- PLAY GAME -->
+                    <button onclick="StartGameFromMenu()" class="cyber-btn primary">
+                        <span class="btn-content">
+                            <span class="btn-icon">▶</span>
+                            <span class="btn-text">INITIALIZE_LINK</span>
+                        </span>
+                    </button>
+                    
+                    <!-- SELECT CHARACTER removido (agora é automático pelo fluxo de auth) -->
+                    
+                    <!-- LORE & CODEX -->
+                    <button onclick="OpenCodexMenu()" class="cyber-btn tertiary">
+                        <span class="btn-content">
+                            <span class="btn-icon">▤</span>
+                            <span class="btn-text">ACCESS_ARCHIVES</span>
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de inicialização da Engine -->
+    <script src="js/game/engine.js"></script>
+</body>
+</html>
