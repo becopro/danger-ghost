@@ -1,533 +1,760 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
-
 <head>
-	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-	<title>DeSoGhost | 33-Level Saga</title>
-	<link href="layout.css" rel="stylesheet" type="text/css" media="screen" />
-	<link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,400;0,600;0,700;0,900;1,400;1,600;1,700&amp;family=Outfit:wght@400;600;700;900&amp;display=swap" rel="stylesheet" />
-	<link rel="stylesheet" href="css/style.css">
-	
-	<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-	<script src="js/globals.js?v=2"></script>
-	<script src="rpg_system.js?v=2"></script>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Danger Ghost v2.0 | 33-Level Saga</title>
+    <!-- Fontes do Sistema de Design (Acessibilidade) -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&amp;family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/style.css?v=5" />
+    
+    <!-- Scripts Externos -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="js/core/event_bus.js?v=5"></script>
+    <script src="js/globals.js?v=5"></script>
+    <script src="js/web3/deso_api.js?v=5"></script>
+    <script src="rpg_system.js?v=5"></script>
+    <script src="js/ui/ui_manager.js?v=5"></script>
 </head>
-
 <body>
-	<iframe id="identityIframe" src="https://identity.deso.org/embed?v=2" style="display: none;"></iframe>
+    <iframe id="identityIframe" src="https://identity.deso.org/embed?v=2" style="display: none;"></iframe>
 
-	<!-- Sticky Header & Nav -->
-	<header class="site-header">
-		<div class="header-logo">
-			<h1 class="neon-title">GHOST GAMES</h1>
-		</div>
-		<div id="gameNavbar">
-			<button id="btnNavControls" onclick="ToggleNavbarTab('controls')">🎮 CONTROLS</button>
-			<button id="btnNavRPG" onclick="ToggleNavbarTab('rpg')">👤 HERO</button>
-			<button id="btnNavBag" onclick="ToggleNavbarTab('bag')">🎒 BAG</button>
-			<button id="btnNavEquip" onclick="ToggleNavbarTab('equip')">🛡️ EQUIP</button>
-			<button id="btnNavChat" onclick="ToggleNavbarTab('chat')">💬 CHAT</button>
-		</div>
-	</header>
+    <!-- Sticky Header & Nav -->
+    <div id="fullscreenGameArea">
+    <header class="site-header">
+        <div class="header-logo">
+            <h1 class="neon-title">GHOST GAMES</h1>
+        </div>
+        <div id="gameNavbar">
+            <button id="btnNavControls" onclick="ToggleNavbarTab('controls')">🎮 CONTROLS</button>
+            <button id="btnNavRPG" onclick="ToggleNavbarTab('rpg')">👤 HERO</button>
+            <button id="btnNavSpells" onclick="ToggleNavbarTab('spells')">🔮 SPELLS</button>
+            <button id="btnNavBag" onclick="ToggleNavbarTab('bag')">🎒 BAG</button>
+            <button id="btnNavEquip" onclick="ToggleNavbarTab('equip')">🛡️ EQUIP</button>
+            <button id="btnNavChat" onclick="ToggleNavbarTab('chat')">💬 CHAT</button>
+            <button id="btnNavSave" onclick="window.TriggerRPGSaveToDeSo()" style="border: 1.5px solid var(--green-neon) !important; color: var(--green-neon) !important;">💾 SAVE</button>
+        </div>
+    </header>
 
-	<!-- Social & Link Bar below Header -->
-	<div class="social-link-bar">
-		<a href="https://mydesospace.com/u/DangerGhost?tab=posts" target="_blank" rel="noopener noreferrer" title="DeSo" class="social-icon-link deso-link">
-			<svg class="social-svg" viewBox="0 0 24 24">
-				<path fill="currentColor" d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.8L19.2 8 12 11.2 4.8 8 12 4.8zM4.5 10.3l6.5 2.9v6.5l-6.5-2.9v-6.5zm15 0v6.5l-6.5 2.9v-6.5l6.5-2.9z"/>
+    <!-- Social & Link Bar below Header -->
+    <div class="social-link-bar">
+        <a href="https://mydesospace.com/u/DangerGhost?tab=posts" target="_blank" rel="noopener noreferrer" title="DeSo" class="social-icon-link deso-link">
+            <svg class="social-svg" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.8L19.2 8 12 11.2 4.8 8 12 4.8zM4.5 10.3l6.5 2.9v6.5l-6.5-2.9v-6.5zm15 0v6.5l-6.5 2.9v-6.5l6.5-2.9z"/>
+            </svg>
+            <span>DeSo</span>
+        </a>
+        <a href="mailto:ghostgamesniteroi@gmail.com" target="_blank" rel="noopener noreferrer" title="Gmail" class="social-icon-link gmail-link">
+            <svg class="social-svg" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+            </svg>
+            <span>Gmail</span>
+        </a>
+        <a href="https://x.com/GhostGamesnit" target="_blank" rel="noopener noreferrer" title="Twitter" class="social-icon-link twitter-link">
+            <svg class="social-svg" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
 			</svg>
-			<span>DeSo</span>
-		</a>
-		<a href="mailto:ghostgamesniteroi@gmail.com" target="_blank" rel="noopener noreferrer" title="Gmail" class="social-icon-link gmail-link">
-			<svg class="social-svg" viewBox="0 0 24 24">
-				<path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
-			</svg>
-			<span>Gmail</span>
-		</a>
-		<a href="https://x.com/GhostGamesnit" target="_blank" rel="noopener noreferrer" title="Twitter" class="social-icon-link twitter-link">
-			<svg class="social-svg" viewBox="0 0 24 24">
-				<path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-			</svg>
-			<span>Twitter</span>
-		</a>
-		<a href="https://t.me/+UjvGrGA-Ia40YjIx" target="_blank" rel="noopener noreferrer" title="Telegram" class="social-icon-link telegram-link">
-			<svg class="social-svg" viewBox="0 0 24 24">
-				<path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-1-.65-.35-1 .22-1.6 1.5-1.55 2.75-2.6 2.75-2.6.01-.12.02-.2-.04-.25s-.18-.02-.31.02c-.19.06-3.13 2-6.19 4.07-.47.31-.89.47-1.26.46-.4-.01-1.18-.23-1.76-.42-.71-.23-1.27-.35-1.22-.75.02-.2.31-.4 1-.63 4.25-1.85 7.08-3.08 8.5-3.69 4.05-1.74 4.89-2.04 5.44-2.05.12 0 .39.03.56.17.14.12.18.28.2.4-.02.04-.02.1-.02.16z"/>
-			</svg>
-			<span>Telegram</span>
-		</a>
-		<a href="https://hyperfy.io/desoghostmansion" target="_blank" rel="noopener noreferrer" title="Hyperfy" class="social-icon-link hyperfy-link">
-			<svg class="social-svg" viewBox="0 0 24 24">
-				<path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
-			</svg>
-			<span>Hyperfy</span>
-		</a>
-	</div>
+            <span>Twitter</span>
+        </a>
+        <a href="https://t.me/+UjvGrGA-Ia40YjIx" target="_blank" rel="noopener noreferrer" title="Telegram" class="social-icon-link telegram-link">
+            <svg class="social-svg" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-1-.65-.35-1 .22-1.6 1.5-1.55 2.75-2.6 2.75-2.6.01-.12.02-.2-.04-.25s-.18-.02-.31.02c-.19.06-3.13 2-6.19 4.07-.47.31-.89.47-1.26.46-.4-.01-1.18-.23-1.76-.42-.71-.23-1.27-.35-1.22-.75.02-.2.31-.4 1-.63 4.25-1.85 7.08-3.08 8.5-3.69 4.05-1.74 4.89-2.04 5.44-2.05.12 0 .39.03.56.17.14.12.18.28.2.4-.02.04-.02.1-.02.16z"/>
+            </svg>
+            <span>Telegram</span>
+        </a>
+        <a href="https://hyperfy.io/desoghostmansion" target="_blank" rel="noopener noreferrer" title="Metaverso" class="social-icon-link hyperfy-link">
+            <svg class="social-svg" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+            </svg>
+            <span>Metaverso</span>
+        </a>
+    </div>
 
-	<!-- Section 1: The Game (Canvas Area) -->
-	<section id="game-section">
-		<!-- External Game Timer -->
-		<div id="externalTimer" style="display: none; font-size: 24px; font-weight: bold; color: #FFFFFF; font-family: 'Courier New', monospace; margin: 10px auto; text-shadow: 0 0 10px #FFFFFF; letter-spacing: 2px;">TIME: 00:00</div>
+    <!-- Section 1: The Game (Canvas Area) -->
+    <section id="game-section">
+        <div class="canvas-container">
+            <!-- Canvas Principal -->
+            <canvas id="myCanvas" width="640" height="300"></canvas>
+            <img id="cutsceneGif" src="assets/sprites/Dream 36.gif" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; box-sizing: border-box; border: 2px solid #00FFFF; object-fit: cover;" alt="Cutscene Gif" />
+            <button id="gameScreenModeBtn" onclick="ToggleGameFullscreen()" style="position: absolute; right: 10px; top: 10px; z-index: 1000; display: none; background: rgba(13, 13, 16, 0.85); border: 1.5px solid var(--cyan-neon); color: var(--cyan-neon); font-family: var(--font-title); font-size: 11px; letter-spacing: 1px; padding: 6px 12px; cursor: pointer; border-radius: 4px; box-shadow: 0 0 10px rgba(0, 255, 255, 0.25); text-shadow: 0 0 5px var(--cyan-neon); text-transform: uppercase;">MINIMIZE 🗗</button>
+            <button id="muteBtn" onclick="ToggleMute()" style="position: absolute; right: 0px; top: -45px; font-size: 30px; background: none; border: none; cursor: pointer; padding: 0; outline: none; text-shadow: 0 0 5px #00FFFF;" title="Mute/Unmute">🔊</button>
 
-		<div class="canvas-container">
-			<canvas id="myCanvas" width="640" height="300"></canvas>
-			<img id="cutsceneGif" src="assets/sprites/Dream 36.gif" style="position: absolute; top: 0; left: 0; width: 640px; height: 300px; display: none; box-sizing: border-box; border: 2px solid #00FFFF;" />
-			<button id="muteBtn" onclick="ToggleMute()" style="position: absolute; right: 0px; top: -45px; font-size: 30px; background: none; border: none; cursor: pointer; padding: 0; outline: none; text-shadow: 0 0 5px #00FFFF;" title="Mute/Unmute">🔊</button>
-			
-			<!-- Shared Collapsible Drawer (Positioned Absolutely on the Left Side of the Canvas for RPG) -->
-			<div id="rpgPanel" style="display: none; position: absolute; left: -320px; top: 0px; width: 300px; background: rgba(0,0,0,0.9); border: 2px solid #00FF00; border-radius: 5px; padding: 12px; box-shadow: 0 0 15px #00FF00; box-sizing: border-box; text-align: left; font-family: 'Courier New'; font-size: 13px; z-index: 100;">
-				<div id="rpgPanelContent" style="color: #FFF; line-height: 18px;"></div>
-			</div>
+            <!-- Painel Esquerdo (RPG & Status) -->
+            <div id="rpgPanel" class="overlay-panel panel-left" style="display: none;">
+                <div id="rpgPanelContent"></div>
+            </div>
 
-			<!-- Shared Collapsible Drawer (Positioned Absolutely on the Left Side of the Canvas for Chat) -->
-			<div id="chatPanel" style="display: none; position: absolute; left: -320px; top: 0px; width: 300px; height: 300px; background: rgba(8, 6, 12, 0.95); border: 2px solid var(--cyan-neon); border-radius: 0px; padding: 12px; box-shadow: 0 0 15px var(--cyan-neon); box-sizing: border-box; text-align: left; font-family: var(--font-title); font-size: 13px; z-index: 100; flex-direction: column;">
-				<h3 style="margin: 0 0 8px 0; color: var(--cyan-neon); text-align: center; letter-spacing: 2px; font-size: 14px; text-transform: uppercase;">💬 GLOBAL CHAT</h3>
-				
-				<!-- Nickname Setup -->
-				<div style="margin-bottom: 8px; display: flex; gap: 6px; align-items: center;">
-					<span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; white-space: nowrap;">NICK:</span>
-					<input type="text" id="chatNickInput" placeholder="GUEST_GHOST" style="background: #000; border: 1px solid var(--border-light); color: #FFF; font-size: 11px; padding: 3px 6px; width: 100%; box-sizing: border-box; outline: none; border-radius: 0;" />
-				</div>
+            <!-- Painel de Chat (Esquerda) -->
+            <div id="chatPanel" class="overlay-panel panel-left" style="display: none;">
+                <h3 class="panel-header">💬 GLOBAL CHAT</h3>
+                <div class="chat-nick-row">
+                    <span>NICK:</span>
+                    <input type="text" id="chatNickInput" placeholder="GUEST_GHOST" />
+                </div>
+                <div id="chatMessages" class="chat-log"></div>
+                <div class="chat-input-row">
+                    <input type="text" id="chatMsgInput" placeholder="TYPE MESSAGE..." />
+                    <button id="chatSendBtn">SEND</button>
+                </div>
+            </div>
 
-				<!-- Scrollable Message Area -->
-				<div id="chatMessages" style="flex-grow: 1; overflow-y: auto; background: #000; border: 1px solid var(--border-light); padding: 8px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 6px; font-family: var(--font-mono); font-size: 11px; word-break: break-all;">
-				</div>
+            <!-- Painel Direito (Bag, Equipamentos, Controles, Leaderboard) -->
+            <div id="navbarPanel" class="overlay-panel panel-right" style="display: none;">
+                <div id="navbarPanelContent"></div>
+            </div>
 
-				<!-- Message Input Area -->
-				<div style="display: flex; gap: 6px;">
-					<input type="text" id="chatMsgInput" placeholder="TYPE MESSAGE..." style="background: #000; border: 1px solid var(--border-light); color: #FFF; font-size: 11px; padding: 6px; flex-grow: 1; outline: none; border-radius: 0;" />
-					<button id="chatSendBtn" style="background: var(--cyan-neon); color: #000; border: none; padding: 6px 12px; font-weight: bold; cursor: pointer; font-size: 11px; font-family: var(--font-title); text-transform: uppercase;">SEND</button>
-				</div>
-			</div>
+            <!-- Overlay de Seleção de Personagem (Z-Index: 300) -->
+            <div id="characterSelectionOverlay" class="modal-overlay immersive-menu" style="display: none;">
+                <div class="particles-bg"></div>
+                <div class="menu-content-wrapper character-selection-wrapper" style="transform: scale(0.65);">
+                    <div class="title-container">
+                        <h1 class="menu-title glitched" data-text="VESSEL HUB" style="font-size: 56px;">VESSEL HUB</h1>
+                        <p class="menu-subtitle cyber-text">SYNCHRONIZE GHOST DATA</p>
+                    </div>
+                    
+                    <div id="characterCardsContainer" class="cards-grid"></div>
+                    
+                    <div class="new-ghost-box">
+                        <h3 class="cyber-text" style="color: var(--white); font-size: 20px; margin: 0 0 8px 0; letter-spacing: 2px;">CREATE NEW VESSEL</h3>
+                        <p id="newGhostPriceText" style="color: var(--text-muted); font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Your first Ghost is 100% free.</p>
+                        <button id="createGhostBtn" onclick="TriggerCreateNewGhost()" class="cyber-btn green-neon" style="width: auto; margin: 0 auto;">
+                            <span class="btn-content">
+                                <span class="btn-icon">+</span>
+                                <span class="btn-text" style="color: var(--white);">MINT NEW GHOST</span>
+                            </span>
+                        </button>
+                    </div>
+                    
+                    <button onclick="CancelCharacterSelection()" class="cyber-btn magenta-neon" style="width: auto; margin: 20px auto 0 auto;">
+                        <span class="btn-content">
+                            <span class="btn-icon">✗</span>
+                            <span class="btn-text" style="color: var(--white);">ABORT SEQUENCE</span>
+                        </span>
+                    </button>
+                    <div id="selectionStatusText" style="color: var(--yellow-neon); font-size: 16px; line-height: 1.5; margin-top: 10px;"></div>
+                </div>
+            </div>
 
-			<!-- Shared Collapsible Drawer (Positioned Absolutely on the Right Side of the Canvas) -->
-			<div id="navbarPanel" style="display: none; position: absolute; right: -320px; top: 0px; width: 300px; background: rgba(0,0,0,0.9); border: 2px solid #FF00FF; border-radius: 5px; padding: 12px; box-shadow: 0 0 15px #FF00FF; box-sizing: border-box; text-align: left; font-family: 'Courier New'; font-size: 13px; z-index: 100;">
-				<div id="navbarPanelContent" style="color: #FFF; line-height: 18px;"></div>
-			</div>
+            <!-- Menu Inicial Imersivo (Z-Index: 400) -->
+            <div id="mainMenuOverlay" class="modal-overlay immersive-menu">
+                <div class="particles-bg"></div>
+                <div class="menu-content-wrapper" style="transform: scale(0.65);">
+                    <div class="title-container">
+                        <h1 class="menu-title glitched" data-text="DANGER GHOST">DANGER GHOST</h1>
+                    </div>
+                    
+                    <div class="menu-actions" style="display: flex; flex-direction: column; gap: 15px; align-items: center; margin-top: 15px;">
+                        <button onclick="StartDeSoPlayFlow()" class="cyber-btn primary" style="width: 320px;">
+                            <span class="btn-content" style="justify-content: center;">
+                                <span class="btn-icon">🔑</span>
+                                <span class="btn-text">Play Now login DeSo.</span>
+                            </span>
+                        </button>
+                        <button onclick="StartGuestPlayFlow()" class="cyber-btn secondary" style="width: 320px;">
+                            <span class="btn-content" style="justify-content: center;">
+                                <span class="btn-icon">👤</span>
+                                <span class="btn-text">Play Now as Guest</span>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <br />
+        <div id="winPanel" style="display: none; margin-top: 20px;">
+            <input type="text" id="playerNameInput" placeholder="ENTER PLAYER NAME" maxlength="20" />
+            <button id="downloadBtn" onclick="DownloadScreenshot()" class="glass-action-btn">DOWNLOAD SCREENSHOT</button>
+            <button id="desoPostBtn" onclick="PostToDeSo()" class="glass-action-btn">SAVE TO DESO (BLOCKCHAIN)</button>
+        </div>
+    </section>
+    </div>
 
+    <!-- Playable Tutorial Section -->
+    <section id="tutorial-btn-section" style="width: 100%; text-align: center; margin: 30px 0 15px 0;">
+        <div class="section-container" style="max-width: 640px; margin: 0 auto; padding: 0 20px; box-sizing: border-box;">
+            <button id="openTutorialBtn" class="glass-action-btn tutorial-pulsate-btn" onclick="OpenInteractiveTutorial()" style="background: #000; border: 2px solid var(--cyan-neon) !important; color: var(--cyan-neon) !important; font-family: var(--font-title); font-size: 14px; letter-spacing: 2.5px; font-weight: bold; width: 100%; padding: 16px; border-radius: 0px; text-shadow: 0 0 8px var(--cyan-neon); box-shadow: 0 0 15px rgba(0, 255, 255, 0.1); cursor: pointer; transition: all 0.25s ease;">
+                ⚡ PLAYABLE INTERACTIVE TUTORIAL ⚡
+            </button>
+        </div>
+    </section>
 
-		</div>
-		<br>
-		<button id="desoBtn" onclick="LoginDeSo()" class="glass-action-btn">LOGIN DESO</button>
-		
-		<div id="winPanel" style="display: none; margin-top: 20px;">
-			<input type="text" id="playerNameInput" placeholder="ENTER PLAYER NAME" maxlength="20" />
-			<button id="downloadBtn" onclick="DownloadScreenshot()" class="glass-action-btn">DOWNLOAD SCREENSHOT</button>
-			<button id="desoPostBtn" onclick="PostToDeSo()" class="glass-action-btn">SAVE TO DESO (BLOCKCHAIN)</button>
-		</div>
-	</section>
+    <!-- Play Modes Explanation Section -->
+    <section id="play-modes-explanation" style="width: 100%; margin: 20px 0 35px 0;">
+        <div class="section-container" style="max-width: 640px; margin: 0 auto; padding: 0 20px; box-sizing: border-box;">
+            <div style="background: rgba(13, 13, 16, 0.85); border: 1.5px solid var(--border-light); border-radius: 4px; padding: 20px; box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; gap: 15px;">
+                <h4 style="color: #FFF; font-family: var(--font-title); font-size: 13px; text-transform: uppercase; letter-spacing: 2px; margin: 0; text-align: center; border-bottom: 1px solid var(--border-light); padding-bottom: 10px;">
+                    🎮 HOW TO SAVE YOUR PROGRESS?
+                </h4>
+                
+                <div style="display: flex; flex-direction: column; gap: 12px; font-family: var(--font-text); font-size: 12px; line-height: 18px; text-align: left;">
+                    <!-- Play Now login DeSo option -->
+                    <div style="border-left: 3px solid var(--yellow-neon); padding-left: 12px;">
+                        <strong style="color: var(--yellow-neon); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; text-shadow: 0 0 5px rgba(255, 214, 0, 0.3);">🔑 Play Now with DeSo Login:</strong>
+                        <p style="color: var(--text-muted); margin: 4px 0 0 0;">
+                            Allows you to log in with your DeSo wallet to **save your progress permanently on the DeSo Blockchain**! Your levels, allocated attributes, and upgraded weapons will always be safe in the decentralized cloud, accessible from anywhere.
+                        </p>
+                    </div>
+                    
+                    <!-- Play Now convidado option -->
+                    <div style="border-left: 3px solid #ff5555; padding-left: 12px;">
+                        <strong style="color: #ff5555; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; text-shadow: 0 0 5px rgba(255, 85, 85, 0.3);">👤 Play Now as Guest:</strong>
+                        <p style="color: var(--text-muted); margin: 4px 0 0 0;">
+                            Allows you to play Danger Ghost immediately as a visitor to experiment and have fun. However, **your progress will not be saved**, as the guest session is not connected to the DeSo blockchain network, where hero save data is permanently recorded.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-	<!-- Playable Tutorial Section -->
-	<section id="tutorial-btn-section" style="width: 100%; text-align: center; margin: 30px 0 15px 0;">
-		<div class="section-container" style="max-width: 640px; margin: 0 auto; padding: 0 20px; box-sizing: border-box;">
-			<button id="openTutorialBtn" class="glass-action-btn tutorial-pulsate-btn" onclick="OpenInteractiveTutorial()" style="background: #000; border: 2px solid var(--cyan-neon) !important; color: var(--cyan-neon) !important; font-family: var(--font-title); font-size: 14px; letter-spacing: 2.5px; font-weight: bold; width: 100%; padding: 16px; border-radius: 0px; text-shadow: 0 0 8px var(--cyan-neon); box-shadow: 0 0 15px rgba(0, 255, 255, 0.1); cursor: pointer; transition: all 0.25s ease;">
-				⚡ PLAYABLE INTERACTIVE TUTORIAL ⚡
-			</button>
-		</div>
-	</section>
+    <!-- Section 2: Lore of Danger Ghost -->
+    <section id="lore-section" style="background-color: var(--surface-dark); border-top: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light); width: 100%;">
+        <div class="section-container">
+            <h2 class="section-title">THE LORE OF FTASMA</h2>
+            <div class="section-accent-bar"></div>
+            
+            <div class="lore-wrap">
+                <div class="lore-text">
+                    <p>
+                        In the depths of <strong>Nowhere</strong>, souls wander stripped of flesh. The protagonist of the saga is <strong>Ftasma</strong>, an incorporeal spectral projection born directly as a ghost in <strong>Niterói in the year 2012</strong>. His past history — how he became this specter — remains hidden under a veil of absolute mystery to the entire cosmos and to himself.
+                    </p>
+                    <p>
+                        Instead of being paralyzed, Ftasma uses his cosmic amnesia as strength. Immune to spiritual manipulation because he possesses no true name, he acts as a <strong>wise and opportunistic anti-hero</strong>, manipulating the laws of the rift to gain advantages and increase his power at all costs.
+                    </p>
+                    <p>
+                        In the year <strong>2020</strong>, to avoid his cosmic dissolution, he performed the <strong>Spiritual Migration</strong>, integrating his soul directly into the <strong>DeSo</strong> blockchain. He converted his consciousness into elliptic curve keys and immutable block records, ensuring his digital immortality.
+                    </p>
+                </div>
+                <div class="lore-image-container">
+                    <img src="UI/Ftasma é.png" alt="Ftasma in Nowhere" class="lore-image" />
+                </div>
+            </div>
+            
+            <div class="lore-wrap" style="flex-direction: row-reverse; margin-top: 60px;">
+                <div class="lore-text">
+                    <h3 style="font-family: var(--font-title); font-size: 20px; color: var(--magenta-neon); text-transform: uppercase; margin-bottom: 15px;">Cryptographic Persistence</h3>
+                    <p>
+                        Ftasma's soul does not reside on fragile local servers. Each level milestone, items in the BAG, and RPG attributes are compiled into a cryptographic Base64 sheet and recorded on-chain in the <code>DangerGhost_SaveState</code> metadata.
+                    </p>
+                    <p>
+                        At the end of his 33-level campaign, the hero's soul can be minted permanently as a <strong>spectral NFT</strong>, securing his immortality on the eternal ledger and allowing other hunters to invoke his power.
+                    </p>
+                </div>
+                <div class="lore-image-container">
+                    <img src="UI/1.png" alt="DeSo Eternal Ledger" class="lore-image" />
+                </div>
+            </div>
+        </div>
+    </section>
 
-	<!-- Interactive Tutorial Modal Overlay -->
-	<div id="interactiveTutorialModal" class="tutorial-modal-overlay">
-		<div class="tutorial-modal-container">
-			<div class="tutorial-modal-header">
-				<h2>⚡ Danger Ghost - Playable Onboarding & Guide</h2>
-				<button class="tutorial-close-btn" onclick="CloseInteractiveTutorial()">Close [X]</button>
-			</div>
-			<div class="tutorial-modal-body">
-				<!-- Sidebar tabs -->
-				<div class="tutorial-sidebar">
-					<button id="tabBtnSandbox" class="tutorial-tab-btn active" onclick="SwitchTutorialTab('sandbox')">🎮 Play Sandbox</button>
-					<button id="tabBtnSpells" class="tutorial-tab-btn" onclick="SwitchTutorialTab('spells')">🔮 Spells & Runes</button>
-					<button id="tabBtnBlockchain" class="tutorial-tab-btn" onclick="SwitchTutorialTab('blockchain')">💾 Blockchain Saves</button>
-					<button id="tabBtnGettingStarted" class="tutorial-tab-btn" onclick="SwitchTutorialTab('start')">🚀 Getting Started</button>
-				</div>
-				<!-- Content panes -->
-				<div class="tutorial-content-pane active" id="paneSandbox">
-					<h3 style="color: var(--cyan-neon); margin: 0 0 10px 0; text-transform: uppercase;">Interactive Physics Sandbox</h3>
-					<p style="font-size: 13px; color: var(--text-muted); margin: 0 0 15px 0; line-height: 18px;">
-						Practice movement and spells below! Press keys on your keyboard and watch Ftasma react in real-time. Use it to learn before entering the main game.
-					</p>
-					
-					<div class="tutorial-canvas-container">
-						<div id="tutorialFeedback" class="tutorial-feedback-overlay">Press A / D to walk.</div>
-						<canvas id="tutorialCanvas" width="560" height="180"></canvas>
-						<div style="font-size: 11px; color: #888; text-transform: uppercase;">
-							Keys: Walk [A / D] | Jump / Triple Jump [W] | Spark [V] | Ghost Mode [Hold F] | Orb [E] | Form [R]
-						</div>
-					</div>
-				</div>
+    <!-- Section 3: Rules and Mechanics (Beginners Guide) -->
+    <section id="rules-section" style="width: 100%;">
+        <div class="section-container">
+            <h2 class="section-title">RULES & MECHANICS</h2>
+            <div class="section-accent-bar" style="background: var(--magenta-neon);"></div>
+            
+            <div class="rules-grid">
+                <!-- Controls -->
+                <div class="rules-column">
+                    <h3>🎮 HUNTER CONTROLS</h3>
+                    <table class="controls-table">
+                        <thead>
+                            <tr>
+                                <th>Action</th>
+                                <th>Keys</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Move Left / Right</td>
+                                <td><strong>A / D</strong> or <strong>Arrows</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Jump / Enter Doors</td>
+                                <td><strong>W</strong> or <strong>Up Arrow</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Exit Doors / Down Platforms</td>
+                                <td><strong>S</strong> or <strong>Down Arrow</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Spectral Spark (Spell Q)</td>
+                                <td><strong>Q</strong> (Generates mana when hitting monsters)</td>
+                            </tr>
+                            <tr>
+                                <td>Ghost Mode (Spell F)</td>
+                                <td><strong>F</strong> (Hold to phase through walls)</td>
+                            </tr>
+                            <tr>
+                                <td>Plasma Orb (Spell E)</td>
+                                <td><strong>E</strong> (Massive penetrating projectile)</td>
+                            </tr>
+                            <tr>
+                                <td>Phantom Form (Spell R)</td>
+                                <td><strong>R</strong> (Total immunity and speed boost)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Attributes -->
+                <div class="rules-column">
+                    <h3>👤 RPG ATTRIBUTES</h3>
+                    <table class="controls-table">
+                        <thead>
+                            <tr>
+                                <th>Attribute</th>
+                                <th>Conceptual Mechanics</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>VIT (Vitality)</strong></td>
+                                <td>Increases the maximum cap of accumulable spectral lives (Cap = <code>4 + VIT</code>).</td>
+                            </tr>
+                            <tr>
+                                <td><strong>AGI (Agility)</strong></td>
+                                <td>Improves Ftasma's movement speed and jumping physics/momentum.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>INT (Intelligence)</strong></td>
+                                <td>Speeds up mana regeneration rate and optimizes Ghost Mode mana consumption.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>POW (Power)</strong></td>
+                                <td>Amplifies the damage of jump-stomps on monsters' heads.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>MAG (Magic)</strong></td>
+                                <td>Expands the maximum ectoplasm reservoir (Max Mana = <code>100 + MAG * 20</code>).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <h2 class="section-title" style="font-size: 24px; margin-top: 60px;">ABYSS BESTIARY (BOSS CODEX)</h2>
+            <div class="section-accent-bar" style="background: var(--yellow-neon); margin-bottom: 40px;"></div>
+            
+            <div class="boss-grid">
+                <!-- Demon Fly -->
+                <div class="boss-card">
+                    <div class="boss-card-image-wrap">
+                        <img src="assets/sprites/Brd direita.webp" alt="Demon Fly" class="boss-card-image" />
+                    </div>
+                    <div class="boss-card-content">
+                        <h4 class="boss-card-title">Demon Fly</h4>
+                        <p class="boss-card-desc">
+                            Creatures born from the spiritual rot of Nowhere. They shoot celestial sparks at the hero and possess high resistance against jumps and continuous fire/poison damage.
+                        </p>
+                        <span class="boss-card-stat">Resistances: Fire, Poison, Impact</span>
+                    </div>
+                </div>
+                
+                <!-- Slime -->
+                <div class="boss-card">
+                    <div class="boss-card-image-wrap">
+                        <img src="assets/sprites/Slime esquerda.webp" alt="Slime" class="boss-card-image" />
+                    </div>
+                    <div class="boss-card-content">
+                        <h4 class="boss-card-title">Slime</h4>
+                        <p class="boss-card-desc">
+                            Ooze formed by the fusion of souls dissolved in lava. They attack by firing plasma spheres and spawn dynamically whenever the player accumulates mystical score.
+                        </p>
+                        <span class="boss-card-stat">Resistances: Fire, Poison, Jumps</span>
+                    </div>
+                </div>
+                
+                <!-- Colossal Skull -->
+                <div class="boss-card">
+                    <div class="boss-card-image-wrap">
+                        <img src="assets/sprites/Skull-esquerda.webp" alt="Colossal Skull" class="boss-card-image" />
+                    </div>
+                    <div class="boss-card-content">
+                        <h4 class="boss-card-title">Colossal Skull</h4>
+                        <p class="boss-card-desc">
+                            The Titanic Guardian of cave1. It fires massive purple plasma orbs and reflects 80% of Plasma Orb damage, requiring crown stomps or elemental rune magic.
+                        </p>
+                        <span class="boss-card-stat">Resistances: Plasma Orb (80%)</span>
+                    </div>
+                </div>
+                
+                <!-- Cactus -->
+                <div class="boss-card">
+                    <div class="boss-card-image-wrap">
+                        <img src="assets/sprites/Cactus direita.webp" alt="Cactus" class="boss-card-image" />
+                    </div>
+                    <div class="boss-card-content">
+                        <h4 class="boss-card-title">Cactus</h4>
+                        <p class="boss-card-desc">
+                            Colossal distortion of limbo vegetation. A rigid plant obstacle of 288x288 pixels that blocks Ftasma's free passage in specific zones.
+                        </p>
+                        <span class="boss-card-stat">Type: Giant Obstacle</span>
+                    </div>
+                </div>
+                
+                <!-- Sick Crow -->
+                <div class="boss-card">
+                    <div class="boss-card-image-wrap">
+                        <img src="assets/sprites/Sickcrow e.webp" alt="Sick Crow" class="boss-card-image" />
+                    </div>
+                    <div class="boss-card-content">
+                        <h4 class="boss-card-title">Sick Crow</h4>
+                        <p class="boss-card-desc">
+                            Heralds of death that patrol the misty ceiling of Nowhere. They are summoned with every extra life collected and relentlessly pursue Ftasma.
+                        </p>
+                        <span class="boss-card-stat">Type: Aerial Patroller</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-				<div class="tutorial-content-pane" id="paneSpells">
-					<h3 style="color: var(--magenta-neon); margin: 0 0 10px 0; text-transform: uppercase;">Rune & Elemental Magic Simulator</h3>
-					<p style="font-size: 13px; color: var(--text-muted); margin: 0 0 15px 0; line-height: 18px;">
-						Ftasma infuses spells with element Runes to apply status modifications to enemies. Select an element Rune below to view its visual projectile effect.
-					</p>
-					
-					<div style="display: flex; gap: 20px; align-items: flex-start; margin-top: 15px;">
-						<div style="flex: 1; display: flex; flex-direction: column; gap: 12px;">
-							<div style="display: flex; flex-direction: column; gap: 5px;">
-								<label style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Select Element Rune:</label>
-								<select id="tutorialRuneSelect" onchange="UpdateTutorialRunePreview()" style="background: #000; color: #FFF; border: 1px solid var(--border-light); font-family: var(--font-title); font-size: 13px; padding: 6px; outline: none; border-radius: 0; cursor: pointer;">
-									<option value="arcane">Arcane (No Rune / Pure Magic)</option>
-									<option value="fire">Fire Rune (Burning Damage)</option>
-									<option value="cold">Cold Rune (Slows Speed by 50%)</option>
-									<option value="lightning">Lightning Rune (Stuns Enemies)</option>
-									<option value="poison">Poison Rune (Corrosive Ticks)</option>
-								</select>
-							</div>
-							
-							<div id="tutorialRuneDesc" style="font-size: 12px; line-height: 18px; color: #FFF; background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 12px; border-radius: 2px;">
-								<strong>Arcane Element:</strong> Amplifies raw spell damage by 40% with pure ectoplasm. Good for raw damage output.
-							</div>
-						</div>
-						
-						<!-- Projectile simulation screen -->
-						<div style="width: 240px; background: #000; border: 1px solid var(--border-light); padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; min-height: 160px; box-sizing: border-box; position: relative;">
-							<div style="position: absolute; top: 6px; left: 10px; font-size: 9px; color: #555; text-transform: uppercase;">Visual Projectile Preview</div>
-							<div id="tutorialRuneOrb" style="width: 32px; height: 32px; border-radius: 50%; background: radial-gradient(circle, #FFF 0%, #D500F9 70%); box-shadow: 0 0 20px #D500F9; transition: all 0.3s ease;"></div>
-							<button onclick="TriggerTutorialRuneBlast()" class="glass-action-btn" style="padding: 5px 12px; font-size: 11px; border: 1px solid var(--cyan-neon); color: var(--cyan-neon); background: transparent; cursor: pointer;">Simulate Blast</button>
-						</div>
-					</div>
-				</div>
+    <!-- Section: RPG Equipment Showcase -->
+    <section id="equipment-showcase-section" style="background-color: var(--background-dark); border-top: 1px solid var(--border-light); width: 100%; padding: 40px 0;">
+        <div class="section-container" style="max-width: 1200px; margin: 0 auto; padding: 0 20px; box-sizing: border-box;">
+            <h2 class="section-title" style="text-align: center; color: var(--yellow-neon); font-family: var(--font-title); font-size: 28px; margin-bottom: 5px; text-shadow: 0 0 10px rgba(255, 170, 0, 0.3);">EQUIPMENT & LOOT SYSTEM</h2>
+            <div class="section-accent-bar" style="background: var(--yellow-neon); width: 80px; height: 3px; margin: 0 auto 30px auto; border-radius: 2px;"></div>
+            
+            <p style="text-align: center; color: var(--text-muted); font-size: 14px; max-width: 700px; margin: 0 auto 40px auto; line-height: 1.6;">
+                Eliminate bosses in the Nowhere abyss to drop premium equipment! Defeating a boss yields <strong>0 to 2 random items</strong>. Equip them in your Bag to increase attributes (VIT, AGI, INT, POW, MAG) and unlock legendary active spells!
+            </p>
 
-				<div class="tutorial-content-pane" id="paneBlockchain">
-					<h3 style="color: var(--yellow-neon); margin: 0 0 10px 0; text-transform: uppercase;">Blockchain Cloud Save Simulator</h3>
-					<p style="font-size: 13px; color: var(--text-muted); margin: 0 0 15px 0; line-height: 18px;">
-						Learn how Ftasma saves stats, weapons, and levels securely on the DeSo ledger. We explain this with simple gaming analogies.
-					</p>
-					
-					<div style="display: flex; gap: 15px; margin-top: 15px;">
-						<!-- Analogy Cards -->
-						<div style="flex: 1; display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 5px;">
-							<div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 10px; border-radius: 2px;">
-								<span style="color: var(--cyan-neon); font-size: 13px; font-weight: bold;">🔑 Derived Keys (Hotel Room Keycard)</span>
-								<p style="font-size: 11px; color: var(--text-muted); margin: 4px 0 0 0; line-height: 15px;">
-									A temporary permission slip that lets the game save your progress automatically without exposing your main wallet balance. Safe, zero-fee, and pop-up free.
-								</p>
-							</div>
-							<div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 10px; border-radius: 2px;">
-								<span style="color: var(--yellow-neon); font-size: 13px; font-weight: bold;">💾 On-Chain Save (Hall of Records)</span>
-								<p style="font-size: 11px; color: var(--text-muted); margin: 4px 0 0 0; line-height: 15px;">
-									A permanent record written directly into the blockchain ledger. Even if you format your PC or clear your browser cache, your stats, weapon, and bag items remain safe forever.
-								</p>
-							</div>
-							<div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 10px; border-radius: 2px;">
-								<span style="color: var(--magenta-neon); font-size: 13px; font-weight: bold;">🏆 NFT Minting (Physical Trophy Cabinet)</span>
-								<p style="font-size: 11px; color: var(--text-muted); margin: 4px 0 0 0; line-height: 15px;">
-									Turn your final win screenshots and character sheet stats into unique digital trophies inside your wallet. Showcase them on social feeds or trade with other hunters.
-								</p>
-							</div>
-						</div>
-						
-						<!-- Interactive simulator panel -->
-						<div style="width: 280px; background: #000; border: 1px solid var(--border-light); padding: 15px; box-sizing: border-box; display: flex; flex-direction: column;">
-							<div style="font-size: 11px; font-weight: bold; color: var(--yellow-neon); margin-bottom: 10px; text-transform: uppercase; text-align: center;">Transaction Sequencer</div>
-							<div style="display: flex; flex-direction: column; gap: 6px; flex-grow: 1;">
-								<div id="simNode1" class="tutorial-flow-node"><span>1.</span> Envelope RPG JSON Data</div>
-								<div id="simNode2" class="tutorial-flow-node"><span>2.</span> Hash check with client salt</div>
-								<div id="simNode3" class="tutorial-flow-node"><span>3.</span> Derived Key Sign (secp256k1)</div>
-								<div id="simNode4" class="tutorial-flow-node"><span>4.</span> Broadcast to DeSo node</div>
-							</div>
-							<button id="simSaveBtn" onclick="RunTutorialSaveSimulation()" class="glass-action-btn" style="width: 100%; padding: 8px; margin-top: 10px; background: var(--yellow-neon); color: #000; font-weight: bold; border: none; cursor: pointer;">🔬 RUN SAVE SIMULATOR</button>
-						</div>
-					</div>
-					
-					<div id="tutorialConsole" class="tutorial-console-output">Console ready. Click "RUN SAVE SIMULATOR" to begin.</div>
-				</div>
+            <!-- Grid of Slots -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 40px;">
+                <!-- HEAD -->
+                <div style="background: rgba(13, 13, 16, 0.75); border: 1.5px solid var(--border-light); border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; gap: 15px; align-items: center; transition: transform 0.2s, border-color 0.2s;" onmouseover="this.style.borderColor='var(--cyan-neon)'; this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.transform='none';">
+                    <img src="assets/sprites/equip_head.png" alt="Head Armor" style="width: 64px; height: 64px; border: 1px solid var(--cyan-neon); border-radius: 4px; box-shadow: 0 0 10px rgba(0, 229, 255, 0.2); image-rendering: pixelated;" />
+                    <div>
+                        <h3 style="color: var(--cyan-neon); font-family: var(--font-title); font-size: 16px; margin: 0 0 5px 0;">HEAD (HELMET)</h3>
+                        <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">Increases Vitality (VIT) and Agility (AGI). Adds extra defense and boosts maximum life capacity.</p>
+                    </div>
+                </div>
+                <!-- CHEST -->
+                <div style="background: rgba(13, 13, 16, 0.75); border: 1.5px solid var(--border-light); border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; gap: 15px; align-items: center; transition: transform 0.2s, border-color 0.2s;" onmouseover="this.style.borderColor='#E040FB'; this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.transform='none';">
+                    <img src="assets/sprites/equip_chest.png" alt="Chest Armor" style="width: 64px; height: 64px; border: 1px solid #E040FB; border-radius: 4px; box-shadow: 0 0 10px rgba(224, 64, 251, 0.2); image-rendering: pixelated;" />
+                    <div>
+                        <h3 style="color: #E040FB; font-family: var(--font-title); font-size: 16px; margin: 0 0 5px 0;">CHEST (CHESTPLATE)</h3>
+                        <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">Increases Vitality (VIT) and Power (POW). Greatly increases maximum armor defense values.</p>
+                    </div>
+                </div>
+                <!-- MAIN HAND -->
+                <div style="background: rgba(13, 13, 16, 0.75); border: 1.5px solid var(--border-light); border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; gap: 15px; align-items: center; transition: transform 0.2s, border-color 0.2s;" onmouseover="this.style.borderColor='var(--yellow-neon)'; this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.transform='none';">
+                    <img src="assets/sprites/equip_weapon.png" alt="Main Hand" style="width: 64px; height: 64px; border: 1px solid var(--yellow-neon); border-radius: 4px; box-shadow: 0 0 10px rgba(255, 170, 0, 0.2); image-rendering: pixelated;" />
+                    <div>
+                        <h3 style="color: var(--yellow-neon); font-family: var(--font-title); font-size: 16px; margin: 0 0 5px 0;">MAIN HAND (BLADE)</h3>
+                        <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">Increases Power (POW) and Agility (AGI). Adds base damage for slashing and critical attacks.</p>
+                    </div>
+                </div>
+                <!-- OFF-HAND -->
+                <div style="background: rgba(13, 13, 16, 0.75); border: 1.5px solid var(--border-light); border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; gap: 15px; align-items: center; transition: transform 0.2s, border-color 0.2s;" onmouseover="this.style.borderColor='#00E676'; this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.transform='none';">
+                    <img src="assets/sprites/equip_shield.png" alt="Off Hand" style="width: 64px; height: 64px; border: 1px solid #00E676; border-radius: 4px; box-shadow: 0 0 10px rgba(0, 230, 118, 0.2); image-rendering: pixelated;" />
+                    <div>
+                        <h3 style="color: #00E676; font-family: var(--font-title); font-size: 16px; margin: 0 0 5px 0;">OFF-HAND (SHIELD)</h3>
+                        <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">Increases Vitality (VIT) and Magic (MAG). Grants block rate bonuses and defensive protection.</p>
+                    </div>
+                </div>
+                <!-- RING 1 -->
+                <div style="background: rgba(13, 13, 16, 0.75); border: 1.5px solid var(--border-light); border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; gap: 15px; align-items: center; transition: transform 0.2s, border-color 0.2s;" onmouseover="this.style.borderColor='#00E5FF'; this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.transform='none';">
+                    <img src="assets/sprites/equip_ring_ice.png" alt="Ice Ring" style="width: 64px; height: 64px; border: 1px solid #00E5FF; border-radius: 4px; box-shadow: 0 0 10px rgba(0, 229, 255, 0.2); image-rendering: pixelated;" />
+                    <div>
+                        <h3 style="color: #00E5FF; font-family: var(--font-title); font-size: 16px; margin: 0 0 5px 0;">RING 1 (Ice Spell)</h3>
+                        <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">Increases Intelligence (INT). Unlocks the active <strong>Ice Spell (Key 2)</strong> to slow boss speeds by 50%!</p>
+                    </div>
+                </div>
+                <!-- RING 2 -->
+                <div style="background: rgba(13, 13, 16, 0.75); border: 1.5px solid var(--border-light); border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; gap: 15px; align-items: center; transition: transform 0.2s, border-color 0.2s;" onmouseover="this.style.borderColor='#00E676'; this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.transform='none';">
+                    <img src="assets/sprites/equip_ring_wood.png" alt="Wood Ring" style="width: 64px; height: 64px; border: 1px solid #00E676; border-radius: 4px; box-shadow: 0 0 10px rgba(0, 230, 118, 0.2); image-rendering: pixelated;" />
+                    <div>
+                        <h3 style="color: #00E676; font-family: var(--font-title); font-size: 16px; margin: 0 0 5px 0;">RING 2 (Wood Spell)</h3>
+                        <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">Increases Magic (MAG). Unlocks the active <strong>Wood Spell (Key 3)</strong> to apply Damage-over-Time poison!</p>
+                    </div>
+                </div>
+                <!-- AMULET -->
+                <div style="background: rgba(13, 13, 16, 0.75); border: 1.5px solid var(--border-light); border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; gap: 15px; align-items: center; transition: transform 0.2s, border-color 0.2s;" onmouseover="this.style.borderColor='#FF8C00'; this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.transform='none';">
+                    <img src="assets/sprites/equip_amulet.png" alt="Amulet" style="width: 64px; height: 64px; border: 1px solid #FF8C00; border-radius: 4px; box-shadow: 0 0 10px rgba(255, 140, 0, 0.2); image-rendering: pixelated;" />
+                    <div>
+                        <h3 style="color: #FF8C00; font-family: var(--font-title); font-size: 16px; margin: 0 0 5px 0;">AMULET (AMULET)</h3>
+                        <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">Increases Intelligence (INT) and Magic (MAG). Unlocks massive passive stat bonuses.</p>
+                    </div>
+                </div>
+            </div>
 
-				<div class="tutorial-content-pane" id="paneGettingStarted">
-					<h3 style="color: var(--cyan-neon); margin: 0 0 10px 0; text-transform: uppercase;">Danger Ghost Quick Start Guide</h3>
-					<div style="font-size: 13px; line-height: 20px; color: var(--text-muted);">
-						<p style="margin: 0 0 10px 0;">Follow these 4 simple steps to begin your journey in Nowhere:</p>
-						<ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
-							<li>
-								<strong style="color: #FFF;">Connect Your Wallet:</strong> Click the <span style="color: var(--purple-neon); font-weight: bold;">CONNECT DESO WALLET</span> button on the start screen. This generates your permanent account link.
-							</li>
-							<li>
-								<strong style="color: #FFF;">Select Your Character:</strong> Choose your Ghost NFT from the list, or mint your first one 100% free (only pay tiny network cents) to begin with Level 1 stats.
-							</li>
-							<li>
-								<strong style="color: #FFF;">Allocate Stat Points:</strong> Collect score in game to level up. When you do, press <strong style="color: var(--green-neon);">K</strong> to open the RPG drawer and allocate attributes (VIT, AGI, INT, POW, MAG).
-							</li>
-							<li>
-								<strong style="color: #FFF;">Upgrade Weapon:</strong> Check your weapon stats in the status drawer. If you collect enough points, click the gold upgrade button to increase your attack power.
-							</li>
-						</ol>
-						<div style="margin-top: 20px; padding: 12px; background: rgba(0, 255, 255, 0.05); border: 1px dashed var(--cyan-neon); color: #FFF; font-size: 12px;">
-							💡 <strong>Pro Tip:</strong> Hold <strong>T</strong> in-game to speed up the simulation speed (2x physics) for fast-paced dungeon clearance!
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
+            <!-- Rarities Breakdown -->
+            <h3 style="text-align: center; color: #FFF; font-family: var(--font-title); font-size: 20px; margin: 40px 0 15px 0;">ITEM RARITIES & PHASES</h3>
+            <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;">
+                <!-- Common -->
+                <div style="background: rgba(13, 13, 16, 0.6); border: 1px solid #B0BEC5; border-radius: 6px; padding: 15px; width: 260px; text-align: center; box-shadow: 0 0 12px rgba(176, 190, 197, 0.1);">
+                    <div style="font-family: var(--font-title); color: #B0BEC5; font-size: 16px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase;">Common</div>
+                    <div style="color: #888; font-size: 11px; margin-bottom: 8px;">BASIC QUALITY</div>
+                    <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">
+                        Drops in <strong>all phases</strong>. Increases 1 random attribute by basic amount. Easily accessible.
+                    </p>
+                </div>
+                <!-- Rare -->
+                <div style="background: rgba(13, 13, 16, 0.6); border: 1px solid #00E5FF; border-radius: 6px; padding: 15px; width: 260px; text-align: center; box-shadow: 0 0 12px rgba(0, 229, 255, 0.15);">
+                    <div style="font-family: var(--font-title); color: #00E5FF; font-size: 16px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase;">Rare</div>
+                    <div style="color: #00E5FF; font-size: 11px; margin-bottom: 8px;">SPECIAL QUALITY</div>
+                    <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">
+                        Drops in phases <strong>6, and 10 to 33</strong>. Increases 2 random attributes by high amount.
+                    </p>
+                </div>
+                <!-- Epic -->
+                <div style="background: rgba(13, 13, 16, 0.6); border: 1px solid #E040FB; border-radius: 6px; padding: 15px; width: 260px; text-align: center; box-shadow: 0 0 12px rgba(224, 64, 251, 0.2);">
+                    <div style="font-family: var(--font-title); color: #E040FB; font-size: 16px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase;">Epic</div>
+                    <div style="color: #E040FB; font-size: 11px; margin-bottom: 8px;">SUPER SPECIAL QUALITY</div>
+                    <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">
+                        Drops in phases <strong>30 to 33, and cave1</strong>. Increases 3 random attributes by massive amounts!
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
 
+    <!-- Section 4: Founder Bio -->
+    <section id="founder-section" style="background-color: var(--surface-dark); border-top: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light); width: 100%;">
+        <div class="section-container">
+            <h2 class="section-title">FOUNDER BIO</h2>
+            <div class="section-accent-bar" style="background: var(--purple-neon);"></div>
+            
+            <div class="lore-wrap">
+                <div class="lore-image-container" style="width: 300px; display: flex; flex-direction: column; gap: 10px; align-items: center;">
+                    <img src="UI/becopro.png" alt="BecoPro Founder" class="lore-image" style="border-radius: 0px; margin-bottom: 5px;" />
+                    <div style="display: flex; gap: 8px; width: 100%; justify-content: center; box-sizing: border-box;">
+                        <a href="https://mydesospace.com/u/becopro?tab=posts" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-deso">DeSo</a>
+                        <a href="https://x.com/becoproart" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-twitter">Twitter</a>
+                        <a href="https://becopro.art.br" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-site">Site</a>
+                    </div>
+                </div>
+                <div class="lore-text">
+                    <h3 style="font-family: var(--font-title); font-size: 24px; color: var(--purple-neon); text-transform: uppercase; margin-bottom: 15px;">BecoPro</h3>
+                    <p>
+                        BecoPro is a graffiti artist with a degree in Fashion. He began writing graffiti in 2012 and has held various art exhibitions around the world.
+                    </p>
+                    <p>
+                        He joined Web3 in 2020 and has created several NFT collections, but the one he is most passionate about is DeSoGhost on the DeSo Blockchain.
+                    </p>
+                    <p>
+                        Currently, he is developing the game Danger Ghost, which is the first game of an NFT gaming ecosystem called Ghost Games.
+                    </p>
+                </div>
+            </div>
 
-	<!-- Section 2: Lore of Danger Ghost -->
-	<section id="lore-section" style="background-color: var(--surface-dark); border-top: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light); width: 100%;">
-		<div class="section-container">
-			<h2 class="section-title">THE LORE OF FTASMA</h2>
-			<div class="section-accent-bar"></div>
-			
-			<div class="lore-wrap">
-				<div class="lore-text">
-					<p>
-						In the depths of <strong>Nowhere</strong>, souls wander stripped of flesh. The protagonist of the saga is <strong>Ftasma</strong>, an incorporeal spectral projection born directly as a ghost in <strong>Niterói in the year 2012</strong>. His past history — how he became this specter — remains hidden under a veil of absolute mystery to the entire cosmos and to himself.
-					</p>
-					<p>
-						Instead of being paralyzed, Ftasma uses his cosmic amnesia as strength. Immune to spiritual manipulation because he possesses no true name, he acts as a <strong>wise and opportunistic anti-hero</strong>, manipulating the laws of the rift to gain advantages and increase his power at all costs.
-					</p>
-					<p>
-						In the year <strong>2020</strong>, to avoid his cosmic dissolution, he performed the <strong>Spiritual Migration</strong>, integrating his soul directly into the <strong>DeSo</strong> blockchain. He converted his consciousness into elliptic curve keys and immutable block records, ensuring his digital immortality.
-					</p>
-				</div>
-				<div class="lore-image-container">
-					<img src="UI/Ftasma é.png" alt="Ftasma in Nowhere" class="lore-image" />
-				</div>
-			</div>
-			
-			<div class="lore-wrap" style="flex-direction: row-reverse; margin-top: 60px;">
-				<div class="lore-text">
-					<h3 style="font-family: var(--font-title); font-size: 20px; color: var(--magenta-neon); text-transform: uppercase; margin-bottom: 15px;">Cryptographic Persistence</h3>
-					<p>
-						Ftasma's soul does not reside on fragile local servers. Each level milestone, items in the BAG, and RPG attributes are compiled into a cryptographic Base64 sheet and recorded on-chain in the <code>DangerGhost_SaveState</code> metadata.
-					</p>
-					<p>
-						At the end of his 33-level campaign, the hero's soul can be minted permanently as a <strong>spectral NFT</strong>, securing his immortality on the eternal ledger and allowing other hunters to invoke his power.
-					</p>
-				</div>
-				<div class="lore-image-container">
-					<img src="UI/1.png" alt="DeSo Eternal Ledger" class="lore-image" />
-				</div>
-			</div>
-		</div>
-	</section>
+            <!-- Section: The Team -->
+            <div style="margin-top: 60px; border-top: 1px dashed rgba(255, 255, 255, 0.1); padding-top: 40px;">
+                <h2 class="section-title">THE TEAM</h2>
+                <div class="section-accent-bar" style="background: var(--cyan-neon); margin-bottom: 40px;"></div>
+                
+                <div style="display: flex; flex-direction: column; gap: 50px;">
+                    
+                    <!-- Member 1: Klara Kopi -->
+                    <div class="lore-wrap" style="align-items: flex-start; gap: 30px;">
+                        <div class="lore-image-container" style="width: 280px; display: flex; flex-direction: column; gap: 10px; align-items: center; border: 1.5px solid var(--cyan-neon); background: rgba(0,0,0,0.6); padding: 12px; border-radius: 8px; box-sizing: border-box; flex-shrink: 0;">
+                            <img src="assets/sprites/klara_avatar.png" alt="Klara Kopi" class="lore-image" style="border-radius: 8px; width: 100%; height: auto; max-width: 250px; border: 1px solid rgba(255, 255, 255, 0.05);" />
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; box-sizing: border-box; margin-top: 5px;">
+                                <a href="https://mydesospace.com/u/klarakopii" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-deso" style="padding: 6px 2px; font-size: 9px; border-radius: 4px;">DeSo</a>
+                                <a href="https://linktr.ee/klarakopi" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-site" style="padding: 6px 2px; font-size: 9px; border-radius: 4px;">Linktree</a>
+                                <a href="https://instagram.com/klarakopii" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-twitter" style="border-color: #ff007f; color: #ff007f; padding: 6px 2px; font-size: 9px; border-radius: 4px;" onmouseover="this.style.background='#ff007f';this.style.color='#000';this.style.boxShadow='0 0 10px #ff007f'" onmouseout="this.style.background='rgba(0, 0, 0, 0.6)';this.style.color='#ff007f';this.style.boxShadow='none'">Instagram</a>
+                                <a href="https://x.com/klarakopii" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-twitter" style="padding: 6px 2px; font-size: 9px; border-radius: 4px;">Twitter</a>
+                            </div>
+                            <div style="width: 100%; margin-top: 2px; box-sizing: border-box;">
+                                <a href="https://www.linkedin.com/in/klarakopi/" target="_blank" rel="noopener noreferrer" class="founder-btn" style="border: 1.5px solid #0077b5; color: #0077b5; display: block; padding: 6px; font-size: 9px; border-radius: 4px;" onmouseover="this.style.background='#0077b5';this.style.color='#000';this.style.boxShadow='0 0 10px #0077b5'" onmouseout="this.style.background='rgba(0, 0, 0, 0.6)';this.style.color='#0077b5';this.style.boxShadow='none'">LinkedIn</a>
+                            </div>
+                        </div>
+                        <div class="lore-text" style="text-align: left;">
+                            <h3 style="font-family: var(--font-title); font-size: 24px; color: var(--cyan-neon); text-transform: uppercase; margin-bottom: 5px; text-shadow: 0 0 10px var(--cyan-neon);">Klara Kopi</h3>
+                            <div style="font-family: var(--font-title); font-size: 13px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 15px; font-weight: bold; letter-spacing: 1px;">
+                                Ghost Games Manager &amp; Creatress
+                            </div>
+                            <p style="font-size: 15px; line-height: 1.6; color: #e2e2e8; margin-bottom: 15px;">
+                                Klara Kopi coordinates visual arts, music, and environment setups within the Ghost Games gaming ecosystem. She is a dedicated metaverse creator and Web3 builder.
+                            </p>
+                            <p style="font-size: 13px; color: var(--cyan-neon); font-style: italic; border-left: 2px solid var(--cyan-neon); padding-left: 12px; margin-top: 15px; font-family: var(--font-text); line-height: 1.5;">
+                                Bio: Visual Artist | Artisan | Web 3 builder since 2020 | Metaverse creatress | Music and Ghost Games Manager.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Member 2: MP -->
+                    <div class="lore-wrap" style="align-items: flex-start; gap: 30px;">
+                        <div class="lore-image-container" style="width: 280px; display: flex; flex-direction: column; gap: 10px; align-items: center; border: 1.5px solid var(--magenta-neon); background: rgba(0,0,0,0.6); padding: 12px; border-radius: 8px; box-sizing: border-box; flex-shrink: 0;">
+                            <div style="width: 100%; aspect-ratio: 1/1; background: rgba(255, 0, 255, 0.05); border: 1px dashed var(--magenta-neon); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 48px; color: var(--magenta-neon); text-shadow: 0 0 15px var(--magenta-neon); font-family: var(--font-title); font-weight: bold; max-width: 250px; height: 250px;">
+                                MP
+                            </div>
+                            <div style="width: 100%; margin-top: 5px; box-sizing: border-box;">
+                                <span class="founder-btn" style="border: 1.5px solid var(--magenta-neon); color: var(--magenta-neon); cursor: default; background: rgba(255, 0, 255, 0.05); display: block; font-size: 10px; text-shadow: 0 0 5px var(--magenta-neon); border-radius: 4px; padding: 6px;">PRODUCTION MANAGER</span>
+                            </div>
+                        </div>
+                        <div class="lore-text" style="text-align: left;">
+                            <h3 style="font-family: var(--font-title); font-size: 24px; color: var(--magenta-neon); text-transform: uppercase; margin-bottom: 5px; text-shadow: 0 0 10px var(--magenta-neon);">MP</h3>
+                            <div style="font-family: var(--font-title); font-size: 13px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 15px; font-weight: bold; letter-spacing: 1px;">
+                                Production Manager
+                            </div>
+                            <p style="font-size: 15px; line-height: 1.6; color: #e2e2e8; margin-bottom: 15px;">
+                                MP is the production manager responsible for orchestrating, structuring, and supervising the active game design pipeline for Danger Ghost.
+                            </p>
+                            <p style="font-size: 13px; color: var(--magenta-neon); font-style: italic; border-left: 2px solid var(--magenta-neon); padding-left: 12px; margin-top: 15px; font-family: var(--font-text); line-height: 1.5;">
+                                Bio: MP Production Manager, orchestrating and managing the production of Danger Ghost.
+                            </p>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 50px; font-family: var(--font-title); font-weight: 900; font-size: 16px; color: var(--text-muted); letter-spacing: 3px; text-transform: uppercase; text-shadow: 0 0 8px rgba(255,255,255,0.35);">
+                — Made in Niteroi —
+            </div>
+        </div>
+    </section>
 
-	<!-- Section 3: Rules and Mechanics (Beginners Guide) -->
-	<section id="rules-section" style="width: 100%;">
-		<div class="section-container">
-			<h2 class="section-title">RULES & MECHANICS</h2>
-			<div class="section-accent-bar" style="background: var(--magenta-neon);"></div>
-			
-			<div class="rules-grid">
-				<!-- Controls -->
-				<div class="rules-column">
-					<h3>🎮 HUNTER CONTROLS</h3>
-					<table class="controls-table">
-						<thead>
-							<tr>
-								<th>Action</th>
-								<th>Keys</th>
-							</tr>
-						</thead>
-						<tbody>
-							<tr>
-								<td>Move Left / Right</td>
-								<td><strong>A / D</strong> or <strong>Arrows</strong></td>
-							</tr>
-							<tr>
-								<td>Jump / Enter Doors</td>
-								<td><strong>W</strong> or <strong>Up Arrow</strong></td>
-							</tr>
-							<tr>
-								<td>Exit Doors / Down Platforms</td>
-								<td><strong>S</strong> or <strong>Down Arrow</strong></td>
-							</tr>
-							<tr>
-								<td>Spectral Spark (Spell Q)</td>
-								<td><strong>Q</strong> (Generates mana when hitting monsters)</td>
-							</tr>
-							<tr>
-								<td>Ghost Mode (Spell F)</td>
-								<td><strong>F</strong> (Hold to phase through walls)</td>
-							</tr>
-							<tr>
-								<td>Plasma Orb (Spell E)</td>
-								<td><strong>E</strong> (Massive penetrating projectile)</td>
-							</tr>
-							<tr>
-								<td>Phantom Form (Spell R)</td>
-								<td><strong>R</strong> (Total immunity and speed boost)</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
-				
-				<!-- Attributes -->
-				<div class="rules-column">
-					<h3>👤 RPG ATTRIBUTES</h3>
-					<table class="controls-table">
-						<thead>
-							<tr>
-								<th>Attribute</th>
-								<th>Conceptual Mechanics</th>
-							</tr>
-						</thead>
-						<tbody>
-							<tr>
-								<td><strong>VIT (Vitality)</strong></td>
-								<td>Increases the maximum cap of accumulable spectral lives (Cap = <code>4 + VIT</code>).</td>
-							</tr>
-							<tr>
-								<td><strong>AGI (Agility)</strong></td>
-								<td>Improves Ftasma's movement speed and jumping physics/momentum.</td>
-							</tr>
-							<tr>
-								<td><strong>INT (Intelligence)</strong></td>
-								<td>Speeds up mana regeneration rate and optimizes Ghost Mode mana consumption.</td>
-							</tr>
-							<tr>
-								<td><strong>POW (Power)</strong></td>
-								<td>Amplifies the damage of jump-stomps on monsters' heads.</td>
-							</tr>
-							<tr>
-								<td><strong>MAG (Magic)</strong></td>
-								<td>Expands the maximum ectoplasm reservoir (Max Mana = <code>100 + MAG * 20</code>).</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
-			</div>
-			
-			<h2 class="section-title" style="font-size: 24px; margin-top: 60px;">ABYSS BESTIARY (BOSS CODEX)</h2>
-			<div class="section-accent-bar" style="background: var(--yellow-neon); margin-bottom: 40px;"></div>
-			
-			<div class="boss-grid">
-				<!-- Demon Fly -->
-				<div class="boss-card">
-					<div class="boss-card-image-wrap">
-						<img src="assets/sprites/Brd direita.webp" alt="Demon Fly" class="boss-card-image" />
-					</div>
-					<div class="boss-card-content">
-						<h4 class="boss-card-title">Demon Fly</h4>
-						<p class="boss-card-desc">
-							Creatures born from the spiritual rot of Nowhere. They shoot celestial sparks at the hero and possess high resistance against jumps and continuous fire/poison damage.
-						</p>
-						<span class="boss-card-stat">Resistances: Fire, Poison, Impact</span>
-					</div>
-				</div>
-				
-				<!-- Slime -->
-				<div class="boss-card">
-					<div class="boss-card-image-wrap">
-						<img src="assets/sprites/Slime esquerda.webp" alt="Slime" class="boss-card-image" />
-					</div>
-					<div class="boss-card-content">
-						<h4 class="boss-card-title">Slime</h4>
-						<p class="boss-card-desc">
-							Ooze formed by the fusion of souls dissolved in lava. They attack by firing plasma spheres and spawn dynamically whenever the player accumulates mystical score.
-						</p>
-						<span class="boss-card-stat">Resistances: Fire, Poison, Jumps</span>
-					</div>
-				</div>
-				
-				<!-- Colossal Skull -->
-				<div class="boss-card">
-					<div class="boss-card-image-wrap">
-						<img src="assets/sprites/Skull-esquerda.webp" alt="Colossal Skull" class="boss-card-image" />
-					</div>
-					<div class="boss-card-content">
-						<h4 class="boss-card-title">Colossal Skull</h4>
-						<p class="boss-card-desc">
-							The Titanic Guardian of cave1. It fires massive purple plasma orbs and reflects 80% of Plasma Orb damage, requiring crown stomps or elemental rune magic.
-						</p>
-						<span class="boss-card-stat">Resistances: Plasma Orb (80%)</span>
-					</div>
-				</div>
-				
-				<!-- Cactus -->
-				<div class="boss-card">
-					<div class="boss-card-image-wrap">
-						<img src="assets/sprites/Cactus esquerda.webp" alt="Cactus" class="boss-card-image" />
-					</div>
-					<div class="boss-card-content">
-						<h4 class="boss-card-title">Cactus</h4>
-						<p class="boss-card-desc">
-							Colossal distortion of limbo vegetation. A rigid plant obstacle of 288x288 pixels that blocks Ftasma's free passage in specific zones.
-						</p>
-						<span class="boss-card-stat">Type: Giant Obstacle</span>
-					</div>
-				</div>
-				
-				<!-- Sick Crow -->
-				<div class="boss-card">
-					<div class="boss-card-image-wrap">
-						<img src="assets/sprites/Sickcrow e.webp" alt="Sick Crow" class="boss-card-image" />
-					</div>
-					<div class="boss-card-content">
-						<h4 class="boss-card-title">Sick Crow</h4>
-						<p class="boss-card-desc">
-							Heralds of death that patrol the misty ceiling of Nowhere. They are summoned with every extra life collected and relentlessly pursue Ftasma.
-						</p>
-						<span class="boss-card-stat">Type: Aerial Patroller</span>
-					</div>
-				</div>
-			</div>
-		</div>
-	</section>
+    <!-- Interactive Onboarding Tutorial Modal -->
+    <div id="interactiveTutorialModal" class="tutorial-modal-overlay">
+        <div class="tutorial-modal-container">
+            <div class="tutorial-modal-header">
+                <h2>⚡ Danger Ghost - Interactive Playable Guide</h2>
+                <button class="tutorial-close-btn" onclick="CloseInteractiveTutorial()">Close [X]</button>
+            </div>
+            <div class="tutorial-modal-body">
+                <!-- Sidebar tabs -->
+                <div class="tutorial-sidebar">
+                    <button id="tabBtnSandbox" class="tutorial-tab-btn active" onclick="SwitchTutorialTab('sandbox')">🎮 Play Sandbox</button>
+                    <button id="tabBtnSpells" class="tutorial-tab-btn" onclick="SwitchTutorialTab('spells')">🔮 Spells &amp; Runes</button>
+                    <button id="tabBtnBlockchain" class="tutorial-tab-btn" onclick="SwitchTutorialTab('blockchain')">💾 Cloud Save</button>
+                    <button id="tabBtnGettingStarted" class="tutorial-tab-btn" onclick="SwitchTutorialTab('start')">🚀 Getting Started</button>
+                </div>
+                <!-- Content panes -->
+                <div class="tutorial-content-pane active" id="paneSandbox">
+                    <h3 style="color: var(--cyan-neon); margin: 0 0 10px 0; text-transform: uppercase;">Interactive Physics Sandbox</h3>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 15px 0; line-height: 18px;">
+                        Welcome to the interactive tutorial! Practice walking, jumping, and casting skills with Ftasma. The essential infiltration key is "F": hold "F" to activate GHOST MODE, making Ftasma immune to obstacles and allowing him to phase through solid walls (like the barrier in the sandbox). Complete the quests below to master the gameplay before the real run!
+                    </p>
+                    
+                    <div style="display: flex; gap: 15px; align-items: flex-start; margin-top: 10px;">
+                        <div class="tutorial-canvas-container" style="flex: 1; position: relative;">
+                             <div id="tutorialFeedback" class="tutorial-feedback-overlay">Press A / D to walk.</div>
+                             <canvas id="tutorialCanvas" width="560" height="180"></canvas>
+                            <div style="font-size: 11px; color: #888; text-transform: uppercase; margin-top: 5px;">
+                                Keys: Walk [A / D] | Jump [W] | Spark [V] | Ghost Mode [Hold F] | Plasma Orb [E] | Phantom Form [R]
+                            </div>
+                        </div>
+                        
+                        <!-- Quest List Tracker -->
+                        <div id="tutorialMissionTracker" style="width: 240px; background: rgba(13, 13, 16, 0.95); border: 1px solid var(--border-light); padding: 12px; border-radius: 4px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px;">
+                            <h4 style="color: var(--yellow-neon); margin: 0 0 5px 0; text-transform: uppercase; font-size: 13px; text-shadow: 0 0 5px var(--yellow-neon);">🎯 Tutorial Quests</h4>
+                            <div id="tutMissionList" style="display: flex; flex-direction: column; gap: 6px; font-size: 11px; font-family: var(--font-text);">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-	<!-- Section 4: Founder Bio -->
-	<section id="founder-section" style="background-color: var(--surface-dark); border-top: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light); width: 100%;">
-		<div class="section-container">
-			<h2 class="section-title">FOUNDER BIO</h2>
-			<div class="section-accent-bar" style="background: var(--purple-neon);"></div>
-			
-			<div class="lore-wrap">
-				<div class="lore-image-container" style="width: 300px; display: flex; flex-direction: column; gap: 10px; align-items: center;">
-					<img src="UI/becopro.png" alt="BecoPro Founder" class="lore-image" style="border-radius: 0px; margin-bottom: 5px;" />
-					<div style="display: flex; gap: 8px; width: 100%; justify-content: center; box-sizing: border-box;">
-						<a href="https://mydesospace.com/u/becopro?tab=posts" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-deso">DeSo</a>
-						<a href="https://x.com/becoproart" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-twitter">Twitter</a>
-						<a href="https://becopro.art.br" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-site">Site</a>
-					</div>
-				</div>
-				<div class="lore-text">
-					<h3 style="font-family: var(--font-title); font-size: 24px; color: var(--purple-neon); text-transform: uppercase; margin-bottom: 15px;">BecoPro</h3>
-					<p>
-						BecoPro is a graffiti artist with a degree in Fashion. He began writing graffiti in 2012 and has held various art exhibitions around the world.
-					</p>
-					<p>
-						He joined Web3 in 2020 and has created several NFT collections, but the one he is most passionate about is DeSoGhost on the DeSo Blockchain.
-					</p>
-					<p>
-						Currently, he is developing the game Danger Ghost, which is the first game of an NFT gaming ecosystem called Ghost Games.
-					</p>
-				</div>
-			</div>
-			
-			<div style="text-align: center; margin-top: 50px; font-family: var(--font-title); font-weight: 900; font-size: 16px; color: var(--text-muted); letter-spacing: 3px; text-transform: uppercase; text-shadow: 0 0 8px rgba(255,255,255,0.35);">
-				— Made in Niteroi —
-			</div>
-		</div>
-	</section>
+                <div class="tutorial-content-pane" id="paneSpells">
+                    <h3 style="color: var(--magenta-neon); margin: 0 0 10px 0; text-transform: uppercase;">Spells &amp; Runes Simulator</h3>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 15px 0; line-height: 18px;">
+                        Ftasma uses special magical stones known as Runes to grant incredible additional effects to his magical skills! Choose a Rune below to visualize its explosion in the simulator.
+                    </p>
+                    
+                    <div style="display: flex; gap: 20px; align-items: flex-start; margin-top: 15px;">
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 12px;">
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Choose a Rune:</label>
+                                <select id="tutorialRuneSelect" onchange="UpdateTutorialRunePreview()" style="background: #000; color: #FFF; border: 1px solid var(--border-light); font-family: var(--font-title); font-size: 13px; padding: 6px; outline: none; border-radius: 0; cursor: pointer;">
+                                    <option value="arcane">Arcane (Normal Magic)</option>
+                                    <option value="fire">Fire Rune (Hot Fire! Causes continuous burn damage)</option>
+                                    <option value="cold">Ice Rune (Cold Ice! Reduces monster speed by 50%)</option>
+                                    <option value="lightning">Lightning Rune (Lightning Shock! Freezes/Immobilizes monsters)</option>
+                                    <option value="poison">Poison Rune (Toxic Bubble! Reduces monster armor)</option>
+                                </select>
+                            </div>
+                            
+                            <div id="tutorialRuneDesc" style="font-size: 12px; line-height: 18px; color: #FFF; background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 12px; border-radius: 2px;">
+                                <strong>Arcane Element:</strong> Shoot pure magic! Makes your spell cause standard magical damage. Excellent for general combat!
+                            </div>
+                        </div>
+                        
+                        <!-- Projectile simulation screen -->
+                        <div style="width: 240px; background: #000; border: 1px solid var(--border-light); padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; min-height: 160px; box-sizing: border-box; position: relative;">
+                            <div style="position: absolute; top: 6px; left: 10px; font-size: 9px; color: #555; text-transform: uppercase;">Projectile Preview</div>
+                            <div id="tutorialRuneOrb" style="width: 32px; height: 32px; border-radius: 50%; background: radial-gradient(circle, #FFF 0%, #D500F9 70%); box-shadow: 0 0 20px #D500F9; transition: all 0.3s ease;"></div>
+                            <button onclick="TriggerTutorialRuneBlast()" class="glass-action-btn" style="padding: 5px 12px; font-size: 11px; border: 1px solid var(--cyan-neon); color: var(--cyan-neon); background: transparent; cursor: pointer;">Simulate Explosion</button>
+                        </div>
+                    </div>
+                </div>
 
-	<!-- Character Selection Overlay -->
-	<div id="characterSelectionOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 6, 12, 0.95); z-index: 1000; overflow-y: auto; font-family: 'Courier New', monospace; color: #FFF; text-align: center; padding: 40px 20px; box-sizing: border-box;">
-		<div style="max-width: 800px; margin: 0 auto;">
-			<h2 style="color: #00FF00; letter-spacing: 2px; text-shadow: 0 0 10px #00FF00; margin-bottom: 30px;">🔮 SELECT YOUR GHOST</h2>
-			
-			<!-- Lista de personagens -->
-			<div id="characterCardsContainer" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-bottom: 40px;">
-				<!-- Cartões gerados dinamicamente via JS -->
-			</div>
-			
-			<!-- Seção para criar novo fantasma -->
-			<div style="background: rgba(255, 255, 255, 0.05); border: 2px dashed rgba(0, 255, 255, 0.3); border-radius: 8px; padding: 25px; margin-bottom: 20px;">
-				<h3 style="color: #00FFFF; margin: 0 0 10px 0;">CREATE NEW GHOST</h3>
-				<p id="newGhostPriceText" style="color: #AAA; font-size: 13px; margin: 0 0 15px 0;">Your first Ghost is 100% free (only pay DeSo network fees).</p>
-				<button id="createGhostBtn" onclick="TriggerCreateNewGhost()" style="padding: 10px 25px; background: #00FF00; color: #000; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; outline: none; transition: all 0.15s ease;" onmouseover="this.style.boxShadow='0 0 15px #00FF00'" onmouseout="this.style.boxShadow='none'">CREATE NEW GHOST (MINT)</button>
-			</div>
-			
-			<div style="margin-top: 15px;">
-				<button onclick="document.getElementById('characterSelectionOverlay').style.display='none'" style="padding: 10px 25px; background: #FF00FF; color: #FFF; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; outline: none; transition: all 0.15s ease;" onmouseover="this.style.boxShadow='0 0 15px #FF00FF'" onmouseout="this.style.boxShadow='none'">CANCEL / CLOSE</button>
-			</div>
-			
-			<div id="selectionStatusText" style="color: #FF00FF; font-weight: bold; min-height: 20px; margin-top: 15px;"></div>
-		</div>
-	</div>
+                <div class="tutorial-content-pane" id="paneBlockchain">
+                    <h3 style="color: var(--yellow-neon); margin: 0 0 10px 0; text-transform: uppercase;">Blockchain Cloud Save Simulator</h3>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 15px 0; line-height: 18px;">
+                        Understand how Ftasma records your attributes, weapons, and stages securely on the blockchain! See below how this technology works in simple gaming terms.
+                    </p>
+                    
+                    <div style="display: flex; gap: 15px; margin-top: 15px;">
+                        <!-- Analogy Cards -->
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 5px;">
+                            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 10px; border-radius: 2px;">
+                                <span style="color: var(--cyan-neon); font-size: 13px; font-weight: bold;">🔑 Derived Keys (Temporary Access Key)</span>
+                                <p style="font-size: 11px; color: var(--text-muted); margin: 4px 0 0 0; line-height: 15px;">
+                                    Works like a temporary hotel key card! A temporary key that allows the game to save your progress automatically without typing your main password every time. Secure, free, and extremely simple!
+                                </p>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 10px; border-radius: 2px;">
+                                <span style="color: var(--yellow-neon); font-size: 13px; font-weight: bold;">💾 On-Chain Record (Eternal Ledger)</span>
+                                <p style="font-size: 11px; color: var(--text-muted); margin: 4px 0 0 0; line-height: 15px;">
+                                    Works like an immutable ledger! Your game progress is securely recorded online in a decentralized way. Even if you change computers or clear your browser history, your level, attributes, and items will be saved forever!
+                                </p>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 10px; border-radius: 2px;">
+                                <span style="color: var(--magenta-neon); font-size: 13px; font-weight: bold;">🏆 NFT Minting (Virtual Trophy Gallery)</span>
+                                <p style="font-size: 11px; color: var(--text-muted); margin: 4px 0 0 0; line-height: 15px;">
+                                    Works like your personal trophy gallery! Turn your best characters and achievements into exclusive digital items under your own ownership. You can showcase them to friends or trade them on the network!
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- Interactive simulator panel -->
+                        <div style="width: 280px; background: #000; border: 1px solid var(--border-light); padding: 15px; box-sizing: border-box; display: flex; flex-direction: column;">
+                            <div style="font-size: 11px; font-weight: bold; color: var(--yellow-neon); margin-bottom: 10px; text-transform: uppercase; text-align: center;">Transaction Sequencer</div>
+                            <div style="display: flex; flex-direction: column; gap: 6px; flex-grow: 1;">
+                                <div id="simNode1" class="tutorial-flow-node"><span>1.</span> Gather Level and Attributes</div>
+                                <div id="simNode2" class="tutorial-flow-node"><span>2.</span> Validate Integrity Hash</div>
+                                <div id="simNode3" class="tutorial-flow-node"><span>3.</span> Sign with Access Key</div>
+                                <div id="simNode4" class="tutorial-flow-node"><span>4.</span> Send Progress to Blockchain</div>
+                            </div>
+                            <button id="simSaveBtn" onclick="RunTutorialSaveSimulation()" class="glass-action-btn" style="width: 100%; padding: 8px; margin-top: 10px; background: var(--yellow-neon); color: #000; font-weight: bold; border: none; cursor: pointer;">🔬 START SAVE SIMULATION</button>
+                        </div>
+                    </div>
+                    
+                    <div id="tutorialConsole" class="tutorial-console-output">Console ready. Click "START SAVE SIMULATION" to begin.</div>
+                </div>
 
-		<script src="js/main.js?v=2"></script>
-	</div>
+                <div class="tutorial-content-pane" id="paneGettingStarted">
+                    <h3 style="color: var(--cyan-neon); margin: 0 0 10px 0; text-transform: uppercase;">Quick Start Guide - Danger Ghost</h3>
+                    <div style="font-size: 13px; line-height: 20px; color: var(--text-muted);">
+                        <p style="margin: 0 0 10px 0;">Follow these 4 simple steps to begin your journey in the limbo of Nowhere:</p>
+                        <ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
+                            <li>
+                                <strong style="color: #FFF;">Connect DeSo Wallet:</strong> Click the DeSo login button to sync your progress online. That way, your hero data will be safe forever!
+                            </li>
+                            <li>
+                                <strong style="color: #FFF;">Select Your Ghost:</strong> Choose your ghost from the vessels list or create a brand new one for free to start your path from level 1!
+                            </li>
+                            <li>
+                                <strong style="color: #FFF;">Distribute Attributes:</strong> By defeating enemies and gaining experience, you will level up! Go to the "👤 HERO" panel to boost your Vitality, Agility, Intelligence, Power, or Magic.
+                            </li>
+                            <li>
+                                <strong style="color: #FFF;">Upgrade Your Weapon:</strong> Go to the same Hero panel to purchase base damage upgrades for your weapons by collecting gold from monsters!
+                            </li>
+                        </ol>
+                        <div style="margin-top: 20px; padding: 12px; background: rgba(0, 255, 255, 0.05); border: 1px dashed var(--cyan-neon); color: #FFF; font-size: 12px;">
+                            💡 <strong>Pro Tip:</strong> Hold the <strong>T</strong> key during gameplay to run twice as fast! Perfect for escaping ambushes and clearing stages at your own pace!
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de inicialização da Engine -->
+    <script src="js/game/engine.js?v=5"></script>
 </body>
-
 </html>
