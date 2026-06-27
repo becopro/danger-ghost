@@ -3909,23 +3909,23 @@ var g_binaryBits = [];
 
 				var val = sel.value;
 				if (val === "arcane") {
-					desc.innerHTML = "<strong>Elemento Arcano (Sem Runa / Pura Magia):</strong> Amplifica o dano base da magia em 40% com ectoplasma puro. Ótimo para dano bruto imediato.";
+					desc.innerHTML = "<strong>Arcane Element (No Rune / Pure Magic):</strong> Amplifies the spell's base damage by 40% with pure ectoplasm. Great for raw immediate damage.";
 					orb.style.background = "radial-gradient(circle, #FFF 0%, #D500F9 70%)";
 					orb.style.boxShadow = "0 0 20px #D500F9";
 				} else if (val === "fire") {
-					desc.innerHTML = "<strong>Runa de Fogo:</strong> Incendeia os inimigos ao contato, causando dano contínuo por queimadura ao longo de 4 segundos.";
+					desc.innerHTML = "<strong>Fire Rune:</strong> Ignites enemies on contact, causing continuous burn damage over 4 seconds.";
 					orb.style.background = "radial-gradient(circle, #FFF 0%, #FF5722 70%)";
 					orb.style.boxShadow = "0 0 20px #FF5722";
 				} else if (val === "cold") {
-					desc.innerHTML = "<strong>Runa de Gelo:</strong> Congela os inimigos no impacto, reduzindo a velocidade de movimentação e a taxa de disparos deles em 50% por 3 segundos.";
+					desc.innerHTML = "<strong>Ice Rune:</strong> Freezes enemies on impact, reducing their movement speed and attack rate by 50% for 3 seconds.";
 					orb.style.background = "radial-gradient(circle, #FFF 0%, #00E5FF 70%)";
 					orb.style.boxShadow = "0 0 20px #00E5FF";
 				} else if (val === "lightning") {
-					desc.innerHTML = "<strong>Runa de Raio:</strong> Descarrega uma explosão elétrica que atordoa o inimigo alvo por 1,5 segundos, imobilizando-o totalmente.";
+					desc.innerHTML = "<strong>Lightning Rune:</strong> Discharges an electrical blast that stuns the target enemy for 1.5 seconds, fully immobilizing them.";
 					orb.style.background = "radial-gradient(circle, #FFF 0%, #FFD600 70%)";
 					orb.style.boxShadow = "0 0 20px #FFD600";
 				} else if (val === "poison") {
-					desc.innerHTML = "<strong>Runa de Veneno:</strong> Dispara uma névoa corrosiva ácida que reduz a defesa do boss em 30% e causa dano contínuo de veneno por 6 segundos.";
+					desc.innerHTML = "<strong>Poison Rune:</strong> Shoots a corrosive acid mist that reduces the boss's defense by 30% and causes continuous poison damage for 6 seconds.";
 					orb.style.background = "radial-gradient(circle, #FFF 0%, #00E676 70%)";
 					orb.style.boxShadow = "0 0 20px #00E676";
 				}

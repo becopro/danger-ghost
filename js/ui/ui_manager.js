@@ -295,13 +295,13 @@ function UpdateNavbarEquip() {
         var eq = window.GetEquipmentState ? window.GetEquipmentState() : { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
 
         var slots = [
-            { key: 'head', name: 'HEAD (ELMO)' },
-            { key: 'chest', name: 'CHEST (PEITORAL)' },
-            { key: 'mainhand', name: 'MAIN HAND (ARMA)' },
-            { key: 'offhand', name: 'OFF-HAND (SECUNDÁRIA)' },
-            { key: 'ring1', name: 'RING 1 (ANEL)' },
-            { key: 'ring2', name: 'RING 2 (ANEL)' },
-            { key: 'amulet', name: 'AMULET (AMULETO)' }
+            { key: 'head', name: 'HEAD (HELMET)' },
+            { key: 'chest', name: 'CHEST (CHESTPLATE)' },
+            { key: 'mainhand', name: 'MAIN HAND (BLADE)' },
+            { key: 'offhand', name: 'OFF-HAND (SHIELD)' },
+            { key: 'ring1', name: 'RING 1 (RING)' },
+            { key: 'ring2', name: 'RING 2 (RING)' },
+            { key: 'amulet', name: 'AMULET (AMULET)' }
         ];
 
         var html = "<h3 style='margin: 0 0 8px 0; color: #ffaa00; text-align: center; font-family: var(--font-title); font-size: 16px; letter-spacing: 1px;'>🛡️ EQUIPMENT</h3>" +
