@@ -3477,8 +3477,8 @@ var g_binaryBits = [];
 					}
 					if (!m.done) allDone = false;
 					
-					html += '<div style="color: ' + textColor + '; text-shadow: ' + textShadow + '; font-family: monospace; display: flex; gap: 8px; align-items: center;">';
-					html += '<span>' + statusIcon + '</span>';
+					html += '<div style="color: ' + textColor + '; text-shadow: ' + textShadow + '; font-family: monospace; display: flex; gap: 8px; align-items: flex-start;">';
+					html += '<span style="flex-shrink: 0; white-space: nowrap;">' + statusIcon + '</span>';
 					html += '<span>' + m.text + '</span>';
 					html += '</div>';
 				});
