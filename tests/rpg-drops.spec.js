@@ -205,7 +205,7 @@ const path = require('path');
     await page.waitForTimeout(200);
 
     // Encontrar o botão de alternar modo de seleção (deve conter texto "SELEÇÃO:")
-    const selectionToggleBtn = page.locator('button:has-text("SELEÇÃO:")');
+    const selectionToggleBtn = page.locator('button:has-text("SELECTION:")');
     await selectionToggleBtn.waitFor({ state: 'visible' });
     let btnText = await selectionToggleBtn.innerText();
     console.log(`Initial selection button text: ${btnText}`);
@@ -235,7 +235,7 @@ const path = require('path');
     const detailsBox = page.locator('#bagDetailsBox');
     await detailsBox.waitFor({ state: 'visible' });
     const detailsText = await detailsBox.innerText();
-    if (!detailsText.includes("selecionados") || !detailsText.includes("2")) {
+    if (!detailsText.includes("selected") || !detailsText.includes("2")) {
       throw new Error(`Details box does not show 2 items selected. Got: ${detailsText}`);
     }
     console.log('✔ Confirmed 2 items selected in UI.');
@@ -246,7 +246,7 @@ const path = require('path');
     });
 
     // Clicar no botão de jogar múltiplos itens fora
-    const multiDiscardBtn = page.locator('button:has-text("JOGAR SELECIONADOS FORA")');
+    const multiDiscardBtn = page.locator('button:has-text("DISCARD SELECTED")');
     await multiDiscardBtn.click();
     await page.waitForTimeout(200);
 
