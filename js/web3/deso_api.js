@@ -33,7 +33,7 @@ window.addEventListener('message', function(event) {
 						window.g_desoPendingAction = null;
 						CheckVIPStatus(window.g_desoPublicKey);
 						
-						var overlay = document.getElementById('mainMenuOverlay');
+						var overlay = document.getElementById('loginButtonsContainer');
 						if (overlay) overlay.style.display = 'none';
 						if (typeof window.OpenCharacterSelection === "function") {
 							window.OpenCharacterSelection();
@@ -1079,6 +1079,9 @@ window.LoadRPGStateFromDeSo = LoadRPGStateFromDeSo;
             window.g_ownedCharacters = characters || [];
             var overlay = document.getElementById("characterSelectionOverlay");
             if (overlay) overlay.style.display = "flex";
+
+            var loginBtns = document.getElementById("loginButtonsContainer");
+            if (loginBtns) loginBtns.style.display = "none";
 
             var container = document.getElementById("characterCardsContainer");
             var mintBox = document.querySelector(".new-ghost-box");

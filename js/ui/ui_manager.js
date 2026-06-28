@@ -598,7 +598,7 @@ window.GhostRPG = window.GhostRPG || {};
 window.RenderRPGStatusDrawer = RenderRPGStatusDrawer;
 
 function StartGameFromMenu() {
-    var overlay = document.getElementById('mainMenuOverlay');
+    var overlay = document.getElementById('loginButtonsContainer');
     if (overlay) overlay.style.display = 'none';
 
     if (window.OpenCharacterSelection) {
@@ -624,8 +624,8 @@ function OpenCharacterSelection() {
 function CancelCharacterSelection() {
     var overlay = document.getElementById('characterSelectionOverlay');
     if (overlay) overlay.style.display = 'none';
-    var menu = document.getElementById('mainMenuOverlay');
-    if (menu) menu.style.display = 'flex';
+    var loginBtns = document.getElementById('loginButtonsContainer');
+    if (loginBtns) loginBtns.style.display = 'flex';
 }
 
 function CloseCharacterSelection() {
@@ -727,7 +727,7 @@ function StartDeSoPlayFlow() {
 
 function StartGuestPlayFlow() {
     window.g_isGuestRun = true;
-    var menu = document.getElementById("mainMenuOverlay");
+    var menu = document.getElementById("loginButtonsContainer");
     if (menu) menu.style.display = "none";
     
     window.g_score = 0;

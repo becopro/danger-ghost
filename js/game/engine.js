@@ -268,6 +268,9 @@
 				var btn = document.getElementById("desoBtn");
 				if (btn) btn.style.display = (g_gameState == G_START || g_gameState == G_WIN) ? "inline-block" : "none";
 				
+				var gBtn = document.getElementById("guestBtn");
+				if (gBtn) gBtn.style.display = (g_gameState == G_START) ? "inline-block" : "none";
+
 				var winPanel = document.getElementById("winPanel");
 				if (winPanel) winPanel.style.display = (g_gameState == G_WIN) ? "block" : "none";
 			}

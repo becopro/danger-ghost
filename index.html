@@ -135,30 +135,10 @@
                 </div>
             </div>
 
-            <!-- Menu Inicial Imersivo (Z-Index: 400) -->
-            <div id="mainMenuOverlay" class="modal-overlay immersive-menu">
-                <div class="particles-bg"></div>
-                <div class="menu-content-wrapper" style="transform: scale(0.65);">
-                    <div class="title-container">
-                        <h1 class="menu-title glitched" data-text="DANGER GHOST">DANGER GHOST</h1>
-                    </div>
-                    
-                    <div class="menu-actions" style="display: flex; flex-direction: column; gap: 15px; align-items: center; margin-top: 15px;">
-                        <button onclick="StartDeSoPlayFlow()" class="cyber-btn primary" style="width: 320px;">
-                            <span class="btn-content" style="justify-content: center;">
-                                <span class="btn-icon">🔑</span>
-                                <span class="btn-text">Play Now login DeSo.</span>
-                            </span>
-                        </button>
-                        <button onclick="StartGuestPlayFlow()" class="cyber-btn secondary" style="width: 320px;">
-                            <span class="btn-content" style="justify-content: center;">
-                                <span class="btn-icon">👤</span>
-                                <span class="btn-text">Play Now as Guest</span>
-                            </span>
-                        </button>
-                    </div>
-                </div>
-            </div>
+        </div>
+        <div id="loginButtonsContainer" style="display: flex; flex-direction: column; gap: 10px; align-items: center; margin-top: 20px; width: 100%; max-width: 640px; margin-left: auto; margin-right: auto;">
+            <button id="desoBtn" onclick="StartDeSoPlayFlow()" style="padding: 12px 24px; font-size: 16px; background-color: #000; color: #00FFFF; border: 2px solid #00FFFF; border-radius: 5px; cursor: pointer; text-shadow: 0 0 5px #00FFFF; font-weight: bold; text-transform: uppercase; width: 100%;">PLAY NOW LOGIN DESO</button>
+            <button id="guestBtn" onclick="StartGuestPlayFlow()" style="padding: 12px 24px; font-size: 16px; background-color: #000; color: #ff5555; border: 2px solid #ff5555; border-radius: 5px; cursor: pointer; text-shadow: 0 0 5px #ff5555; font-weight: bold; text-transform: uppercase; width: 100%;">PLAY NOW AS GUEST</button>
         </div>
         <br />
         <div id="winPanel" style="display: none; margin-top: 20px;">
