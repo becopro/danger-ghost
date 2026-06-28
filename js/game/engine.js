@@ -2839,10 +2839,16 @@
 				} catch(e) { console.error("Submit Tx Error", e); }
 			}
 
-			function WaitForWindowClose(win, callback) {}
-			window.WaitForWindowClose = WaitForWindowClose;
+			function WaitForWindowClose(win, callback) {
+				if (!win) return; // Evita crashes silenciosos se a janela for bloqueada por Popup Blocker
+				var timer = setInterval(function() {
+					if (win.closed) {
+						clearInterval(timer);
+						callback();
+					}
 				}, 500);
 			}
+			window.WaitForWindowClose = WaitForWindowClose;
 
 			async function CheckVIPStatus(pubKey) {
 				try {
