@@ -31,11 +31,6 @@ window.addEventListener('message', function(event) {
 						window.g_desoPendingAction = null;
 						CheckVIPStatus(window.g_desoPublicKey);
 						
-						// Carrega dinamicamente o status do fantasma único do jogador da DeSo!
-						if (typeof LoadRPGStateFromDeSo === "function") {
-							LoadRPGStateFromDeSo(window.g_desoPublicKey, true);
-						}
-						
 						var overlay = document.getElementById('mainMenuOverlay');
 						if (overlay) overlay.style.display = 'none';
 						if (typeof window.OpenCharacterSelection === "function") {
@@ -648,6 +643,10 @@ window.addEventListener('message', function(event) {
 			}
 
 			async function LoadRPGStateFromDeSo(publicKey, forceShowOverlay) {
+    if (window.g_desoCharactersLoading) {
+        console.log('[DeSo Sync] Already loading characters, skipping duplicate request.');
+        return;
+    }
     window.g_desoCharactersLoading = true;
     var panelContent = document.getElementById("rpgPanelContent") || document.getElementById("navbarPanelContent");
     if (panelContent) {
@@ -703,9 +702,12 @@ window.addEventListener('message', function(event) {
                             } catch(e) {}
                             
                             var existing = charactersMap.get(charId);
-                            var finalStats = saves[charId] || existing || baseStats;
-                            if (existing && (existing.level || 1) > (finalStats.level || 1)) {
+                            var finalStats = baseStats;
+                            if (existing && (parseInt(existing.level, 10) || 0) > (parseInt(finalStats.level, 10) || 0)) {
                                 finalStats = existing;
+                            }
+                            if (saves[charId] && (parseInt(saves[charId].level, 10) || 0) > (parseInt(finalStats.level, 10) || 0)) {
+                                finalStats = saves[charId];
                             }
                             
                             finalStats.characterId = charId;
@@ -735,7 +737,7 @@ window.addEventListener('message', function(event) {
                     for (var i = 0; i < nftPosts.length; i++) {
                         var p = nftPosts[i].PostEntryResponse;
                         if (p && p.PostExtraData && p.PostExtraData["DangerGhost_CharacterID"]) {
-                            var charId = p.PostExtraData["DangerGhost_CharacterID"];
+                            var charId = p.PostExtraData["DangerGhost_CharacterID"] || "legacy_char";
                             var baseStats = {};
                             try {
                                 var baseDec = window.SafeAtob ? window.SafeAtob(p.PostExtraData["DangerGhost_SaveState"]) : atob(p.PostExtraData["DangerGhost_SaveState"]);
@@ -743,9 +745,12 @@ window.addEventListener('message', function(event) {
                             } catch(e) {}
                             
                             var existing = charactersMap.get(charId);
-                            var finalStats = saves[charId] || existing || baseStats;
-                            if (existing && (existing.level || 1) > (finalStats.level || 1)) {
+                            var finalStats = baseStats;
+                            if (existing && (parseInt(existing.level, 10) || 0) > (parseInt(finalStats.level, 10) || 0)) {
                                 finalStats = existing;
+                            }
+                            if (saves[charId] && (parseInt(saves[charId].level, 10) || 0) > (parseInt(finalStats.level, 10) || 0)) {
+                                finalStats = saves[charId];
                             }
                             
                             finalStats.characterId = charId;
@@ -763,7 +768,21 @@ window.addEventListener('message', function(event) {
             }
         } catch(e) { console.warn("Failed fetching NFTs", e); }
 
-        var uniqueCharacters = Array.from(charactersMap.values());
+        var uniqueMap = new Map();
+        Array.from(charactersMap.values()).forEach(function(char) {
+            if (char && char.characterId) {
+                var normId = String(char.characterId).toLowerCase().trim();
+                if (!uniqueMap.has(normId)) {
+                    uniqueMap.set(normId, char);
+                } else {
+                    var existing = uniqueMap.get(normId);
+                    if ((parseInt(char.level, 10) || 0) > (parseInt(existing.level, 10) || 0)) {
+                        uniqueMap.set(normId, char);
+                    }
+                }
+            }
+        });
+        var uniqueCharacters = Array.from(uniqueMap.values());
         console.log('[DeSo Sync] Characters loaded:', uniqueCharacters.length);
 
         var autoSelected = false;
