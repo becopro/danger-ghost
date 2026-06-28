@@ -297,7 +297,7 @@ window.addEventListener('message', function(event) {
 							},
 							PostExtraData: {
 								"DangerGhost_CharacterID": stats.characterId,
-								"DangerGhost_SaveState": SafeBtoa(JSON.stringify(Object.assign({}, stats, { score: g_score, time: g_globalTotalTime }))),
+								"DangerGhost_SaveState": (window.LZString ? "LZ:" + window.LZString.compressToBase64(JSON.stringify(Object.assign({}, stats, { score: g_score, time: g_globalTotalTime }))) : SafeBtoa(JSON.stringify(Object.assign({}, stats, { score: g_score, time: g_globalTotalTime })))),
 								"DangerGhost_GameApp": "v1.0.0"
 							},
 							MinFeeRateNanosPerKB: 1000
@@ -398,36 +398,54 @@ window.addEventListener('message', function(event) {
 			async function ExecuteDeSoRPGSave(jwt) {
     var btn = document.getElementById("rpgSaveBtn");
     try {
-        if(btn) { btn.innerText = "SAVING TO PROFILE..."; btn.disabled = true; }
+        if(btn) { btn.innerText = "SAVING TO BLOCKCHAIN..."; btn.disabled = true; }
 
         var stats = GhostRPG.getStats();
-        var saveObj = Object.assign({}, stats, { score: window.g_score, time: window.g_globalTotalTime });
-        var extraDataKey = "DangerGhost_SaveState_" + saveObj.characterId;
-        
-        var profileRes = await fetch("https://node.deso.org/api/v0/get-single-profile", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ PublicKeyBase58Check: window.g_desoPublicKey })
-        });
-        var profileData = await profileRes.json();
-        var profile = profileData.Profile || {};
+        if (!stats.postHashHex && window.g_desoLastPostHashHex) {
+            stats.postHashHex = window.g_desoLastPostHashHex;
+        }
+        if (!stats.postHashHex) {
+            throw new Error("No PostHashHex found for this Ghost. Cannot save in-place.");
+        }
 
-        var extraDataObj = {};
-        extraDataObj[extraDataKey] = window.SafeBtoa ? window.SafeBtoa(JSON.stringify(saveObj)) : btoa(JSON.stringify(saveObj));
+        var saveObj = Object.assign({}, stats, { score: window.g_score, time: window.g_globalTotalTime });
+        
+        // 1. Fetch existing post to preserve ImageURLs
+        var getReq = { PostHashHex: stats.postHashHex };
+        var getRes = await fetch("https://node.deso.org/api/v0/get-single-post", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(getReq)
+        });
+        var getData = await getRes.json();
+        if (!getData.PostFound) throw new Error("Ghost post not found on chain.");
+        
+        var existingImages = getData.PostFound.ImageURLs || [];
+        var isEvolved = getData.PostFound.Body && getData.PostFound.Body.includes("EVOLVED");
+        
+        // 2. Prepare updated body
+        var title = isEvolved ? "🔥 Danger Ghost - EVOLVED GHOST FORGED! (Faenora Forge)" : "🔮 Danger Ghost - Ghost Initiated!";
+        var bodyText = title + "\n\n" +
+                       "ID: " + saveObj.characterId.substring(0,12) + "...\n" +
+                       "Level: " + saveObj.level + "\n" +
+                       "VIT: " + saveObj.vit + " | AGI: " + saveObj.agi + " | INT: " + saveObj.int + " | POW: " + saveObj.pow + " | MAG: " + saveObj.mag + "\n\n" +
+                       "#DangerGhostCharacter #NewGhost #DeSo" + (isEvolved ? " #Evolved" : "");
 
         var postReq = {
             UpdaterPublicKeyBase58Check: window.g_desoPublicKey,
-            ProfilePublicKeyBase58Check: window.g_desoPublicKey,
-            NewUsername: profile.Username || "",
-            NewDescription: profile.Description || "",
-            NewProfilePic: profile.ProfilePic || "",
-            NewCreatorBasisPoints: profile.CoinEntry ? profile.CoinEntry.CreatorBasisPoints : 10000,
-            NewStakeMultipleBasisPoints: profile.CoinEntry ? profile.CoinEntry.DeSoLockedNanos : 12500,
-            IsHidden: profile.IsHidden || false,
-            MinFeeRateNanosPerKB: 1000,
-            ExtraData: extraDataObj
+            PostHashHexToModify: stats.postHashHex,
+            BodyObj: {
+                Body: bodyText,
+                ImageURLs: existingImages
+            },
+            PostExtraData: {
+                "DangerGhost_CharacterID": saveObj.characterId,
+                "DangerGhost_SaveState": (window.LZString ? "LZ:" + window.LZString.compressToBase64(JSON.stringify(saveObj)) : (window.SafeBtoa ? window.SafeBtoa(JSON.stringify(saveObj)) : btoa(JSON.stringify(saveObj)))),
+                "DangerGhost_GameApp": "v1.0.0"
+            },
+            MinFeeRateNanosPerKB: 1000
         };
 
-        var postRes = await fetch("https://node.deso.org/api/v0/update-profile", {
+        var postRes = await fetch("https://node.deso.org/api/v0/submit-post", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify(postReq)
         });
@@ -445,7 +463,7 @@ window.addEventListener('message', function(event) {
                 }
             });
         } else {
-            throw new Error(postData.error || "Error updating profile on DeSo node.");
+            throw new Error(postData.error || "Error updating post on DeSo node.");
         }
     } catch(e) {
         console.error("Save RPG Error", e);
@@ -472,6 +490,16 @@ window.addEventListener('message', function(event) {
 
 				var priceDeSo = window.g_ownedCharacters.length * 0.25;
 				g_characterCreationId = "dg_" + Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
+				
+				var soulEssence = 0;
+				try { soulEssence = parseInt(localStorage.getItem("dg_soul_essence")) || 0; } catch(e) {}
+				var isEvolvedMint = false;
+				
+				if (soulEssence >= 100) {
+				    isEvolvedMint = true;
+				    priceDeSo = 0; // Soul makes it free
+				    try { localStorage.setItem("dg_soul_essence", (soulEssence - 100).toString()); } catch(e) {}
+				}
 
 				if (priceDeSo > 0) {
 					if (status) status.innerText = "Preparing transaction of " + priceDeSo + " DeSo for the developer...";
@@ -509,18 +537,20 @@ window.addEventListener('message', function(event) {
 						if (status) status.innerText = "Creation failed: " + e.message;
 					}
 				} else {
-					if (status) status.innerText = "Generating Ghost data and image...";
-					ExecuteCharacterPostCreation();
+					if (status && !isEvolvedMint) status.innerText = "Generating Ghost data and image...";
+					else if (status && isEvolvedMint) status.innerText = "Forging Evolved Ghost with Soul...";
+					ExecuteCharacterPostCreation(isEvolvedMint);
 				}
 			}
 			window.TriggerCreateNewGhost = TriggerCreateNewGhost;
 
-			async function ExecuteCharacterPostCreation() {
+			async function ExecuteCharacterPostCreation(isEvolvedMint) {
+			    window.g_isEvolvedMintActive = isEvolvedMint;
 				var status = document.getElementById("selectionStatusText");
 				if (status) status.innerText = "Rendering Ghost NFT image...";
 
 				var defaultStats = {
-					level: 1,
+					level: isEvolvedMint ? 5 : 1,
 					xp: 0,
 					xpRequired: 100,
 					vit: 1,
@@ -580,23 +610,25 @@ window.addEventListener('message', function(event) {
 					var imageUrl = uploadData.ImageURL;
 
 					if (status) status.innerText = "Creating Ghost post transaction...";
+					var isEvolvedMint = window.g_isEvolvedMintActive;
 					var defaultStats = {
-						level: 1,
-						vit: 1,
-						agi: 1,
-						int: 1,
-						pow: 1,
-						mag: 1,
+						level: isEvolvedMint ? 5 : 1,
+						vit: isEvolvedMint ? 3 : 1,
+						agi: isEvolvedMint ? 3 : 1,
+						int: isEvolvedMint ? 3 : 1,
+						pow: isEvolvedMint ? 3 : 1,
+						mag: isEvolvedMint ? 3 : 1,
 						characterId: g_characterCreationId,
 						score: 0,
 						time: 0
 					};
 
-					var bodyText = "🔮 Danger Ghost - New Ghost Initiated!\n\n" +
+					var title = isEvolvedMint ? "🔥 Danger Ghost - EVOLVED GHOST FORGED! (Faenora Forge)" : "🔮 Danger Ghost - New Ghost Initiated!";
+					var bodyText = title + "\n\n" +
 								   "ID: " + g_characterCreationId.substring(0,12) + "...\n" +
-								   "Level: 1\n" +
-								   "VIT: 1 | AGI: 1 | INT: 1 | POW: 1 | MAG: 1\n\n" +
-								   "#DangerGhostCharacter #NewGhost #DeSo";
+								   "Level: " + defaultStats.level + "\n" +
+								   "VIT: " + defaultStats.vit + " | AGI: " + defaultStats.agi + " | INT: " + defaultStats.int + " | POW: " + defaultStats.pow + " | MAG: " + defaultStats.mag + "\n\n" +
+								   "#DangerGhostCharacter #NewGhost #DeSo" + (isEvolvedMint ? " #Evolved" : "");
 
 					var postReq = {
 						UpdaterPublicKeyBase58Check: window.g_desoPublicKey,
@@ -606,7 +638,7 @@ window.addEventListener('message', function(event) {
 						},
 						PostExtraData: {
 							"DangerGhost_CharacterID": g_characterCreationId,
-							"DangerGhost_SaveState": SafeBtoa(JSON.stringify(defaultStats)),
+							"DangerGhost_SaveState": (window.LZString ? "LZ:" + window.LZString.compressToBase64(JSON.stringify(defaultStats)) : SafeBtoa(JSON.stringify(defaultStats))),
 							"DangerGhost_GameApp": "v1.0.0"
 						},
 						MinFeeRateNanosPerKB: 1000
@@ -697,7 +729,7 @@ window.addEventListener('message', function(event) {
                             var charId = p.PostExtraData["DangerGhost_CharacterID"] || "legacy_char";
                             var baseStats = {};
                             try {
-                                var baseDec = window.SafeAtob ? window.SafeAtob(p.PostExtraData["DangerGhost_SaveState"]) : atob(p.PostExtraData["DangerGhost_SaveState"]);
+                                var baseDecData = p.PostExtraData["DangerGhost_SaveState"]; var baseDec = baseDecData.startsWith("LZ:") ? window.LZString.decompressFromBase64(baseDecData.substring(3)) : (window.SafeAtob ? window.SafeAtob(baseDecData) : atob(baseDecData));
                                 baseStats = JSON.parse(baseDec);
                             } catch(e) {}
                             
@@ -740,7 +772,7 @@ window.addEventListener('message', function(event) {
                             var charId = p.PostExtraData["DangerGhost_CharacterID"] || "legacy_char";
                             var baseStats = {};
                             try {
-                                var baseDec = window.SafeAtob ? window.SafeAtob(p.PostExtraData["DangerGhost_SaveState"]) : atob(p.PostExtraData["DangerGhost_SaveState"]);
+                                var baseDecData = p.PostExtraData["DangerGhost_SaveState"]; var baseDec = baseDecData.startsWith("LZ:") ? window.LZString.decompressFromBase64(baseDecData.substring(3)) : (window.SafeAtob ? window.SafeAtob(baseDecData) : atob(baseDecData));
                                 baseStats = JSON.parse(baseDec);
                             } catch(e) {}
                             
@@ -947,7 +979,7 @@ window.LoadRPGStateFromDeSo = LoadRPGStateFromDeSo;
 					},
 					PostExtraData: {
 						"DangerGhost_CharacterID": saveObj.characterId,
-						"DangerGhost_SaveState": SafeBtoa(JSON.stringify(saveObj)),
+						"DangerGhost_SaveState": (window.LZString ? "LZ:" + window.LZString.compressToBase64(JSON.stringify(saveObj)) : SafeBtoa(JSON.stringify(saveObj))),
 						"DangerGhost_GameApp": "v1.0.0"
 					},
 					MinFeeRateNanosPerKB: 1000
@@ -988,8 +1020,56 @@ window.LoadRPGStateFromDeSo = LoadRPGStateFromDeSo;
 			}
 		}
 		
+		async function BurnGhostNFT(postHashHex) {
+			if (!window.g_desoPublicKey) return;
+			var btn = document.getElementById("btnBurnGhost");
+			if (btn) {
+				btn.innerText = "BURNING GHOST...";
+				btn.disabled = true;
+			}
+			try {
+				var reqData = {
+					UpdaterPublicKeyBase58Check: window.g_desoPublicKey,
+					NFTPostHashHex: postHashHex,
+					SerialNumber: 1,
+					MinFeeRateNanosPerKB: 1000
+				};
+				var res = await fetch("https://node.deso.org/api/v0/burn-nft", {
+					method: "POST", headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(reqData)
+				});
+				var data = await res.json();
+				if (res.ok && data.TransactionHex) {
+					window.g_desoPendingTransactionHex = data.TransactionHex;
+					window.g_desoPendingTransactionType = "RPG_BURN_NFT";
+					window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + data.TransactionHex, "deso_identity", "width=800,height=1000");
+					if (!window.g_desoIdentityWindow) {
+						alert("⚠️ POP-UP BLOCKED: Please enable pop-ups to burn your Ghost!");
+						if (btn) { btn.innerText = "FAENORA FORGE: BURN TO EVOLVE"; btn.disabled = false; }
+						return;
+					}
+					window.WaitForWindowClose(window.g_desoIdentityWindow, function() {
+						if (window.g_desoPendingTransactionType === "RPG_BURN_NFT") {
+							if (btn) { btn.innerText = "GHOST BURNED! REFRESHING..."; }
+							alert("Soul harvested! Your Ghost was burned in the Faenora Forge. You gained 100 $SOUL ESSENCE!");
+							try { localStorage.setItem("dg_soul_essence", "100"); } catch(e) {}
+							window.g_desoPendingTransactionType = null;
+							setTimeout(function() { window.location.reload(); }, 1500);
+						}
+					});
+				} else {
+					throw new Error(data.error || "Failed to generate burn-nft transaction");
+				}
+			} catch(e) {
+				console.error("Burn RPG Ghost Error", e);
+				if (btn) { btn.innerText = "FAENORA FORGE: BURN TO EVOLVE"; btn.disabled = false; }
+				alert("Error burning Ghost: " + e.message);
+			}
+		}
+		
 		window.CreateDeSoNFTForRPG = CreateDeSoNFTForRPG;
 		window.ExecuteDeSoRPGSaveWithImage = ExecuteDeSoRPGSaveWithImage;
+		window.BurnGhostNFT = BurnGhostNFT;
 
         window.g_ownedCharacters = [];
 
@@ -1019,12 +1099,21 @@ window.LoadRPGStateFromDeSo = LoadRPGStateFromDeSo;
             if (container) container.innerHTML = "";
 
             var priceText = document.getElementById("newGhostPriceText");
+            var createBtn = document.getElementById("createGhostBtn");
             var priceDeSo = characters.length * 0.25;
+            var soulEssence = 0;
+            try { soulEssence = parseInt(localStorage.getItem("dg_soul_essence")) || 0; } catch(e) {}
+
             if (priceText) {
-                if (characters.length === 0) {
+                if (soulEssence >= 100) {
+                    priceText.innerHTML = "You have <b style='color: #FF00FF;'>100 $SOUL ESSENCE</b>! You can forge an Evolved Ghost!";
+                    if (createBtn) createBtn.innerHTML = "<span class='btn-content'><span class='btn-icon' style='color:#FF00FF;'>✨</span><span class='btn-text' style='color: var(--white);'>FORGE EVOLVED GHOST (100 $SOUL)</span></span>";
+                } else if (characters.length === 0) {
                     priceText.innerHTML = "Your first Ghost is 100% free (only pay DeSo network fees).";
+                    if (createBtn) createBtn.innerHTML = "<span class='btn-content'><span class='btn-icon'>+</span><span class='btn-text' style='color: var(--white);'>MINT NEW GHOST</span></span>";
                 } else {
                     priceText.innerHTML = "You already own " + characters.length + " Ghost(s). Creating your " + (characters.length + 1) + "th Ghost will cost <b style='color: var(--yellow-neon);'>" + priceDeSo.toFixed(2) + " DeSo</b> + network fees.";
+                    if (createBtn) createBtn.innerHTML = "<span class='btn-content'><span class='btn-icon'>+</span><span class='btn-text' style='color: var(--white);'>MINT NEW GHOST</span></span>";
                 }
             }
 
@@ -1069,7 +1158,31 @@ window.LoadRPGStateFromDeSo = LoadRPGStateFromDeSo;
                     };
                 })(char.characterId);
                 
+                var burnBtn = document.createElement("button");
+                burnBtn.className = "cyber-btn tertiary";
+                burnBtn.style.marginTop = "10px";
+                burnBtn.style.width = "100%";
+                burnBtn.style.textAlign = "center";
+                burnBtn.style.padding = "10px";
+                burnBtn.style.backgroundColor = "rgba(85, 0, 0, 0.4)";
+                burnBtn.style.borderColor = "#FF0000";
+                burnBtn.id = "btnBurnGhost";
+                burnBtn.innerHTML = "<span class='btn-content' style='justify-content: center;'><span class='btn-icon' style='color: #FF0000;'>🔥</span><span class='btn-text' style='color: #FF0000; font-size: 11px; font-weight: bold;'>FAENORA FORGE: BURN TO EVOLVE</span></span>";
+                
+                (function(postHash) {
+                    burnBtn.onclick = function() {
+                        if (!postHash) {
+                            alert("This Ghost is a legacy local save or has no on-chain NFT hash. It cannot be burned in the forge.");
+                            return;
+                        }
+                        if (confirm("🔥 FAENORA FORGE 🔥\n\nBy continuing, you will PERMANENTLY BURN this Ghost NFT on the DeSo blockchain.\n\nIn exchange, you will receive 100 $SOUL ESSENCE, which you can use to mint a brand new Evolved Ghost!\n\nProceed to burn?")) {
+                            BurnGhostNFT(postHash);
+                        }
+                    };
+                })(char.postHashHex);
+
                 card.appendChild(playBtn);
+                card.appendChild(burnBtn);
                 if (container) container.appendChild(card);
             }
         }

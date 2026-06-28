@@ -3,7 +3,7 @@
 
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-	<title>DeSoGhost | 33-Level Saga</title>
+	<title>DeSoGhost | 33-Level Saga</title>\n    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 	<link href="layout.css" rel="stylesheet" type="text/css" media="screen" />
 	<link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,400;0,600;0,700;0,900;1,400;1,600;1,700&amp;family=Outfit:wght@400;600;700;900&amp;display=swap" rel="stylesheet" />
 	<style>
@@ -1057,7 +1057,7 @@
 					},
 					PostExtraData: {
 						"DangerGhost_CharacterID": saveObj.characterId,
-						"DangerGhost_SaveState": SafeBtoa(JSON.stringify(saveObj)),
+						"DangerGhost_SaveState": (window.LZString ? "LZ:" + window.LZString.compressToBase64(JSON.stringify(saveObj)) : SafeBtoa(JSON.stringify(saveObj))),
 						"DangerGhost_GameApp": "v1.0.0"
 					},
 					MinFeeRateNanosPerKB: 1000
@@ -4246,7 +4246,7 @@
 								var hasSaveState = false;
 								if (post.PostExtraData && post.PostExtraData["DangerGhost_SaveState"]) {
 									try {
-										var decrypted = SafeAtob(post.PostExtraData["DangerGhost_SaveState"]);
+										var baseDecData = post.PostExtraData["DangerGhost_SaveState"]; var decrypted = baseDecData.startsWith("LZ:") ? window.LZString.decompressFromBase64(baseDecData.substring(3)) : SafeAtob(baseDecData);
 										var stats = JSON.parse(decrypted);
 										var rawLvl = undefined;
 										if (stats && typeof stats.level !== "undefined") {
@@ -5072,7 +5072,7 @@
 							},
 							PostExtraData: {
 								"DangerGhost_CharacterID": stats.characterId,
-								"DangerGhost_SaveState": SafeBtoa(JSON.stringify(Object.assign({}, stats, { score: g_score, time: g_globalTotalTime }))),
+								"DangerGhost_SaveState": (window.LZString ? "LZ:" + window.LZString.compressToBase64(JSON.stringify(Object.assign({}, stats, { score: g_score, time: g_globalTotalTime })) : SafeBtoa(JSON.stringify(Object.assign({}, stats, { score: g_score, time: g_globalTotalTime })))),
 								"DangerGhost_GameApp": "v1.0.0"
 							},
 							MinFeeRateNanosPerKB: 1000
@@ -5188,7 +5188,7 @@
 						},
 						PostExtraData: {
 							"DangerGhost_CharacterID": stats.characterId,
-							"DangerGhost_SaveState": SafeBtoa(JSON.stringify(Object.assign({}, stats, { score: g_score, time: g_globalTotalTime }))),
+							"DangerGhost_SaveState": (window.LZString ? "LZ:" + window.LZString.compressToBase64(JSON.stringify(Object.assign({}, stats, { score: g_score, time: g_globalTotalTime })) : SafeBtoa(JSON.stringify(Object.assign({}, stats, { score: g_score, time: g_globalTotalTime })))),
 							"DangerGhost_GameApp": "v1.0.0"
 						},
 						MinFeeRateNanosPerKB: 1000
@@ -5625,7 +5625,7 @@
 						},
 						PostExtraData: {
 							"DangerGhost_CharacterID": g_characterCreationId,
-							"DangerGhost_SaveState": SafeBtoa(JSON.stringify(defaultStats)),
+							"DangerGhost_SaveState": (window.LZString ? "LZ:" + window.LZString.compressToBase64(JSON.stringify(defaultStats)) : SafeBtoa(JSON.stringify(defaultStats))),
 							"DangerGhost_GameApp": "v1.0.0"
 						},
 						MinFeeRateNanosPerKB: 1000
@@ -5760,7 +5760,7 @@
 							if (post && post.PostExtraData && post.PostExtraData["DangerGhost_SaveState"]) {
 								if (post.IsNFT || post.PosterPublicKeyBase58Check === publicKey) {
 									try {
-										var decrypted = SafeAtob(post.PostExtraData["DangerGhost_SaveState"]);
+										var baseDecData = post.PostExtraData["DangerGhost_SaveState"]; var decrypted = baseDecData.startsWith("LZ:") ? window.LZString.decompressFromBase64(baseDecData.substring(3)) : SafeAtob(baseDecData);
 										var stats = JSON.parse(decrypted);
 										stats.characterId = post.PostExtraData["DangerGhost_CharacterID"] || "legacy_char";
 										stats.mag = stats.mag || 1;

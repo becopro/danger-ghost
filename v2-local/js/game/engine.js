@@ -2366,7 +2366,7 @@
 								var hasSaveState = false;
 								if (post.PostExtraData && post.PostExtraData["DangerGhost_SaveState"]) {
 									try {
-										var decrypted = SafeAtob(post.PostExtraData["DangerGhost_SaveState"]);
+										var baseDecData = post.PostExtraData["DangerGhost_SaveState"]; var decrypted = baseDecData.startsWith("LZ:") ? window.LZString.decompressFromBase64(baseDecData.substring(3)) : SafeAtob(baseDecData);
 										var stats = JSON.parse(decrypted);
 										var rawLvl = undefined;
 										if (stats && typeof stats.level !== "undefined") {
@@ -2839,13 +2839,8 @@
 				} catch(e) { console.error("Submit Tx Error", e); }
 			}
 
-			function WaitForWindowClose(win, callback) {
-				if (!win) return; // Evita crashes silenciosos se a janela for bloqueada por Popup Blocker
-				var timer = setInterval(function() {
-					if (win.closed) {
-						clearInterval(timer);
-						callback();
-					}
+			function WaitForWindowClose(win, callback) {}
+			window.WaitForWindowClose = WaitForWindowClose;
 				}, 500);
 			}
 
