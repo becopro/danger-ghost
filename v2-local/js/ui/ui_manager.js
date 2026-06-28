@@ -725,6 +725,8 @@ function StartDeSoPlayFlow() {
             window.LoginDeSo();
         }
     } else {
+        var menu = document.getElementById("mainMenuOverlay");
+        if (menu) menu.style.display = "none";
         if (typeof window.OpenCharacterSelection === "function") {
             window.OpenCharacterSelection();
         }
