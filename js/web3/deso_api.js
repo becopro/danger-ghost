@@ -1194,6 +1194,9 @@ window.LoadRPGStateFromDeSo = LoadRPGStateFromDeSo;
             var char = window.g_ownedCharacters.find(function(c) { return c.characterId === charId; });
             if (char) {
                 try { localStorage.setItem('dg_deso_character_id', charId); } catch(e) {}
+                if (char.postHashHex) {
+                    window.g_desoLastPostHashHex = char.postHashHex;
+                }
                 if (window.GhostRPG && window.GhostRPG.loadBlockchainState) {
                     GhostRPG.loadBlockchainState(
                         parseInt(char.level, 10),
