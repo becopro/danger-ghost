@@ -23,10 +23,12 @@ window.addEventListener('message', function(event) {
 					}
 					if (window.g_desoPublicKey) {
 						window.g_justConnectedWallet = true;
-						document.getElementById("desoBtn").innerText = "LOGGED IN: " + window.g_desoPublicKey.substring(0,8) + "...";
-
-						document.getElementById("desoBtn").style.borderColor = "#00FF00";
-						document.getElementById("desoBtn").style.color = "#00FF00";
+						var btn = document.getElementById("desoBtn");
+						if (btn) {
+							btn.innerText = "LOGGED IN: " + window.g_desoPublicKey.substring(0,8) + "...";
+							btn.style.borderColor = "#00FF00";
+							btn.style.color = "#00FF00";
+						}
 						if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 						window.g_desoPendingAction = null;
 						CheckVIPStatus(window.g_desoPublicKey);
