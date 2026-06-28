@@ -1353,8 +1353,8 @@ window.LoadRPGStateFromDeSo = LoadRPGStateFromDeSo;
 if (window.gameEventBus) {
     window.gameEventBus.on('level_completed', function(data) {
         if (window.g_desoUserObj) {
-            console.log("[DeSo Auto-Save] Level completed event received. Saving progress to DeSo blockchain...");
-            TriggerRPGSaveToDeSo();
+            console.log("[DeSo Auto-Save] Level completed event received. Auto-save disabled by user request.");
+        // TriggerRPGSaveToDeSo();
         }
     });
 }
