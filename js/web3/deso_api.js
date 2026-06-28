@@ -1089,7 +1089,7 @@ window.LoadRPGStateFromDeSo = LoadRPGStateFromDeSo;
                         "<div style='text-align:center; color: var(--text-muted); font-size: 16px; line-height: 1.5; margin-top: 8px;'>You cannot save or load progress without a Wallet.</div>" +
                         "<div style='display:flex; flex-direction:column; gap:15px; align-items:center; margin-top:20px;'>" +
                         "<button onclick='window.LoginDeSo()' class='cyber-btn primary' style='width:280px;'><span class='btn-content' style='justify-content: center;'><span class='btn-text'>CONNECT WALLET</span></span></button>" +
-                        "<button onclick='window.g_score=0; GhostRPG.resetStats(); document.getElementById(\"characterSelectionOverlay\").style.display=\"none\"; if(window.g_gameState===window.G_START){StartCutscene();}else{window.g_gamePaused=false;if(window.PlayBGM)window.PlayBGM();}' class='cyber-btn tertiary' style='width:280px;'><span class='btn-content' style='justify-content: center;'><span class='btn-text'>START GUEST RUN</span></span></button>" +
+                        "<button onclick='window.g_score=0; GhostRPG.resetStats(); document.getElementById(\"characterSelectionOverlay\").style.display=\"none\"; if(window.g_gameState===window.G_START){ResetGame(1);}else{window.g_gamePaused=false;if(window.PlayBGM)window.PlayBGM();}' class='cyber-btn tertiary' style='width:280px;'><span class='btn-content' style='justify-content: center;'><span class='btn-text'>START GUEST RUN</span></span></button>" +
                         "</div>";
                 }
                 if (mintBox) mintBox.style.display = "none";
@@ -1235,9 +1235,8 @@ window.LoadRPGStateFromDeSo = LoadRPGStateFromDeSo;
                 if (overlay) overlay.style.display = "none";
                 
                 if (window.g_gameState === window.G_START) {
-                    if (typeof window.StartCutscene === "function") window.StartCutscene();
+                    if (typeof window.ResetGame === "function") window.ResetGame(1);
                 } else {
-                    // Se o jogo já passou da Cutscene ou estava pausado:
                     window.g_gamePaused = false;
                     if (typeof window.PlayBGM === "function") window.PlayBGM();
                 }

@@ -736,8 +736,8 @@ function StartGuestPlayFlow() {
     }
     
     if (window.g_gameState === window.G_START) {
-        if (typeof window.StartCutscene === "function") {
-            window.StartCutscene();
+        if (typeof window.ResetGame === "function") {
+            window.ResetGame(1);
         }
     } else {
         window.g_gamePaused = false;
