@@ -720,16 +720,8 @@ window.g_isGuestRun = false;
 
 function StartDeSoPlayFlow() {
     window.g_isGuestRun = false;
-    if (!window.g_desoPublicKey) {
-        if (typeof window.LoginDeSo === "function") {
-            window.LoginDeSo();
-        }
-    } else {
-        var menu = document.getElementById("mainMenuOverlay");
-        if (menu) menu.style.display = "none";
-        if (typeof window.OpenCharacterSelection === "function") {
-            window.OpenCharacterSelection();
-        }
+    if (typeof window.LoginDeSo === "function") {
+        window.LoginDeSo();
     }
 }
 
