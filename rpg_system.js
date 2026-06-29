@@ -366,7 +366,13 @@ var GhostRPG = (function() {
         },
         triggerLevelUpEffect: function() {
             if (typeof DeSoGhost !== "undefined") { DeSoGhost.isLevelingUpAnim = 60; }
-            if (typeof window.AddScore === "function") { window.AddScore(state.level * 200); } else if (typeof AddScore === "function") { AddScore(state.level * 200); } else { console.error('[RPG] AddScore not ready'); }
+            if (typeof window.AddScore === 'function') {
+                window.AddScore(state.level * 200);
+            } else if (typeof AddScore === 'function') {
+                AddScore(state.level * 200);
+            } else {
+                console.error('[RPG] AddScore not ready');
+            }
         },
         getModifiedSpeed: function(baseSpeed) {
             var stats = this.getStats();

@@ -109,7 +109,7 @@ window.addEventListener('message', function(event) {
 								btn.onclick = function() {
 									btn.innerText = "STARTING MINT...";
 									btn.disabled = true;
-									CreateDeSoNFTForRPG(window.g_desoLastPostHashHex);
+									CreateDeSoNFTForRPG(window.g_desoLastPostHashHex); // same-file call — guard not needed
 								};
 							}
 							alert("🎉 SUCCESS! Progress saved on DeSo.\n\nNow, click on 'MINT SAVE NFT' to generate an exclusive NFT of your save in your wallet!");
@@ -129,12 +129,12 @@ window.addEventListener('message', function(event) {
 						} else if (window.g_desoPendingTransactionType === "RPG_CHAR_PAYMENT" || window.g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_PAYMENT") {
 							window.g_desoPendingTransactionType = null;
 							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
-							ExecuteCharacterPostCreation();
+							ExecuteCharacterPostCreation(); // same-file call — guard not needed
 						} else if (window.g_desoPendingTransactionType === "RPG_CHAR_POST" || window.g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_POST") {
 							window.g_desoPendingTransactionType = null;
 							window.g_desoLastPostHashHex = txHash; // SALVA HASH DO POST REAL TRANSMITIDO
 							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
-							CreateDeSoNFTForRPG(window.g_desoLastPostHashHex, "createGhostBtn");
+							CreateDeSoNFTForRPG(window.g_desoLastPostHashHex, "createGhostBtn"); // same-file call — guard not needed
 						} else if (window.g_desoPendingTransactionType === "RPG_CHAR_NFT" || window.g_desoPendingTransactionType === "SUBMITTING_RPG_CHAR_NFT") {
 							window.g_desoPendingTransactionType = null;
 							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
@@ -495,7 +495,7 @@ window.addEventListener('message', function(event) {
             
             if(btn) btn.innerText = "APPROVE SAVE IN POP-UP...";
             
-            window.WaitForWindowClose(window.g_desoIdentityWindow, function() {
+            window.WaitForWindowClose(window.g_desoIdentityWindow, function() { // window. prefix already correct
                 if (window.g_desoPendingTransactionType === "RPG_SAVE") {
                     if(btn) { btn.innerText = "SAVE EVOLUTION (BLOCKCHAIN)"; btn.disabled = false; }
                 }
@@ -577,7 +577,7 @@ window.addEventListener('message', function(event) {
 				} else {
 					if (status && !isEvolvedMint) status.innerText = "Generating Ghost data and image...";
 					else if (status && isEvolvedMint) status.innerText = "Forging Evolved Ghost with Soul...";
-					ExecuteCharacterPostCreation(isEvolvedMint);
+					ExecuteCharacterPostCreation(isEvolvedMint); // same-file call — guard not needed
 				}
 			}
 			window.TriggerCreateNewGhost = TriggerCreateNewGhost;
@@ -928,7 +928,7 @@ window.LoadRPGStateFromDeSo = LoadRPGStateFromDeSo;
 								}
 								btn.innerText = "WAITING FOR APPROVAL...";
 								btn.disabled = true;
-								window.WaitForWindowClose(window.g_desoIdentityWindow, function() {
+								window.WaitForWindowClose(window.g_desoIdentityWindow, function() { // window. prefix already correct
 									if (window.g_desoPendingTransactionType === "RPG_NFT" || window.g_desoPendingTransactionType === "RPG_CHAR_NFT") {
 										btn.innerText = bId === "createGhostBtn" ? "APPROVE NFT CREATION" : "APPROVE SAVE NFT";
 										btn.disabled = false;
@@ -1043,7 +1043,7 @@ window.LoadRPGStateFromDeSo = LoadRPGStateFromDeSo;
 					}
 					if(btn) btn.innerText = "APPROVE SAVE IN POP-UP...";
 					
-					window.WaitForWindowClose(window.g_desoIdentityWindow, function() {
+					window.WaitForWindowClose(window.g_desoIdentityWindow, function() { // window. prefix already correct
 						if (window.g_desoPendingTransactionType === "RPG_SAVE") {
 							if(btn) { btn.innerText = "SAVE EVOLUTION (BLOCKCHAIN)"; btn.disabled = false; }
 						}
@@ -1086,7 +1086,7 @@ window.LoadRPGStateFromDeSo = LoadRPGStateFromDeSo;
 						if (btn) { btn.innerText = "FAENORA FORGE: BURN TO EVOLVE"; btn.disabled = false; }
 						return;
 					}
-					window.WaitForWindowClose(window.g_desoIdentityWindow, function() {
+					window.WaitForWindowClose(window.g_desoIdentityWindow, function() { // window. prefix already correct
 						if (window.g_desoPendingTransactionType === "RPG_BURN_NFT") {
 							if (btn) { btn.innerText = "GHOST BURNED! REFRESHING..."; }
 							alert("Soul harvested! Your Ghost was burned in the Faenora Forge. You gained 100 $SOUL ESSENCE!");
