@@ -2215,7 +2215,11 @@
 			}
 
 			var g_cutsceneTimer = null;
-			function StartCutscene() {
+            var g_cutsceneTargetLevel = 1;
+            var g_cutscenePreserve = false;
+			function StartCutscene(targetLevel, preserve) {
+                g_cutsceneTargetLevel = targetLevel || 1;
+                g_cutscenePreserve = !!preserve;
 				SetGameState(G_CUTSCENE);
 				var gif = document.getElementById("cutsceneGif");
 				gif.src = "";
@@ -2229,7 +2233,7 @@
 				clearTimeout(g_cutsceneTimer);
 				var gif = document.getElementById("cutsceneGif");
 				gif.style.display = "none";
-				ResetGame(1);
+				ResetGame(g_cutsceneTargetLevel, g_cutscenePreserve);
 			}
 
 			// --- DESO WEB3 INTEGRATION ---
@@ -3048,13 +3052,19 @@
 			}
 
 
-			function ResetGame(l) {
+			function ResetGame(l, preserveScore) {
 				g_globalStartTime = Date.now();
-				g_currentLevel = l || 1; g_score = 0; map_offset = 0; g_doorsUsed = 0;
+				g_currentLevel = l || 1; 
+                if (!preserveScore) {
+                    g_score = 0; 
+                    if (typeof _antiCheat !== "undefined") {
+                        _antiCheat.hash = btoa("0" + _antiCheat.salt);
+                    }
+                }
+                map_offset = 0; g_doorsUsed = 0;
 				window.g_hasUsedPassword = (l && l > 1) ? true : false;
 				window.g_completedLevels = {};
 				window.g_completedLevels[g_currentLevel] = true;
-				_antiCheat.hash = btoa("0" + _antiCheat.salt);
 				DeSoGhost.lives = 3; DeSoGhost.alive = true;
 				DeSoGhost.collectedLives = 0;
 				DeSoGhost.collectedBlueDiamonds = 0;

@@ -306,6 +306,7 @@ var GhostRPG = (function() {
             statsCopy.basePow = state.pow;
             statsCopy.baseMag = state.mag;
             statsCopy.bonuses = bonuses;
+            statsCopy.worldLevel = typeof window.g_currentLevel !== 'undefined' ? window.g_currentLevel : 1;
             
             return statsCopy;
         },

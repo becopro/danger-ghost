@@ -1245,8 +1245,9 @@ function DisplayCharacterSelectionScreen(characters) {
                 if (btn) btn.style.display = "block";
                 
                 if (window.g_gameState === window.G_START) {
-                    if (typeof window.StartCutscene === "function") window.StartCutscene();
+                    if (typeof window.StartCutscene === "function") window.StartCutscene(char.worldLevel, true);
                 } else {
+                    if (typeof window.ResetGame === "function") window.ResetGame(char.worldLevel || 1, true);
                     window.g_gamePaused = false;
                     if (typeof window.PlayBGM === "function") window.PlayBGM();
                 }
