@@ -2215,7 +2215,7 @@
 			}
 
 			var g_cutsceneTimer = null;
-			window.StartCutscene = function StartCutscene() {
+			function StartCutscene() {
 				SetGameState(G_CUTSCENE);
 				var gif = document.getElementById("cutsceneGif");
 				gif.src = "";
@@ -3349,6 +3349,9 @@ var g_binaryBits = [];
 					}
 					e.preventDefault();
 					if (g_gameState == G_START) {
+						window.g_isGuestRun = true;
+						var menu = document.getElementById("loginButtonsContainer");
+						if (menu) menu.style.display = "none";
 						StartCutscene();
 					} else if (g_gameState == G_CUTSCENE) {
 						EndCutscene();
