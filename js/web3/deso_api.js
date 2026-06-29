@@ -1234,6 +1234,9 @@ function DisplayCharacterSelectionScreen(characters) {
                 var overlay = document.getElementById("characterSelectionOverlay");
                 if (overlay) overlay.style.display = "none";
                 
+                var btn = document.getElementById("gameScreenModeBtn");
+                if (btn) btn.style.display = "block";
+                
                 if (window.g_gameState === window.G_START) {
                     if (typeof window.StartCutscene === "function") window.StartCutscene();
                 } else {
