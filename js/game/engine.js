@@ -2769,7 +2769,7 @@
 							window.g_desoLastPostHashHex = data.TxnHashHex; // SALVA HASH DO POST REAL TRANSMITIDO
 							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							
-							var btn = document.getElementById("rpgSaveBtn");
+							var btn = (document.getElementById("rpgSaveBtn") || document.getElementById("btnNavSave"));
 							if (btn) {
 								btn.innerText = "MINT SAVE NFT";
 								btn.style.background = "#00FF00";
@@ -2786,7 +2786,7 @@
 							window.g_desoPendingTransactionType = null;
 							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							
-							var btn = document.getElementById("rpgSaveBtn");
+							var btn = (document.getElementById("rpgSaveBtn") || document.getElementById("btnNavSave"));
 							if (btn) {
 								btn.innerText = "NFT MINTED SUCCESSFULLY!";
 								btn.style.background = "#00FFFF";
@@ -2817,7 +2817,7 @@
 						console.error("Broadcast failed", data);
 						alert("Error broadcasting transaction: " + (data.error || "Unknown error"));
 						var btn = document.getElementById("desoPostBtn");
-						var saveBtn = document.getElementById("rpgSaveBtn");
+						var saveBtn = (document.getElementById("rpgSaveBtn") || document.getElementById("btnNavSave"));
 						if (btn && (window.g_desoPendingTransactionType === "SUBMITTING_POST" || window.g_desoPendingTransactionType === "POST")) {
 							btn.innerText = "APPROVE POST";
 							btn.disabled = false;

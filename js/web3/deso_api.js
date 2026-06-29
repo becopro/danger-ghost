@@ -100,7 +100,7 @@ window.addEventListener('message', function(event) {
 							window.g_desoLastPostHashHex = txHash; // SALVA HASH DO POST REAL TRANSMITIDO
 							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							
-							var btn = document.getElementById("rpgSaveBtn");
+							var btn = getSaveBtn();
 							if (btn) {
 								btn.innerText = "MINT SAVE NFT";
 								btn.style.background = "#00FF00";
@@ -117,7 +117,7 @@ window.addEventListener('message', function(event) {
 							window.g_desoPendingTransactionType = null;
 							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							
-							var btn = document.getElementById("rpgSaveBtn");
+							var btn = getSaveBtn();
 							if (btn) {
 								btn.innerText = "NFT MINTED SUCCESSFULLY!";
 								btn.style.background = "#00FFFF";
@@ -398,13 +398,17 @@ window.addEventListener('message', function(event) {
 
 			var g_rpgSavePending = false;
 
+			function getSaveBtn() {
+				return document.getElementById("rpgSaveBtn") || document.getElementById("btnNavSave");
+			}
+
 			function TriggerRPGSaveToDeSo() {
 				if (!window.g_desoPublicKey) {
 					alert("Please LOG IN to DeSo before saving!");
 					return;
 				}
 				
-				var btn = document.getElementById("rpgSaveBtn");
+				var btn = getSaveBtn();
 				if(btn) { btn.innerText = "OBTAINING KEY..."; btn.disabled = true; }
 
 				window.g_desoIdentityWindow = window.open("", "deso_identity", "width=800,height=1000");
@@ -434,13 +438,16 @@ window.addEventListener('message', function(event) {
 			window.TriggerRPGSaveToDeSo = TriggerRPGSaveToDeSo;
 
 			async function ExecuteDeSoRPGSave(jwt) {
-    var btn = document.getElementById("rpgSaveBtn");
+    var btn = getSaveBtn();
     try {
         if(btn) { btn.innerText = "SAVING TO BLOCKCHAIN..."; btn.disabled = true; }
 
         var stats = GhostRPG.getStats();
         if (!stats.postHashHex && window.g_desoLastPostHashHex) {
             stats.postHashHex = window.g_desoLastPostHashHex;
+        }
+        if (!stats.postHashHex && window.GhostRPG && window.GhostRPG.getStats) {
+            stats.postHashHex = window.GhostRPG.getStats().postHashHex;
         }
         if (!stats.postHashHex) {
             throw new Error("No PostHashHex found for this Ghost. Cannot save in-place.");
@@ -975,7 +982,7 @@ window.LoadRPGStateFromDeSo = LoadRPGStateFromDeSo;
 		}
 
 		async function ExecuteDeSoRPGSaveWithImage(jwt, blob, saveObj) {
-			var btn = document.getElementById("rpgSaveBtn");
+			var btn = getSaveBtn();
 			if(btn) { btn.innerText = "UPLOADING IMAGE..."; btn.disabled = true; }
 			try {
 				var formData = new FormData();
