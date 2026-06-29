@@ -78,7 +78,11 @@ window.addEventListener('message', function(event) {
 								btn.onclick = function() {
 									btn.innerText = "MINTING... PLEASE WAIT";
 									btn.disabled = true;
-									CreateDeSoNFT(window.g_desoLastPostHashHex);
+									if (typeof window.CreateDeSoNFT === 'function') {
+										window.CreateDeSoNFT(window.g_desoLastPostHashHex);
+									} else {
+										console.error('[DeSo] CreateDeSoNFT not ready');
+									}
 								};
 							}
 						} else if (window.g_desoPendingTransactionType === "NFT" || window.g_desoPendingTransactionType === "SUBMITTING_NFT") {
@@ -138,7 +142,11 @@ window.addEventListener('message', function(event) {
 							document.getElementById("characterSelectionOverlay").style.display = "none";
 							GhostRPG.loadBlockchainState(1, 1, 1, 1, 1, g_characterCreationId, 0, 0, 1);
 							g_score = 0; _antiCheat.hash = btoa("0" + _antiCheat.salt); g_globalTotalTime = 0;
-							ResetGame(1);
+							if (typeof window.ResetGame === 'function') {
+								window.ResetGame(1);
+							} else {
+								console.error('[DeSo] ResetGame not ready');
+							}
 						}
 					} else {
 						// Fallback resiliente: caso o Identity não tenha auto-transmitido,
@@ -149,7 +157,11 @@ window.addEventListener('message', function(event) {
 						else if (window.g_desoPendingTransactionType === "RPG_CHAR_PAYMENT") window.g_desoPendingTransactionType = "SUBMITTING_RPG_CHAR_PAYMENT";
 						else if (window.g_desoPendingTransactionType === "RPG_CHAR_POST") window.g_desoPendingTransactionType = "SUBMITTING_RPG_CHAR_POST";
 						else if (window.g_desoPendingTransactionType === "RPG_CHAR_NFT") window.g_desoPendingTransactionType = "SUBMITTING_RPG_CHAR_NFT";
-						SubmitSignedTransaction(data.payload.signedTransactionHex);
+						if (typeof window.SubmitSignedTransaction === 'function') {
+							window.SubmitSignedTransaction(data.payload.signedTransactionHex);
+						} else {
+							console.error('[DeSo] SubmitSignedTransaction not ready');
+						}
 					}
 				}
 			});
@@ -171,12 +183,16 @@ window.addEventListener('message', function(event) {
 					window.g_desoPendingAction = null;
 					return;
 				}
-				WaitForWindowClose(window.g_desoIdentityWindow, function() {
-					if (!window.g_desoPublicKey && btn) {
-						btn.innerText = "LOGIN DESO";
-						btn.disabled = false;
-					}
-				});
+				if (typeof window.WaitForWindowClose === 'function') {
+					window.WaitForWindowClose(window.g_desoIdentityWindow, function() {
+						if (!window.g_desoPublicKey && btn) {
+							btn.innerText = "LOGIN DESO";
+							btn.disabled = false;
+						}
+					});
+				} else {
+					console.error('[DeSo] WaitForWindowClose not ready');
+				}
 			}
 			window.LoginDeSo = LoginDeSo;
 
@@ -187,7 +203,11 @@ window.addEventListener('message', function(event) {
 				}
 				var nameInput = document.getElementById("playerNameInput");
 				var pName = nameInput.value.trim() || "UNKNOWN";
-				DrawWinScreen(pName); // Estampa o nome
+				if (typeof window.DrawWinScreen === 'function') {
+					window.DrawWinScreen(pName); // Estampa o nome
+				} else {
+					console.error('[DeSo] DrawWinScreen not ready');
+				}
 				
 				var btn = document.getElementById("desoPostBtn");
 				if(btn) { btn.innerText = "UPLOADING... PLEASE WAIT"; btn.disabled = true; }
@@ -331,23 +351,35 @@ window.addEventListener('message', function(event) {
 								window.g_desoIdentityWindow = window.open("https://identity.deso.org/approve?tx=" + postData.TransactionHex, "deso_identity", "width=800,height=1000");
 							}
 
-							WaitForWindowClose(window.g_desoIdentityWindow, function() {
-								if (window.g_desoPendingTransactionType === "POST") {
-									var b = document.getElementById("desoPostBtn");
-									if (b) {
-										b.innerText = "SAVE TO DESO (BLOCKCHAIN)";
-										b.disabled = false;
+							if (typeof window.WaitForWindowClose === 'function') {
+								window.WaitForWindowClose(window.g_desoIdentityWindow, function() {
+									if (window.g_desoPendingTransactionType === "POST") {
+										var b = document.getElementById("desoPostBtn");
+										if (b) {
+											b.innerText = "SAVE TO DESO (BLOCKCHAIN)";
+											b.disabled = false;
+										}
 									}
-								}
-							});
-							DrawWinScreen(); 
+								});
+							} else {
+								console.error('[DeSo] WaitForWindowClose not ready');
+							}
+							if (typeof window.DrawWinScreen === 'function') {
+								window.DrawWinScreen();
+							} else {
+								console.error('[DeSo] DrawWinScreen not ready');
+							} 
 						} else {
 							if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 							var btn = document.getElementById("desoPostBtn");
 							if(btn) { btn.innerText = "SAVE TO DESO (BLOCKCHAIN)"; btn.disabled = false; }
 							console.error("Unexpected DeSo response", postData);
 							alert("Error: Unexpected DeSo response format. Check console.");
-							DrawWinScreen(); 
+							if (typeof window.DrawWinScreen === 'function') {
+								window.DrawWinScreen();
+							} else {
+								console.error('[DeSo] DrawWinScreen not ready');
+							} 
 						}
 					} catch(e) {
 						if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
@@ -355,7 +387,11 @@ window.addEventListener('message', function(event) {
 						alert("Error posting to DeSo. Check console.");
 						var btn = document.getElementById("desoPostBtn");
 						if(btn) { btn.innerText = "SAVE TO DESO (BLOCKCHAIN)"; btn.disabled = false; }
-						DrawWinScreen(); 
+						if (typeof window.DrawWinScreen === 'function') {
+							window.DrawWinScreen();
+						} else {
+							console.error('[DeSo] DrawWinScreen not ready');
+						} 
 					}
 				}, "image/jpeg", 0.95);
 			}
