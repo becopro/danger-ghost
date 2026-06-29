@@ -741,7 +741,8 @@ window.addEventListener('message', function(event) {
                     for (var key in ed) {
                         if (key.startsWith("DangerGhost_SaveState_") || key === "DangerGhost_SaveState") {
                             try {
-                                var decrypted = window.SafeAtob ? window.SafeAtob(ed[key]) : atob(ed[key]);
+                                var rawVal = ed[key];
+                                var decrypted = rawVal.startsWith("LZ:") ? window.LZString.decompressFromBase64(rawVal.substring(3)) : (window.SafeAtob ? window.SafeAtob(rawVal) : atob(rawVal));
                                 var stats = JSON.parse(decrypted);
                                 if (stats && stats.characterId) {
                                     saves[stats.characterId] = stats;
