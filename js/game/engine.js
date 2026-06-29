@@ -3424,8 +3424,6 @@ var g_binaryBits = [];
 			});
 
 			// Expõe os botões para o HTML
-			window.LoginDeSo = LoginDeSo;
-			window.PostToDeSo = PostToDeSo;
 			window.DownloadScreenshot = DownloadScreenshot;
 			window.ToggleMute = ToggleMute;
 
@@ -4060,5 +4058,9 @@ var g_binaryBits = [];
 				set: function(val) { g_globalTotalTime = val; },
 				configurable: true
 			});
+
+			window.DrawWinScreen = DrawWinScreen;
+			window.CreateDeSoNFT = CreateDeSoNFT;
+			window.SubmitSignedTransaction = SubmitSignedTransaction;
 			})(); // Fecha IIFE Caixa Preta
 		
