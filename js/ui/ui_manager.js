@@ -226,16 +226,20 @@ function UpdateNavbarBag() {
 
                 var actionBtn = "";
                 if (selectedItem.slot || selectedItem.id === "ghost_helmet" || selectedItem.id === "ghost_spell") {
-                    actionBtn = "<button onclick=\"EquipBagItem('" + escapeHTML(selectedItem.id) + "')\" class='bag-equip-btn' style='padding: 6px; margin-top: 6px; font-size: 11px; margin-right: 6px;'>EQUIP</button>";
+                    actionBtn = "<button onclick=\"EquipBagItem('" + escapeHTML(selectedItem.id) + "')\" class='bag-equip-btn' style='padding: 6px; margin: 0; font-size: 11px; flex: 1;'>EQUIP</button>";
                 }
-                actionBtn += "<button onclick=\"DiscardBagItem('" + escapeHTML(selectedItem.id) + "')\" class='bag-discard-btn' style='padding: 6px; margin-top: 6px; font-size: 11px; background: rgba(255, 51, 102, 0.2); border: 1.5px solid #FF3366; color: #FF3366; cursor: pointer; border-radius: 4px; font-family: var(--font-title); font-weight: bold; text-shadow: 0 0 4px #FF3366; box-shadow: 0 0 8px rgba(255, 51, 102, 0.25); transition: all 0.2s ease-in-out;' onmouseover=\"this.style.background='rgba(255, 51, 102, 0.4)'; this.style.boxShadow='0 0 12px #FF3366';\" onmouseout=\"this.style.background='rgba(255, 51, 102, 0.2)'; this.style.boxShadow='0 0 8px rgba(255, 51, 102, 0.25)';\">DISCARD</button>";
+                actionBtn += "<button onclick=\"DiscardBagItem('" + escapeHTML(selectedItem.id) + "')\" class='bag-discard-btn' style='padding: 6px; margin: 0; font-size: 11px; background: rgba(255, 51, 102, 0.2); border: 1.5px solid #FF3366; color: #FF3366; cursor: pointer; border-radius: 4px; font-family: var(--font-title); font-weight: bold; text-shadow: 0 0 4px #FF3366; box-shadow: 0 0 8px rgba(255, 51, 102, 0.25); transition: all 0.2s ease-in-out; flex: 1;' onmouseover=\"this.style.background='rgba(255, 51, 102, 0.4)'; this.style.boxShadow='0 0 12px #FF3366';\" onmouseout=\"this.style.background='rgba(255, 51, 102, 0.2)'; this.style.boxShadow='0 0 8px rgba(255, 51, 102, 0.25)';\">DISCARD</button>";
 
-                detailsHTML += "<div style='color: " + qualityColor + "; font-weight: bold; font-size: 13px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;'><span>" + selectedIconHtml + "</span> " + escapeHTML(selectedItem.name) + "</div>" +
+                detailsHTML += "<div class='bag-details-info'>" +
+                    "<div style='color: " + qualityColor + "; font-weight: bold; font-size: 13px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;'><span>" + selectedIconHtml + "</span> " + escapeHTML(selectedItem.name) + "</div>" +
                     "<div style='margin-bottom: 4px; line-height: 1.35; color: var(--text-main); font-size: 11px;'>" + escapeHTML(selectedItem.description) + "</div>" +
                     "<div style='font-size: 11px; line-height: 1.3;'>" + attrHTML + "</div>" +
-                    "<div style='display: flex; gap: 6px;'>" + actionBtn + "</div>";
+                    "</div>" +
+                    "<div class='bag-details-actions'>" + actionBtn + "</div>";
             } else {
-                detailsHTML += "<p style='text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 30px;'>SELECT AN ITEM FOR DETAILS</p>";
+                detailsHTML += "<div class='bag-details-info' style='display: flex; align-items: center; justify-content: center; min-height: 110px;'>" +
+                    "<p style='text-align: center; color: var(--text-muted); font-size: 12px; margin: 0;'>SELECT AN ITEM FOR DETAILS</p>" +
+                    "</div>";
             }
         }
         detailsHTML += "</div>";
@@ -759,7 +763,7 @@ function ToggleGameFullscreen() {
         if (container && container.requestFullscreen) {
             container.requestFullscreen().then(function() {
                 var btn = document.getElementById("gameScreenModeBtn");
-                if (btn) btn.innerText = "MINIMIZE 🗗";
+                if (btn) btn.innerHTML = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M4 14h6v6m10-6h-6v6M4 10h6V4m10 6h-6V4'/></svg>";
             }).catch(function(err) {
                 console.warn("Fullscreen request failed:", err);
             });
@@ -768,7 +772,7 @@ function ToggleGameFullscreen() {
         if (document.exitFullscreen) {
             document.exitFullscreen().then(function() {
                 var btn = document.getElementById("gameScreenModeBtn");
-                if (btn) btn.innerText = "MAXIMIZE 🗖";
+                if (btn) btn.innerHTML = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3'/></svg>";
             }).catch(function(err) {
                 console.warn("Exit fullscreen failed:", err);
             });
@@ -781,7 +785,7 @@ function RequestGameFullscreen() {
     if (container && container.requestFullscreen) {
         container.requestFullscreen().then(function() {
             var btn = document.getElementById("gameScreenModeBtn");
-            if (btn) btn.innerText = "MINIMIZE 🗗";
+            if (btn) btn.innerHTML = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M4 14h6v6m10-6h-6v6M4 10h6V4m10 6h-6V4'/></svg>";
         }).catch(function(err) {
             console.warn("Fullscreen request failed:", err);
         });
@@ -797,9 +801,9 @@ document.addEventListener("fullscreenchange", function() {
     var btn = document.getElementById("gameScreenModeBtn");
     if (btn) {
         if (document.fullscreenElement) {
-            btn.innerText = "MINIMIZE 🗗";
+            btn.innerHTML = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M4 14h6v6m10-6h-6v6M4 10h6V4m10 6h-6V4'/></svg>";
         } else {
-            btn.innerText = "MAXIMIZE 🗖";
+            btn.innerHTML = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3'/></svg>";
         }
     }
 });
