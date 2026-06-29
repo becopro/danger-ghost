@@ -2215,7 +2215,7 @@
 			}
 
 			var g_cutsceneTimer = null;
-			function StartCutscene() {
+			window.StartCutscene = function StartCutscene() {
 				SetGameState(G_CUTSCENE);
 				var gif = document.getElementById("cutsceneGif");
 				gif.src = "";
@@ -2842,7 +2842,7 @@
 				} catch(e) { console.error("Submit Tx Error", e); }
 			}
 
-			function WaitForWindowClose(win, callback) {
+			window.WaitForWindowClose = function(win, callback) {
 				if (!win) return; // Evita crashes silenciosos se a janela for bloqueada por Popup Blocker
 				var timer = setInterval(function() {
 					if (win.closed) {
@@ -2853,7 +2853,7 @@
 			}
 			window.WaitForWindowClose = WaitForWindowClose;
 
-			async function CheckVIPStatus(pubKey) {
+			window.CheckVIPStatus = async function(pubKey) {
 				try {
 					var hasCoin = false;
 					var keepFetching = true;

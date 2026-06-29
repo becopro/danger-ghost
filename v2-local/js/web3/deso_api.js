@@ -31,12 +31,12 @@ window.addEventListener('message', function(event) {
 						}
 						if (window.g_desoIdentityWindow) window.g_desoIdentityWindow.close();
 						window.g_desoPendingAction = null;
-						CheckVIPStatus(window.g_desoPublicKey);
+						window.CheckVIPStatus(window.g_desoPublicKey);
 						
 						var overlay = document.getElementById('loginButtonsContainer');
 						if (overlay) overlay.style.display = 'none';
-						if (typeof window.OpenCharacterSelection === "function") {
-							window.OpenCharacterSelection();
+						if (typeof window.LoadRPGStateFromDeSo === "function") {
+							window.LoadRPGStateFromDeSo(window.g_desoPublicKey, true);
 						}
 					}
 				}
@@ -1075,122 +1075,82 @@ window.LoadRPGStateFromDeSo = LoadRPGStateFromDeSo;
 
         window.g_ownedCharacters = [];
 
-        function DisplayCharacterSelectionScreen(characters) {
-            window.g_ownedCharacters = characters || [];
-            var overlay = document.getElementById("characterSelectionOverlay");
-        if (overlay) overlay.style.display = "flex";
-        
-        var loginBtns = document.getElementById("loginButtonsContainer");
-        if (loginBtns) loginBtns.style.display = "none";
+function DisplayCharacterSelectionScreen(characters) {
+				window.g_ownedCharacters = characters;
+				var overlay = document.getElementById("characterSelectionOverlay");
+				overlay.style.display = "block";
 
-            var container = document.getElementById("characterCardsContainer");
-            var mintBox = document.querySelector(".new-ghost-box");
-            
-            if (!window.g_desoUserObj) {
-                if (container) {
-                    container.innerHTML = "<div style='text-align:center; color: var(--yellow-neon); font-size: 20px; font-family: var(--font-title); letter-spacing: 1px;'>GUEST MODE ACTIVE</div>" +
-                        "<div style='text-align:center; color: var(--text-muted); font-size: 16px; line-height: 1.5; margin-top: 8px;'>You cannot save or load progress without a Wallet.</div>" +
-                        "<div style='display:flex; flex-direction:column; gap:15px; align-items:center; margin-top:20px;'>" +
-                        "<button onclick='window.LoginDeSo()' class='cyber-btn primary' style='width:280px;'><span class='btn-content' style='justify-content: center;'><span class='btn-text'>CONNECT WALLET</span></span></button>" +
-                        "<button onclick='window.g_score=0; GhostRPG.resetStats(); document.getElementById(\"characterSelectionOverlay\").style.display=\"none\"; if(window.g_gameState===window.G_START){StartCutscene();}else{window.g_gamePaused=false;if(window.PlayBGM)window.PlayBGM();}' class='cyber-btn tertiary' style='width:280px;'><span class='btn-content' style='justify-content: center;'><span class='btn-text'>START GUEST RUN</span></span></button>" +
-                        "</div>";
-                }
-                if (mintBox) mintBox.style.display = "none";
-                return;
-            }
+				var container = document.getElementById("characterCardsContainer");
+				container.innerHTML = "";
 
-            if (mintBox) mintBox.style.display = "block";
-            
-            if (container) container.innerHTML = "";
+				var priceText = document.getElementById("newGhostPriceText");
+				var priceDeSo = characters.length * 0.25;
+				if (characters.length === 0) {
+					priceText.innerHTML = "Your first Ghost is 100% free (only pay DeSo network fees).";
+				} else {
+					priceText.innerHTML = "You already own " + characters.length + " Ghost(s). Creating your " + (characters.length + 1) + "th Ghost will cost <b>" + priceDeSo.toFixed(2) + " DeSo</b> + network fees.";
+				}
 
-            var priceText = document.getElementById("newGhostPriceText");
-            var createBtn = document.getElementById("createGhostBtn");
-            var priceDeSo = characters.length * 0.25;
-            var soulEssence = 0;
-            try { soulEssence = parseInt(localStorage.getItem("dg_soul_essence")) || 0; } catch(e) {}
+				if (characters.length === 0) {
+					container.innerHTML = "<div style='color: #888; font-size: 15px; margin: 20px 0;'>You don't own any Ghosts. Create your first one below!</div>";
+					return;
+				}
 
-            if (priceText) {
-                if (soulEssence >= 100) {
-                    priceText.innerHTML = "You have <b style='color: #FF00FF;'>100 $SOUL ESSENCE</b>! You can forge an Evolved Ghost!";
-                    if (createBtn) createBtn.innerHTML = "<span class='btn-content'><span class='btn-icon' style='color:#FF00FF;'>✨</span><span class='btn-text' style='color: var(--white);'>FORGE EVOLVED GHOST (100 $SOUL)</span></span>";
-                } else if (characters.length === 0) {
-                    priceText.innerHTML = "Your first Ghost is 100% free (only pay DeSo network fees).";
-                    if (createBtn) createBtn.innerHTML = "<span class='btn-content'><span class='btn-icon'>+</span><span class='btn-text' style='color: var(--white);'>MINT NEW GHOST</span></span>";
-                } else {
-                    priceText.innerHTML = "You already own " + characters.length + " Ghost(s). Creating your " + (characters.length + 1) + "th Ghost will cost <b style='color: var(--yellow-neon);'>" + priceDeSo.toFixed(2) + " DeSo</b> + network fees.";
-                    if (createBtn) createBtn.innerHTML = "<span class='btn-content'><span class='btn-icon'>+</span><span class='btn-text' style='color: var(--white);'>MINT NEW GHOST</span></span>";
-                }
-            }
+				for (var i = 0; i < characters.length; i++) {
+					var char = characters[i];
+					var card = document.createElement("div");
+					card.style.width = "230px";
+					card.style.background = "#181224";
+					card.style.border = "2px solid #FF00FF";
+					card.style.borderRadius = "8px";
+					card.style.padding = "15px";
+					card.style.boxShadow = "0 0 10px rgba(255, 0, 255, 0.2)";
+					card.style.display = "flex";
+					card.style.flexDirection = "column";
+					card.style.gap = "8px";
+					card.style.textAlign = "left";
 
-            if (characters.length === 0) {
-                if (container) container.innerHTML = "<div style='color: var(--text-muted); font-size: 16px; line-height: 1.5; margin: 40px auto; text-align: center; width: 100%;'>You don't own any Ghosts yet. Initialize your first Vessel below!</div>";
-                return;
-            }
+					var imgHTML = "";
+					if (char.imageUrl) {
+						imgHTML = "<img src='" + escapeHTML(char.imageUrl) + "' style='width: 100%; height: 140px; object-fit: contain; background: #0a0810; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);' />";
+					} else {
+						imgHTML = "<div style='width: 100%; height: 140px; background: #0a0810; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #555; border: 1px dashed rgba(255,255,255,0.1);'>No Image</div>";
+					}
 
-            for (var i = 0; i < characters.length; i++) {
-                var char = characters[i];
-                var card = document.createElement("div");
-                card.className = "character-card";
+					card.innerHTML = 
+						imgHTML +
+						"<div style='font-size: 14px; font-weight: bold; color: #00FF00;'>���W% Ghost #" + (i + 1) + "</div>" +
+						"<div style='font-size: 11px; color: #888;'>ID: " + escapeHTML(char.characterId.substring(0, 12)) + "...</div>" +
+						"<hr style='border-color: rgba(255,255,255,0.1); margin: 4px 0;' />" +
+						"<div style='font-size: 12px; color: #FFF; display: flex; flex-direction: column; gap: 3px;'>" +
+						"<div><b>Level:</b> <span style='color: #00FFFF;'>" + escapeHTML(char.level) + "</span></div>" +
+						"<div>������ VIT: " + escapeHTML(char.vit) + " | ��� AGI: " + escapeHTML(char.agi) + "</div>" +
+						"<div>���� INT: " + escapeHTML(char.int) + " | ������ POW: " + escapeHTML(char.pow) + " | ���� MAG: " + escapeHTML(char.mag || 1) + "</div>" +
+						"</div>";
 
-                var imgHTML = "";
-                if (char.imageUrl) {
-                    imgHTML = "<img src='" + escapeHTML(char.imageUrl) + "' />";
-                } else {
-                    imgHTML = "<div style='color: var(--text-muted); font-family: var(--font-mono); font-size: 14px;'>NO VISUAL DATA</div>";
-                }
-
-                card.innerHTML = 
-                    "<div class='character-img-box'>" + imgHTML + "</div>" +
-                    "<div class='character-name'>GHOST #" + (i + 1) + "</div>" +
-                    "<div class='character-id'>ID: " + escapeHTML(char.characterId.substring(0, 12)) + "...</div>" +
-                    "<div class='character-stats'>" +
-                    "<div><b>LEVEL:</b> <span class='highlight'>" + escapeHTML(char.level) + "</span></div>" +
-                    "<div>VIT: " + escapeHTML(char.vit) + " | AGI: " + escapeHTML(char.agi) + "</div>" +
-                    "<div>INT: " + escapeHTML(char.int) + " | POW: " + escapeHTML(char.pow) + " | MAG: " + escapeHTML(char.mag || 1) + "</div>" +
-                    "</div>";
-
-                var playBtn = document.createElement("button");
-                playBtn.className = "cyber-btn primary";
-                playBtn.style.marginTop = "auto";
-                playBtn.style.width = "100%";
-                playBtn.style.textAlign = "center";
-                playBtn.style.padding = "12px";
-                playBtn.innerHTML = "<span class='btn-content' style='justify-content: center;'><span class='btn-icon' style='color: var(--cyan-neon);'>▶</span><span class='btn-text'>SYNCHRONIZE</span></span>";
-                
-                (function(id) {
-                    playBtn.onclick = function() {
-                        SelectCharacterToPlay(id);
-                    };
-                })(char.characterId);
-                
-                var burnBtn = document.createElement("button");
-                burnBtn.className = "cyber-btn tertiary";
-                burnBtn.style.marginTop = "10px";
-                burnBtn.style.width = "100%";
-                burnBtn.style.textAlign = "center";
-                burnBtn.style.padding = "10px";
-                burnBtn.style.backgroundColor = "rgba(85, 0, 0, 0.4)";
-                burnBtn.style.borderColor = "#FF0000";
-                burnBtn.id = "btnBurnGhost";
-                burnBtn.innerHTML = "<span class='btn-content' style='justify-content: center;'><span class='btn-icon' style='color: #FF0000;'>🔥</span><span class='btn-text' style='color: #FF0000; font-size: 11px; font-weight: bold;'>FAENORA FORGE: BURN TO EVOLVE</span></span>";
-                
-                (function(postHash) {
-                    burnBtn.onclick = function() {
-                        if (!postHash) {
-                            alert("This Ghost is a legacy local save or has no on-chain NFT hash. It cannot be burned in the forge.");
-                            return;
-                        }
-                        if (confirm("🔥 FAENORA FORGE 🔥\n\nBy continuing, you will PERMANENTLY BURN this Ghost NFT on the DeSo blockchain.\n\nIn exchange, you will receive 100 $SOUL ESSENCE, which you can use to mint a brand new Evolved Ghost!\n\nProceed to burn?")) {
-                            BurnGhostNFT(postHash);
-                        }
-                    };
-                })(char.postHashHex);
-
-                card.appendChild(playBtn);
-                card.appendChild(burnBtn);
-                if (container) container.appendChild(card);
-            }
-        }
+					var playBtn = document.createElement("button");
+					playBtn.innerText = "PLAY";
+					playBtn.style.width = "100%";
+					playBtn.style.padding = "6px";
+					playBtn.style.background = "#00FFFF";
+					playBtn.style.color = "#000";
+					playBtn.style.border = "none";
+					playBtn.style.fontWeight = "bold";
+					playBtn.style.cursor = "pointer";
+					playBtn.style.borderRadius = "4px";
+					playBtn.style.fontFamily = "'Courier New'";
+					playBtn.style.marginTop = "10px";
+					
+					(function(id) {
+						playBtn.onclick = function() {
+							SelectCharacterToPlay(id);
+						};
+					})(char.characterId);
+					
+					card.appendChild(playBtn);
+					container.appendChild(card);
+				}
+			}
         window.DisplayCharacterSelectionScreen = DisplayCharacterSelectionScreen;
 
         function SelectCharacterToPlay(charId) {
