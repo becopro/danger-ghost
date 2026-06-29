@@ -103,8 +103,14 @@
                 <div id="navbarPanelContent"></div>
             </div>
 
-            <!-- Overlay de Seleção de Personagem (Z-Index: 300) -->
-            <div id="characterSelectionOverlay" class="modal-overlay immersive-menu" style="display: none;">
+        </div>
+        <div id="loginButtonsContainer" style="display: flex; flex-direction: column; gap: 10px; align-items: center; margin-top: 20px; width: 100%; max-width: 640px; margin-left: auto; margin-right: auto;">
+            <button id="desoBtn" onclick="StartDeSoPlayFlow()" style="padding: 12px 24px; font-size: 16px; background-color: #000; color: #00FFFF; border: 2px solid #00FFFF; border-radius: 5px; cursor: pointer; text-shadow: 0 0 5px #00FFFF; font-weight: bold; text-transform: uppercase; width: 100%;">PLAY NOW LOGIN DESO</button>
+            <button id="guestBtn" onclick="StartGuestPlayFlow()" style="padding: 12px 24px; font-size: 16px; background-color: #000; color: #ff5555; border: 2px solid #ff5555; border-radius: 5px; cursor: pointer; text-shadow: 0 0 5px #ff5555; font-weight: bold; text-transform: uppercase; width: 100%;">PLAY NOW AS GUEST</button>
+        </div>
+        <br />
+            <!-- Overlay de Seleção de Personagem -->
+            <div id="characterSelectionOverlay" class="immersive-menu" style="display: none; position: relative; width: 100%; max-width: 640px; min-height: 300px; margin: 0 auto; background: rgba(0, 0, 0, 0.9); border: 1px solid var(--cyan-neon); border-radius: 8px; overflow: hidden; padding: 20px; box-sizing: border-box; z-index: 10;">
                 <div class="particles-bg"></div>
                 <div class="menu-content-wrapper character-selection-wrapper" style="transform: scale(0.65);">
                     <div class="title-container">
@@ -134,13 +140,6 @@
                     <div id="selectionStatusText" style="color: var(--yellow-neon); font-size: 16px; line-height: 1.5; margin-top: 10px;"></div>
                 </div>
             </div>
-
-        </div>
-        <div id="loginButtonsContainer" style="display: flex; flex-direction: column; gap: 10px; align-items: center; margin-top: 20px; width: 100%; max-width: 640px; margin-left: auto; margin-right: auto;">
-            <button id="desoBtn" onclick="StartDeSoPlayFlow()" style="padding: 12px 24px; font-size: 16px; background-color: #000; color: #00FFFF; border: 2px solid #00FFFF; border-radius: 5px; cursor: pointer; text-shadow: 0 0 5px #00FFFF; font-weight: bold; text-transform: uppercase; width: 100%;">PLAY NOW LOGIN DESO</button>
-            <button id="guestBtn" onclick="StartGuestPlayFlow()" style="padding: 12px 24px; font-size: 16px; background-color: #000; color: #ff5555; border: 2px solid #ff5555; border-radius: 5px; cursor: pointer; text-shadow: 0 0 5px #ff5555; font-weight: bold; text-transform: uppercase; width: 100%;">PLAY NOW AS GUEST</button>
-        </div>
-        <br />
         <div id="winPanel" style="display: none; margin-top: 20px;">
             <input type="text" id="playerNameInput" placeholder="ENTER PLAYER NAME" maxlength="20" />
             <button id="downloadBtn" onclick="DownloadScreenshot()" class="glass-action-btn">DOWNLOAD SCREENSHOT</button>

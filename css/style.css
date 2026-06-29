@@ -190,7 +190,7 @@ body::before {
     align-items: center;
 }
 
-#mainMenuOverlay, #characterSelectionOverlay {
+#mainMenuOverlay {
     position: absolute !important;
     width: 640px !important;
     height: 300px !important;
