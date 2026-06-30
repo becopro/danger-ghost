@@ -614,14 +614,8 @@ function OpenCharacterSelection() {
     var overlay = document.getElementById('characterSelectionOverlay');
     if (overlay) overlay.style.display = 'flex';
 
-    if (!window.g_desoPublicKey) {
-        if (typeof window.DisplayCharacterSelectionScreen === "function") {
-            window.DisplayCharacterSelectionScreen([]);
-        }
-    } else {
-        if (typeof window.LoadRPGStateFromDeSo === "function") {
-            window.LoadRPGStateFromDeSo(window.g_desoPublicKey, true);
-        }
+    if (typeof window.LoadRPGStateFromDeSo === "function") {
+        window.LoadRPGStateFromDeSo(window.g_desoPublicKey || "LOCAL_PLAYER_KEY", true);
     }
 }
 
@@ -636,7 +630,6 @@ function CloseCharacterSelection() {
     var overlay = document.getElementById('characterSelectionOverlay');
     if (overlay) overlay.style.display = 'none';
 }
-
 function OpenCodexMenu() {
     window.open("codex.html", "_blank");
 }
@@ -670,55 +663,6 @@ window.ToggleFullscreen = function() {
         }
     }
 };
-
-// Intercept DisplayCharacterSelectionScreen to handle Guest -> Wallet transition
-(function() {
-    var originalDisplayCharScreen = window.DisplayCharacterSelectionScreen;
-    window.DisplayCharacterSelectionScreen = function(characters) {
-        if (window.g_justConnectedWallet) {
-            window.g_justConnectedWallet = false; // Reset the flag
-            
-            var localLevel = 1;
-            try {
-                var saved = localStorage.getItem("DangerGhost_RPG_Save");
-                if (saved) {
-                    var decrypted = (window.SafeAtob || atob)(saved);
-                    var parts = decrypted.split("||");
-                    var localData = JSON.parse(parts[0]);
-                    localLevel = parseInt(localData.level, 10) || 1;
-                }
-            } catch(e) {
-                console.warn("Failed to read local save:", e);
-            }
-
-            var maxBlockchainLevel = 1;
-            if (characters && characters.length > 0) {
-                characters.forEach(function(char) {
-                    var lvl = parseInt(char.level, 10) || 1;
-                    if (lvl > maxBlockchainLevel) {
-                        maxBlockchainLevel = lvl;
-                    }
-                });
-            }
-
-            if (localLevel > 1 && localLevel > maxBlockchainLevel) {
-                var confirmMsg = "You have local progress (Level " + localLevel + ") higher than your wallet save (Level " + maxBlockchainLevel + "). Do you want to save your local progress to the blockchain? (OK = Sync local, Cancel = Load from blockchain)";
-                if (confirm(confirmMsg)) {
-                    if (typeof window.TriggerRPGSaveToDeSo === "function") {
-                        window.TriggerRPGSaveToDeSo();
-                    }
-                    return; // Skip displaying selection screen to complete local sync
-                }
-            }
-        }
-
-        if (typeof originalDisplayCharScreen === "function") {
-            originalDisplayCharScreen(characters);
-        } else {
-            console.warn("Original DisplayCharacterSelectionScreen not found");
-        }
-    };
-})();
 
 window.g_isGuestRun = false;
 

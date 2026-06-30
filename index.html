@@ -18,7 +18,6 @@
     <script src="js/ui/ui_manager.js?v=6"></script>
 </head>
 <body>
-    <iframe id="identityIframe" src="https://identity.deso.org/embed?v=2" style="display: none;"></iframe>
 
     <!-- Sticky Header & Nav -->
     <div id="fullscreenGameArea">
@@ -39,12 +38,6 @@
 
     <!-- Social & Link Bar below Header -->
     <div class="social-link-bar">
-        <a href="https://mydesospace.com/u/DangerGhost?tab=posts" target="_blank" rel="noopener noreferrer" title="DeSo" class="social-icon-link deso-link">
-            <svg class="social-svg" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.8L19.2 8 12 11.2 4.8 8 12 4.8zM4.5 10.3l6.5 2.9v6.5l-6.5-2.9v-6.5zm15 0v6.5l-6.5 2.9v-6.5l6.5-2.9z"/>
-            </svg>
-            <span>DeSo</span>
-        </a>
         <a href="mailto:ghostgamesniteroi@gmail.com" target="_blank" rel="noopener noreferrer" title="Gmail" class="social-icon-link gmail-link">
             <svg class="social-svg" viewBox="0 0 24 24">
                 <path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
@@ -108,7 +101,7 @@
 
         </div>
         <div id="loginButtonsContainer" style="display: flex; flex-direction: column; gap: 10px; align-items: center; margin-top: 20px; width: 100%; max-width: 640px; margin-left: auto; margin-right: auto;">
-            <button id="desoBtn" onclick="LoginDeSo()" style="padding: 12px 24px; font-size: 16px; background-color: #000; color: #00FFFF; border: 2px solid #00FFFF; border-radius: 5px; cursor: pointer; text-shadow: 0 0 5px #00FFFF; font-weight: bold; text-transform: uppercase; width: 100%;">PLAY NOW LOGIN DESO</button>
+            <button id="desoBtn" onclick="LoginDeSo()" style="padding: 12px 24px; font-size: 16px; background-color: #000; color: #00FFFF; border: 2px solid #00FFFF; border-radius: 5px; cursor: pointer; text-shadow: 0 0 5px #00FFFF; font-weight: bold; text-transform: uppercase; width: 100%;">PLAY GAME</button>
         </div>
         <br />
             <!-- Character Selection Overlay -->
@@ -121,8 +114,8 @@
                     
                     <div style="background: rgba(255, 255, 255, 0.05); border: 2px dashed rgba(0, 255, 255, 0.3); border-radius: 8px; padding: 25px; margin-bottom: 20px;">
                         <h3 style="color: #00FFFF; margin: 0 0 10px 0;">CREATE NEW GHOST</h3>
-                        <p id="newGhostPriceText" style="color: #AAA; font-size: 13px; margin: 0 0 15px 0;">Your first Ghost is 100% free (only pay DeSo network fees).</p>
-                        <button id="createGhostBtn" onclick="TriggerCreateNewGhost()" style="padding: 10px 25px; background: #00FF00; color: #000; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; outline: none; transition: all 0.15s ease;" onmouseover="this.style.boxShadow='0 0 15px #00FF00'" onmouseout="this.style.boxShadow='none'">CREATE NEW GHOST (MINT)</button>
+                        <p id="newGhostPriceText" style="color: #AAA; font-size: 13px; margin: 0 0 15px 0;">Forge a new unique Ghost character card locally.</p>
+                        <button id="createGhostBtn" onclick="TriggerCreateNewGhost()" style="padding: 10px 25px; background: #00FF00; color: #000; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; outline: none; transition: all 0.15s ease;" onmouseover="this.style.boxShadow='0 0 15px #00FF00'" onmouseout="this.style.boxShadow='none'">FORGE NEW GHOST</button>
                     </div>
                     
                     <div style="margin-top: 15px;">
@@ -133,7 +126,6 @@
         <div id="winPanel" style="display: none; margin-top: 20px;">
             <input type="text" id="playerNameInput" placeholder="ENTER PLAYER NAME" maxlength="20" />
             <button id="downloadBtn" onclick="DownloadScreenshot()" class="glass-action-btn">DOWNLOAD SCREENSHOT</button>
-            <button id="desoPostBtn" onclick="PostToDeSo()" class="glass-action-btn">SAVE TO DESO (BLOCKCHAIN)</button>
         </div>
     </section>
     </div>
@@ -152,25 +144,12 @@
         <div class="section-container" style="max-width: 640px; margin: 0 auto; padding: 0 20px; box-sizing: border-box;">
             <div style="background: rgba(13, 13, 16, 0.85); border: 1.5px solid var(--border-light); border-radius: 4px; padding: 20px; box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; gap: 15px;">
                 <h4 style="color: #FFF; font-family: var(--font-title); font-size: 13px; text-transform: uppercase; letter-spacing: 2px; margin: 0; text-align: center; border-bottom: 1px solid var(--border-light); padding-bottom: 10px;">
-                    🎮 HOW TO SAVE YOUR PROGRESS?
+                    💾 HOW TO SAVE YOUR PROGRESS?
                 </h4>
-                
-                <div style="display: flex; flex-direction: column; gap: 12px; font-family: var(--font-text); font-size: 12px; line-height: 18px; text-align: left;">
-                    <!-- Play Now login DeSo option -->
-                    <div style="border-left: 3px solid var(--yellow-neon); padding-left: 12px;">
-                        <strong style="color: var(--yellow-neon); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; text-shadow: 0 0 5px rgba(255, 214, 0, 0.3);">🔑 Play Now with DeSo Login:</strong>
-                        <p style="color: var(--text-muted); margin: 4px 0 0 0;">
-                            Allows you to log in with your DeSo wallet to **save your progress permanently on the DeSo Blockchain**! Your levels, allocated attributes, and upgraded weapons will always be safe in the decentralized cloud, accessible from anywhere.
-                        </p>
-                    </div>
-                    
-                    <!-- Play Now convidado option -->
-                    <div style="border-left: 3px solid #ff5555; padding-left: 12px;">
-                        <strong style="color: #ff5555; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; text-shadow: 0 0 5px rgba(255, 85, 85, 0.3);">👤 Play Now as Guest:</strong>
-                        <p style="color: var(--text-muted); margin: 4px 0 0 0;">
-                            Allows you to play Danger Ghost immediately as a visitor to experiment and have fun. However, **your progress will not be saved**, as the guest session is not connected to the DeSo blockchain network, where hero save data is permanently recorded.
-                        </p>
-                    </div>
+                <div style="font-family: var(--font-text); font-size: 12px; line-height: 18px; text-align: left; color: var(--text-muted);">
+                    <p style="margin: 0;">
+                        Your progress is saved automatically on this device! Click the <strong>💾 SAVE</strong> button in the navigation header at any time to manually secure your latest levels, items, and weapon upgrades to your local browser storage.
+                    </p>
                 </div>
             </div>
         </div>
@@ -191,7 +170,7 @@
                         Instead of being paralyzed, Ftasma uses his cosmic amnesia as strength. Immune to spiritual manipulation because he possesses no true name, he acts as a <strong>wise and opportunistic anti-hero</strong>, manipulating the laws of the rift to gain advantages and increase his power at all costs.
                     </p>
                     <p>
-                        In the year <strong>2020</strong>, to avoid his cosmic dissolution, he performed the <strong>Spiritual Migration</strong>, integrating his soul directly into the <strong>DeSo</strong> blockchain. He converted his consciousness into elliptic curve keys and immutable block records, ensuring his digital immortality.
+                        In the year <strong>2020</strong>, to avoid his cosmic dissolution, he performed the <strong>Spiritual Migration</strong>, integrating his soul directly into the digital universe. He converted his consciousness into secure local data structures, ensuring his digital immortality.
                     </p>
                 </div>
                 <div class="lore-image-container">
@@ -702,7 +681,7 @@
                         <p style="margin: 0 0 10px 0;">Follow these 4 simple steps to begin your journey in the limbo of Nowhere:</p>
                         <ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
                             <li>
-                                <strong style="color: #FFF;">Connect DeSo Wallet:</strong> Click the DeSo login button to sync your progress online. That way, your hero data will be safe forever!
+                                <strong style="color: #FFF;">Start Game:</strong> Click the "PLAY GAME" button to initialize your session. Your hero data will be saved locally on this device!
                             </li>
                             <li>
                                 <strong style="color: #FFF;">Select Your Ghost:</strong> Choose your ghost from the character list or create a brand new one for free to start your path from level 1!
