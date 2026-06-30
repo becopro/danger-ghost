@@ -273,6 +273,21 @@
 
 				var winPanel = document.getElementById("winPanel");
 				if (winPanel) winPanel.style.display = (g_gameState == G_WIN) ? "block" : "none";
+
+				if (g_gameState == G_GAMEOVER || g_gameState == G_WIN) {
+					if (typeof window.SaveScore === "function") {
+						var charId = "GUEST";
+						var charName = "Guest";
+						var charLvl = g_currentLevel;
+						if (window.GhostRPG && window.GhostRPG.getStats) {
+							var stats = window.GhostRPG.getStats();
+							if (stats.characterId) charId = stats.characterId;
+							if (stats.name) charName = stats.name;
+							if (stats.level) charLvl = stats.level;
+						}
+						window.SaveScore(charId, g_score, charLvl, charName);
+					}
+				}
 			}
 			var g_count = 0;
 			var g_levelStartTime = Date.now();
