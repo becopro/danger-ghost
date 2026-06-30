@@ -1,4 +1,4 @@
-﻿			// --- SHIELD PROTOCOL (ANTI-HACKER / ANTI-DEVTOOLS) ---
+			// --- SHIELD PROTOCOL (ANTI-HACKER / ANTI-DEVTOOLS) ---
 			
 			// 1. Console Blackout (Silence all outputs in production)
 			// console.log = function() {};
@@ -274,7 +274,18 @@
 				var winPanel = document.getElementById("winPanel");
 				if (winPanel) winPanel.style.display = (g_gameState == G_WIN) ? "block" : "none";
 
-				if (g_gameState == G_GAMEOVER || g_gameState == G_WIN) {
+				var gameOverPanel = document.getElementById("gameOverPanel");
+				if (gameOverPanel) {
+					if (g_gameState == G_GAMEOVER) {
+						gameOverPanel.style.display = "block";
+						var scoreDisplay = document.getElementById("gameOverScoreDisplay");
+						if (scoreDisplay) scoreDisplay.innerText = g_score;
+					} else {
+						gameOverPanel.style.display = "none";
+					}
+				}
+
+				if (g_gameState == G_WIN) {
 					if (typeof window.SaveScore === "function") {
 						var charId = "GUEST";
 						var charName = "Guest";
@@ -3115,10 +3126,14 @@ var g_binaryBits = [];
 					}
 					e.preventDefault();
 					if (g_gameState == G_START) {
-						window.g_isGuestRun = true;
 						var menu = document.getElementById("loginButtonsContainer");
 						if (menu) menu.style.display = "none";
-						StartCutscene();
+						if (typeof LoginDeSo === "function") {
+							LoginDeSo();
+						} else {
+							window.g_isGuestRun = true;
+							StartCutscene();
+						}
 					} else if (g_gameState == G_CUTSCENE) {
 						EndCutscene();
 					} else if (g_gameState == G_END_CUTSCENE) {
@@ -3129,7 +3144,7 @@ var g_binaryBits = [];
 					} else if (g_gameState == G_PAUSE) {
 						SetGameState(G_PLAY);
 						g_levelStartTime += (Date.now() - g_pauseStartTime);
-					} else { 
+					} else if (g_gameState == G_WIN) { 
 						ResetGame(); 
 					} 
 				}

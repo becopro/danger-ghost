@@ -100,6 +100,14 @@
                 <div id="navbarPanelContent"></div>
             </div>
 
+            <div id="gameOverPanel" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.9); border: 2px solid #FF0000; border-radius: 10px; padding: 30px; text-align: center; z-index: 2000;">
+                <h2 style="color: #FF0000; font-family: 'Courier New', monospace; font-weight: bold; margin-bottom: 20px;">GAME OVER</h2>
+                <p style="color: #00FFFF; font-family: 'Courier New', monospace; font-size: 18px; margin-bottom: 20px;">SCORE: <span id="gameOverScoreDisplay">0</span></p>
+                <input type="text" id="gameOverNameInput" placeholder="ENTER PLAYER NAME" maxlength="20" style="padding: 10px; font-family: 'Courier New', monospace; font-size: 16px; background: #111; color: #FFF; border: 1px solid #FF0000; margin-bottom: 20px; width: 80%; box-sizing: border-box;" />
+                <br>
+                <button onclick="SubmitGameOverScore()" style="padding: 10px 20px; background: #FF0000; color: #FFF; font-family: 'Courier New', monospace; font-weight: bold; border: none; cursor: pointer; border-radius: 5px;">SUBMIT SCORE</button>
+            </div>
+
         </div>
         <div id="loginButtonsContainer" style="display: flex; flex-direction: column; gap: 10px; align-items: center; margin-top: 20px; width: 100%; max-width: 640px; margin-left: auto; margin-right: auto;">
             <button id="desoBtn" onclick="LoginDeSo()" style="padding: 12px 24px; font-size: 16px; background-color: #000; color: #00FFFF; border: 2px solid #00FFFF; border-radius: 5px; cursor: pointer; text-shadow: 0 0 5px #00FFFF; font-weight: bold; text-transform: uppercase; width: 100%;">PLAY GAME</button>
@@ -157,6 +165,39 @@
         </div>
     </section>
     </div>
+
+    <script>
+        function SubmitGameOverScore() {
+            var nameInput = document.getElementById("gameOverNameInput");
+            var playerName = nameInput && nameInput.value.trim() !== "" ? nameInput.value.trim() : "Guest";
+            
+            var charId = "GUEST";
+            var charLvl = window.g_currentLevel || 1;
+            if (window.GhostRPG && window.GhostRPG.getStats) {
+                var stats = window.GhostRPG.getStats();
+                if (stats.characterId) charId = stats.characterId;
+                if (stats.level) charLvl = stats.level;
+            }
+            
+            if (typeof window.SaveScore === "function") {
+                window.SaveScore(charId, window.g_score || 0, charLvl, playerName);
+            }
+            
+            var panel = document.getElementById("gameOverPanel");
+            if (panel) panel.style.display = "none";
+            
+            if (typeof window.OpenLeaderboardModal === "function") {
+                window.OpenLeaderboardModal();
+            }
+            
+            if (typeof window.SetGameState === "function") {
+                window.SetGameState(0); // G_START
+            }
+            
+            var menu = document.getElementById("loginButtonsContainer");
+            if (menu) menu.style.display = "flex";
+        }
+    </script>
 
     <!-- Playable Tutorial Section -->
     <section id="tutorial-btn-section" style="width: 100%; text-align: center; margin: 30px 0 15px 0;">
