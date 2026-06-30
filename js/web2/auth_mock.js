@@ -96,15 +96,34 @@
     }
     window.TriggerRPGSaveToDeSo = TriggerRPGSaveToDeSo;
 
-    // Mock Character Creation (Local Generation)
-    async function TriggerCreateNewGhost() {
-        var btn = document.getElementById("createGhostBtn");
-        var status = document.getElementById("selectionStatusText");
+    window.OpenNewGhostModal = function() {
+        var localChars = [];
+        try {
+            var raw = localStorage.getItem("dg_local_characters");
+            if (raw) localChars = JSON.parse(raw);
+        } catch(e) {}
         
-        if (!window.g_desoPublicKey) {
-            alert("Please log in first!");
+        if (localChars.length >= 3) {
+            alert("Maximum of 3 Ghosts reached. Delete an existing Ghost to create a new one.");
             return;
         }
+        
+        var modal = document.getElementById("newGhostModal");
+        if (modal) modal.style.display = "flex";
+    };
+
+    window.CloseNewGhostModal = function() {
+        var modal = document.getElementById("newGhostModal");
+        if (modal) modal.style.display = "none";
+    };
+
+    // Mock Character Creation (Local Generation)
+    async function TriggerCreateNewGhost() {
+        var btn = document.getElementById("confirmForgeBtn");
+        var status = document.getElementById("selectionStatusText");
+        var nameInput = document.getElementById("newGhostNameInput");
+        
+        var ghostName = nameInput && nameInput.value.trim() !== "" ? nameInput.value.trim() : "Ghost";
 
         if (btn) btn.disabled = true;
         if (status) status.innerText = "Forging a new Ghost locally...";
@@ -120,15 +139,28 @@
             try { localStorage.setItem("dg_soul_essence", (soulEssence - 100).toString()); } catch(e) {}
         }
 
+        // Random stats generation
+        var baseStats = [1, 1, 1, 1, 1];
+        var pointsToDistribute = 5;
+        for (var i = 0; i < pointsToDistribute; i++) {
+            var randIndex = Math.floor(Math.random() * 5);
+            baseStats[randIndex]++;
+        }
+
+        if (isEvolvedMint) {
+            for (var i = 0; i < 5; i++) baseStats[i] += 2;
+        }
+
         var defaultStats = {
+            name: ghostName,
             level: isEvolvedMint ? 5 : 1,
             xp: 0,
             xpRequired: 100,
-            vit: isEvolvedMint ? 3 : 1,
-            agi: isEvolvedMint ? 3 : 1,
-            int: isEvolvedMint ? 3 : 1,
-            pow: isEvolvedMint ? 3 : 1,
-            mag: isEvolvedMint ? 3 : 1,
+            vit: baseStats[0],
+            agi: baseStats[1],
+            int: baseStats[2],
+            pow: baseStats[3],
+            mag: baseStats[4],
             characterId: g_characterCreationId,
             score: 0,
             time: 0,
@@ -158,7 +190,9 @@
 
                 if (status) status.innerText = "Ghost forged successfully!";
                 if (btn) btn.disabled = false;
-
+                
+                if (nameInput) nameInput.value = "";
+                CloseNewGhostModal();
                 DisplayCharacterSelectionScreen(window.g_ownedCharacters);
             };
         });
@@ -286,9 +320,11 @@
                     imgHTML = "<div style='width: 100%; height: 140px; background: #0a0810; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #555; border: 1px dashed rgba(255,255,255,0.1);'>No Image</div>";
                 }
 
+                var ghostDisplayName = char.name && char.name !== "Ghost" ? char.name : "GHOST #" + (i + 1);
+
                 card.innerHTML = 
                     imgHTML +
-                    "<div style='font-size: 14px; font-weight: bold; color: #00FF00;'>👻 GHOST #" + (i + 1) + "</div>" +
+                    "<div style='font-size: 14px; font-weight: bold; color: #00FF00;'>👻 " + escapeHTML(ghostDisplayName).toUpperCase() + "</div>" +
                     "<div style='font-size: 11px; color: #888;'>ID: " + char.characterId.substring(0, 12) + "...</div>" +
                     "<hr style='border-color: rgba(255,255,255,0.1); margin: 4px 0;' />" +
                     "<div style='font-size: 12px; color: #FFF; display: flex; flex-direction: column; gap: 3px;'>" +
@@ -451,7 +487,8 @@
             ctx.fillStyle = "#FF00FF";
             ctx.font = "bold 18px 'Courier New'";
             ctx.textAlign = "center";
-            ctx.fillText("🛡️ HERO STATUS", 450, 50);
+            var displayName = stats.name && stats.name !== "Ghost" ? stats.name.toUpperCase() : "HERO STATUS";
+            ctx.fillText("🛡️ " + displayName, 450, 50);
             ctx.textAlign = "start";
 
             ctx.strokeStyle = "rgba(255,0,255,0.2)";
