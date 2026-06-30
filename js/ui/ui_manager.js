@@ -163,9 +163,10 @@ function UpdateNavbarBag() {
                 } else if (iconHtml && iconHtml.indexOf("<img") === -1 && iconHtml.indexOf("/") !== -1) {
                     iconHtml = "<img src='" + escapeHTML(iconHtml) + "' style='width:20px;height:20px;image-rendering:pixelated;vertical-align:middle;' />";
                 }
-                gridHTML += "<div onclick=\"SelectBagItem('" + escapeHTML(item.id) + "')\" class='bag-grid-slot' style='" + isSelectedStyle + "' title='" + escapeHTML(item.name) + "'>" +
+                gridHTML += "<div onclick=\"SelectBagItem('" + escapeHTML(item.id) + "')\" class='bag-grid-slot' style='position: relative; " + isSelectedStyle + "' title='" + escapeHTML(item.name) + "'>" +
                     iconHtml + 
                     (item.count > 1 ? "<span style='position: absolute; bottom: 1px; right: 2px; font-size: 9px; font-weight: bold; background: #000; color: #FFA500; padding: 0px 2px; border-radius: 2px; border: 1px solid #FFA500;'>x" + item.count + "</span>" : "") +
+                    "<span onclick=\"event.stopPropagation(); DeleteItem(" + i + ")\" style='position: absolute; top: -5px; right: -5px; cursor: pointer; font-size: 11px; z-index: 10; background: rgba(0,0,0,0.6); border-radius: 50%; padding: 2px;' title='Delete'>🗑️</span>" +
                     "</div>";
             } else {
                 gridHTML += "<div class='bag-grid-slot' style='border: 1px dashed rgba(255, 0, 255, 0.2); color: rgba(255, 255, 255, 0.15); font-size: 11px; cursor: default;'>-</div>";
@@ -291,6 +292,20 @@ function DiscardBagItem(itemId) {
     }
 }
 
+function DeleteItem(index) {
+    var stats = window.GhostRPG ? GhostRPG.getStats() : { inventory: [] };
+    var items = stats.inventory || [];
+    if (index >= 0 && index < items.length) {
+        var item = items[index];
+        if (confirm("Are you sure you want to delete this item? This action is permanent!")) {
+            if (window.DiscardInventoryItem && window.DiscardInventoryItem(item.id)) {
+                if (g_selectedBagItemId === item.id) g_selectedBagItemId = null;
+                UpdateNavbarBag();
+            }
+        }
+    }
+}
+
 function UpdateNavbarEquip() {
     try {
         var panelContent = document.getElementById("navbarPanelContent");
@@ -367,6 +382,7 @@ window.ToggleMultiDiscardMode = ToggleMultiDiscardMode;
 window.DiscardSelectedItems = DiscardSelectedItems;
 window.UpdateNavbarEquip = UpdateNavbarEquip;
 window.UnequipItemSlot = UnequipItemSlot;
+window.DeleteItem = DeleteItem;
 
 // --- Live Global Chat System ---
 var g_mqttClient = null;
