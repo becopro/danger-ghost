@@ -155,7 +155,7 @@ body::before {
     font-family: var(--font-text);
     font-size: 14px;
     line-height: 1.4;
-    overflow: hidden !important;
+    overflow-y: auto !important;
 }
 
 .overlay-panel h1, 
@@ -1775,6 +1775,17 @@ body::before {
 .chat-input-row button:hover {
     background: #fff;
     box-shadow: 0 0 8px var(--cyan-neon);
+}
+
+#backgroundlayer {
+    position: absolute;
+    height: 736px;
+    width: 100%;
+    max-width: 1020px;
+    background: url(assets/back.gif) no-repeat; 
+    left: 0px;
+    top: 0px;
+    z-index: -1;
 }
 
 

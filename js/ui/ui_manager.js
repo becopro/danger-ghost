@@ -144,7 +144,7 @@ function UpdateNavbarBag() {
         var stats = window.GhostRPG ? GhostRPG.getStats() : { inventory: [] };
         var items = stats.inventory || [];
         
-        var gridHTML = "<div style='max-height: 180px; overflow-y: auto; padding-right: 4px; border: 1px solid rgba(255,255,255,0.1); padding: 4px; border-radius: 4px; margin-bottom: 8px;'>" +
+        var gridHTML = "<div style='max-height: 120px; overflow-y: auto; padding-right: 4px; border: 1px solid rgba(255,255,255,0.1); padding: 4px; border-radius: 4px; margin-bottom: 8px;'>" +
                        "<div style='display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;'>";
         
         for (var i = 0; i < 100; i++) {
@@ -745,9 +745,9 @@ document.addEventListener("fullscreenchange", function() {
     var btn = document.getElementById("gameScreenModeBtn");
     if (btn) {
         if (document.fullscreenElement) {
-            btn.innerHTML = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M4 14h6v6m10-6h-6v6M4 10h6V4m10 6h-6V4'/></svg>";
+            btn.innerHTML = "<img src='assets/sprites/exit_fullscreen_icon.jpg' style='width: 20px; height: 20px; border-radius: 2px;' alt='Exit Fullscreen' />";
         } else {
-            btn.innerHTML = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3'/></svg>";
+            btn.innerHTML = "<img src='assets/sprites/fullscreen_icon.jpg' style='width: 20px; height: 20px; border-radius: 2px;' alt='Fullscreen' />";
         }
     }
 });
