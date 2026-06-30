@@ -33,11 +33,7 @@ html, body {
     padding: 0;
     width: 100%;
     background-color: var(--bg-dark);
-    background-image: url('../assets/sprites/site_bg.png');
-    background-size: auto;
-    background-attachment: scroll;
-    background-position: top center;
-    background-repeat: repeat;
+
     color: var(--white);
     font-family: var(--font-title);
     box-sizing: border-box;
@@ -45,20 +41,8 @@ html, body {
     cursor: url('../assets/sprites/Ftasma_cursor.webp'), auto;
 }
 
-/* Fume Tinted Frosted Glass Overlay (above background, below content) */
-body::before {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(10, 10, 14, 0.80); /* Dark smoke tint */
-    backdrop-filter: blur(10px); /* Frosted glass look */
-    -webkit-backdrop-filter: blur(10px);
-    z-index: -1; /* Layered exactly behind all page content */
-    pointer-events: none;
-}
+
+
 
 #game-section {
     padding: 40px 20px;
@@ -1778,14 +1762,35 @@ body::before {
 }
 
 #backgroundlayer {
-    position: absolute;
-    height: 736px;
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 100%;
-    max-width: 1020px;
-    background: url(assets/back.gif) no-repeat; 
-    left: 0px;
-    top: 0px;
-    z-index: -1;
+    height: 100%;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: -2;
+    opacity: 0;
+    transition: opacity 1.5s ease-in-out;
 }
+
+#backgroundlayer.active {
+    opacity: 1;
+}
+
+#backgroundlayer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: -1;
+    pointer-events: none;
+}
+
 
 

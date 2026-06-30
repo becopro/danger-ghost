@@ -155,8 +155,8 @@
 			var starsImage = new Image(); starsImage.src = 'assets2/stars.png';
 			var branchImage = new Image(); branchImage.src = 'assets2/branch.png';
 			var grassImage = new Image(); grassImage.src = 'assets2/grass.png';
-			var logoImage = new Image(); logoImage.src = 'assets/sprites/Logo DeSoGhost.png';
-			var logoDesoImage = new Image(); logoDesoImage.src = 'assets/sprites/Logo DeSo.png';
+			var logoImage = new Image(); logoImage.src = 'logoGG-pixel.webp';
+
 			var blueKeyImage = new Image(); blueKeyImage.src = 'assets/sprites/Blue key (1).webp';
 			var water1Image = new Image(); water1Image.src = 'assets2/water1.png';
 			var water2Image = new Image(); water2Image.src = 'assets2/water2.png';
@@ -1964,10 +1964,8 @@
 
 				// Boss HUD health bar has been removed to only show above the enemy's head.
 				
-				// Arte Logo DeSo na parte de baixo, 2 vezes o tamanho do Ftasma (24 * 2 = 48)
-				if (logoDesoImage.complete) {
-					g_ctx.drawImage(logoDesoImage, g_canvas.width - 48 - 10, g_canvas.height - 48 - 10, 48, 48);
-				}
+
+
 
 				// Barra de Mana
 				g_ctx.font = "bold 14px 'Courier New'"; g_ctx.fillStyle = "#00E5FF";

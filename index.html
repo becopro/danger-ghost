@@ -22,6 +22,9 @@
 
     <!-- Sticky Header & Nav -->
     <div id="fullscreenGameArea">
+    <div id="backgroundlayer"></div>
+    <div id="backgroundlayer-overlay"></div>
+
     <header class="site-header">
         <div class="header-logo">
             <h1 class="neon-title">GHOST GAMES</h1>
@@ -773,5 +776,41 @@
 
     <!-- Script de inicialização da Engine -->
     <script src="js/game/engine.js?v=5"></script>
+    <script>
+        // System to rotate 6 backgrounds (Bg1.webp to Bg6.webp) dynamically
+        (function() {
+            var bgImages = ['Bg1.webp', 'Bg2.webp', 'Bg3.webp', 'Bg4.webp', 'Bg5.webp', 'Bg6.webp'];
+            var currentIndex = 0;
+            var bgLayer = document.getElementById('backgroundlayer');
+            
+            if (bgLayer) {
+                function changeBackground() {
+                    // Fade out
+                    bgLayer.classList.remove('active');
+                    
+                    setTimeout(function() {
+                        // Change background image
+                        bgLayer.style.backgroundImage = "url('" + bgImages[currentIndex] + "')";
+                        // Fade in
+                        bgLayer.classList.add('active');
+                        currentIndex = (currentIndex + 1) % bgImages.length;
+                    }, 1500); // Wait for transition fade out to complete
+                }
+                
+                // Initial background configuration
+                bgLayer.style.backgroundImage = "url('" + bgImages[currentIndex] + "')";
+                currentIndex = (currentIndex + 1) % bgImages.length;
+                
+                // Smooth initial load transition
+                setTimeout(function() {
+                    bgLayer.classList.add('active');
+                }, 500);
+                
+                // Rotate background every 10 seconds (8.5s visual display + 1.5s fade transition)
+                setInterval(changeBackground, 10000);
+            }
+        })();
+    </script>
 </body>
+
 </html>
