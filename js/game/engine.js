@@ -2858,6 +2858,11 @@
 			window.WaitForWindowClose = WaitForWindowClose;
 
 			window.CheckVIPStatus = async function(pubKey) {
+				if (pubKey === "LOCAL_PLAYER_KEY") {
+					window.g_hasCreatorCoin = true;
+					console.log("VIP Access Granted: Local Web2 mode!");
+					return;
+				}
 				try {
 					var hasCoin = false;
 					var keepFetching = true;
