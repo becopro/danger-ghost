@@ -1950,8 +1950,8 @@ border-left: 2px solid #555;
 	z-index: -1;
 	pointer-events: none;
 	background-color: rgba(0, 0, 0, 0.4);
-	backdrop-filter: blur(8px);
-	-webkit-backdrop-filter: blur(8px);
+	backdrop-filter: blur(13px);
+	-webkit-backdrop-filter: blur(13px);
 }
 
 .bg-slice {
