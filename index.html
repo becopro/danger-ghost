@@ -22,13 +22,8 @@
 
     <!-- Sticky Header & Nav -->
     <div id="fullscreenGameArea">
-    <div id="backgroundlayer">
-        <div class="bg-slice" style="background-image: url('Bg1.jpg');"></div>
-        <div class="bg-slice" style="background-image: url('Bg2.jpg');"></div>
-        <div class="bg-slice" style="background-image: url('Bg3.jpg');"></div>
-        <div class="bg-slice" style="background-image: url('Bg4.jpg');"></div>
-        <div class="bg-slice" style="background-image: url('Bg5.jpg');"></div>
-    </div>
+    <div id="backgroundlayer"></div>
+    <div id="backgroundlayer-overlay"></div>
 
     <header class="site-header">
         <div class="header-logo">
@@ -760,6 +755,31 @@
 
     <!-- Script de inicialização da Engine -->
     <script src="js/game/engine.js?v=5"></script>
+
+    <!-- Script para rotação de backgrounds com fade-in suave -->
+    <script type="text/javascript">
+        (function() {
+            var bgImages = ['Bg1.jpg', 'Bg2.jpg', 'Bg5.jpg', 'Bg6.webp'];
+            var container = document.getElementById('backgroundlayer');
+            if (container) {
+                bgImages.forEach(function(img, index) {
+                    var slice = document.createElement('div');
+                    slice.className = 'bg-slice' + (index === 0 ? ' active' : '');
+                    slice.style.backgroundImage = "url('" + img + "')";
+                    container.appendChild(slice);
+                });
+                var currentIndex = 0;
+                setInterval(function() {
+                    var slices = container.querySelectorAll('.bg-slice');
+                    if (slices.length > 0) {
+                        slices[currentIndex].classList.remove('active');
+                        currentIndex = (currentIndex + 1) % slices.length;
+                        slices[currentIndex].classList.add('active');
+                    }
+                }, 6000);
+            }
+        })();
+    </script>
 
 </body>
 
