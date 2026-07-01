@@ -28,18 +28,22 @@ canvas {
 ::-webkit-scrollbar-track { background: rgba(7, 7, 8, 0.95); border: 1px solid var(--border-light); }
 ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--cyan-neon), var(--purple-neon)); }
 
-html, body {
+html {
+    background-color: var(--bg-dark);
+}
+
+body {
     margin: 0;
     padding: 0;
     width: 100%;
-    background-color: var(--bg-dark);
-
+    background-color: transparent !important;
     color: var(--white);
     font-family: var(--font-title);
     box-sizing: border-box;
     overflow-x: hidden;
     cursor: url('../assets/sprites/Ftasma_cursor.webp'), auto;
 }
+
 
 
 
@@ -1083,7 +1087,14 @@ html, body {
 .header-logo {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+}
+
+.header-logo-img {
+    height: 32px;
+    width: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 0 5px var(--cyan-neon));
 }
 
 .neon-title {
