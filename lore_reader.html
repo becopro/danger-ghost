@@ -174,9 +174,13 @@
         </ul>
 
         <div class="audiobook-controls">
-            <button class="cyber-btn primary" onclick="toggleAudiobook()" id="audioBtn" style="padding: 12px; font-size: 14px;">
+            <button class="cyber-btn primary" onclick="toggleAudiobook('en-US')" id="audioBtnEN" style="padding: 12px; font-size: 14px; margin-bottom: 5px;">
                 <span class="btn-icon">🔊</span>
-                <span class="btn-text" id="audioBtnText">Play Audiobook</span>
+                <span class="btn-text" id="audioBtnTextEN">Play Audiobook (EN)</span>
+            </button>
+            <button class="cyber-btn primary" onclick="toggleAudiobook('pt-BR')" id="audioBtnPT" style="padding: 12px; font-size: 14px; margin-bottom: 5px;">
+                <span class="btn-icon">🔊</span>
+                <span class="btn-text" id="audioBtnTextPT">Play Audiobook (PT-BR)</span>
             </button>
             <button class="back-btn" onclick="window.location.href='index.html'">← Return to Game</button>
         </div>
@@ -193,8 +197,10 @@
     <script>
         let currentChapter = 'vol1';
         let isPlaying = false;
+        let playingLang = null;
         let synth = window.speechSynthesis;
         let currentUtterance = null;
+        let sentenceQueue = [];
 
         function loadChapter(chapterId) {
             // Update TOC active state
@@ -212,7 +218,7 @@
             }
         }
 
-        function toggleAudiobook() {
+        function toggleAudiobook(langCode) {
             if (!('speechSynthesis' in window)) {
                 alert("Your browser does not support text-to-speech.");
                 return;
@@ -220,45 +226,71 @@
 
             if (isPlaying) {
                 stopAudiobook();
+                // If they clicked the other language while one was playing, start the new one
+                if (playingLang !== langCode) {
+                    setTimeout(() => playAudiobook(langCode), 200);
+                }
             } else {
-                playAudiobook();
+                playAudiobook(langCode);
             }
         }
 
-        function playAudiobook() {
+        function playAudiobook(langCode) {
             const container = document.getElementById('textContent');
-            const textToRead = container.innerText || container.textContent;
+            const rawText = container.innerText || container.textContent;
             
-            currentUtterance = new SpeechSynthesisUtterance(textToRead);
-            currentUtterance.lang = 'en-US'; 
+            // Chunk by sentences to prevent browser TTS character limits
+            sentenceQueue = rawText.match(/[^.!?\n]+[.!?\n]+/g) || [rawText];
+            sentenceQueue = sentenceQueue.map(s => s.trim()).filter(s => s.length > 0);
+            
+            isPlaying = true;
+            playingLang = langCode;
+            updateAudioBtnUI();
+            
+            speakNextChunk();
+        }
+
+        function speakNextChunk() {
+            if (!isPlaying || sentenceQueue.length === 0) {
+                stopAudiobook();
+                return;
+            }
+            
+            let text = sentenceQueue.shift();
+            currentUtterance = new SpeechSynthesisUtterance(text);
+            currentUtterance.lang = playingLang; 
             currentUtterance.rate = 0.95; // Slightly slower for epic storytelling
             currentUtterance.pitch = 0.9;
             
             currentUtterance.onend = () => {
-                isPlaying = false;
-                updateAudioBtnUI();
+                if (isPlaying) speakNextChunk();
+            };
+            
+            currentUtterance.onerror = (e) => {
+                console.error("Speech Synthesis Error", e);
+                // Try moving to next chunk instead of completely stopping
+                if (isPlaying) speakNextChunk();
             };
 
             synth.speak(currentUtterance);
-            isPlaying = true;
-            updateAudioBtnUI();
         }
 
         function stopAudiobook() {
+            isPlaying = false;
+            playingLang = null;
+            sentenceQueue = [];
             if (synth.speaking) {
                 synth.cancel();
             }
-            isPlaying = false;
             updateAudioBtnUI();
         }
 
         function updateAudioBtnUI() {
-            const btnText = document.getElementById('audioBtnText');
-            if (isPlaying) {
-                btnText.innerText = "Stop Audiobook";
-            } else {
-                btnText.innerText = "Play Audiobook";
-            }
+            const btnTextEN = document.getElementById('audioBtnTextEN');
+            const btnTextPT = document.getElementById('audioBtnTextPT');
+            
+            btnTextEN.innerText = (isPlaying && playingLang === 'en-US') ? "Stop Audiobook (EN)" : "Play Audiobook (EN)";
+            btnTextPT.innerText = (isPlaying && playingLang === 'pt-BR') ? "Stop Audiobook (PT-BR)" : "Play Audiobook (PT-BR)";
         }
 
         // Init
