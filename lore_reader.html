@@ -197,7 +197,7 @@
     <script>
         let currentChapter = 'vol1';
         let isPlaying = false;
-        let playingLang = null;
+        let playingLang = 'en-US';
         let synth = window.speechSynthesis;
         let currentUtterance = null;
         let sentenceQueue = [];
@@ -207,14 +207,21 @@
             document.querySelectorAll('.toc-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
             
-            // Load Content
             currentChapter = chapterId;
-            document.getElementById('textContent').innerHTML = loreData[chapterId];
-            document.getElementById('reader-content-area').scrollTop = 0;
+            updateContentDisplay();
 
             // Stop audio if playing
             if (isPlaying) {
                 stopAudiobook();
+            }
+        }
+
+        function updateContentDisplay() {
+            let langSuffix = playingLang === 'pt-BR' ? '_pt' : '_en';
+            let contentKey = currentChapter + langSuffix;
+            if (loreData[contentKey]) {
+                document.getElementById('textContent').innerHTML = loreData[contentKey];
+                document.getElementById('reader-content-area').scrollTop = 0;
             }
         }
 
@@ -236,6 +243,9 @@
         }
 
         function playAudiobook(langCode) {
+            playingLang = langCode;
+            updateContentDisplay(); // Switch text language to match audio
+
             const container = document.getElementById('textContent');
             const rawText = container.innerText || container.textContent;
             
@@ -277,7 +287,6 @@
 
         function stopAudiobook() {
             isPlaying = false;
-            playingLang = null;
             sentenceQueue = [];
             if (synth.speaking) {
                 synth.cancel();
@@ -295,7 +304,7 @@
 
         // Init
         window.onload = () => {
-            document.getElementById('textContent').innerHTML = loreData['vol1'];
+            updateContentDisplay();
         };
 
         // Stop audio when leaving the page
