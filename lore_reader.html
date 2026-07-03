@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghost Games - Lore Codex</title>
+    <link rel="icon" type="image/png" href="assets/sprites/danger_ghost_icon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            background-color: var(--bg-dark);
+            color: var(--white);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background-image: radial-gradient(circle at center, rgba(13, 13, 16, 0.8) 0%, #070708 100%);
+        }
+        
+        /* Reader Layout */
+        #reader-sidebar {
+            width: 300px;
+            background: rgba(10, 10, 14, 0.85);
+            border-right: 1px solid var(--border-light);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+            backdrop-filter: blur(10px);
+        }
+
+        #reader-content-area {
+            flex-grow: 1;
+            padding: 40px 80px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        /* Sidebar Elements */
+        .reader-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .reader-header h1 {
+            font-family: var(--font-title);
+            font-size: 24px;
+            color: var(--cyan-neon);
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+            margin: 0;
+        }
+
+        .reader-header p {
+            font-family: var(--font-text);
+            color: var(--text-muted);
+            font-size: 12px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .toc-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        .toc-item {
+            margin-bottom: 10px;
+        }
+
+        .toc-btn {
+            width: 100%;
+            background: transparent;
+            border: 1px solid transparent;
+            border-left: 2px solid transparent;
+            color: var(--white);
+            text-align: left;
+            padding: 12px 15px;
+            font-family: var(--font-text);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toc-btn:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-left-color: var(--magenta-neon);
+        }
+
+        .toc-btn.active {
+            background: rgba(0, 255, 255, 0.1);
+            border-left-color: var(--cyan-neon);
+            color: var(--cyan-neon);
+            font-weight: 600;
+        }
+
+        .audiobook-controls {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-light);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .back-btn {
+            background: transparent;
+            border: 1px solid var(--border-light);
+            color: var(--text-muted);
+            padding: 10px;
+            cursor: pointer;
+            font-family: var(--font-title);
+            transition: all 0.2s;
+            border-radius: 4px;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--white);
+        }
+
+        /* Typography inside Content */
+        .content-container {
+            max-width: 800px;
+            margin: 0 auto;
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 20px;
+            line-height: 1.8;
+            color: #dddddd;
+            padding-bottom: 100px;
+        }
+
+        .content-container h2 {
+            font-family: var(--font-title);
+            font-size: 36px;
+            color: var(--white);
+            margin-bottom: 40px;
+            border-bottom: 2px solid var(--cyan-neon);
+            padding-bottom: 10px;
+        }
+
+        .content-container h3 {
+            font-family: var(--font-title);
+            font-size: 24px;
+            color: var(--magenta-neon);
+            margin-top: 40px;
+        }
+
+        .content-container p {
+            margin-bottom: 24px;
+        }
+
+        .content-container em {
+            color: var(--yellow-neon);
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="reader-sidebar">
+        <div class="reader-header">
+            <h1>LORE CODEX</h1>
+            <p>Danger Ghost Universe</p>
+        </div>
+
+        <ul class="toc-list" id="tocList">
+            <li class="toc-item"><button class="toc-btn active" onclick="loadChapter('vol1')">Volume 1: The Great Enlightenment</button></li>
+            <li class="toc-item"><button class="toc-btn" onclick="loadChapter('vol2')">Volume 2: The Roar of the Rift</button></li>
+        </ul>
+
+        <div class="audiobook-controls">
+            <button class="cyber-btn primary" onclick="toggleAudiobook()" id="audioBtn" style="padding: 12px; font-size: 14px;">
+                <span class="btn-icon">🔊</span>
+                <span class="btn-text" id="audioBtnText">Play Audiobook</span>
+            </button>
+            <button class="back-btn" onclick="window.location.href='index.html'">← Return to Game</button>
+        </div>
+    </div>
+
+    <div id="reader-content-area">
+        <div class="content-container" id="textContent">
+            <h2>Initializing Neural Link...</h2>
+            <p>Loading archival records from the Blockchain. Please wait.</p>
+        </div>
+    </div>
+
+    <script src="js/lore_data.js"></script>
+    <script>
+        let currentChapter = 'vol1';
+        let isPlaying = false;
+        let synth = window.speechSynthesis;
+        let currentUtterance = null;
+
+        function loadChapter(chapterId) {
+            // Update TOC active state
+            document.querySelectorAll('.toc-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Load Content
+            currentChapter = chapterId;
+            document.getElementById('textContent').innerHTML = loreData[chapterId];
+            document.getElementById('reader-content-area').scrollTop = 0;
+
+            // Stop audio if playing
+            if (isPlaying) {
+                stopAudiobook();
+            }
+        }
+
+        function toggleAudiobook() {
+            if (!('speechSynthesis' in window)) {
+                alert("Your browser does not support text-to-speech.");
+                return;
+            }
+
+            if (isPlaying) {
+                stopAudiobook();
+            } else {
+                playAudiobook();
+            }
+        }
+
+        function playAudiobook() {
+            const container = document.getElementById('textContent');
+            const textToRead = container.innerText || container.textContent;
+            
+            currentUtterance = new SpeechSynthesisUtterance(textToRead);
+            currentUtterance.lang = 'en-US'; 
+            currentUtterance.rate = 0.95; // Slightly slower for epic storytelling
+            currentUtterance.pitch = 0.9;
+            
+            currentUtterance.onend = () => {
+                isPlaying = false;
+                updateAudioBtnUI();
+            };
+
+            synth.speak(currentUtterance);
+            isPlaying = true;
+            updateAudioBtnUI();
+        }
+
+        function stopAudiobook() {
+            if (synth.speaking) {
+                synth.cancel();
+            }
+            isPlaying = false;
+            updateAudioBtnUI();
+        }
+
+        function updateAudioBtnUI() {
+            const btnText = document.getElementById('audioBtnText');
+            if (isPlaying) {
+                btnText.innerText = "Stop Audiobook";
+            } else {
+                btnText.innerText = "Play Audiobook";
+            }
+        }
+
+        // Init
+        window.onload = () => {
+            document.getElementById('textContent').innerHTML = loreData['vol1'];
+        };
+
+        // Stop audio when leaving the page
+        window.addEventListener('beforeunload', () => {
+            if (synth.speaking) synth.cancel();
+        });
+    </script>
+</body>
+</html>
