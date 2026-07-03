@@ -1633,6 +1633,8 @@ body {
 #fullscreenGameArea:fullscreen .social-link-bar,
 #fullscreenGameArea:fullscreen #desoBtn,
 #fullscreenGameArea:fullscreen #winPanel,
+#fullscreenGameArea:fullscreen #backgroundlayer,
+#fullscreenGameArea:fullscreen #backgroundlayer-overlay,
 #fullscreenGameArea:fullscreen br {
     display: none !important;
 }
@@ -1651,6 +1653,7 @@ body {
 #fullscreenGameArea:fullscreen .canvas-container {
     width: 100% !important;
     height: 100% !important;
+    border: none !important;
     max-width: none !important;
     max-height: none !important;
     display: flex !important;
@@ -1697,6 +1700,13 @@ body {
     position: absolute !important;
     top: 0 !important;
     left: 0 !important;
+}
+
+#fullscreenGameArea:fullscreen #gameScreenModeBtn {
+    top: 70px !important;
+    right: 20px !important;
+    position: fixed !important;
+    z-index: 2000 !important;
 }
 
 /* Chat Layout Styles */
