@@ -31,7 +31,12 @@ function initNetwork() {
     });
 
     socket.on('room_roster', (roster) => {
-        window.NetworkState.playerNames = roster || {};
+        window.NetworkState.playerNames = {};
+        if (Array.isArray(roster)) {
+            roster.forEach(p => {
+                window.NetworkState.playerNames[p.id] = p.name || 'Ghost';
+            });
+        }
     });
 
     socket.on('player_joined', (data) => {

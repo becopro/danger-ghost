@@ -1002,8 +1002,12 @@
 					if (this.shockTimer > 0) this.shockTimer--;
 					
 					if (this.lives <= 0) {
-						this.alive = false;
-						return;
+						if (this.alive) {
+							this.alive = false;
+							if (window.emitKillBoss) {
+								window.emitKillBoss(this.id || 0);
+							}
+						}
 					}
 				};
 
@@ -1139,6 +1143,7 @@
 										}
 
 										self.jumpNum = 1; self.jumpCounter = 2;
+										boss.lives -= finalDmg;
 										if (window.emitPlayerAttack) {
 											window.emitPlayerAttack({ bossId: boss.id || 0, damage: finalDmg, type: 'jump' });
 										}
@@ -1163,6 +1168,7 @@
 								}
 
 								this.jumpNum = 1; this.jumpCounter = 2;
+								g_boss.lives -= finalDmg;
 								if (window.emitPlayerAttack) {
 									window.emitPlayerAttack({ bossId: g_boss.id || 0, damage: finalDmg, type: 'jump' });
 								}
@@ -1587,6 +1593,7 @@
 											} else if (p.type === "spell_wood") {
 												boss.poisonTicks = 300;
 											}
+											boss.lives -= finalDmg;
 											if (window.emitPlayerAttack) {
 												window.emitPlayerAttack({ bossId: boss.id || 0, damage: finalDmg, type: p.type });
 											}
@@ -1650,6 +1657,7 @@
 									} else if (p.type === "spell_wood") {
 										g_boss.poisonTicks = 300;
 									}
+									g_boss.lives -= finalDmg;
 									if (window.emitPlayerAttack) {
 										window.emitPlayerAttack({ bossId: g_boss.id || 0, damage: finalDmg, type: p.type });
 									}
