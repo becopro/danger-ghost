@@ -175,14 +175,18 @@
 
         <div class="audiobook-controls">
             <button class="cyber-btn primary" onclick="toggleAudiobook('en-US')" id="audioBtnEN" style="padding: 12px; font-size: 14px; margin-bottom: 5px;">
-                <span class="btn-icon">🔊</span>
+                <span class="btn-icon" id="audioIconEN">🔊</span>
                 <span class="btn-text" id="audioBtnTextEN">Play Audiobook (EN)</span>
             </button>
             <button class="cyber-btn primary" onclick="toggleAudiobook('pt-BR')" id="audioBtnPT" style="padding: 12px; font-size: 14px; margin-bottom: 5px;">
-                <span class="btn-icon">🔊</span>
+                <span class="btn-icon" id="audioIconPT">🔊</span>
                 <span class="btn-text" id="audioBtnTextPT">Play Audiobook (PT-BR)</span>
             </button>
-            <button class="back-btn" onclick="window.location.href='index.html'">← Return to Game</button>
+            <button class="cyber-btn" onclick="stopAudiobook()" id="stopAudioBtn" style="padding: 12px; font-size: 14px; margin-bottom: 5px; display: none; background: #ff0055; color: white; border-color: #ff0055;">
+                <span class="btn-icon">⏹</span>
+                <span class="btn-text">Stop Audiobook</span>
+            </button>
+            <button class="back-btn" onclick="window.location.href='index.html'">Return to Game</button>
         </div>
     </div>
 
@@ -197,6 +201,7 @@
     <script>
         let currentChapter = 'vol1';
         let isPlaying = false;
+        let isPaused = false;
         let playingLang = 'en-US';
         let synth = window.speechSynthesis;
         let currentUtterance = null;
@@ -232,9 +237,19 @@
             }
 
             if (isPlaying) {
-                stopAudiobook();
-                // If they clicked the other language while one was playing, start the new one
-                if (playingLang !== langCode) {
+                if (playingLang === langCode) {
+                    // Toggle pause/resume for the current language
+                    if (isPaused) {
+                        synth.resume();
+                        isPaused = false;
+                    } else {
+                        synth.pause();
+                        isPaused = true;
+                    }
+                    updateAudioBtnUI();
+                } else {
+                    // Clicked a different language, switch to it
+                    stopAudiobook();
                     setTimeout(() => playAudiobook(langCode), 200);
                 }
             } else {
@@ -243,6 +258,8 @@
         }
 
         function playAudiobook(langCode) {
+            isPlaying = true;
+            isPaused = false;
             playingLang = langCode;
             updateContentDisplay(); // Switch text language to match audio
 
@@ -287,6 +304,7 @@
 
         function stopAudiobook() {
             isPlaying = false;
+            isPaused = false;
             sentenceQueue = [];
             if (synth.speaking) {
                 synth.cancel();
@@ -297,9 +315,27 @@
         function updateAudioBtnUI() {
             const btnTextEN = document.getElementById('audioBtnTextEN');
             const btnTextPT = document.getElementById('audioBtnTextPT');
+            const iconEN = document.getElementById('audioIconEN');
+            const iconPT = document.getElementById('audioIconPT');
+            const stopBtn = document.getElementById('stopAudioBtn');
             
-            btnTextEN.innerText = (isPlaying && playingLang === 'en-US') ? "Stop Audiobook (EN)" : "Play Audiobook (EN)";
-            btnTextPT.innerText = (isPlaying && playingLang === 'pt-BR') ? "Stop Audiobook (PT-BR)" : "Play Audiobook (PT-BR)";
+            if (isPlaying && playingLang === 'en-US') {
+                btnTextEN.innerText = isPaused ? "Resume Audiobook (EN)" : "Pause Audiobook (EN)";
+                iconEN.innerText = isPaused ? "▶️" : "⏸";
+            } else {
+                btnTextEN.innerText = "Play Audiobook (EN)";
+                iconEN.innerText = "🔊";
+            }
+
+            if (isPlaying && playingLang === 'pt-BR') {
+                btnTextPT.innerText = isPaused ? "Resume Audiobook (PT-BR)" : "Pause Audiobook (PT-BR)";
+                iconPT.innerText = isPaused ? "▶️" : "⏸";
+            } else {
+                btnTextPT.innerText = "Play Audiobook (PT-BR)";
+                iconPT.innerText = "🔊";
+            }
+
+            stopBtn.style.display = isPlaying ? "flex" : "none";
         }
 
         // Init
