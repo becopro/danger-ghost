@@ -60,6 +60,15 @@ function initNetwork() {
         window.NetworkState.serverTick = data.tick;
         window.NetworkState.serverEntities = data.entities;
         
+        // Update fallback for non-interpolated rendering
+        if (data.players) {
+            for (let pid in data.players) {
+                if (pid !== window.NetworkState.playerId) {
+                    window.NetworkState.otherPlayers[pid] = data.players[pid].position;
+                }
+            }
+        }
+        
         data.timestamp = Date.now();
         window.NetworkState.frameBuffer.push(data);
         if (window.NetworkState.frameBuffer.length > 3) {

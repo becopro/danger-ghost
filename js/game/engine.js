@@ -2872,42 +2872,40 @@ var g_binaryBits = [];
 					}
 					if (f0 && f1) {
 						var t = 0;
-						if (f1.timestamp > f0.timestamp) {
-							t = (renderTime - f0.timestamp) / (f1.timestamp - f0.timestamp);
-							t = Math.max(0, Math.min(1, t));
-						}
-						f0.entities.forEach(function(e0) {
-							if (window.NetworkState.playerId && e0.id === window.NetworkState.playerId) return; // Self
-							if (g_boss && g_boss.id === e0.id) return; // Boss
-							var isBoss = false;
-							if (g_bosses) {
-								for(var b=0; b<g_bosses.length; b++) {
-									if(g_bosses[b].id === e0.id) { isBoss = true; break; }
-								}
-							}
-							if (isBoss) return;
-							
-							// Assume it's another player
-							var e1 = f1.entities.find(e => e.id === e0.id);
-							if (e1) {
-								var interpX = e0.x + (e1.x - e0.x) * t;
-								var interpY = e0.y + (e1.y - e0.y) * t;
-								var isFacingRight = (typeof e0.isFacingRight !== 'undefined') ? e0.isFacingRight : true;
-								if (typeof e1.isFacingRight !== 'undefined' && t > 0.5) isFacingRight = e1.isFacingRight;
-								var sprite = isFacingRight ? desoGhostRight : desoGhostLeft;
-								
-								g_ctx.globalAlpha = 0.5;
-								g_ctx.drawImage(sprite, interpX + map_offset, interpY, 24, 24);
-								g_ctx.globalAlpha = 1.0;
-								
-								if (window.NetworkState.playerNames && window.NetworkState.playerNames[e0.id]) {
-									g_ctx.fillStyle = "#00FFCC";
-									g_ctx.font = "10px Arial";
-									g_ctx.textAlign = "center";
-									g_ctx.fillText(window.NetworkState.playerNames[e0.id], interpX + map_offset + 12, interpY - 10);
-								}
-							}
-						});
+  						if (f1.timestamp > f0.timestamp) {
+  							t = (renderTime - f0.timestamp) / (f1.timestamp - f0.timestamp);
+  							t = Math.max(0, Math.min(1, t));
+  						}
+  						Object.keys(f0.players || {}).forEach(function(pid) {
+  							if (window.NetworkState.playerId && pid === window.NetworkState.playerId) return; // Self
+  							
+  							var p0 = f0.players[pid];
+  							if (!p0 || !p0.position) return;
+  							
+  							var p1 = f1.players && f1.players[pid];
+  							var interpX = p0.position.x;
+  							var interpY = p0.position.y;
+  							var isFacingRight = (typeof p0.position.isFacingRight !== 'undefined') ? p0.position.isFacingRight : true;
+  							
+  							if (p1 && p1.position) {
+  								interpX = p0.position.x + (p1.position.x - p0.position.x) * t;
+  								interpY = p0.position.y + (p1.position.y - p0.position.y) * t;
+  								if (typeof p1.position.isFacingRight !== 'undefined' && t > 0.5) isFacingRight = p1.position.isFacingRight;
+  							}
+  							
+  							var sprite = isFacingRight ? desoGhostRight : desoGhostLeft;
+  							
+  							g_ctx.globalAlpha = 0.5;
+  							g_ctx.drawImage(sprite, interpX + map_offset, interpY, 24, 24);
+  							g_ctx.globalAlpha = 1.0;
+  							
+  							if (window.NetworkState.playerNames && window.NetworkState.playerNames[pid]) {
+  								g_ctx.fillStyle = "#00FFCC";
+  								g_ctx.font = "10px Arial";
+  								g_ctx.textAlign = "center";
+  								g_ctx.fillText(window.NetworkState.playerNames[pid], interpX + map_offset + 12, interpY - 10);
+  							}
+  						});
 					}
 				} else if (window.NetworkState && window.NetworkState.otherPlayers) {
 					// Fallback for non-interpolated
