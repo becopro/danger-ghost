@@ -182,10 +182,7 @@
                 <span class="btn-icon" id="audioIconPT">🔊</span>
                 <span class="btn-text" id="audioBtnTextPT">Play Audiobook (PT-BR)</span>
             </button>
-            <button class="cyber-btn" onclick="stopAudiobook()" id="stopAudioBtn" style="padding: 12px; font-size: 14px; margin-bottom: 5px; display: none; background: #ff0055; color: white; border-color: #ff0055;">
-                <span class="btn-icon">⏹</span>
-                <span class="btn-text">Stop Audiobook</span>
-            </button>
+
             <button class="back-btn" onclick="window.location.href='index.html'">Return to Game</button>
         </div>
     </div>
@@ -317,7 +314,7 @@
             const btnTextPT = document.getElementById('audioBtnTextPT');
             const iconEN = document.getElementById('audioIconEN');
             const iconPT = document.getElementById('audioIconPT');
-            const stopBtn = document.getElementById('stopAudioBtn');
+
             
             if (isPlaying && playingLang === 'en-US') {
                 btnTextEN.innerText = isPaused ? "Resume Audiobook (EN)" : "Pause Audiobook (EN)";
@@ -334,8 +331,6 @@
                 btnTextPT.innerText = "Play Audiobook (PT-BR)";
                 iconPT.innerText = "🔊";
             }
-
-            stopBtn.style.display = isPlaying ? "flex" : "none";
         }
 
         // Init
