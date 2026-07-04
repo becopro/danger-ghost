@@ -1981,7 +1981,7 @@
 
 
 				// Game logo in the bottom right corner of canvas
-				if (logoImage.complete) {
+				if (logoImage.complete && logoImage.naturalWidth > 0) {
 					g_ctx.drawImage(logoImage, g_canvas.width - 48 - 10, g_canvas.height - 48 - 10, 48, 48);
 				}
 
@@ -2859,6 +2859,8 @@
 				DeSoGhost.jumpsPerformed = 0; explosionFrame = 0;
 				g_boss = null;
 				g_bosses = [];
+				g_projectiles = [];
+				g_visualEffects = [];
 				map.loadLevel(g_currentLevel); SetGameState(G_PLAY);
 			}
 
