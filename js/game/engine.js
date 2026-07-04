@@ -989,18 +989,12 @@
 					if (this.burnTicks > 0) {
 						this.burnTicks--;
 						if (this.burnTicks % 15 === 0) {
-							var burnDmg = 2 + Math.floor(GhostRPG.getStats().weapon.damage * 0.05);
-							if (this.type === "demon_fly" || this.type === "slime") burnDmg = Math.max(1, Math.floor(burnDmg / 2));
-							this.lives -= burnDmg;
 							g_visualEffects.push(createExplosionEffect(this.xPos + this.width/2, this.yPos + this.height/2, "#FF4500", 6));
 						}
 					}
 					if (this.poisonTicks > 0) {
 						this.poisonTicks--;
 						if (this.poisonTicks % 20 === 0) {
-							var poisonDmg = 1 + Math.floor(GhostRPG.getStats().weapon.damage * 0.03);
-							if (this.type === "demon_fly" || this.type === "slime") poisonDmg = Math.max(1, Math.floor(poisonDmg / 2));
-							this.lives -= poisonDmg;
 							g_visualEffects.push(createExplosionEffect(this.xPos + this.width/2, this.yPos + this.height/2, "#32CD32", 4));
 						}
 					}
@@ -1009,68 +1003,8 @@
 					
 					if (this.lives <= 0) {
 						this.alive = false;
-						AddScore((this.type === "skull") ? 3000 : 1000);
-						var bossXp = (this.type === "cactus") ? 1000 : ((this.type === "skull") ? 2000 : (100 + (this.level - 1) * 30));
-						GhostRPG.addXp(bossXp);
-						if (this.type === "skull") {
-							spawnCave1Diamonds();
-						}
-						if (window.RollEnemyDrop) {
-							window.RollEnemyDrop(g_currentLevel);
-						}
 						return;
 					}
-					
-					// Demon Fly & Slime Spectral Spark shooting logic (can fire even if slow but not shock)
-					if ((this.type === "demon_fly" || this.type === "slime") && this.alive && this.shockTimer <= 0) {
-						if (this.shootCooldown > 0) {
-							this.shootCooldown--;
-						} else {
-							if (Math.random() < 0.015) { // ~1.5% chance per frame after cooldown
-								this.shootCooldown = 90; // 1.5 seconds cooldown
-								var projDir = (DeSoGhost.xPos > this.xPos) ? 1 : -1;
-								var startX = this.xPos + this.width / 2;
-								var startY = this.yPos + this.height / 2;
-								var vx = 6 * projDir;
-								var vy = 0;
-								var p = obtainProjectile(startX, startY, vx, vy, "spark", 0, 8, 8, 100, 0, false);
-								p.isEnemy = true;
-								g_projectiles.push(p);
-								g_visualEffects.push(createExplosionEffect(startX, startY, "#00FFFF", 4));
-							}
-						}
-					}
-					
-					// Skull boss Plasma Orb shooting logic (can fire even if slow but not shock)
-					if (this.type === "skull" && this.alive && this.shockTimer <= 0) {
-						if (this.shootCooldown > 0) {
-							this.shootCooldown--;
-						} else {
-							if (Math.random() < 0.012) { // ~1.2% chance per frame (~2 seconds interval on average)
-								this.shootCooldown = 120; // 2 seconds cooldown
-								var projDir = (DeSoGhost.xPos > this.xPos) ? 1 : -1;
-								var startX = this.xPos + this.width / 2;
-								var startY = this.yPos + this.height / 2;
-								var vx = 4.5 * projDir; // Speed matching a heavy plasma orb
-								var vy = 0;
-								var p = obtainProjectile(startX, startY, vx, vy, "orb", 0, 20, 20, 150, 0, true);
-								p.isEnemy = true;
-								g_projectiles.push(p);
-								g_visualEffects.push(createExplosionEffect(startX, startY, "#D500F9", 6));
-							}
-						}
-					}
-
-					if (this.shockTimer > 0) return; // stunned, skip movement
-					
-					var currentSpeed = this.speed;
-					if (this.slowTimer > 0) currentSpeed *= 0.5; // 50% slow
-					
-					this.xPos += currentSpeed * this.dir;
-					if (this.xPos > this.maxX || this.xPos < this.minX) this.dir *= -1;
-					if (this.xPos < 0) { this.xPos = 0; this.dir = 1; }
-					var maxLimit = 2400 - this.width;
-					if (this.xPos > maxLimit) { this.xPos = maxLimit; this.dir = -1; }
 				};
 
 			}
@@ -1204,23 +1138,12 @@
 											finalDmg = Math.max(1, Math.floor(finalDmg / 2));
 										}
 
-										boss.lives -= finalDmg;
-
 										self.jumpNum = 1; self.jumpCounter = 2;
-										if (boss.lives <= 0) { 
-											var deadBossType = boss.type;
-											var deadBossLevel = boss.level;
-											boss.alive = false; 
-											AddScore((deadBossType === "skull") ? 3000 : 1000); 
-											var bossXp = (deadBossType === "cactus") ? 1000 : ((deadBossType === "skull") ? 2000 : (100 + (deadBossLevel - 1) * 30));
-											GhostRPG.addXp(bossXp); 
-											if (deadBossType === "skull") {
-												spawnCave1Diamonds();
-											}
+										if (window.emitPlayerAttack) {
+											window.emitPlayerAttack({ bossId: boss.id || 0, damage: finalDmg, type: 'jump' });
 										}
 									} else if (!self.ghostMode && self.phantomFormTimer <= 0) { // Immune during Phantom Form
-										self.pendingLivesLoss = getPhaseMultiplier(g_currentLevel);
-										self.alive = false;
+										if (window.emitBossCollision) window.emitBossCollision();
 									}
 								}
 							}
@@ -1239,26 +1162,12 @@
 									finalDmg = Math.max(1, Math.floor(finalDmg / 2));
 								}
 
-								g_boss.lives -= finalDmg;
-
 								this.jumpNum = 1; this.jumpCounter = 2;
-								if (g_boss.lives <= 0) { 
-									var deadBossType = g_boss.type;
-									var deadBossLevel = g_boss.level;
-									g_boss.alive = false; 
-									AddScore((deadBossType === "skull") ? 3000 : 1000); 
-									var bossXp = (deadBossType === "cactus") ? 1000 : ((deadBossType === "skull") ? 2000 : (100 + (deadBossLevel - 1) * 30));
-									GhostRPG.addXp(bossXp); 
-									if (deadBossType === "skull") {
-										spawnCave1Diamonds();
-									}
-									if (window.RollEnemyDrop) {
-										window.RollEnemyDrop(g_currentLevel);
-									}
+								if (window.emitPlayerAttack) {
+									window.emitPlayerAttack({ bossId: g_boss.id || 0, damage: finalDmg, type: 'jump' });
 								}
 							} else if (!this.ghostMode && this.phantomFormTimer <= 0) { // Immune during Phantom Form
-								this.pendingLivesLoss = getPhaseMultiplier(g_currentLevel);
-								this.alive = false;
+								if (window.emitBossCollision) window.emitBossCollision();
 							}
 						}
 					}
@@ -1451,6 +1360,10 @@
 						var maxOffset = -(100 * 24 - 640); // -1760 pixels
 						if (map_offset < maxOffset) map_offset = maxOffset;
 					}
+
+					if (window.emitPlayerMove) {
+						window.emitPlayerMove(this.xPos, this.yPos, this.face === 1, 'idle');
+					}
 				};
 
 				this.nextLevel = function () {
@@ -1632,8 +1545,7 @@
 							if (p.x + p.width/2 > DeSoGhost.xPos && p.x - p.width/2 < DeSoGhost.xPos + 24 &&
 								p.y + p.height/2 > DeSoGhost.yPos && p.y - p.height/2 < DeSoGhost.yPos + 24) {
 								if (!DeSoGhost.ghostMode && DeSoGhost.phantomFormTimer <= 0) {
-									DeSoGhost.pendingLivesLoss = getPhaseMultiplier(g_currentLevel);
-									DeSoGhost.alive = false;
+									if (window.emitBossCollision) window.emitBossCollision();
 								}
 								g_visualEffects.push(createExplosionEffect(p.x, p.y, "#FF3366", 6));
 								g_projectiles.splice(i, 1);
@@ -1670,14 +1582,14 @@
 											if (boss.type === "skull" && p.type === "orb") {
 												finalDmg = Math.max(1, Math.floor(finalDmg * 0.20));
 											}
-											if (p.type === "spell_fireball") {
-												finalDmg = boss.lives;
-											} else if (p.type === "spell_ice") {
+											if (p.type === "spell_ice") {
 												boss.slowTimer = 180;
 											} else if (p.type === "spell_wood") {
 												boss.poisonTicks = 300;
 											}
-											boss.lives -= finalDmg;
+											if (window.emitPlayerAttack) {
+												window.emitPlayerAttack({ bossId: boss.id || 0, damage: finalDmg, type: p.type });
+											}
 
 											var color = "#00FFFF";
 											if (p.type === "spell_ice") color = "#00E5FF";
@@ -1695,21 +1607,6 @@
 
 											applyRuneEffectsToBoss(boss, p.runeId);
 											g_visualEffects.push(createExplosionEffect(p.x, p.y, color, (p.type === "spark" ? 5 : 10)));
-
-											if (boss.lives <= 0) {
-												var deadBossType = boss.type;
-												var deadBossLevel = boss.level;
-												boss.alive = false;
-												AddScore((deadBossType === "skull") ? 3000 : 1000);
-												var bossXp = (deadBossType === "cactus") ? 1000 : ((deadBossType === "skull") ? 2000 : (100 + (deadBossLevel - 1) * 30));
-												GhostRPG.addXp(bossXp);
-												if (deadBossType === "skull") {
-													spawnCave1Diamonds();
-												}
-												if (window.RollEnemyDrop) {
-													window.RollEnemyDrop(g_currentLevel);
-												}
-											}
 
 											if (!p.penetrates) {
 												hitSomething = true;
@@ -1748,14 +1645,14 @@
 									if (g_boss.type === "skull" && p.type === "orb") {
 										finalDmg = Math.max(1, Math.floor(finalDmg * 0.20));
 									}
-									if (p.type === "spell_fireball") {
-										finalDmg = g_boss.lives;
-									} else if (p.type === "spell_ice") {
+									if (p.type === "spell_ice") {
 										g_boss.slowTimer = 180;
 									} else if (p.type === "spell_wood") {
 										g_boss.poisonTicks = 300;
 									}
-									g_boss.lives -= finalDmg;
+									if (window.emitPlayerAttack) {
+										window.emitPlayerAttack({ bossId: g_boss.id || 0, damage: finalDmg, type: p.type });
+									}
 
 									var color = "#00FFFF";
 									if (p.type === "spell_ice") color = "#00E5FF";
@@ -1773,21 +1670,6 @@
 
 									applyRuneEffectsToBoss(g_boss, p.runeId);
 									g_visualEffects.push(createExplosionEffect(p.x, p.y, color, (p.type === "spark" ? 5 : 10)));
-
-									if (g_boss.lives <= 0) {
-										var deadBossType = g_boss.type;
-										var deadBossLevel = g_boss.level;
-										g_boss.alive = false;
-										AddScore((deadBossType === "skull") ? 3000 : 1000);
-										var bossXp = (deadBossType === "cactus") ? 1000 : ((deadBossType === "skull") ? 2000 : (100 + (deadBossLevel - 1) * 30));
-										GhostRPG.addXp(bossXp);
-										if (deadBossType === "skull") {
-											spawnCave1Diamonds();
-										}
-										if (window.RollEnemyDrop) {
-											window.RollEnemyDrop(g_currentLevel);
-										}
-									}
 
 									if (!p.penetrates) {
 										g_projectiles.splice(i, 1);
@@ -2888,6 +2770,73 @@ var g_binaryBits = [];
 
 					updateBinaryBackground(false);
 					map.updateMap();
+					if (window.NetworkState && window.NetworkState.frameBuffer && window.NetworkState.frameBuffer.length >= 2) {
+						var now = Date.now();
+						var renderTime = now - 100;
+						var frames = window.NetworkState.frameBuffer;
+						var f0 = null;
+						var f1 = null;
+						
+						for (var i = 0; i < frames.length - 1; i++) {
+							if (frames[i].timestamp <= renderTime && frames[i+1].timestamp >= renderTime) {
+								f0 = frames[i];
+								f1 = frames[i+1];
+								break;
+							}
+						}
+						
+						if (!f0 && frames.length > 0) {
+							f0 = frames[frames.length - 1];
+							f1 = frames[frames.length - 1];
+						}
+						
+						if (f0 && f1) {
+							var t = 0;
+							if (f1.timestamp > f0.timestamp) {
+								t = (renderTime - f0.timestamp) / (f1.timestamp - f0.timestamp);
+								t = Math.max(0, Math.min(1, t));
+							}
+							
+							f0.entities.forEach(function(e0) {
+								var e1 = f1.entities.find(e => e.id === e0.id);
+								if (e1) {
+									var interpX = e0.x + (e1.x - e0.x) * t;
+									var interpY = e0.y + (e1.y - e0.y) * t;
+									
+									if (g_boss && (!g_boss.id || g_boss.id === e0.id)) {
+										g_boss.xPos = interpX;
+										g_boss.yPos = interpY;
+										g_boss.lives = e0.hp;
+										g_boss.alive = e0.alive;
+									}
+									if (g_bosses) {
+										g_bosses.forEach(function(b) {
+											if (!b.id || b.id === e0.id) {
+												b.xPos = interpX;
+												b.yPos = interpY;
+												b.lives = e0.hp;
+												b.alive = e0.alive;
+											}
+										});
+									}
+								}
+							});
+						}
+					}
+
+					// Strict Server Reconciliation for Local Player
+					if (window.NetworkState && window.NetworkState.serverEntities && window.NetworkState.playerId) {
+						var serverMe = window.NetworkState.serverEntities.find(e => e.id === window.NetworkState.playerId);
+						if (serverMe) {
+							var dx = Math.abs(DeSoGhost.xPos - serverMe.x);
+							var dy = Math.abs(DeSoGhost.yPos - serverMe.y);
+							if (dx > 20 || dy > 20) {
+								DeSoGhost.xPos = serverMe.x;
+								DeSoGhost.yPos = serverMe.y;
+							}
+						}
+					}
+
 					if (typeof g_bosses !== 'undefined') {
 						g_bosses = g_bosses.filter(function(b) { return b.alive; });
 						g_bosses.forEach(function(b) { b.update(); });
@@ -2901,6 +2850,84 @@ var g_binaryBits = [];
 				}
 				else if (g_gameState == G_PAUSE) {
 					updateBinaryBackground(false);
+				}
+			}
+
+			function drawOtherPlayers() {
+				if (window.NetworkState && window.NetworkState.frameBuffer && window.NetworkState.frameBuffer.length >= 2) {
+					var now = Date.now();
+					var renderTime = now - 100;
+					var frames = window.NetworkState.frameBuffer;
+					var f0 = null, f1 = null;
+					for (var i = 0; i < frames.length - 1; i++) {
+						if (frames[i].timestamp <= renderTime && frames[i+1].timestamp >= renderTime) {
+							f0 = frames[i];
+							f1 = frames[i+1];
+							break;
+						}
+					}
+					if (!f0 && frames.length > 0) {
+						f0 = frames[frames.length - 1];
+						f1 = frames[frames.length - 1];
+					}
+					if (f0 && f1) {
+						var t = 0;
+						if (f1.timestamp > f0.timestamp) {
+							t = (renderTime - f0.timestamp) / (f1.timestamp - f0.timestamp);
+							t = Math.max(0, Math.min(1, t));
+						}
+						f0.entities.forEach(function(e0) {
+							if (window.NetworkState.playerId && e0.id === window.NetworkState.playerId) return; // Self
+							if (g_boss && g_boss.id === e0.id) return; // Boss
+							var isBoss = false;
+							if (g_bosses) {
+								for(var b=0; b<g_bosses.length; b++) {
+									if(g_bosses[b].id === e0.id) { isBoss = true; break; }
+								}
+							}
+							if (isBoss) return;
+							
+							// Assume it's another player
+							var e1 = f1.entities.find(e => e.id === e0.id);
+							if (e1) {
+								var interpX = e0.x + (e1.x - e0.x) * t;
+								var interpY = e0.y + (e1.y - e0.y) * t;
+								var isFacingRight = (typeof e0.isFacingRight !== 'undefined') ? e0.isFacingRight : true;
+								if (typeof e1.isFacingRight !== 'undefined' && t > 0.5) isFacingRight = e1.isFacingRight;
+								var sprite = isFacingRight ? desoGhostRight : desoGhostLeft;
+								
+								g_ctx.globalAlpha = 0.5;
+								g_ctx.drawImage(sprite, interpX + map_offset, interpY, 24, 24);
+								g_ctx.globalAlpha = 1.0;
+								
+								if (window.NetworkState.playerNames && window.NetworkState.playerNames[e0.id]) {
+									g_ctx.fillStyle = "#00FFCC";
+									g_ctx.font = "10px Arial";
+									g_ctx.textAlign = "center";
+									g_ctx.fillText(window.NetworkState.playerNames[e0.id], interpX + map_offset + 12, interpY - 10);
+								}
+							}
+						});
+					}
+				} else if (window.NetworkState && window.NetworkState.otherPlayers) {
+					// Fallback for non-interpolated
+					for (var id in window.NetworkState.otherPlayers) {
+						if (id === window.NetworkState.playerId) continue;
+						var pos = window.NetworkState.otherPlayers[id];
+						if (pos) {
+							var sprite = desoGhostRight; // Basic fallback
+							g_ctx.globalAlpha = 0.5;
+							g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
+							g_ctx.globalAlpha = 1.0;
+							
+							if (window.NetworkState.playerNames && window.NetworkState.playerNames[id]) {
+								g_ctx.fillStyle = "#00FFCC";
+								g_ctx.font = "10px Arial";
+								g_ctx.textAlign = "center";
+								g_ctx.fillText(window.NetworkState.playerNames[id], pos.x + map_offset + 12, pos.y - 10);
+							}
+						}
+					}
 				}
 			}
 
@@ -2939,6 +2966,7 @@ var g_binaryBits = [];
 						g_boss.draw();
 					}
 					drawProjectiles();
+					drawOtherPlayers();
 					DeSoGhost.draw();
 					drawVisualEffects();
 					Print_HUD();
