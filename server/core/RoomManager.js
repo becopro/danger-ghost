@@ -2,7 +2,7 @@ class RoomManager {
     constructor() {
         this.rooms = new Map(); // roomId -> Set of player ids
         this.roomCounter = 0;
-        this.MAX_PLAYERS = 4; // Maximum players per room
+        this.MAX_PLAYERS = 100; // Maximum players per room
     }
 
     matchmake(playerId) {

@@ -1937,26 +1937,27 @@
 				}
 
 				// Barra de Mana
+				var manaX = Math.max(210, livesX + 70);
 				g_ctx.font = "bold 14px 'Courier New'"; g_ctx.fillStyle = "#00E5FF";
-				g_ctx.fillText("MANA:", 210, g_canvas.height - 10);
+				g_ctx.fillText("MANA:", manaX, g_canvas.height - 10);
 				
 				g_ctx.strokeStyle = "rgba(0, 229, 255, 0.4)";
 				g_ctx.lineWidth = 1.5;
-				g_ctx.strokeRect(255, g_canvas.height - 21, 110, 12);
+				g_ctx.strokeRect(manaX + 45, g_canvas.height - 21, 110, 12);
 				
 				var fillWidth = DeSoGhost.maxMana > 0 ? (DeSoGhost.mana / DeSoGhost.maxMana) * 108 : 0;
 				if (fillWidth > 0) {
-					var grad = g_ctx.createLinearGradient(256, 0, 256 + fillWidth, 0);
+					var grad = g_ctx.createLinearGradient(manaX + 46, 0, manaX + 46 + fillWidth, 0);
 					grad.addColorStop(0, "#0052D4");
 					grad.addColorStop(0.5, "#4364F7");
 					grad.addColorStop(1, "#6FB1FC");
 					g_ctx.fillStyle = grad;
-					g_ctx.fillRect(256, g_canvas.height - 20, fillWidth, 10);
+					g_ctx.fillRect(manaX + 46, g_canvas.height - 20, fillWidth, 10);
 				}
 				
 				g_ctx.font = "9px 'Courier New'"; g_ctx.fillStyle = "#FFFFFF";
 				g_ctx.textAlign = "center";
-				g_ctx.fillText(Math.floor(DeSoGhost.mana) + " / " + Math.floor(DeSoGhost.maxMana), 310, g_canvas.height - 12);
+				g_ctx.fillText(Math.floor(DeSoGhost.mana) + " / " + Math.floor(DeSoGhost.maxMana), manaX + 100, g_canvas.height - 12);
 				
 				// Draw HUD Quick Bar (4 Slots)
 				var slotKeys = ["V", "F", "E", "R"];
@@ -2946,7 +2947,9 @@ var g_binaryBits = [];
   							if (window.NetworkState.playerId && pid === window.NetworkState.playerId) return; // Self
   							
   							var p0 = f0.players[pid];
-  							if (!p0 || !p0.position) return;
+							if (!p0 || !p0.position) return;
+							var pLevel = p0.position.level || 'level 1';
+							if (typeof g_currentLevel !== 'undefined' && pLevel !== g_currentLevel) return;
   							
   							var p1 = f1.players && f1.players[pid];
   							var interpX = p0.position.x;
@@ -2979,6 +2982,8 @@ var g_binaryBits = [];
 						if (id === window.NetworkState.playerId) continue;
 						var pos = window.NetworkState.otherPlayers[id];
 						if (pos) {
+							var pLevel = pos.level || 'level 1';
+							if (typeof g_currentLevel !== 'undefined' && pLevel !== g_currentLevel) continue;
 							var sprite = desoGhostRight; // Basic fallback
 							g_ctx.globalAlpha = 0.5;
 							g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);

@@ -123,9 +123,10 @@ function initNetwork() {
     });
 }
 
-window.emitPlayerMove = function(x, y, isFacingRight, state) {
+window.emitPlayerMove = function(x, y, isFacingRight, state, level) {
     if (window.NetworkState.socket && window.NetworkState.connected) {
-        window.NetworkState.socket.emit('player_move', { x, y, isFacingRight, state });
+        var currentLevel = level || (typeof g_currentLevel !== 'undefined' ? g_currentLevel : 'level 1');
+        window.NetworkState.socket.emit('player_move', { x, y, isFacingRight, state, level: currentLevel });
     }
 };
 
@@ -137,7 +138,7 @@ window.emitPlayerAttack = function(attackData) {
 
 window.emitBossCollision = function() {
     if (window.NetworkState.socket && window.NetworkState.connected) {
-        window.NetworkState.socket.emit('boss_collision', {});
+        window.NetworkState.socket.emit('boss_collision');
     }
 };
 
@@ -146,6 +147,26 @@ window.emitKillBoss = function(bossId) {
         window.NetworkState.socket.emit('kill_boss', { bossId });
     }
 };
+
+// Fallback interval logic incase the engine doesn't emit often enough
+setInterval(function() {
+    if (window.NetworkState && window.NetworkState.connected && typeof DeSoGhost !== 'undefined') {
+        var currentLevel = typeof g_currentLevel !== 'undefined' ? g_currentLevel : 'level 1';
+        var state = {
+            id: window.NetworkState.playerId,
+            x: Math.round(DeSoGhost.xPos),
+            y: Math.round(DeSoGhost.yPos),
+            isFacingRight: (DeSoGhost.face == 1),
+            level: currentLevel
+        };
+        // Only send if moved
+        var last = window.NetworkState.lastSentState;
+        if (!last || last.x !== state.x || last.y !== state.y || last.isFacingRight !== state.isFacingRight || last.level !== state.level) {
+            window.NetworkState.socket.emit('player_moved', state);
+            window.NetworkState.lastSentState = state;
+        }
+    }
+}, 33);
 
 document.addEventListener("DOMContentLoaded", function() {
     initNetwork();
