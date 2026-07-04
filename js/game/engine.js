@@ -155,7 +155,14 @@
 			var starsImage = new Image(); starsImage.src = 'assets2/stars.png';
 			var branchImage = new Image(); branchImage.src = 'assets2/branch.png';
 			var grassImage = new Image(); grassImage.src = 'assets2/grass.png';
-			var logoImage = new Image(); logoImage.src = 'logoGG-pixel.webp';
+			var logoImage = new Image();
+			logoImage.onload = function() {
+				if (typeof g_gameState !== 'undefined' && g_gameState === 0) { // G_START is 0
+					if (typeof DrawStartScreen === 'function') DrawStartScreen();
+				}
+			};
+			logoImage.src = 'logoGG-pixel.webp';
+
 
 			var blueKeyImage = new Image(); blueKeyImage.src = 'assets/sprites/Blue key (1).webp';
 			var water1Image = new Image(); water1Image.src = 'assets2/water1.png';
@@ -1934,9 +1941,15 @@
 				g_ctx.font = "bold 18px 'Courier New'"; g_ctx.fillStyle = "#FF00FF";
 				
 				// Nome e Vidas na parte de baixo do jogo
-				g_ctx.fillText("DeSoGhost", 10, g_canvas.height - 10);
+				var charName = "Danger Ghost";
+				if (window.GhostRPG && window.GhostRPG.getStats) {
+					var stats = window.GhostRPG.getStats();
+					if (stats && stats.name) charName = stats.name;
+				}
+				g_ctx.fillText(charName, 10, g_canvas.height - 10);
 				g_ctx.drawImage(DeSoGhost_Lives, 110, g_canvas.height - 25, 24, 24);
 				g_ctx.fillText("X " + DeSoGhost.lives, 140, g_canvas.height - 8);
+
 				
 				// Pontos e Nível no topo (Mudado para Roxo)
 				g_ctx.fillStyle = "#FF00FF"; g_ctx.fillText("SCORE: " + g_score.toString().padStart(6, '0'), 10, 20);
@@ -1967,7 +1980,13 @@
 
 
 
+				// Game logo in the bottom right corner of canvas
+				if (logoImage.complete) {
+					g_ctx.drawImage(logoImage, g_canvas.width - 48 - 10, g_canvas.height - 48 - 10, 48, 48);
+				}
+
 				// Barra de Mana
+
 				g_ctx.font = "bold 14px 'Courier New'"; g_ctx.fillStyle = "#00E5FF";
 				g_ctx.fillText("MANA:", 200, g_canvas.height - 10);
 				
@@ -3144,7 +3163,9 @@ var g_binaryBits = [];
 						g_levelStartTime += (Date.now() - g_pauseStartTime);
 					} else if (g_gameState == G_WIN) { 
 						ResetGame(); 
-					} 
+					} else if (g_gameState == G_GAMEOVER) {
+						ResetGame();
+					}
 				}
 				if (e.keyCode == 80) { // P (Passwords)
 					// Bypass inteligente de VIP em desenvolvimento local ou staging para facilitar testes
