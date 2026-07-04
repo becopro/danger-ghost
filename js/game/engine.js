@@ -1946,9 +1946,12 @@
 					var stats = window.GhostRPG.getStats();
 					if (stats && stats.name) charName = stats.name;
 				}
+				if (charName.length > 12) charName = charName.substring(0, 10) + "..";
 				g_ctx.fillText(charName, 10, g_canvas.height - 10);
-				g_ctx.drawImage(DeSoGhost_Lives, 110, g_canvas.height - 25, 24, 24);
-				g_ctx.fillText("X " + DeSoGhost.lives, 140, g_canvas.height - 8);
+				var nameWidth = g_ctx.measureText(charName).width;
+				var livesX = 10 + nameWidth + 10;
+				g_ctx.drawImage(DeSoGhost_Lives, livesX, g_canvas.height - 25, 24, 24);
+				g_ctx.fillText("X " + DeSoGhost.lives, livesX + 28, g_canvas.height - 8);
 
 				
 				// Pontos e Nível no topo (Mudado para Roxo)
