@@ -1949,9 +1949,9 @@
 				if (charName.length > 12) charName = charName.substring(0, 10) + "..";
 				g_ctx.fillText(charName, 10, g_canvas.height - 10);
 				var nameWidth = g_ctx.measureText(charName).width;
-				var livesX = 10 + nameWidth + 10;
+				var livesX = 10 + nameWidth + 8;
 				g_ctx.drawImage(DeSoGhost_Lives, livesX, g_canvas.height - 25, 24, 24);
-				g_ctx.fillText("X " + DeSoGhost.lives, livesX + 28, g_canvas.height - 8);
+				g_ctx.fillText("X " + DeSoGhost.lives, livesX + 26, g_canvas.height - 8);
 
 				
 				// Pontos e Nível no topo (Mudado para Roxo)
@@ -1989,22 +1989,21 @@
 				}
 
 				// Barra de Mana
-
 				g_ctx.font = "bold 14px 'Courier New'"; g_ctx.fillStyle = "#00E5FF";
-				g_ctx.fillText("MANA:", 200, g_canvas.height - 10);
+				g_ctx.fillText("MANA:", 210, g_canvas.height - 10);
 				
 				g_ctx.strokeStyle = "rgba(0, 229, 255, 0.4)";
 				g_ctx.lineWidth = 1.5;
-				g_ctx.strokeRect(250, g_canvas.height - 21, 120, 12);
+				g_ctx.strokeRect(255, g_canvas.height - 21, 110, 12);
 				
-				var fillWidth = DeSoGhost.maxMana > 0 ? (DeSoGhost.mana / DeSoGhost.maxMana) * 118 : 0;
+				var fillWidth = DeSoGhost.maxMana > 0 ? (DeSoGhost.mana / DeSoGhost.maxMana) * 108 : 0;
 				if (fillWidth > 0) {
-					var grad = g_ctx.createLinearGradient(251, 0, 251 + fillWidth, 0);
+					var grad = g_ctx.createLinearGradient(256, 0, 256 + fillWidth, 0);
 					grad.addColorStop(0, "#0052D4");
 					grad.addColorStop(0.5, "#4364F7");
 					grad.addColorStop(1, "#6FB1FC");
 					g_ctx.fillStyle = grad;
-					g_ctx.fillRect(251, g_canvas.height - 20, fillWidth, 10);
+					g_ctx.fillRect(256, g_canvas.height - 20, fillWidth, 10);
 				}
 				
 				g_ctx.font = "9px 'Courier New'"; g_ctx.fillStyle = "#FFFFFF";
