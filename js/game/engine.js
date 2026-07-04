@@ -1007,8 +1007,66 @@
 							if (window.emitKillBoss) {
 								window.emitKillBoss(this.id || 0);
 							}
+							if (this.type === "skull") {
+								if (typeof spawnCave1Diamonds === 'function') spawnCave1Diamonds();
+							}
+							if (window.RollEnemyDrop) {
+								window.RollEnemyDrop(g_currentLevel);
+							}
+						}
+						return;
+					}
+
+					// Demon Fly & Slime Spectral Spark shooting logic
+					if ((this.type === "demon_fly" || this.type === "slime") && this.alive && this.shockTimer <= 0) {
+						if (this.shootCooldown > 0) {
+							this.shootCooldown--;
+						} else {
+							if (Math.random() < 0.015) {
+								this.shootCooldown = 90;
+								var projDir = (DeSoGhost.xPos > this.xPos) ? 1 : -1;
+								var startX = this.xPos + this.width / 2;
+								var startY = this.yPos + this.height / 2;
+								var vx = 6 * projDir;
+								var vy = 0;
+								var p = obtainProjectile(startX, startY, vx, vy, "spark", 0, 8, 8, 100, 0, false);
+								p.isEnemy = true;
+								g_projectiles.push(p);
+								g_visualEffects.push(createExplosionEffect(startX, startY, "#00FFFF", 4));
+							}
 						}
 					}
+					
+					// Skull boss Plasma Orb shooting logic
+					if (this.type === "skull" && this.alive && this.shockTimer <= 0) {
+						if (this.shootCooldown > 0) {
+							this.shootCooldown--;
+						} else {
+							if (Math.random() < 0.012) {
+								this.shootCooldown = 120;
+								var projDir = (DeSoGhost.xPos > this.xPos) ? 1 : -1;
+								var startX = this.xPos + this.width / 2;
+								var startY = this.yPos + this.height / 2;
+								var vx = 4.5 * projDir;
+								var vy = 0;
+								var p = obtainProjectile(startX, startY, vx, vy, "orb", 0, 20, 20, 150, 0, true);
+								p.isEnemy = true;
+								g_projectiles.push(p);
+								g_visualEffects.push(createExplosionEffect(startX, startY, "#D500F9", 6));
+							}
+						}
+					}
+
+					if (this.shockTimer > 0) return;
+					
+					var currentSpeed = this.speed;
+					if (this.slowTimer > 0) currentSpeed *= 0.5;
+					
+					this.xPos += currentSpeed * this.dir;
+					if (this.xPos > this.maxX || this.xPos < this.minX) this.dir *= -1;
+					if (this.xPos < 0) { this.xPos = 0; this.dir = 1; }
+					var maxLimit = 2400 - this.width;
+					if (this.xPos > maxLimit) { this.xPos = maxLimit; this.dir = -1; }
 				};
 
 			}
