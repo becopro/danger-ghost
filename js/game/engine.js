@@ -2977,8 +2977,9 @@ var g_binaryBits = [];
 						}
 					}
 				}
+				}
 
-			function Game_Step_Render() {
+				function Game_Step_Render() {
 				var extTimer = document.getElementById("externalTimer");
 				if (extTimer) {
 					extTimer.style.display = "none"; // Ocultar o cronômetro visual
@@ -3962,3 +3963,4 @@ var g_binaryBits = [];
 			window.DrawWinScreen = DrawWinScreen;
 			})(); // Fecha IIFE Caixa Preta
 		
+
