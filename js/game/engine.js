@@ -1641,6 +1641,7 @@
 							if (p.x + p.width/2 > DeSoGhost.xPos && p.x - p.width/2 < DeSoGhost.xPos + 24 &&
 								p.y + p.height/2 > DeSoGhost.yPos && p.y - p.height/2 < DeSoGhost.yPos + 24) {
 								if (!DeSoGhost.ghostMode && DeSoGhost.phantomFormTimer <= 0) {
+									DeSoGhost.alive = false;
 									if (window.emitBossCollision) window.emitBossCollision();
 								}
 								g_visualEffects.push(createExplosionEffect(p.x, p.y, "#FF3366", 6));
