@@ -1886,6 +1886,16 @@
 			}
 
 			function Print_HUD() {
+				// Fundo escuro para a HUD inferior (evita sobreposicao visual com o mapa)
+				g_ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+				g_ctx.fillRect(0, g_canvas.height - 35, g_canvas.width, 35);
+				g_ctx.strokeStyle = "#00FFFF";
+				g_ctx.lineWidth = 1;
+				g_ctx.beginPath();
+				g_ctx.moveTo(0, g_canvas.height - 35);
+				g_ctx.lineTo(g_canvas.width, g_canvas.height - 35);
+				g_ctx.stroke();
+
 				g_ctx.font = "bold 18px 'Courier New'"; g_ctx.fillStyle = "#FF00FF";
 				
 				// Nome e Vidas na parte de baixo do jogo
@@ -1968,8 +1978,10 @@
 				var skillInitials = ["S", "G", "P", "F"];
 				var maxCooldowns = [15, 1, 45, 450];
 				
+				var slotsStartX = Math.max(405, manaX + 175);
+				
 				for (var i = 0; i < 4; i++) {
-					var slotX = 405 + i * 32;
+					var slotX = slotsStartX + i * 32;
 					var slotY = g_canvas.height - 32;
 					
 					// Draw background
