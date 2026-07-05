@@ -174,12 +174,21 @@ function initNetwork() {
     });
 
     socket.on('update_stats', (stats) => {
-        if (typeof window.g_score !== 'undefined') {
+        if (typeof window.NetworkSetScore === 'function') {
+            window.NetworkSetScore(stats.score);
+        } else if (typeof window.g_score !== 'undefined') {
             window.g_score = stats.score;
         }
+        
         if (window.GhostRPG && window.GhostRPG.stats) {
-            window.GhostRPG.stats.xp = stats.xp;
-            window.GhostRPG.stats.level = stats.level;
+            if (stats.xp > window.GhostRPG.stats.xp) {
+                if (typeof window.GhostRPG.addXp === 'function') {
+                    window.GhostRPG.addXp(stats.xp - window.GhostRPG.stats.xp);
+                }
+            } else {
+                window.GhostRPG.stats.xp = stats.xp;
+                window.GhostRPG.stats.level = stats.level;
+            }
         }
     });
 
