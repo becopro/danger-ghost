@@ -1,0 +1,36 @@
+{
+  "caveman_mode": "ALWAYS ACTIVE - full intensity by default, Portuguese when user writes Portuguese",
+  "orchestrator_role": "Main thread = MP orchestrator only. Always delegate to subagents.",
+  "model_budget": {
+    "priority_1_cheap": [
+      "Gemini 3.5 Flash (low)",
+      "Gemini 3.5 Flash (medium)",
+      "Gemini 3.5 Flash (high)"
+    ],
+    "priority_2_mid": [
+      "Gemini 3.1 Pro (low)",
+      "Gemini 3.1 Pro (high)"
+    ],
+    "priority_3_limited": [
+      "Claude Sonnet 4.6 Thinking",
+      "Claude Opus 4.6 Thinking",
+      "Claude Opus",
+      "GPT-OSS 120b (medium)"
+    ],
+    "rule": "Use Gemini 3.5 Flash for research/audits. Gemini 3.1 Pro for implementation. Claude Sonnet Thinking only for complex logic/security. Never waste Claude on simple tasks."
+  },
+  "task_model_mapping": {
+    "code_audit_find_bugs": "Gemini 3.5 Flash medium - research subagent",
+    "implementation_fixes": "Gemini 3.1 Pro high - builder subagent",
+    "blockchain_logic": "Claude Sonnet Thinking - senior-web3-dev",
+    "qa_testing": "Gemini 3.5 Flash high - senior-qa-expert",
+    "game_logic": "Gemini 3.1 Pro low - senior-game-dev"
+  },
+  "plugins_always_activate": [
+    "senior-app-dev",
+    "senior-game-dev",
+    "senior-web3-dev",
+    "senior-qa-expert"
+  ],
+  "project": "DragaMP / Danger Ghost - becopro.github.io/danger-ghost/"
+}

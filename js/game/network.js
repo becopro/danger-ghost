@@ -25,9 +25,49 @@ function initNetwork() {
     socket.on('connect', () => {
         console.log("[Network] Connected to Server");
         window.NetworkState.connected = true;
-        
+    });
+
+    window.JoinGameServer = function(token) {
         const playerName = localStorage.getItem('playerName') || 'Ghost';
-        socket.emit('join_game', { playerName: playerName });
+        socket.emit('join_game', { playerName: playerName, token: token });
+    };
+
+    socket.on('auth_success', (data) => {
+        console.log("[Network] Auth Success! Game State:", data.gameState);
+        if (window.GhostRPG && window.GhostRPG.loadServerState) {
+            window.GhostRPG.loadServerState(data.gameState);
+        }
+        
+        var btn = document.getElementById("desoBtn");
+        if (btn) {
+            btn.innerText = "LOGGED IN";
+            btn.disabled = false;
+        }
+        
+        var authOverlay = document.getElementById("authOverlay");
+        if (authOverlay) authOverlay.style.display = "none";
+        
+        var gameArea = document.getElementById("fullscreenGameArea");
+        if (gameArea) gameArea.style.display = "block";
+        
+        var loginBtn = document.getElementById("btnNavLogin");
+        if (loginBtn) loginBtn.style.display = "none";
+        
+        // Emulate starting the game flow like LoadRPGStateFromDeSo did
+        if (typeof StartGame === "function") {
+            // Se necessário pode iniciar aqui, mas no design original o jogo já começa
+            // Mas caso a lógica exija:
+        }
+    });
+
+    socket.on('auth_failed', (data) => {
+        console.error("[Network] Auth Failed:", data.message);
+        alert("Login failed: " + data.message);
+        var btn = document.getElementById("btnNavLogin");
+        if (btn) {
+            btn.innerText = "🔑 LOGIN";
+            btn.disabled = false;
+        }
     });
 
     socket.on('room_roster', (roster) => {
@@ -35,6 +75,9 @@ function initNetwork() {
         if (Array.isArray(roster)) {
             roster.forEach(p => {
                 window.NetworkState.playerNames[p.id] = p.name || 'Ghost';
+                if (p.id !== window.NetworkState.playerId) {
+                    window.NetworkState.otherPlayers[p.id] = p.position || { x: 100, y: 100, level: 'level 1' };
+                }
             });
         }
     });
@@ -42,6 +85,7 @@ function initNetwork() {
     socket.on('player_joined', (data) => {
         if (data && data.id) {
             window.NetworkState.playerNames[data.id] = data.playerName || data.name || 'Ghost';
+            window.NetworkState.otherPlayers[data.id] = data.position || { x: 100, y: 100, level: 'level 1' };
         }
     });
 
@@ -120,8 +164,52 @@ function initNetwork() {
     socket.on('disconnect', () => {
         console.log("[Network] Disconnected");
         window.NetworkState.connected = false;
+        
+        // Show auth overlay if disconnected
+        var authOverlay = document.getElementById("authOverlay");
+        if (authOverlay) authOverlay.style.display = "flex";
+        var gameArea = document.getElementById("fullscreenGameArea");
+        if (gameArea) gameArea.style.display = "none";
+        
+        var btn = document.getElementById("desoBtn");
+        if (btn) {
+            btn.innerText = "ENTRAR COM GOOGLE";
+            btn.disabled = false;
+        }
+    });
+
+    socket.on('player_profile_data', (data) => {
+        const modal = document.getElementById('playerProfileModal');
+        if (modal) {
+            document.getElementById('profileModalName').innerText = data.name;
+            document.getElementById('profileModalLevel').innerText = data.level;
+            document.getElementById('profileModalXP').innerText = data.xp;
+            
+            const hours = Math.floor(data.playtimeMinutes / 60);
+            const mins = data.playtimeMinutes % 60;
+            document.getElementById('profileModalPlaytime').innerText = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+            
+            document.getElementById('profileModalVit').innerText = data.stats.vit;
+            document.getElementById('profileModalAgi').innerText = data.stats.agi;
+            document.getElementById('profileModalInt').innerText = data.stats.int;
+            document.getElementById('profileModalPow').innerText = data.stats.pow;
+            
+            modal.style.display = 'flex';
+        }
+    });
+
+    socket.on('player_profile_error', (data) => {
+        alert("Erro ao buscar perfil: " + data.message);
     });
 }
+
+window.OpenPlayerProfile = function(playerName) {
+    if (window.NetworkState.socket && window.NetworkState.connected) {
+        window.NetworkState.socket.emit('get_player_profile', playerName);
+    } else {
+        alert("Você precisa estar online para inspecionar perfis.");
+    }
+};
 
 window.emitPlayerMove = function(x, y, isFacingRight, state, level) {
     if (window.NetworkState.socket && window.NetworkState.connected) {
@@ -162,7 +250,7 @@ setInterval(function() {
         // Only send if moved
         var last = window.NetworkState.lastSentState;
         if (!last || last.x !== state.x || last.y !== state.y || last.isFacingRight !== state.isFacingRight || last.level !== state.level) {
-            window.NetworkState.socket.emit('player_moved', state);
+            window.NetworkState.socket.emit('player_move', state);
             window.NetworkState.lastSentState = state;
         }
     }

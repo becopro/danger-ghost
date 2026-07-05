@@ -48,7 +48,27 @@
     }
     window.SavePlayerName = SavePlayerName;
 
-    function LoginDeSo() {
+    // TODO: Replace with your actual Firebase config
+    const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_AUTH_DOMAIN",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_STORAGE_BUCKET",
+        messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+        appId: "YOUR_APP_ID"
+    };
+
+    try {
+        if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+            firebase.initializeApp(firebaseConfig);
+        } else {
+            console.warn("[Firebase] Config is missing, running in MOCK mode.");
+        }
+    } catch (e) {
+        console.warn("[Firebase] Initialization skipped.");
+    }
+
+    function LoginGoogle() {
         var btn = document.getElementById("desoBtn");
         var nameInput = document.getElementById("startNameInput");
         
@@ -63,22 +83,39 @@
             btn.innerText = "CONNECTING...";
             btn.disabled = true;
         }
-        setTimeout(function() {
-            window.g_desoPublicKey = "LOCAL_PLAYER_KEY";
-            try { localStorage.setItem("dg_deso_public_key", window.g_desoPublicKey); } catch(e) {}
-            
-            var menu = document.getElementById("loginButtonsContainer");
-            if (menu) menu.style.display = "none";
-            
-            if (btn) {
-                btn.innerText = "LOGGED IN";
-                btn.disabled = false;
-            }
-            
-            LoadRPGStateFromDeSo(window.g_desoPublicKey);
-        }, 800);
+
+        if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            firebase.auth().signInWithPopup(provider).then((result) => {
+                return result.user.getIdToken();
+            }).then((idToken) => {
+                var menu = document.getElementById("loginButtonsContainer");
+                if (menu) menu.style.display = "none";
+                
+                if (window.JoinGameServer) {
+                    window.JoinGameServer(idToken);
+                }
+            }).catch((error) => {
+                console.error("Firebase Login Error", error);
+                if (btn) {
+                    btn.innerText = "ENTRAR COM GOOGLE";
+                    btn.disabled = false;
+                }
+                alert("Erro no login: " + error.message);
+            });
+        } else {
+            console.warn("Using Mock Login fallback (Firebase disabled/unconfigured)!");
+            setTimeout(function() {
+                var menu = document.getElementById("loginButtonsContainer");
+                if (menu) menu.style.display = "none";
+                
+                if (window.JoinGameServer) {
+                    window.JoinGameServer("mock_" + (localStorage.getItem("playerName") || "user"));
+                }
+            }, 800);
+        }
     }
-    window.LoginDeSo = LoginDeSo;
+    window.LoginGoogle = LoginGoogle;
 
     // Mock Post
     function PostToDeSo() {

@@ -1105,6 +1105,17 @@
 						var sprite = (this.face == 1) ? desoGhostRight : desoGhostLeft;
 						g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, 24, 24);
 						if (this.ghostMode) g_ctx.globalAlpha = 1.0;
+						
+						// Draw Local Player Name
+						var charName = localStorage.getItem("playerName") || "Ghost";
+						if (window.GhostRPG && window.GhostRPG.getStats) {
+							var stats = window.GhostRPG.getStats();
+							if (stats && stats.name) charName = stats.name;
+						}
+						g_ctx.fillStyle = "#00FFCC";
+						g_ctx.font = "10px Arial";
+						g_ctx.textAlign = "center";
+						g_ctx.fillText(charName, this.xPos + map_offset + 12, this.yPos - 10);
 
 						// Renderização da animação de Level Up
 						if (this.isLevelingUpAnim && this.isLevelingUpAnim > 0) {
@@ -2961,7 +2972,7 @@ var g_binaryBits = [];
   							var p0 = f0.players[pid];
 							if (!p0 || !p0.position) return;
 							var pLevel = p0.position.level || 'level 1';
-							if (typeof g_currentLevel !== 'undefined' && pLevel !== g_currentLevel) return;
+							if (typeof g_currentLevel !== 'undefined' && String(pLevel).replace('level ', '') !== String(g_currentLevel).replace('level ', '')) return;
   							
   							var p1 = f1.players && f1.players[pid];
   							var interpX = p0.position.x;
@@ -2995,7 +3006,7 @@ var g_binaryBits = [];
 						var pos = window.NetworkState.otherPlayers[id];
 						if (pos) {
 							var pLevel = pos.level || 'level 1';
-							if (typeof g_currentLevel !== 'undefined' && pLevel !== g_currentLevel) continue;
+							if (typeof g_currentLevel !== 'undefined' && String(pos.level || 'level 1').replace('level ', '') !== String(g_currentLevel).replace('level ', '')) continue;
 							var sprite = desoGhostRight; // Basic fallback
 							g_ctx.globalAlpha = 0.5;
 							g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
@@ -3256,14 +3267,14 @@ var g_binaryBits = [];
 					}
 					e.preventDefault();
 					if (g_gameState == G_START) {
+						if (!window.NetworkState || !window.NetworkState.connected) {
+							alert('Acesso Restrito: Por favor, faça login com o Google usando o botão na barra superior (LOGIN) para jogar!');
+							return;
+						}
 						var menu = document.getElementById("loginButtonsContainer");
 						if (menu) menu.style.display = "none";
-						if (typeof LoginDeSo === "function") {
-							LoginDeSo();
-						} else {
-							window.g_isGuestRun = true;
-							StartCutscene();
-						}
+						window.g_isGuestRun = false;
+						StartCutscene();
 					} else if (g_gameState == G_CUTSCENE) {
 						EndCutscene();
 					} else if (g_gameState == G_END_CUTSCENE) {
@@ -3519,6 +3530,37 @@ var g_binaryBits = [];
 				window.removeEventListener("keydown", handleTutKeyDown, true);
 				window.removeEventListener("keyup", handleTutKeyUp, true);
 			}
+
+			// Player Inspection
+			g_canvas.addEventListener('mousedown', function(e) {
+				var rect = g_canvas.getBoundingClientRect();
+				// Adjust click coordinates to canvas logical size
+				var scaleX = g_canvas.width / rect.width;
+				var scaleY = g_canvas.height / rect.height;
+				var clickX = (e.clientX - rect.left) * scaleX;
+				var clickY = (e.clientY - rect.top) * scaleY;
+
+				if (window.NetworkState && window.NetworkState.frameBuffer && window.NetworkState.frameBuffer.length >= 2) {
+					var f0 = window.NetworkState.frameBuffer[window.NetworkState.frameBuffer.length - 1];
+					if (f0 && f0.players) {
+						Object.keys(f0.players).forEach(function(pid) {
+							if (pid === window.NetworkState.playerId) return;
+							var p0 = f0.players[pid];
+							if (p0 && p0.position) {
+								var px = p0.position.x + (window.map_offset || 0);
+								var py = p0.position.y;
+								// Bounding box of 24x24 sprite
+								if (clickX >= px && clickX <= px + 24 && clickY >= py && clickY <= py + 24) {
+									var targetName = window.NetworkState.playerNames[pid] || 'Ghost';
+									if (window.OpenPlayerProfile) {
+										window.OpenPlayerProfile(targetName);
+									}
+								}
+							}
+						});
+					}
+				}
+			});
 
 			function ShowTutorialFeedback(text) {
 				var fb = document.getElementById("tutorialFeedback");

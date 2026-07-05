@@ -524,6 +524,35 @@ var GhostRPG = (function() {
             if (typeof RenderRPGStatusDrawer === "function") { RenderRPGStatusDrawer(); }
         },
 
+        loadServerState: function(serverState) {
+            if (!serverState || typeof serverState !== 'object') return;
+            
+            if (serverState.level) state.level = serverState.level;
+            if (serverState.xp) state.xp = serverState.xp;
+            if (serverState.xpRequired) state.xpRequired = serverState.xpRequired;
+            if (serverState.pointsToDistribute !== undefined) state.pointsToDistribute = serverState.pointsToDistribute;
+            
+            if (serverState.vit) state.vit = serverState.vit;
+            if (serverState.agi) state.agi = serverState.agi;
+            if (serverState.int) state.int = serverState.int;
+            if (serverState.pow) state.pow = serverState.pow;
+            if (serverState.mag) state.mag = serverState.mag;
+            if (serverState.characterId) state.characterId = serverState.characterId;
+            
+            if (Array.isArray(serverState.equippedSkills)) state.equippedSkills = serverState.equippedSkills;
+            if (Array.isArray(serverState.equippedRunes)) state.equippedRunes = serverState.equippedRunes;
+            if (Array.isArray(serverState.equippedPassives)) state.equippedPassives = serverState.equippedPassives;
+            
+            if (serverState.weapon) state.weapon = serverState.weapon;
+            if (Array.isArray(serverState.inventory)) state.inventory = serverState.inventory;
+            if (serverState.equipment) state.equipment = serverState.equipment;
+            
+            state.xpRequired = calculateXpRequired(state.level);
+            updateIntegrityHash();
+            this.saveLocalStorage();
+            if (typeof RenderRPGStatusDrawer === "function") { RenderRPGStatusDrawer(); }
+        },
+
         getDeSoMetadataString: function() {
             return " [RPG Level: " + state.level + " | VIT: " + state.vit + " | AGI: " + state.agi + " | INT: " + state.int + " | POW: " + state.pow + " | MAG: " + state.mag + " | CharID: " + state.characterId.substring(0,8) + "...]";
         },
