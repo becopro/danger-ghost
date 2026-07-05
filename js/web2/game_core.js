@@ -27,6 +27,15 @@
     // Mock Login
     function LoginDeSo() {
         var btn = document.getElementById("desoBtn");
+        var nameInput = document.getElementById("startNameInput");
+        
+        if (nameInput) {
+            var chosenName = nameInput.value.trim();
+            if (chosenName !== "") {
+                localStorage.setItem("playerName", chosenName);
+            }
+        }
+        
         if (btn) {
             btn.innerText = "CONNECTING...";
             btn.disabled = true;

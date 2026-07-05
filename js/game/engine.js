@@ -1889,7 +1889,7 @@
 				g_ctx.font = "bold 18px 'Courier New'"; g_ctx.fillStyle = "#FF00FF";
 				
 				// Nome e Vidas na parte de baixo do jogo
-				var charName = "Danger Ghost";
+				var charName = localStorage.getItem("playerName") || "Ghost";
 				if (window.GhostRPG && window.GhostRPG.getStats) {
 					var stats = window.GhostRPG.getStats();
 					if (stats && stats.name) charName = stats.name;
