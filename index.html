@@ -11,15 +11,13 @@
     <link rel="icon" type="image/png" href="favicon.png" />
     
     <!-- Scripts Externos -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="js/core/event_bus.js?v=6"></script>
     <script src="js/globals.js?v=6"></script>
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
-    <script src="js/game/network.js?v=6"></script>
+    <script src="js/game/network.js?v=yesterday"></script>
     <script src="js/web2/game_core.js?v=1"></script>
-    <script src="js/game/engine.js?v=6"></script>
+    <script src="js/game/engine.js?v=yesterday"></script>
     <script src="js/web2/scores.js?v=1"></script>
     <script src="rpg_system.js?v=6"></script>
     <script src="js/ui/ui_manager.js?v=6"></script>
@@ -37,7 +35,6 @@
             <h1 class="neon-title">GHOST GAMES</h1>
         </div>
         <div id="gameNavbar">
-            <button id="btnNavLogin" onclick="LoginGoogle()" style="border: 1.5px solid #00FFFF !important; color: #00FFFF !important; text-shadow: 0 0 5px #00FFFF;">🔑 LOGIN</button>
             <button id="btnNavControls" onclick="ToggleNavbarTab('controls')">🎮 CONTROLS</button>
             <button id="btnNavRPG" onclick="ToggleNavbarTab('rpg')">👤 STATS</button>
             <button id="btnNavSpells" onclick="ToggleNavbarTab('spells')">⚡ SPELLS</button>
@@ -119,6 +116,14 @@
                 <button onclick="SubmitGameOverScore()" style="padding: 10px 20px; background: #FF0000; color: #FFF; font-family: 'Courier New', monospace; font-weight: bold; border: none; cursor: pointer; border-radius: 5px;">SUBMIT SCORE</button>
             </div>
 
+        </div>
+        <div id="loginButtonsContainer" style="display: flex; flex-direction: column; gap: 10px; align-items: center; margin-top: 20px; width: 100%; max-width: 640px; margin-left: auto; margin-right: auto;">
+            <div style="display: flex; gap: 10px; width: 100%;">
+                <input type="text" id="startNameInput" placeholder="ENTER YOUR NAME" maxlength="12" style="flex: 1; padding: 12px; font-size: 16px; background-color: #000; color: #FFF; border: 2px solid #00FFCC; border-radius: 5px; text-align: center; box-sizing: border-box; font-family: 'Courier New', monospace; font-weight: bold; outline: none;" onfocus="this.style.boxShadow='0 0 10px #00FFCC'" onblur="this.style.boxShadow='none'" />
+                <button onclick="SavePlayerName(event)" style="padding: 12px 24px; font-size: 16px; background-color: #000; color: #00FFCC; border: 2px solid #00FFCC; border-radius: 5px; cursor: pointer; text-shadow: 0 0 5px #00FFCC; font-weight: bold; text-transform: uppercase;">SAVE</button>
+            </div>
+            <button id="desoBtn" onclick="LoginDeSo()" style="padding: 12px 24px; font-size: 16px; background-color: #000; color: #00FFFF; border: 2px solid #00FFFF; border-radius: 5px; cursor: pointer; text-shadow: 0 0 5px #00FFFF; font-weight: bold; text-transform: uppercase; width: 100%;">PLAY GAME</button>
+            <button id="leaderboardBtn" onclick="OpenLeaderboardModal()" style="padding: 12px 24px; font-size: 16px; background-color: #000; color: #FF00FF; border: 2px solid #FF00FF; border-radius: 5px; cursor: pointer; text-shadow: 0 0 5px #FF00FF; font-weight: bold; text-transform: uppercase; width: 100%;">LEADERBOARD</button>
         </div>
         
         <!-- Leaderboard Modal (Hidden by default) -->
@@ -957,34 +962,8 @@
         }
     </script>
 
-    <!-- Player Profile Modal (Hidden by default) -->
-    <div id="playerProfileModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 2000; align-items: center; justify-content: center; font-family: 'Courier New', monospace;">
-        <div style="background: #181224; border: 2px solid #00FFFF; border-radius: 10px; padding: 30px; width: 90%; max-width: 400px; box-shadow: 0 0 20px rgba(0, 255, 255, 0.3); color: #FFF; text-align: center;">
-            <h2 id="profileModalName" style="color: #00FFFF; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px #00FFFF;">PlayerName</h2>
-            
-            <div style="margin-bottom: 20px; background: rgba(0,0,0,0.5); padding: 15px; border-radius: 5px; text-align: left;">
-                <p style="margin: 5px 0; font-size: 16px; color: #FF00FF;"><strong>LEVEL:</strong> <span id="profileModalLevel" style="color: #FFF;">1</span></p>
-                <p style="margin: 5px 0; font-size: 16px; color: #FF00FF;"><strong>XP:</strong> <span id="profileModalXP" style="color: #FFF;">0</span></p>
-                <p style="margin: 5px 0; font-size: 16px; color: #FF00FF;"><strong>PLAYTIME:</strong> <span id="profileModalPlaytime" style="color: #FFF;">0 min</span></p>
-            </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-                <div style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; border: 1px solid #FF00FF;">
-                    <p style="margin: 0; color: #FF00FF;">VIT</p><p id="profileModalVit" style="margin: 5px 0 0 0; font-weight: bold;">1</p>
-                </div>
-                <div style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; border: 1px solid #FF00FF;">
-                    <p style="margin: 0; color: #FF00FF;">AGI</p><p id="profileModalAgi" style="margin: 5px 0 0 0; font-weight: bold;">1</p>
-                </div>
-                <div style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; border: 1px solid #FF00FF;">
-                    <p style="margin: 0; color: #FF00FF;">INT</p><p id="profileModalInt" style="margin: 5px 0 0 0; font-weight: bold;">1</p>
-                </div>
-                <div style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; border: 1px solid #FF00FF;">
-                    <p style="margin: 0; color: #FF00FF;">POW</p><p id="profileModalPow" style="margin: 5px 0 0 0; font-weight: bold;">1</p>
-                </div>
-            </div>
-
-            <button onclick="document.getElementById('playerProfileModal').style.display='none';" style="padding: 10px 20px; background: #00FFFF; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; text-transform: uppercase;">CLOSE</button>
-        </div>
-    </div>
 </body>
+
 </html>
+< s c r i p t > d o c u m e n t . a d d E v e n t L i s t e n e r ( ' D O M C o n t e n t L o a d e d ' ,   f u n c t i o n ( )   {   v a r   n a m e I n p u t   =   d o c u m e n t . g e t E l e m e n t B y I d ( ' s t a r t N a m e I n p u t ' ) ;   i f   ( n a m e I n p u t )   {   v a r   s a v e d   =   l o c a l S t o r a g e . g e t I t e m ( ' p l a y e r N a m e ' ) ;   i f   ( s a v e d )   n a m e I n p u t . v a l u e   =   s a v e d ;   }   } ) ; < / s c r i p t >  
+ 

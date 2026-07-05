@@ -1007,9 +1007,6 @@
 							if (window.emitKillBoss) {
 								window.emitKillBoss(this.id || 0);
 							}
-							if (typeof GhostRPG !== 'undefined' && GhostRPG.addXp) {
-								GhostRPG.addXp(Math.floor(this.maxHp * 5));
-							}
 							if (this.type === "skull") {
 								if (typeof spawnCave1Diamonds === 'function') spawnCave1Diamonds();
 							}
@@ -1070,14 +1067,6 @@
 					if (this.xPos < 0) { this.xPos = 0; this.dir = 1; }
 					var maxLimit = 2400 - this.width;
 					if (this.xPos > maxLimit) { this.xPos = maxLimit; this.dir = -1; }
-
-					if (DeSoGhost.alive && !DeSoGhost.ghostMode && DeSoGhost.phantomFormTimer <= 0) {
-						if (this.xPos < DeSoGhost.xPos + 24 && this.xPos + this.width > DeSoGhost.xPos &&
-							this.yPos < DeSoGhost.yPos + 24 && this.yPos + this.height > DeSoGhost.yPos) {
-							DeSoGhost.alive = false;
-							if (window.emitBossCollision) window.emitBossCollision();
-						}
-					}
 				};
 
 			}
@@ -1116,17 +1105,6 @@
 						var sprite = (this.face == 1) ? desoGhostRight : desoGhostLeft;
 						g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, 24, 24);
 						if (this.ghostMode) g_ctx.globalAlpha = 1.0;
-						
-						// Draw Local Player Name
-						var charName = localStorage.getItem("playerName") || "Ghost";
-						if (window.GhostRPG && window.GhostRPG.getStats) {
-							var stats = window.GhostRPG.getStats();
-							if (stats && stats.name) charName = stats.name;
-						}
-						g_ctx.fillStyle = "#00FFCC";
-						g_ctx.font = "10px Arial";
-						g_ctx.textAlign = "center";
-						g_ctx.fillText(charName, this.xPos + map_offset + 12, this.yPos - 10);
 
 						// Renderização da animação de Level Up
 						if (this.isLevelingUpAnim && this.isLevelingUpAnim > 0) {
@@ -1228,12 +1206,7 @@
 											window.emitPlayerAttack({ bossId: boss.id || 0, damage: finalDmg, type: 'jump' });
 										}
 									} else if (!self.ghostMode && self.phantomFormTimer <= 0) { // Immune during Phantom Form
-										if (boss && boss.isOriginal) {
-											if (window.emitBossCollision) window.emitBossCollision();
-											self.alive = false;
-										} else {
-											self.alive = false;
-										}
+										if (window.emitBossCollision) window.emitBossCollision();
 									}
 								}
 							}
@@ -1258,12 +1231,7 @@
 									window.emitPlayerAttack({ bossId: g_boss.id || 0, damage: finalDmg, type: 'jump' });
 								}
 							} else if (!this.ghostMode && this.phantomFormTimer <= 0) { // Immune during Phantom Form
-								if (g_boss && g_boss.isOriginal) {
-									if (window.emitBossCollision) window.emitBossCollision();
-									this.alive = false;
-								} else {
-									this.alive = false;
-								}
+								if (window.emitBossCollision) window.emitBossCollision();
 							}
 						}
 					}
@@ -1458,7 +1426,7 @@
 					}
 
 					if (window.emitPlayerMove) {
-						window.emitPlayerMove(this.xPos, this.yPos, this.face === 1, 'idle', g_currentLevel);
+						window.emitPlayerMove(this.xPos, this.yPos, this.face === 1, 'idle');
 					}
 				};
 
@@ -1641,7 +1609,6 @@
 							if (p.x + p.width/2 > DeSoGhost.xPos && p.x - p.width/2 < DeSoGhost.xPos + 24 &&
 								p.y + p.height/2 > DeSoGhost.yPos && p.y - p.height/2 < DeSoGhost.yPos + 24) {
 								if (!DeSoGhost.ghostMode && DeSoGhost.phantomFormTimer <= 0) {
-									DeSoGhost.alive = false;
 									if (window.emitBossCollision) window.emitBossCollision();
 								}
 								g_visualEffects.push(createExplosionEffect(p.x, p.y, "#FF3366", 6));
@@ -1919,16 +1886,6 @@
 			}
 
 			function Print_HUD() {
-				// Fundo escuro para a HUD inferior (evita sobreposicao visual com o mapa)
-				g_ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
-				g_ctx.fillRect(0, g_canvas.height - 35, g_canvas.width, 35);
-				g_ctx.strokeStyle = "#00FFFF";
-				g_ctx.lineWidth = 1;
-				g_ctx.beginPath();
-				g_ctx.moveTo(0, g_canvas.height - 35);
-				g_ctx.lineTo(g_canvas.width, g_canvas.height - 35);
-				g_ctx.stroke();
-
 				g_ctx.font = "bold 18px 'Courier New'"; g_ctx.fillStyle = "#FF00FF";
 				
 				// Nome e Vidas na parte de baixo do jogo
@@ -1938,22 +1895,11 @@
 					if (stats && stats.name) charName = stats.name;
 				}
 				if (charName.length > 12) charName = charName.substring(0, 10) + "..";
-				g_ctx.textAlign = "left";
 				g_ctx.fillText(charName, 10, g_canvas.height - 10);
-				
-				// Debug Multiplayer
-				var onlineCount = 1;
-				if (window.NetworkState && window.NetworkState.otherPlayers) {
-					onlineCount += Object.keys(window.NetworkState.otherPlayers).length;
-				}
-				g_ctx.fillStyle = "#FF00FF";
-				g_ctx.font = "bold 14px Arial";
-				g_ctx.fillText("Online: " + onlineCount, 10, g_canvas.height - 35);
 				var nameWidth = g_ctx.measureText(charName).width;
 				var livesX = 10 + nameWidth + 8;
 				g_ctx.drawImage(DeSoGhost_Lives, livesX, g_canvas.height - 25, 24, 24);
-				var ghostLives = typeof DeSoGhost !== 'undefined' && DeSoGhost ? DeSoGhost.lives : 3;
-				g_ctx.fillText("X " + ghostLives, livesX + 26, g_canvas.height - 8);
+				g_ctx.fillText("X " + DeSoGhost.lives, livesX + 26, g_canvas.height - 8);
 
 				
 				// Pontos e Nível no topo (Mudado para Roxo)
@@ -1980,6 +1926,11 @@
 					}
 				}
 
+				// Boss HUD health bar has been removed to only show above the enemy's head.
+				
+
+
+
 				// Game logo in the bottom right corner of canvas
 				if (logoImage.complete && logoImage.naturalWidth > 0) {
 					g_ctx.drawImage(logoImage, g_canvas.width - 48 - 10, g_canvas.height - 48 - 10, 48, 48);
@@ -1987,19 +1938,14 @@
 
 				// Barra de Mana
 				var manaX = Math.max(210, livesX + 70);
-				var hudCenterY = g_canvas.height - 17;
 				g_ctx.font = "bold 14px 'Courier New'"; g_ctx.fillStyle = "#00E5FF";
-				g_ctx.textAlign = "left";
 				g_ctx.fillText("MANA:", manaX, g_canvas.height - 10);
 				
 				g_ctx.strokeStyle = "rgba(0, 229, 255, 0.4)";
 				g_ctx.lineWidth = 1.5;
 				g_ctx.strokeRect(manaX + 45, g_canvas.height - 21, 110, 12);
 				
-				var currMana = typeof DeSoGhost !== 'undefined' && DeSoGhost ? DeSoGhost.mana : 0;
-				var maxMana = typeof DeSoGhost !== 'undefined' && DeSoGhost && DeSoGhost.maxMana > 0 ? DeSoGhost.maxMana : 100;
-				var fillWidth = (currMana / maxMana) * 108;
-				
+				var fillWidth = DeSoGhost.maxMana > 0 ? (DeSoGhost.mana / DeSoGhost.maxMana) * 108 : 0;
 				if (fillWidth > 0) {
 					var grad = g_ctx.createLinearGradient(manaX + 46, 0, manaX + 46 + fillWidth, 0);
 					grad.addColorStop(0, "#0052D4");
@@ -2008,103 +1954,95 @@
 					g_ctx.fillStyle = grad;
 					g_ctx.fillRect(manaX + 46, g_canvas.height - 20, fillWidth, 10);
 				}
-
-				// Texto da Mana
-				g_ctx.textAlign = "center";
-				g_ctx.fillStyle = "#FFFFFF";
-				g_ctx.font = "bold 11px 'Segoe UI', sans-serif";
-				g_ctx.fillText(Math.floor(currMana) + " / " + Math.floor(maxMana), manaX + 45 + 55, g_canvas.height - 11);
-
-				// 3. RIGHT: 4 Magic Slots
-				var slotKeys = ["V", "F", "E", "R"];
-				var stats = window.GhostRPG ? window.GhostRPG.getStats() : {};
-				if (!stats.equippedSkills) stats.equippedSkills = [0, 0, 0, 0];
 				
-				var skillCooldowns = typeof DeSoGhost !== 'undefined' && DeSoGhost && DeSoGhost.skillCooldowns ? DeSoGhost.skillCooldowns : [0, 0, 0, 0];
+				g_ctx.font = "9px 'Courier New'"; g_ctx.fillStyle = "#FFFFFF";
+				g_ctx.textAlign = "center";
+				g_ctx.fillText(Math.floor(DeSoGhost.mana) + " / " + Math.floor(DeSoGhost.maxMana), manaX + 100, g_canvas.height - 12);
+				
+				// Draw HUD Quick Bar (4 Slots)
+				var slotKeys = ["V", "F", "E", "R"];
+				var stats = GhostRPG.getStats();
+				if (!DeSoGhost.skillCooldowns) DeSoGhost.skillCooldowns = [0, 0, 0, 0];
 				
 				var skillColors = ["#00FFFF", "#FF00FF", "#FF7700", "#D500F9"];
 				var skillInitials = ["S", "G", "P", "F"];
 				var maxCooldowns = [15, 1, 45, 450];
-
-				var slotSize = 28;
-				var slotSpacing = 12;
-				var totalSlotsWidth = (slotSize * 4) + (slotSpacing * 3);
-				var slotsStartX = g_canvas.width - totalSlotsWidth - 15;
-
+				
 				for (var i = 0; i < 4; i++) {
-					var sX = slotsStartX + i * (slotSize + slotSpacing);
-					var sY = hudCenterY - slotSize / 2;
-
-					// Fundo do Slot
-					g_ctx.fillStyle = "rgba(17, 17, 24, 0.9)";
-					g_ctx.fillRect(sX, sY, slotSize, slotSize);
-
-					// Borda do Slot (Neon)
-					var cd = skillCooldowns[i] || 0;
-					g_ctx.strokeStyle = cd > 0 ? "#FF0055" : "#00FFFF";
-					g_ctx.lineWidth = 1.5;
-					g_ctx.strokeRect(sX, sY, slotSize, slotSize);
-
-					// Imagem / Inicial
+					var slotX = 405 + i * 32;
+					var slotY = g_canvas.height - 32;
+					
+					// Draw background
+					g_ctx.fillStyle = "#111118";
+					g_ctx.fillRect(slotX, slotY, 24, 24);
+					
+					// Draw border
+					g_ctx.strokeStyle = DeSoGhost.skillCooldowns[i] > 0 ? "#444444" : "#00FF00";
+					g_ctx.lineWidth = 1;
+					g_ctx.strokeRect(slotX, slotY, 24, 24);
+					
+					// Draw skill initial or icon image
 					var skillId = stats.equippedSkills[i];
 					var imgToDraw = null;
-					if (skillId === 0 && typeof spellSparkImg !== "undefined") imgToDraw = spellSparkImg;
-					else if (skillId === 1 && typeof spellGhostImg !== "undefined") imgToDraw = spellGhostImg;
-					else if (skillId === 2 && typeof spellOrbImg !== "undefined") imgToDraw = spellOrbImg;
-					else if (skillId === 3 && typeof spellPhantomImg !== "undefined") imgToDraw = spellPhantomImg;
-
+					if (skillId === 0) imgToDraw = spellSparkImg;
+					else if (skillId === 1) imgToDraw = spellGhostImg;
+					else if (skillId === 2) imgToDraw = spellOrbImg;
+					else if (skillId === 3) imgToDraw = spellPhantomImg;
+					
 					if (imgToDraw && imgToDraw.complete) {
-						g_ctx.drawImage(imgToDraw, sX + 2, sY + 2, slotSize - 4, slotSize - 4);
+						g_ctx.drawImage(imgToDraw, slotX, slotY, 24, 24);
 					} else {
-						g_ctx.font = "bold 14px 'Segoe UI', sans-serif";
-						g_ctx.fillStyle = skillColors[skillId] || "#00FFFF";
-						g_ctx.fillText(skillInitials[skillId] || "?", sX + slotSize/2, sY + slotSize/2 + 2);
+						g_ctx.font = "bold 11px 'Courier New'";
+						g_ctx.fillStyle = skillColors[skillId] || "#FFFFFF";
+						g_ctx.textAlign = "center";
+						g_ctx.fillText(skillInitials[skillId] || "?", slotX + 12, slotY + 16);
 					}
-
-					// Indicador de Runa (Rune Dot)
-					var runeId = stats.equippedRunes ? stats.equippedRunes[i] : 0;
+					
+					// Draw rune indicator dot
+					var runeId = stats.equippedRunes[i];
+					var runeColor = "#FFFFFF";
+					if (runeId === 1) runeColor = "#FF4500"; // Fire
+					else if (runeId === 2) runeColor = "#00E5FF"; // Cold
+					else if (runeId === 3) runeColor = "#FFEA00"; // Lightning
+					else if (runeId === 4) runeColor = "#00E676"; // Poison
+					else if (runeId === 5) runeColor = "#D500F9"; // Arcane
+					
 					if (runeId > 0) {
-						var runeColor = "#FFFFFF";
-						if (runeId === 1) runeColor = "#FF4500";
-						else if (runeId === 2) runeColor = "#00E5FF";
-						else if (runeId === 3) runeColor = "#FFEA00";
-						else if (runeId === 4) runeColor = "#00E676";
-						else if (runeId === 5) runeColor = "#D500F9";
-
 						g_ctx.fillStyle = runeColor;
 						g_ctx.beginPath();
-						g_ctx.arc(sX + slotSize - 4, sY + 4, 3, 0, Math.PI * 2);
+						g_ctx.arc(slotX + 20, slotY + 4, 3, 0, Math.PI * 2);
 						g_ctx.fill();
 					}
-
-					// Overlay de Cooldown
+					
+					// Draw cooldown overlay
+					var cd = DeSoGhost.skillCooldowns[i];
 					if (cd > 0) {
-						var mCd = maxCooldowns[i] || 1;
-						var pct = Math.min(1, cd / mCd);
+						var maxCd = maxCooldowns[i] || 1;
+						var pct = cd / maxCd;
 						g_ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
-						g_ctx.fillRect(sX, sY + (slotSize * (1 - pct)), slotSize, slotSize * pct);
-
-						g_ctx.font = "bold 12px 'Segoe UI', sans-serif";
-						g_ctx.fillStyle = "#FF00FF";
+						g_ctx.fillRect(slotX, slotY + (24 * (1 - pct)), 24, 24 * pct);
+						
+						g_ctx.font = "bold 9px 'Courier New'";
+						g_ctx.fillStyle = "#FF3333";
 						var secsLeft = Math.ceil(cd / 30);
-						g_ctx.fillText(secsLeft, sX + slotSize/2, sY + slotSize/2);
+						g_ctx.fillText(secsLeft, slotX + 12, slotY + 15);
 					}
-
-					// Custo de Mana (abaixo do slot)
+					
+					// Draw mana cost
 					var manaCost = 0;
 					if (skillId === 1) manaCost = 10;
 					else if (skillId === 2) manaCost = 30;
 					else if (skillId === 3) manaCost = 50;
 					if (manaCost > 0) {
-						g_ctx.font = "9px 'Segoe UI', sans-serif";
-						g_ctx.fillStyle = "#00FFFF";
-						g_ctx.fillText(manaCost, sX + slotSize/2, sY + slotSize + 8);
+						g_ctx.font = "8px 'Courier New'";
+						g_ctx.fillStyle = "#00E5FF";
+						g_ctx.fillText(manaCost, slotX + 7, slotY + 22);
 					}
-
-					// Hotkey (acima do slot)
-					g_ctx.font = "bold 10px 'Segoe UI', sans-serif";
-					g_ctx.fillStyle = "#FF00FF";
-					g_ctx.fillText(slotKeys[i], sX + slotSize/2, sY - 6);
+					
+					// Draw hotkey indicator
+					g_ctx.font = "9px 'Courier New'";
+					g_ctx.fillStyle = "#888888";
+					g_ctx.fillText(slotKeys[i], slotX + 12, slotY - 4);
 				}
 
 				// Draw Fireball Spell HUD Slot if equipped
@@ -2112,34 +2050,30 @@
 				var equippedSpell = eq.spell || 
 									(eq.mainhand && eq.mainhand.id === "ghost_spell" ? eq.mainhand : null) || 
 									(eq.offhand && eq.offhand.id === "ghost_spell" ? eq.offhand : null);
-
 				if (equippedSpell) {
-					var fbX = slotsStartX - slotSize - 25;
-					var fbY = hudCenterY - slotSize / 2;
-
-					g_ctx.fillStyle = "rgba(17, 17, 24, 0.9)";
-					g_ctx.fillRect(fbX, fbY, slotSize, slotSize);
-
-					g_ctx.strokeStyle = "#FF00FF";
-					g_ctx.lineWidth = 1.5;
-					g_ctx.strokeRect(fbX, fbY, slotSize, slotSize);
-
-					g_ctx.font = "14px 'Segoe UI', sans-serif";
-					g_ctx.fillText("🔥", fbX + slotSize/2, fbY + slotSize/2 + 2);
-
-					// Counter (abaixo)
-					g_ctx.font = "bold 10px 'Segoe UI', sans-serif";
-					g_ctx.fillStyle = "#00FFFF";
-					g_ctx.fillText("x" + equippedSpell.count, fbX + slotSize/2, fbY + slotSize + 8);
-
-					// Hotkey (acima)
-					g_ctx.fillStyle = "#FF00FF";
-					g_ctx.fillText("1", fbX + slotSize/2, fbY - 6);
+					var slotX = 370;
+					var slotY = g_canvas.height - 32;
+					
+					g_ctx.fillStyle = "#111118";
+					g_ctx.fillRect(slotX, slotY, 24, 24);
+					
+					g_ctx.strokeStyle = "#ffaa00";
+					g_ctx.lineWidth = 1;
+					g_ctx.strokeRect(slotX, slotY, 24, 24);
+					
+					g_ctx.font = "14px 'Courier New'";
+					g_ctx.textAlign = "center";
+					g_ctx.fillText("🔥", slotX + 12, slotY + 17);
+					
+					g_ctx.font = "bold 9px 'Courier New'";
+					g_ctx.fillStyle = "#FFA500";
+					g_ctx.fillText("x" + equippedSpell.count, slotX + 16, slotY + 22);
+					
+					g_ctx.font = "9px 'Courier New'";
+					g_ctx.fillStyle = "#888888";
+					g_ctx.fillText("1", slotX + 12, slotY - 4);
 				}
-
-				// Reset to default
 				g_ctx.textAlign = "start";
-				g_ctx.textBaseline = "alphabetic";
 			}
 
 			function DrawStartScreen() {
@@ -2936,7 +2870,7 @@ var g_binaryBits = [];
 									var interpX = e0.x + (e1.x - e0.x) * t;
 									var interpY = e0.y + (e1.y - e0.y) * t;
 									
-									if (g_boss && g_boss.isOriginal && (!g_boss.id || g_boss.id === e0.id)) {
+									if (g_boss && (!g_boss.id || g_boss.id === e0.id)) {
 										g_boss.xPos = interpX;
 										g_boss.yPos = interpY;
 										g_boss.lives = e0.hp;
@@ -2944,7 +2878,7 @@ var g_binaryBits = [];
 									}
 									if (g_bosses) {
 										g_bosses.forEach(function(b) {
-											if (b.isOriginal && (!b.id || b.id === e0.id)) {
+											if (!b.id || b.id === e0.id) {
 												b.xPos = interpX;
 												b.yPos = interpY;
 												b.lives = e0.hp;
@@ -2987,30 +2921,86 @@ var g_binaryBits = [];
 			}
 
 			function drawOtherPlayers() {
-				if (window.NetworkState && window.NetworkState.otherPlayers) {
+				if (window.NetworkState && window.NetworkState.frameBuffer && window.NetworkState.frameBuffer.length >= 2) {
+					var now = Date.now();
+					var renderTime = now - 100;
+					var frames = window.NetworkState.frameBuffer;
+					var f0 = null, f1 = null;
+					for (var i = 0; i < frames.length - 1; i++) {
+						if (frames[i].timestamp <= renderTime && frames[i+1].timestamp >= renderTime) {
+							f0 = frames[i];
+							f1 = frames[i+1];
+							break;
+						}
+					}
+					if (!f0 && frames.length > 0) {
+						f0 = frames[frames.length - 1];
+						f1 = frames[frames.length - 1];
+					}
+					if (f0 && f1) {
+						var t = 0;
+  						if (f1.timestamp > f0.timestamp) {
+  							t = (renderTime - f0.timestamp) / (f1.timestamp - f0.timestamp);
+  							t = Math.max(0, Math.min(1, t));
+  						}
+  						Object.keys(f0.players || {}).forEach(function(pid) {
+  							if (window.NetworkState.playerId && pid === window.NetworkState.playerId) return; // Self
+  							
+  							var p0 = f0.players[pid];
+							if (!p0 || !p0.position) return;
+							var pLevel = p0.position.level || 'level 1';
+							if (typeof g_currentLevel !== 'undefined' && pLevel !== g_currentLevel) return;
+  							
+  							var p1 = f1.players && f1.players[pid];
+  							var interpX = p0.position.x;
+  							var interpY = p0.position.y;
+  							var isFacingRight = (typeof p0.position.isFacingRight !== 'undefined') ? p0.position.isFacingRight : true;
+  							
+  							if (p1 && p1.position) {
+  								interpX = p0.position.x + (p1.position.x - p0.position.x) * t;
+  								interpY = p0.position.y + (p1.position.y - p0.position.y) * t;
+  								if (typeof p1.position.isFacingRight !== 'undefined' && t > 0.5) isFacingRight = p1.position.isFacingRight;
+  							}
+  							
+  							var sprite = isFacingRight ? desoGhostRight : desoGhostLeft;
+  							
+  							g_ctx.globalAlpha = 0.5;
+  							g_ctx.drawImage(sprite, interpX + map_offset, interpY, 24, 24);
+  							g_ctx.globalAlpha = 1.0;
+  							
+  							if (window.NetworkState.playerNames && window.NetworkState.playerNames[pid]) {
+  								g_ctx.fillStyle = "#00FFCC";
+  								g_ctx.font = "10px Arial";
+  								g_ctx.textAlign = "center";
+  								g_ctx.fillText(window.NetworkState.playerNames[pid], interpX + map_offset + 12, interpY - 10);
+  							}
+  						});
+					}
+				} else if (window.NetworkState && window.NetworkState.otherPlayers) {
+					// Fallback for non-interpolated
 					for (var id in window.NetworkState.otherPlayers) {
 						if (id === window.NetworkState.playerId) continue;
 						var pos = window.NetworkState.otherPlayers[id];
 						if (pos) {
 							var pLevel = pos.level || 'level 1';
-							// Removed level restriction to force visibility
-							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
+							if (typeof g_currentLevel !== 'undefined' && pLevel !== g_currentLevel) continue;
+							var sprite = desoGhostRight; // Basic fallback
 							g_ctx.globalAlpha = 0.5;
 							g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
 							g_ctx.globalAlpha = 1.0;
 							
-							if (pos.name) {
+							if (window.NetworkState.playerNames && window.NetworkState.playerNames[id]) {
 								g_ctx.fillStyle = "#00FFCC";
 								g_ctx.font = "10px Arial";
 								g_ctx.textAlign = "center";
-								g_ctx.fillText(pos.name, pos.x + map_offset + 12, pos.y - 10);
+								g_ctx.fillText(window.NetworkState.playerNames[id], pos.x + map_offset + 12, pos.y - 10);
 							}
 						}
 					}
 				}
-				}
+			}
 
-				function Game_Step_Render() {
+			function Game_Step_Render() {
 				var extTimer = document.getElementById("externalTimer");
 				if (extTimer) {
 					extTimer.style.display = "none"; // Ocultar o cronômetro visual
@@ -3254,14 +3244,14 @@ var g_binaryBits = [];
 					}
 					e.preventDefault();
 					if (g_gameState == G_START) {
-						if (!window.NetworkState || !window.NetworkState.connected) {
-							alert('Acesso Restrito: Por favor, faça login com o Google usando o botão na barra superior (LOGIN) para jogar!');
-							return;
-						}
 						var menu = document.getElementById("loginButtonsContainer");
 						if (menu) menu.style.display = "none";
-						window.g_isGuestRun = false;
-						StartCutscene();
+						if (typeof LoginDeSo === "function") {
+							LoginDeSo();
+						} else {
+							window.g_isGuestRun = true;
+							StartCutscene();
+						}
 					} else if (g_gameState == G_CUTSCENE) {
 						EndCutscene();
 					} else if (g_gameState == G_END_CUTSCENE) {
@@ -3517,37 +3507,6 @@ var g_binaryBits = [];
 				window.removeEventListener("keydown", handleTutKeyDown, true);
 				window.removeEventListener("keyup", handleTutKeyUp, true);
 			}
-
-			// Player Inspection
-			g_canvas.addEventListener('mousedown', function(e) {
-				var rect = g_canvas.getBoundingClientRect();
-				// Adjust click coordinates to canvas logical size
-				var scaleX = g_canvas.width / rect.width;
-				var scaleY = g_canvas.height / rect.height;
-				var clickX = (e.clientX - rect.left) * scaleX;
-				var clickY = (e.clientY - rect.top) * scaleY;
-
-				if (window.NetworkState && window.NetworkState.frameBuffer && window.NetworkState.frameBuffer.length >= 2) {
-					var f0 = window.NetworkState.frameBuffer[window.NetworkState.frameBuffer.length - 1];
-					if (f0 && f0.players) {
-						Object.keys(f0.players).forEach(function(pid) {
-							if (pid === window.NetworkState.playerId) return;
-							var p0 = f0.players[pid];
-							if (p0 && p0.position) {
-								var px = p0.position.x + (window.map_offset || 0);
-								var py = p0.position.y;
-								// Bounding box of 24x24 sprite
-								if (clickX >= px && clickX <= px + 24 && clickY >= py && clickY <= py + 24) {
-									var targetName = window.NetworkState.playerNames[pid] || 'Ghost';
-									if (window.OpenPlayerProfile) {
-										window.OpenPlayerProfile(targetName);
-									}
-								}
-							}
-						});
-					}
-				}
-			});
 
 			function ShowTutorialFeedback(text) {
 				var fb = document.getElementById("tutorialFeedback");
@@ -3994,5 +3953,3 @@ var g_binaryBits = [];
 			window.DrawWinScreen = DrawWinScreen;
 			})(); // Fecha IIFE Caixa Preta
 		
-
-
