@@ -69,7 +69,7 @@
     }
 
     function LoginGoogle() {
-        var btn = document.getElementById("desoBtn");
+        var btn = document.getElementById("btnNavLogin");
         var nameInput = document.getElementById("startNameInput");
         
         if (nameInput) {
@@ -92,13 +92,15 @@
                 var menu = document.getElementById("loginButtonsContainer");
                 if (menu) menu.style.display = "none";
                 
+                localStorage.setItem("google_token", idToken);
+                
                 if (window.JoinGameServer) {
                     window.JoinGameServer(idToken);
                 }
             }).catch((error) => {
                 console.error("Firebase Login Error", error);
                 if (btn) {
-                    btn.innerText = "ENTRAR COM GOOGLE";
+                    btn.innerText = "🔑 LOGIN";
                     btn.disabled = false;
                 }
                 alert("Erro no login: " + error.message);
@@ -109,8 +111,11 @@
                 var menu = document.getElementById("loginButtonsContainer");
                 if (menu) menu.style.display = "none";
                 
+                var mockToken = "mock_" + (localStorage.getItem("playerName") || "user");
+                localStorage.setItem("google_token", mockToken);
+                
                 if (window.JoinGameServer) {
-                    window.JoinGameServer("mock_" + (localStorage.getItem("playerName") || "user"));
+                    window.JoinGameServer(mockToken);
                 }
             }, 800);
         }

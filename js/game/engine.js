@@ -1978,94 +1978,104 @@
 				
 				g_ctx.font = "9px 'Courier New'"; g_ctx.fillStyle = "#FFFFFF";
 				g_ctx.textAlign = "center";
-				g_ctx.fillText(Math.floor(DeSoGhost.mana) + " / " + Math.floor(DeSoGhost.maxMana), manaX + 100, g_canvas.height - 12);
-				
-				// Draw HUD Quick Bar (4 Slots)
+					g_ctx.fillRect(manaX, hudCenterY - 8, fillW, 16);
+				}
+
+				// Texto da Mana
+				g_ctx.textAlign = "center";
+				g_ctx.fillStyle = "#FFFFFF";
+				g_ctx.font = "bold 11px 'Segoe UI', sans-serif";
+				g_ctx.fillText(Math.floor(currMana) + " / " + Math.floor(maxMana), manaX + manaWidth/2, hudCenterY);
+
+				// 3. RIGHT: 4 Magic Slots
 				var slotKeys = ["V", "F", "E", "R"];
-				var stats = GhostRPG.getStats();
+				var stats = window.GhostRPG ? window.GhostRPG.getStats() : {};
+				if (!stats.equippedSkills) stats.equippedSkills = [0, 0, 0, 0];
 				if (!DeSoGhost.skillCooldowns) DeSoGhost.skillCooldowns = [0, 0, 0, 0];
 				
 				var skillColors = ["#00FFFF", "#FF00FF", "#FF7700", "#D500F9"];
 				var skillInitials = ["S", "G", "P", "F"];
 				var maxCooldowns = [15, 1, 45, 450];
-				
-				var slotsStartX = Math.max(405, manaX + 175);
-				
+
+				var slotSize = 28;
+				var slotSpacing = 12;
+				var totalSlotsWidth = (slotSize * 4) + (slotSpacing * 3);
+				var slotsStartX = g_canvas.width - totalSlotsWidth - 15;
+
 				for (var i = 0; i < 4; i++) {
-					var slotX = slotsStartX + i * 32;
-					var slotY = g_canvas.height - 32;
-					
-					// Draw background
-					g_ctx.fillStyle = "#111118";
-					g_ctx.fillRect(slotX, slotY, 24, 24);
-					
-					// Draw border
-					g_ctx.strokeStyle = DeSoGhost.skillCooldowns[i] > 0 ? "#444444" : "#00FF00";
-					g_ctx.lineWidth = 1;
-					g_ctx.strokeRect(slotX, slotY, 24, 24);
-					
-					// Draw skill initial or icon image
+					var sX = slotsStartX + i * (slotSize + slotSpacing);
+					var sY = hudCenterY - slotSize / 2;
+
+					// Fundo do Slot
+					g_ctx.fillStyle = "rgba(17, 17, 24, 0.9)";
+					g_ctx.fillRect(sX, sY, slotSize, slotSize);
+
+					// Borda do Slot (Neon)
+					var cd = DeSoGhost.skillCooldowns[i] || 0;
+					g_ctx.strokeStyle = cd > 0 ? "#FF0055" : "#00FFFF";
+					g_ctx.lineWidth = 1.5;
+					g_ctx.strokeRect(sX, sY, slotSize, slotSize);
+
+					// Imagem / Inicial
 					var skillId = stats.equippedSkills[i];
 					var imgToDraw = null;
-					if (skillId === 0) imgToDraw = spellSparkImg;
-					else if (skillId === 1) imgToDraw = spellGhostImg;
-					else if (skillId === 2) imgToDraw = spellOrbImg;
-					else if (skillId === 3) imgToDraw = spellPhantomImg;
-					
+					if (skillId === 0 && typeof spellSparkImg !== "undefined") imgToDraw = spellSparkImg;
+					else if (skillId === 1 && typeof spellGhostImg !== "undefined") imgToDraw = spellGhostImg;
+					else if (skillId === 2 && typeof spellOrbImg !== "undefined") imgToDraw = spellOrbImg;
+					else if (skillId === 3 && typeof spellPhantomImg !== "undefined") imgToDraw = spellPhantomImg;
+
 					if (imgToDraw && imgToDraw.complete) {
-						g_ctx.drawImage(imgToDraw, slotX, slotY, 24, 24);
+						g_ctx.drawImage(imgToDraw, sX + 2, sY + 2, slotSize - 4, slotSize - 4);
 					} else {
-						g_ctx.font = "bold 11px 'Courier New'";
-						g_ctx.fillStyle = skillColors[skillId] || "#FFFFFF";
-						g_ctx.textAlign = "center";
-						g_ctx.fillText(skillInitials[skillId] || "?", slotX + 12, slotY + 16);
+						g_ctx.font = "bold 14px 'Segoe UI', sans-serif";
+						g_ctx.fillStyle = skillColors[skillId] || "#00FFFF";
+						g_ctx.fillText(skillInitials[skillId] || "?", sX + slotSize/2, sY + slotSize/2 + 2);
 					}
-					
-					// Draw rune indicator dot
-					var runeId = stats.equippedRunes[i];
-					var runeColor = "#FFFFFF";
-					if (runeId === 1) runeColor = "#FF4500"; // Fire
-					else if (runeId === 2) runeColor = "#00E5FF"; // Cold
-					else if (runeId === 3) runeColor = "#FFEA00"; // Lightning
-					else if (runeId === 4) runeColor = "#00E676"; // Poison
-					else if (runeId === 5) runeColor = "#D500F9"; // Arcane
-					
+
+					// Indicador de Runa (Rune Dot)
+					var runeId = stats.equippedRunes ? stats.equippedRunes[i] : 0;
 					if (runeId > 0) {
+						var runeColor = "#FFFFFF";
+						if (runeId === 1) runeColor = "#FF4500";
+						else if (runeId === 2) runeColor = "#00E5FF";
+						else if (runeId === 3) runeColor = "#FFEA00";
+						else if (runeId === 4) runeColor = "#00E676";
+						else if (runeId === 5) runeColor = "#D500F9";
+
 						g_ctx.fillStyle = runeColor;
 						g_ctx.beginPath();
-						g_ctx.arc(slotX + 20, slotY + 4, 3, 0, Math.PI * 2);
+						g_ctx.arc(sX + slotSize - 4, sY + 4, 3, 0, Math.PI * 2);
 						g_ctx.fill();
 					}
-					
-					// Draw cooldown overlay
-					var cd = DeSoGhost.skillCooldowns[i];
+
+					// Overlay de Cooldown
 					if (cd > 0) {
-						var maxCd = maxCooldowns[i] || 1;
-						var pct = cd / maxCd;
+						var mCd = maxCooldowns[i] || 1;
+						var pct = Math.min(1, cd / mCd);
 						g_ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
-						g_ctx.fillRect(slotX, slotY + (24 * (1 - pct)), 24, 24 * pct);
-						
-						g_ctx.font = "bold 9px 'Courier New'";
-						g_ctx.fillStyle = "#FF3333";
+						g_ctx.fillRect(sX, sY + (slotSize * (1 - pct)), slotSize, slotSize * pct);
+
+						g_ctx.font = "bold 12px 'Segoe UI', sans-serif";
+						g_ctx.fillStyle = "#FF00FF";
 						var secsLeft = Math.ceil(cd / 30);
-						g_ctx.fillText(secsLeft, slotX + 12, slotY + 15);
+						g_ctx.fillText(secsLeft, sX + slotSize/2, sY + slotSize/2);
 					}
-					
-					// Draw mana cost
+
+					// Custo de Mana (abaixo do slot)
 					var manaCost = 0;
 					if (skillId === 1) manaCost = 10;
 					else if (skillId === 2) manaCost = 30;
 					else if (skillId === 3) manaCost = 50;
 					if (manaCost > 0) {
-						g_ctx.font = "8px 'Courier New'";
-						g_ctx.fillStyle = "#00E5FF";
-						g_ctx.fillText(manaCost, slotX + 7, slotY + 22);
+						g_ctx.font = "9px 'Segoe UI', sans-serif";
+						g_ctx.fillStyle = "#00FFFF";
+						g_ctx.fillText(manaCost, sX + slotSize/2, sY + slotSize + 8);
 					}
-					
-					// Draw hotkey indicator
-					g_ctx.font = "9px 'Courier New'";
-					g_ctx.fillStyle = "#888888";
-					g_ctx.fillText(slotKeys[i], slotX + 12, slotY - 4);
+
+					// Hotkey (acima do slot)
+					g_ctx.font = "bold 10px 'Segoe UI', sans-serif";
+					g_ctx.fillStyle = "#FF00FF";
+					g_ctx.fillText(slotKeys[i], sX + slotSize/2, sY - 6);
 				}
 
 				// Draw Fireball Spell HUD Slot if equipped
@@ -2073,30 +2083,34 @@
 				var equippedSpell = eq.spell || 
 									(eq.mainhand && eq.mainhand.id === "ghost_spell" ? eq.mainhand : null) || 
 									(eq.offhand && eq.offhand.id === "ghost_spell" ? eq.offhand : null);
+
 				if (equippedSpell) {
-					var slotX = 370;
-					var slotY = g_canvas.height - 32;
-					
-					g_ctx.fillStyle = "#111118";
-					g_ctx.fillRect(slotX, slotY, 24, 24);
-					
-					g_ctx.strokeStyle = "#ffaa00";
-					g_ctx.lineWidth = 1;
-					g_ctx.strokeRect(slotX, slotY, 24, 24);
-					
-					g_ctx.font = "14px 'Courier New'";
-					g_ctx.textAlign = "center";
-					g_ctx.fillText("🔥", slotX + 12, slotY + 17);
-					
-					g_ctx.font = "bold 9px 'Courier New'";
-					g_ctx.fillStyle = "#FFA500";
-					g_ctx.fillText("x" + equippedSpell.count, slotX + 16, slotY + 22);
-					
-					g_ctx.font = "9px 'Courier New'";
-					g_ctx.fillStyle = "#888888";
-					g_ctx.fillText("1", slotX + 12, slotY - 4);
+					var fbX = slotsStartX - slotSize - 25;
+					var fbY = hudCenterY - slotSize / 2;
+
+					g_ctx.fillStyle = "rgba(17, 17, 24, 0.9)";
+					g_ctx.fillRect(fbX, fbY, slotSize, slotSize);
+
+					g_ctx.strokeStyle = "#FF00FF";
+					g_ctx.lineWidth = 1.5;
+					g_ctx.strokeRect(fbX, fbY, slotSize, slotSize);
+
+					g_ctx.font = "14px 'Segoe UI', sans-serif";
+					g_ctx.fillText("🔥", fbX + slotSize/2, fbY + slotSize/2 + 2);
+
+					// Counter (abaixo)
+					g_ctx.font = "bold 10px 'Segoe UI', sans-serif";
+					g_ctx.fillStyle = "#00FFFF";
+					g_ctx.fillText("x" + equippedSpell.count, fbX + slotSize/2, fbY + slotSize + 8);
+
+					// Hotkey (acima)
+					g_ctx.fillStyle = "#FF00FF";
+					g_ctx.fillText("1", fbX + slotSize/2, fbY - 6);
 				}
+
+				// Reset to default
 				g_ctx.textAlign = "start";
+				g_ctx.textBaseline = "alphabetic";
 			}
 
 			function DrawStartScreen() {
