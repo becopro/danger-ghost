@@ -25,6 +25,29 @@
     } catch(e) {}
 
     // Mock Login
+    function SavePlayerName(event) {
+        var nameInput = document.getElementById("startNameInput");
+        if (nameInput) {
+            var chosenName = nameInput.value.trim();
+            if (chosenName !== "") {
+                localStorage.setItem("playerName", chosenName);
+                if (event && event.target) {
+                    var btn = event.target;
+                    var oldText = btn.innerText;
+                    btn.innerText = "SAVED!";
+                    btn.style.backgroundColor = "#00FFCC";
+                    btn.style.color = "#000";
+                    setTimeout(function() {
+                        btn.innerText = oldText;
+                        btn.style.backgroundColor = "#000";
+                        btn.style.color = "#00FFCC";
+                    }, 1000);
+                }
+            }
+        }
+    }
+    window.SavePlayerName = SavePlayerName;
+
     function LoginDeSo() {
         var btn = document.getElementById("desoBtn");
         var nameInput = document.getElementById("startNameInput");
