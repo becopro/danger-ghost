@@ -162,16 +162,27 @@ function initNetwork() {
     });
 
     socket.on('update_hp', (hp) => {
-        if (typeof window.g_lives !== 'undefined') {
-            window.g_lives = hp;
+        if (typeof DeSoGhost !== 'undefined') {
+            DeSoGhost.lives = hp;
         }
     });
 
     socket.on('player_died', () => {
-        if (typeof window.SetGameState === 'function') {
+        if (typeof DeSoGhost !== 'undefined' && typeof DeSoGhost.respawn === 'function') {
+            DeSoGhost.respawn();
+        } else if (typeof window.SetGameState === 'function') {
             window.SetGameState(3); // G_GAMEOVER
         }
     });
+
+    window.NetworkSetScore = function(newScore) {
+        if (typeof window.g_score !== 'undefined' && typeof window.GetScore === 'function' && typeof window.AddScore === 'function') {
+            var currentScore = window.GetScore();
+            if (newScore > currentScore) {
+                window.AddScore(newScore - currentScore);
+            }
+        }
+    };
 
     socket.on('update_stats', (stats) => {
         if (typeof window.NetworkSetScore === 'function') {
@@ -180,15 +191,20 @@ function initNetwork() {
             window.g_score = stats.score;
         }
         
-        if (window.GhostRPG && window.GhostRPG.stats) {
+        if (window.GhostRPG) {
+            if (!window.GhostRPG.stats) window.GhostRPG.stats = { xp: 0, level: 1 };
             if (stats.xp > window.GhostRPG.stats.xp) {
                 if (typeof window.GhostRPG.addXp === 'function') {
                     window.GhostRPG.addXp(stats.xp - window.GhostRPG.stats.xp);
+                } else {
+                    window.GhostRPG.stats.xp = stats.xp;
+                    window.GhostRPG.stats.level = stats.level;
                 }
             } else {
                 window.GhostRPG.stats.xp = stats.xp;
                 window.GhostRPG.stats.level = stats.level;
             }
+            if (typeof window.RenderRPGStatusDrawer === 'function') window.RenderRPGStatusDrawer();
         }
     });
 

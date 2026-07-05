@@ -94,6 +94,12 @@ class CombatSystem {
         const state = this.players.get(playerId);
         if (!state) return false;
         
+        const now = Date.now();
+        if (state.lastDamageTime && now - state.lastDamageTime < 1000) {
+            return { dead: false, state };
+        }
+        state.lastDamageTime = now;
+
         state.hp -= amount;
         if (state.hp <= 0) {
             state.hp = 0;

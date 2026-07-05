@@ -2956,70 +2956,14 @@ var g_binaryBits = [];
 			}
 
 			function drawOtherPlayers() {
-				if (window.NetworkState && window.NetworkState.frameBuffer && window.NetworkState.frameBuffer.length >= 2) {
-					var now = Date.now();
-					var renderTime = now - 100;
-					var frames = window.NetworkState.frameBuffer;
-					var f0 = null, f1 = null;
-					for (var i = 0; i < frames.length - 1; i++) {
-						if (frames[i].timestamp <= renderTime && frames[i+1].timestamp >= renderTime) {
-							f0 = frames[i];
-							f1 = frames[i+1];
-							break;
-						}
-					}
-					if (!f0 && frames.length > 0) {
-						f0 = frames[frames.length - 1];
-						f1 = frames[frames.length - 1];
-					}
-					if (f0 && f1) {
-						var t = 0;
-  						if (f1.timestamp > f0.timestamp) {
-  							t = (renderTime - f0.timestamp) / (f1.timestamp - f0.timestamp);
-  							t = Math.max(0, Math.min(1, t));
-  						}
-  						Object.keys(f0.players || {}).forEach(function(pid) {
-  							if (window.NetworkState.playerId && pid === window.NetworkState.playerId) return; // Self
-  							
-  							var p0 = f0.players[pid];
-							if (!p0 || !p0.position) return;
-							var pLevel = p0.position.level || 'level 1';
-							if (typeof g_currentLevel !== 'undefined' && String(pLevel).replace('level ', '') !== String(g_currentLevel).replace('level ', '')) return;
-  							
-  							var p1 = f1.players && f1.players[pid];
-  							var interpX = p0.position.x;
-  							var interpY = p0.position.y;
-  							var isFacingRight = (typeof p0.position.isFacingRight !== 'undefined') ? p0.position.isFacingRight : true;
-  							
-  							if (p1 && p1.position) {
-  								interpX = p0.position.x + (p1.position.x - p0.position.x) * t;
-  								interpY = p0.position.y + (p1.position.y - p0.position.y) * t;
-  								if (typeof p1.position.isFacingRight !== 'undefined' && t > 0.5) isFacingRight = p1.position.isFacingRight;
-  							}
-  							
-  							var sprite = isFacingRight ? desoGhostRight : desoGhostLeft;
-  							
-  							g_ctx.globalAlpha = 0.5;
-  							g_ctx.drawImage(sprite, interpX + map_offset, interpY, 24, 24);
-  							g_ctx.globalAlpha = 1.0;
-  							
-  							if (window.NetworkState.playerNames && window.NetworkState.playerNames[pid]) {
-  								g_ctx.fillStyle = "#00FFCC";
-  								g_ctx.font = "10px Arial";
-  								g_ctx.textAlign = "center";
-  								g_ctx.fillText(window.NetworkState.playerNames[pid], interpX + map_offset + 12, interpY - 10);
-  							}
-  						});
-					}
-				} else if (window.NetworkState && window.NetworkState.otherPlayers) {
-					// Fallback for non-interpolated
+				if (window.NetworkState && window.NetworkState.otherPlayers) {
 					for (var id in window.NetworkState.otherPlayers) {
 						if (id === window.NetworkState.playerId) continue;
 						var pos = window.NetworkState.otherPlayers[id];
 						if (pos) {
 							var pLevel = pos.level || 'level 1';
 							if (typeof g_currentLevel !== 'undefined' && String(pos.level || 'level 1').replace('level ', '') !== String(g_currentLevel).replace('level ', '')) continue;
-							var sprite = desoGhostRight; // Basic fallback
+							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
 							g_ctx.globalAlpha = 0.5;
 							g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
 							g_ctx.globalAlpha = 1.0;
@@ -3033,7 +2977,6 @@ var g_binaryBits = [];
 						}
 					}
 				}
-			}
 
 			function Game_Step_Render() {
 				var extTimer = document.getElementById("externalTimer");
