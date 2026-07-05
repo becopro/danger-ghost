@@ -2984,7 +2984,7 @@ var g_binaryBits = [];
 						var pos = window.NetworkState.otherPlayers[id];
 						if (pos) {
 							var pLevel = pos.level || 'level 1';
-							if (typeof g_currentLevel !== 'undefined' && String(pos.level || 'level 1').replace('level ', '') !== String(g_currentLevel).replace('level ', '')) continue;
+							// Removed level restriction to force visibility
 							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
 							g_ctx.globalAlpha = 0.5;
 							g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
@@ -3985,4 +3985,5 @@ var g_binaryBits = [];
 			window.DrawWinScreen = DrawWinScreen;
 			})(); // Fecha IIFE Caixa Preta
 		
+
 
