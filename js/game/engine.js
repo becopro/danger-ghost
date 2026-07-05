@@ -1916,11 +1916,13 @@
 					if (stats && stats.name) charName = stats.name;
 				}
 				if (charName.length > 12) charName = charName.substring(0, 10) + "..";
+				g_ctx.textAlign = "left";
 				g_ctx.fillText(charName, 10, g_canvas.height - 10);
 				var nameWidth = g_ctx.measureText(charName).width;
 				var livesX = 10 + nameWidth + 8;
 				g_ctx.drawImage(DeSoGhost_Lives, livesX, g_canvas.height - 25, 24, 24);
-				g_ctx.fillText("X " + DeSoGhost.lives, livesX + 26, g_canvas.height - 8);
+				var ghostLives = typeof DeSoGhost !== 'undefined' && DeSoGhost ? DeSoGhost.lives : 3;
+				g_ctx.fillText("X " + ghostLives, livesX + 26, g_canvas.height - 8);
 
 				
 				// Pontos e Nível no topo (Mudado para Roxo)
@@ -1947,11 +1949,6 @@
 					}
 				}
 
-				// Boss HUD health bar has been removed to only show above the enemy's head.
-				
-
-
-
 				// Game logo in the bottom right corner of canvas
 				if (logoImage.complete && logoImage.naturalWidth > 0) {
 					g_ctx.drawImage(logoImage, g_canvas.width - 48 - 10, g_canvas.height - 48 - 10, 48, 48);
@@ -1959,14 +1956,19 @@
 
 				// Barra de Mana
 				var manaX = Math.max(210, livesX + 70);
+				var hudCenterY = g_canvas.height - 17;
 				g_ctx.font = "bold 14px 'Courier New'"; g_ctx.fillStyle = "#00E5FF";
+				g_ctx.textAlign = "left";
 				g_ctx.fillText("MANA:", manaX, g_canvas.height - 10);
 				
 				g_ctx.strokeStyle = "rgba(0, 229, 255, 0.4)";
 				g_ctx.lineWidth = 1.5;
 				g_ctx.strokeRect(manaX + 45, g_canvas.height - 21, 110, 12);
 				
-				var fillWidth = DeSoGhost.maxMana > 0 ? (DeSoGhost.mana / DeSoGhost.maxMana) * 108 : 0;
+				var currMana = typeof DeSoGhost !== 'undefined' && DeSoGhost ? DeSoGhost.mana : 0;
+				var maxMana = typeof DeSoGhost !== 'undefined' && DeSoGhost && DeSoGhost.maxMana > 0 ? DeSoGhost.maxMana : 100;
+				var fillWidth = (currMana / maxMana) * 108;
+				
 				if (fillWidth > 0) {
 					var grad = g_ctx.createLinearGradient(manaX + 46, 0, manaX + 46 + fillWidth, 0);
 					grad.addColorStop(0, "#0052D4");
@@ -1975,23 +1977,19 @@
 					g_ctx.fillStyle = grad;
 					g_ctx.fillRect(manaX + 46, g_canvas.height - 20, fillWidth, 10);
 				}
-				
-				g_ctx.font = "9px 'Courier New'"; g_ctx.fillStyle = "#FFFFFF";
-				g_ctx.textAlign = "center";
-					g_ctx.fillRect(manaX, hudCenterY - 8, fillW, 16);
-				}
 
 				// Texto da Mana
 				g_ctx.textAlign = "center";
 				g_ctx.fillStyle = "#FFFFFF";
 				g_ctx.font = "bold 11px 'Segoe UI', sans-serif";
-				g_ctx.fillText(Math.floor(currMana) + " / " + Math.floor(maxMana), manaX + manaWidth/2, hudCenterY);
+				g_ctx.fillText(Math.floor(currMana) + " / " + Math.floor(maxMana), manaX + 45 + 55, g_canvas.height - 11);
 
 				// 3. RIGHT: 4 Magic Slots
 				var slotKeys = ["V", "F", "E", "R"];
 				var stats = window.GhostRPG ? window.GhostRPG.getStats() : {};
 				if (!stats.equippedSkills) stats.equippedSkills = [0, 0, 0, 0];
-				if (!DeSoGhost.skillCooldowns) DeSoGhost.skillCooldowns = [0, 0, 0, 0];
+				
+				var skillCooldowns = typeof DeSoGhost !== 'undefined' && DeSoGhost && DeSoGhost.skillCooldowns ? DeSoGhost.skillCooldowns : [0, 0, 0, 0];
 				
 				var skillColors = ["#00FFFF", "#FF00FF", "#FF7700", "#D500F9"];
 				var skillInitials = ["S", "G", "P", "F"];
@@ -2011,7 +2009,7 @@
 					g_ctx.fillRect(sX, sY, slotSize, slotSize);
 
 					// Borda do Slot (Neon)
-					var cd = DeSoGhost.skillCooldowns[i] || 0;
+					var cd = skillCooldowns[i] || 0;
 					g_ctx.strokeStyle = cd > 0 ? "#FF0055" : "#00FFFF";
 					g_ctx.lineWidth = 1.5;
 					g_ctx.strokeRect(sX, sY, slotSize, slotSize);
