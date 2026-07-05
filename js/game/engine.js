@@ -1940,6 +1940,15 @@
 				if (charName.length > 12) charName = charName.substring(0, 10) + "..";
 				g_ctx.textAlign = "left";
 				g_ctx.fillText(charName, 10, g_canvas.height - 10);
+				
+				// Debug Multiplayer
+				var onlineCount = 1;
+				if (window.NetworkState && window.NetworkState.otherPlayers) {
+					onlineCount += Object.keys(window.NetworkState.otherPlayers).length;
+				}
+				g_ctx.fillStyle = "#FF00FF";
+				g_ctx.font = "bold 14px Arial";
+				g_ctx.fillText("Online: " + onlineCount, 10, g_canvas.height - 35);
 				var nameWidth = g_ctx.measureText(charName).width;
 				var livesX = 10 + nameWidth + 8;
 				g_ctx.drawImage(DeSoGhost_Lives, livesX, g_canvas.height - 25, 24, 24);
