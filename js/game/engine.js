@@ -1007,6 +1007,9 @@
 							if (window.emitKillBoss) {
 								window.emitKillBoss(this.id || 0);
 							}
+							if (typeof GhostRPG !== 'undefined' && GhostRPG.addXp) {
+								GhostRPG.addXp(Math.floor(this.maxHp * 5));
+							}
 							if (this.type === "skull") {
 								if (typeof spawnCave1Diamonds === 'function') spawnCave1Diamonds();
 							}
@@ -1067,6 +1070,14 @@
 					if (this.xPos < 0) { this.xPos = 0; this.dir = 1; }
 					var maxLimit = 2400 - this.width;
 					if (this.xPos > maxLimit) { this.xPos = maxLimit; this.dir = -1; }
+
+					if (DeSoGhost.alive && !DeSoGhost.ghostMode && DeSoGhost.phantomFormTimer <= 0) {
+						if (this.xPos < DeSoGhost.xPos + 24 && this.xPos + this.width > DeSoGhost.xPos &&
+							this.yPos < DeSoGhost.yPos + 24 && this.yPos + this.height > DeSoGhost.yPos) {
+							DeSoGhost.alive = false;
+							if (window.emitBossCollision) window.emitBossCollision();
+						}
+					}
 				};
 
 			}
