@@ -1437,7 +1437,7 @@
 					}
 
 					if (window.emitPlayerMove) {
-						window.emitPlayerMove(this.xPos, this.yPos, this.face === 1, 'idle');
+						window.emitPlayerMove(this.xPos, this.yPos, this.face === 1, 'idle', g_currentLevel);
 					}
 				};
 

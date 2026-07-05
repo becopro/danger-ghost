@@ -149,7 +149,7 @@ function initNetwork() {
         
         data.timestamp = Date.now();
         window.NetworkState.frameBuffer.push(data);
-        if (window.NetworkState.frameBuffer.length > 3) {
+        if (window.NetworkState.frameBuffer.length > 10) {
             window.NetworkState.frameBuffer.shift();
         }
     });
