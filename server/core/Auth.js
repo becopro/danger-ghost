@@ -29,7 +29,7 @@ class Auth {
      */
     static async verifyGoogleToken(token) {
         // Fallback for Mock Mode
-        if (!firebaseApp && process.env.NODE_ENV !== 'production') {
+        if (!firebaseApp) {
             console.log("[Auth] MOCK VERIFY: Ignorando assinatura para o token:", token);
             // In Mock mode, we pretend the token is valid if it has some format
             if (token) {

@@ -27,12 +27,40 @@ function initNetwork() {
         window.NetworkState.connected = true;
     });
 
+    socket.on('connect_error', (err) => {
+        console.warn("[Network] Connection Error (backend may be sleeping):", err.message);
+        var btn = document.getElementById("btnNavLogin");
+        if (btn && btn.innerText === "CONNECTING...") {
+            btn.innerText = "🔑 LOGIN";
+            btn.disabled = false;
+            alert("Backend offline ou acordando. Tente novamente em alguns segundos.");
+        }
+    });
+
     window.JoinGameServer = function(token) {
         const playerName = localStorage.getItem('playerName') || 'Ghost';
+        
+        if (!window.NetworkState.connected) {
+            console.log("[Network] Socket not connected yet, emitting join_game will be queued.");
+            var btn = document.getElementById("btnNavLogin");
+            if (btn) btn.innerText = "CONNECTING (WAKING UP SERVER)...";
+        }
+        
         socket.emit('join_game', { playerName: playerName, token: token });
+        
+        // Timeout to release the button if no auth_success or auth_failed is received
+        window.NetworkState.authTimeout = setTimeout(() => {
+            var btn = document.getElementById("btnNavLogin");
+            if (btn && (btn.innerText === "CONNECTING..." || btn.innerText === "CONNECTING (WAKING UP SERVER)...")) {
+                btn.innerText = "🔑 LOGIN";
+                btn.disabled = false;
+                alert("Tempo limite esgotado ao tentar logar. O servidor pode estar dormindo (Render). Tente novamente.");
+            }
+        }, 15000);
     };
 
     socket.on('auth_success', (data) => {
+        if (window.NetworkState.authTimeout) clearTimeout(window.NetworkState.authTimeout);
         console.log("[Network] Auth Success! Game State:", data.gameState);
         if (window.GhostRPG && window.GhostRPG.loadServerState) {
             window.GhostRPG.loadServerState(data.gameState);
@@ -61,6 +89,7 @@ function initNetwork() {
     });
 
     socket.on('auth_failed', (data) => {
+        if (window.NetworkState.authTimeout) clearTimeout(window.NetworkState.authTimeout);
         console.error("[Network] Auth Failed:", data.message);
         alert("Login failed: " + data.message);
         var btn = document.getElementById("btnNavLogin");
