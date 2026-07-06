@@ -84,6 +84,7 @@
 
     <!-- Section 1: The Game (Canvas Area) -->
     <section id="game-section">
+        <h2 style="text-align: center; color: var(--cyan-neon); font-family: var(--font-title); font-size: 24px; text-transform: uppercase; margin: 0 0 15px 0; letter-spacing: 2px; text-shadow: 0 0 10px var(--cyan-neon);">Episode 1 <span style="color: #fff; text-shadow: none; font-size: 16px; margin-left: 10px;">The first dungeon!</span></h2>
         <div class="canvas-container">
             <!-- Canvas Principal -->
             <canvas id="myCanvas" width="640" height="300"></canvas>
@@ -991,6 +992,16 @@
 
             <button onclick="document.getElementById('playerProfileModal').style.display='none';" style="padding: 10px 20px; background: #00FFFF; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; text-transform: uppercase;">CLOSE</button>
         </div>
+    </div>    <!-- Google Auth & Cloud Save Modal -->
+    <div id="loadingModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; align-items: center; justify-content: center; flex-direction: column;">
+        <div style="width: 50px; height: 50px; border: 5px solid #00FFFF; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        <h2 style="color: #00FFFF; font-family: 'Courier New', monospace; margin-top: 20px;">Buscando progresso...</h2>
+        <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
     </div>
+
+    <!-- Scripts de Autenticação -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="js/web2/auth.js"></script>
+
 </body>
 </html>
