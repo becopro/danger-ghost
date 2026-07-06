@@ -5,7 +5,9 @@
   "main": "index.html",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "node server/index.js",
+    "backend": "node server/index.js",
+    "frontend": "npx http-server -p 8080 -c-1",
+    "dev": "npx concurrently \"npm run backend\" \"npm run frontend\"",
     "electron": "electron .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -25,6 +27,7 @@
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
+    "concurrently": "^10.0.3",
     "electron": "^34.0.0"
   }
 }

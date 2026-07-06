@@ -1,5 +1,5 @@
 const io = require('socket.io-client');
-const url = 'http://localhost:3000';
+const url = 'https://danger-ghost.onrender.com';
 let connected = 0;
 
 function createClient(name) {

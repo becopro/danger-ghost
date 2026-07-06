@@ -1949,6 +1949,8 @@
 				g_ctx.fillStyle = "#FF00FF";
 				g_ctx.font = "bold 14px Arial";
 				g_ctx.fillText("Online: " + onlineCount, 10, g_canvas.height - 35);
+				
+				g_ctx.font = "bold 18px 'Courier New'";
 				var nameWidth = g_ctx.measureText(charName).width;
 				var livesX = 10 + nameWidth + 8;
 				g_ctx.drawImage(DeSoGhost_Lives, livesX, g_canvas.height - 25, 24, 24);
@@ -1978,11 +1980,6 @@
 						extTimer.style.color = "#FFFFFF";
 						extTimer.style.textShadow = "0 0 10px #FFFFFF";
 					}
-				}
-
-				// Game logo in the bottom right corner of canvas
-				if (logoImage.complete && logoImage.naturalWidth > 0) {
-					g_ctx.drawImage(logoImage, g_canvas.width - 48 - 10, g_canvas.height - 48 - 10, 48, 48);
 				}
 
 				// Barra de Mana
