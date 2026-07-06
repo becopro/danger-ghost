@@ -1259,6 +1259,16 @@ body {
     transform: scale(1.1);
 }
 
+.youtube-link:hover {
+    color: #FF0000 !important;
+    text-shadow: 0 0 8px #FF0000;
+    border-color: #FF0000 !important;
+    background: rgba(255, 0, 0, 0.05) !important;
+}
+.youtube-link:hover .social-svg {
+    transform: scale(1.1);
+}
+
 .twitter-link:hover {
     color: #ffffff !important;
     text-shadow: 0 0 8px #ffffff;
