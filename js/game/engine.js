@@ -3289,14 +3289,6 @@ var g_binaryBits = [];
 					}
 				}
 				if (e.keyCode == 80) { // P (Passwords)
-					// Bypass inteligente de VIP em desenvolvimento local ou staging para facilitar testes
-					var isLocal = window.location.hostname === "localhost" || 
-								  window.location.hostname === "127.0.0.1";
-								  
-					if (!window.g_hasCreatorCoin && !isLocal) {
-						alert("⚠️ ACCESS DENIED (TOKEN-GATING): This feature is exclusively for $DangerGhost Coin Holders! Buy our Creator Coin on DeSo with your logged in wallet to unlock Passwords.");
-						return;
-					}
 					var pw = prompt("ENTER VIP PASSWORD");
 					if (pw) {
 						var pwLower = pw.toLowerCase();
