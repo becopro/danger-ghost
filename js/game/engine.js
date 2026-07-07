@@ -207,8 +207,17 @@
 			var bgMusic = new Audio('assets/sprites/Ghostly Quest 8-Bit.mp3');
 			bgMusic.loop = true;
 			var g_musicStarted = false;
-			// Tenta autoplay (pode ser bloqueado pelo navegador sem interação prévia)
-			var p = bgMusic.play(); if (p !== undefined) { p.catch(function(e){}); }
+			
+			function PlayBGM() {
+				if (!g_musicStarted) {
+					var p = bgMusic.play();
+					if (p !== undefined) {
+						p.catch(function(e){});
+					}
+					g_musicStarted = true;
+				}
+			}
+			window.PlayBGM = PlayBGM;
 			
 			function ToggleMute() {
 				var btn = document.getElementById("muteBtn");
@@ -2292,6 +2301,9 @@
 				video.pause();
 				video.style.display = "none";
 				ResetGame(g_cutsceneTargetLevel, g_cutscenePreserve);
+				if (typeof PlayBGM === "function") {
+					PlayBGM();
+				}
 			}
 
 			// --- DESO WEB3 INTEGRATION ---
@@ -3122,7 +3134,7 @@ var g_binaryBits = [];
 					return;
 				}
 				
-				if (!g_musicStarted) {
+				if (!g_musicStarted && g_gameState !== G_START && g_gameState !== G_CUTSCENE) {
 					var p = bgMusic.play();
 					if (p !== undefined) {
 						p.catch(function(err){});
