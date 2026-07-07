@@ -3255,10 +3255,10 @@ var g_binaryBits = [];
 					if (g_gameState == G_START) {
 						if (!window.NetworkState || !window.NetworkState.connected) {
 							console.log('Playing locally or offline (Guest Mode).');
+							window.g_isGuestRun = true;
 						}
 						var menu = document.getElementById("loginButtonsContainer");
 						if (menu) menu.style.display = "none";
-						window.g_isGuestRun = false;
 						StartCutscene();
 					} else if (g_gameState == G_CUTSCENE) {
 						EndCutscene();
