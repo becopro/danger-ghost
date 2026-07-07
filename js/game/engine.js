@@ -2278,18 +2278,19 @@
                 g_cutsceneTargetLevel = targetLevel || 1;
                 g_cutscenePreserve = !!preserve;
 				SetGameState(G_CUTSCENE);
-				var gif = document.getElementById("cutsceneGif");
-				gif.src = "";
-				gif.src = "assets/sprites/Dream 36.gif"; // Reinicia a animação no navegador
-				gif.style.display = "block";
+				var video = document.getElementById("openingCutsceneVideo");
+				video.style.display = "block";
+				video.currentTime = 0;
+				video.play().catch(e => console.log("Auto-play blocked:", e));
 				g_cutsceneTimer = setTimeout(EndCutscene, 9000);
 			}
 
 			function EndCutscene() {
 				if (g_gameState != G_CUTSCENE) return;
 				clearTimeout(g_cutsceneTimer);
-				var gif = document.getElementById("cutsceneGif");
-				gif.style.display = "none";
+				var video = document.getElementById("openingCutsceneVideo");
+				video.pause();
+				video.style.display = "none";
 				ResetGame(g_cutsceneTargetLevel, g_cutscenePreserve);
 			}
 
