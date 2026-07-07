@@ -3253,8 +3253,7 @@ var g_binaryBits = [];
 					e.preventDefault();
 					if (g_gameState == G_START) {
 						if (!window.NetworkState || !window.NetworkState.connected) {
-							alert('Acesso Restrito: Por favor, faça login com o Google usando o botão na barra superior (LOGIN) para jogar!');
-							return;
+							console.log('Playing locally or offline (Guest Mode).');
 						}
 						var menu = document.getElementById("loginButtonsContainer");
 						if (menu) menu.style.display = "none";
