@@ -94,6 +94,21 @@
             </button>
             <button id="muteBtn" onclick="ToggleMute()" style="position: absolute; right: 0px; top: -45px; font-size: 30px; background: none; border: none; cursor: pointer; padding: 0; outline: none; text-shadow: 0 0 5px #00FFFF;" title="Mute/Unmute">🔊</button>
 
+            <!-- Controles Touch para Mobile -->
+            <div id="mobileControlsContainer">
+                <div class="mobile-btn-group left-group">
+                    <button id="touchLeftBtn" class="touch-btn">◀</button>
+                    <button id="touchRightBtn" class="touch-btn">▶</button>
+                </div>
+                <div class="mobile-btn-group center-group">
+                    <button id="touchStartBtn" class="touch-btn start-btn">START ⏸</button>
+                </div>
+                <div class="mobile-btn-group right-group">
+                    <button id="touchSpellBtn" class="touch-btn action-btn">🔥</button>
+                    <button id="touchJumpBtn" class="touch-btn action-btn">▲</button>
+                </div>
+            </div>
+
             <!-- Painel Esquerdo (RPG & Status) -->
             <div id="rpgPanel" class="overlay-panel panel-left" style="display: none;">
                 <div id="rpgPanelContent"></div>
@@ -133,6 +148,15 @@
             <label for="charNameInput" style="color: var(--cyan-neon); font-weight: bold; text-shadow: 0 0 5px var(--cyan-neon); font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">Character Name:</label>
             <input type="text" id="charNameInput" placeholder="Enter Ghost Name..." maxlength="15" style="background: #000; color: #FFF; border: 1px solid var(--border-light); padding: 6px 12px; font-family: 'Courier New', monospace; font-size: 13px; outline: none; border-radius: 2px; width: 180px; box-sizing: border-box; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--cyan-neon)'" onblur="this.style.borderColor='var(--border-light)'" />
             <button id="saveCharNameBtn" onclick="SaveCharacterName()" style="background: rgba(0, 0, 0, 0.8); border: 1.5px solid var(--cyan-neon); color: var(--cyan-neon); font-family: 'Courier New', monospace; font-weight: bold; font-size: 13px; cursor: pointer; padding: 6px 20px; border-radius: 2px; text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s ease-in-out;" onmouseover="this.style.background='var(--cyan-neon)'; this.style.color='#000'; this.style.boxShadow='0 0 10px var(--cyan-neon)';" onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='var(--cyan-neon)'; this.style.boxShadow='none';">Save</button>
+        </div>
+        
+        <!-- Mobile App Download Area -->
+        <div style="display: flex; justify-content: center; align-items: center; margin-top: 15px;">
+            <a href="mobile_app_download_link_here" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
+                <button id="downloadMobileBtn" style="background: rgba(0, 0, 0, 0.8); border: 2px solid #FF00FF; color: #FF00FF; font-family: 'Courier New', monospace; font-weight: bold; font-size: 16px; cursor: pointer; padding: 12px 30px; border-radius: 6px; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 15px rgba(255, 0, 255, 0.2); transition: all 0.2s ease-in-out;" onmouseover="this.style.background='#FF00FF'; this.style.color='#000'; this.style.boxShadow='0 0 20px #FF00FF';" onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='#FF00FF'; this.style.boxShadow='0 0 15px rgba(255, 0, 255, 0.2)';">
+                    📱 DOWNLOAD DANGER GHOST MOBILE APP
+                </button>
+            </a>
         </div>
         
         <!-- Leaderboard Modal (Hidden by default) -->
@@ -263,6 +287,54 @@
             if (input) {
                 input.value = savedName;
             }
+            
+            // BIND TOUCH CONTROLS FOR MOBILE DEVICES
+            function setupTouchButton(id, keyCode) {
+                var btn = document.getElementById(id);
+                if (!btn) return;
+                
+                function triggerStart(e) {
+                    e.preventDefault();
+                    var event = new KeyboardEvent('keydown', {
+                        keyCode: keyCode,
+                        which: keyCode,
+                        bubbles: true
+                    });
+                    window.dispatchEvent(event);
+                }
+                
+                function triggerEnd(e) {
+                    e.preventDefault();
+                    var event = new KeyboardEvent('keyup', {
+                        keyCode: keyCode,
+                        which: keyCode,
+                        bubbles: true
+                    });
+                    window.dispatchEvent(event);
+                }
+                
+                btn.addEventListener('touchstart', triggerStart, { passive: false });
+                btn.addEventListener('touchend', triggerEnd, { passive: false });
+                btn.addEventListener('touchcancel', triggerEnd, { passive: false });
+                
+                // Fallbacks for testing in desktop browser responsive simulator
+                btn.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    var event = new KeyboardEvent('keydown', { keyCode: keyCode, which: keyCode, bubbles: true });
+                    window.dispatchEvent(event);
+                });
+                btn.addEventListener('mouseup', function(e) {
+                    e.preventDefault();
+                    var event = new KeyboardEvent('keyup', { keyCode: keyCode, which: keyCode, bubbles: true });
+                    window.dispatchEvent(event);
+                });
+            }
+            
+            setupTouchButton('touchLeftBtn', 37);  // Left Arrow
+            setupTouchButton('touchRightBtn', 39); // Right Arrow
+            setupTouchButton('touchJumpBtn', 38);  // Up Arrow (Jump)
+            setupTouchButton('touchSpellBtn', 49); // '1' key (Cast Spell 1)
+            setupTouchButton('touchStartBtn', 32); // SPACE key (Start/Pause)
         });
     </script>
 
