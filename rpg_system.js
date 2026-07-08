@@ -432,13 +432,21 @@ var GhostRPG = (function() {
         },
         saveLocalStorage: function() {
             try {
+                // Cloud Save logic (Google Auth)
+                if (window.g_socket && window.g_socket.connected && window.cloudSave) {
+                    window.g_socket.emit('save_game_state', state);
+                }
+
                 var dataToSave = JSON.stringify(state);
                 var encrypted = (window.SafeBtoa || btoa)(dataToSave + "||" + rpgAntiCheat.hash);
                 localStorage.setItem("DangerGhost_RPG_Save", encrypted);
-            } catch(e) {}
+            } catch (e) { console.error("Save falhou", e); }
         },
         loadLocalStorage: function() {
             try {
+                if (window.cloudSave) {
+                    return this.applyCloudSave(window.cloudSave);
+                }
                 var saved = localStorage.getItem("DangerGhost_RPG_Save");
                 if (saved) {
                     var decrypted = (window.SafeAtob || atob)(saved);
@@ -465,11 +473,37 @@ var GhostRPG = (function() {
                         });
                     }
                     
+                    if (typeof state.deaths === 'undefined') state.deaths = 0;
                     state.xpRequired = calculateXpRequired(state.level);
                     updateIntegrityHash();
                 }
-            } catch(e) { this.resetStats(); }
+                console.log("[RPG] Status carregado do LocalStorage.");
+            } catch (e) {
+                console.warn("[RPG] Nenhum save encontrado ou corrompido, usando default.");
+                this.resetStats();
+            }
         },
+
+        applyCloudSave: function(cloudData) {
+            try {
+                state.name = cloudData.name || "Ghost";
+                state.level = parseInt(cloudData.level) || 1;
+                state.xp = parseFloat(cloudData.xp) || 0;
+                state.mana = parseFloat(cloudData.mana) || 100;
+                state.maxMana = parseFloat(cloudData.maxMana) || 100;
+                state.lives = parseInt(cloudData.lives) || 3;
+                state.equippedSkills = Array.isArray(cloudData.equippedSkills) ? cloudData.equippedSkills : [0,0,0,0];
+                
+                // Recalculates stats based on the new level
+                state.xpRequired = calculateXpRequired(state.level);
+                
+                updateIntegrityHash();
+                console.log("[RPG] Status carregado da Nuvem (Cloud Save)!");
+            } catch (e) {
+                console.error("[RPG] Erro ao aplicar Cloud Save", e);
+            }
+        },
+
         loadBlockchainState: function(lvl, vit, agi, int, pow, characterId, xp, pointsToDistribute, mag, equippedSkills, equippedRunes, equippedPassives, weapon, inventory, equipment) {
             var maxLevel = 100000000000;
             

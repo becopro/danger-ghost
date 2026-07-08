@@ -1832,6 +1832,183 @@ body {
     opacity: 1;
 }
 
+/* Controles Touch Mobile default (escondidos em desktops) */
+#mobileControlsContainer {
+    display: none;
+    position: absolute;
+    bottom: 10px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    justify-content: space-between;
+    padding: 0 15px;
+    box-sizing: border-box;
+    pointer-events: none; /* Deixa cliques vazios passarem para o Canvas */
+    z-index: 450;
+}
+
+.mobile-btn-group {
+    display: flex;
+    gap: 15px;
+    pointer-events: auto; /* Permite interações de toque nos botões */
+    align-items: flex-end;
+}
+
+.touch-btn {
+    width: 60px;
+    height: 60px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid var(--cyan-neon);
+    color: var(--cyan-neon);
+    font-size: 24px;
+    font-weight: bold;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+    outline: none;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+}
+
+.touch-btn:active {
+    background: var(--cyan-neon);
+    color: #000;
+    box-shadow: 0 0 15px var(--cyan-neon);
+}
+
+.touch-btn.start-btn {
+    width: auto;
+    height: 45px;
+    padding: 0 15px;
+    border-radius: 8px;
+    font-size: 14px;
+    border-color: var(--yellow-neon);
+    color: var(--yellow-neon);
+    box-shadow: 0 0 10px rgba(255, 255, 0, 0.2);
+}
+
+.touch-btn.start-btn:active {
+    background: var(--yellow-neon);
+    color: #000;
+    box-shadow: 0 0 15px var(--yellow-neon);
+}
+
+.touch-btn.action-btn {
+    border-color: var(--magenta-neon);
+    color: var(--magenta-neon);
+    box-shadow: 0 0 10px rgba(255, 0, 255, 0.2);
+}
+
+.touch-btn.action-btn:active {
+    background: var(--magenta-neon);
+    color: #000;
+    box-shadow: 0 0 15px var(--magenta-neon);
+}
+
+/* =========================================================
+   MOBILE RESPONSIVENESS & TOUCH HUD ADAPTATION
+   ========================================================= */
+
+@media (max-width: 1024px) {
+    .site-header {
+        padding: 10px 20px;
+    }
+    .neon-title {
+        font-size: 24px !important;
+        letter-spacing: 3px;
+    }
+}
+
+@media (max-width: 768px) {
+    #mobileControlsContainer {
+        display: flex;
+    }
+    .site-header {
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px 10px;
+    }
+    .header-logo {
+        justify-content: center;
+    }
+    .neon-title {
+        font-size: 20px !important;
+        letter-spacing: 2px;
+    }
+    #gameNavbar {
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    #gameNavbar button {
+        padding: 6px 12px !important;
+        font-size: 11px !important;
+        letter-spacing: 1px;
+    }
+    #game-section {
+        padding: 20px 10px;
+    }
+    .canvas-container {
+        width: 100%;
+        max-width: 640px;
+    }
+    #myCanvas {
+        width: 100% !important;
+        height: auto !important;
+    }
+    /* Make overlay panels cover the whole canvas area on mobile */
+    .overlay-panel {
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        top: 0 !important;
+        bottom: 0 !important;
+        z-index: 500 !important;
+    }
+    .panel-left, .panel-right {
+        border-left: 2px solid var(--cyan-neon) !important;
+        border-right: 2px solid var(--cyan-neon) !important;
+        box-shadow: 0 0 15px rgba(0, 255, 255, 0.2) !important;
+    }
+    
+    /* Character cards list responsive wrap */
+    #characterCardsContainer {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .site-header {
+        padding: 8px 5px;
+    }
+    .neon-title {
+        font-size: 18px !important;
+    }
+    #gameNavbar {
+        gap: 4px;
+    }
+    #gameNavbar button {
+        padding: 4px 8px !important;
+        font-size: 10px !important;
+    }
+    /* Character name field responsiveness */
+    #charNameInput {
+        width: 120px !important;
+    }
+    #downloadMobileBtn {
+        font-size: 13px !important;
+        padding: 10px 20px !important;
+        letter-spacing: 1px !important;
+    }
+}
+
 
 
 
