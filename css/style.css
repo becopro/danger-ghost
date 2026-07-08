@@ -1981,9 +1981,9 @@ body.is-mobile-app {
 
 /* OCULTAR TODOS OS MENUS ANTIGOS DO SITE */
 body.is-mobile-app .site-header,
-body.is-mobile-app .social-links-container,
+body.is-mobile-app .social-link-bar,
 body.is-mobile-app .episode-title,
-body.is-mobile-app .character-name-container,
+body.is-mobile-app #charNameArea,
 body.is-mobile-app #downloadMobileBtn,
 body.is-mobile-app .mobile-app-download-area,
 body.is-mobile-app #gameScreenModeBtn,
@@ -2007,20 +2007,28 @@ body.is-mobile-app #playerProfileModal {
 body.is-mobile-app #fullscreenGameArea {
     flex: none !important;
     width: 100vw !important;
-    height: 45vh !important;
+    height: 100vh !important;
     position: relative !important;
     overflow: hidden !important;
     background: #000 !important;
-    border-bottom: 4px solid #333 !important;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
 }
 
-body.is-mobile-app #game-section,
-body.is-mobile-app .canvas-container {
-    height: 100% !important;
-    width: 100% !important;
+body.is-mobile-app #game-section {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+    width: 100vw !important;
     padding: 0 !important;
     margin: 0 !important;
+}
+
+body.is-mobile-app .canvas-container {
+    height: 45vh !important;
+    width: 100vw !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-bottom: 4px solid #333 !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
 }
 
 body.is-mobile-app #myCanvas {
