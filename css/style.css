@@ -1963,183 +1963,220 @@ body {
         padding-top: max(10px, env(safe-area-inset-top));
     }
     
-    /* 2026 UI: Apenas para o App (Capacitor) */
-    body.is-mobile-app {
-        overflow: hidden; /* Previne scroll no celular */
-        background-color: #000;
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-        width: 100vw;
-    }
+} /* FECHA A MEDIA QUERY AQUI PARA DEIXAR O APP STANDALONE */
 
-    body.is-mobile-app .site-header,
-    body.is-mobile-app .social-links-container,
-    body.is-mobile-app .episode-title,
-    body.is-mobile-app .character-name-container,
-    body.is-mobile-app #downloadMobileBtn,
-    body.is-mobile-app .mobile-app-download-area,
-    body.is-mobile-app #gameScreenModeBtn,
-    body.is-mobile-app #tutorial-btn-section,
-    body.is-mobile-app #play-modes-explanation,
-    body.is-mobile-app #lore-section,
-    body.is-mobile-app #rules-section,
-    body.is-mobile-app #equipment-showcase-section,
-    body.is-mobile-app #founder-section {
-        display: none !important;
-    }
+/* ========================================================= */
+/* 2026 UI: GAMEBOY PORTRAIT LAYOUT PARA O APP (CAPACITOR)   */
+/* ========================================================= */
+body.is-mobile-app {
+    overflow: hidden !important;
+    background-color: #d1d5d8 !important; /* Gameboy light gray */
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+    width: 100vw !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
 
-    /* O Jogo fica em cima */
-    body.is-mobile-app #fullscreenGameArea {
-        flex: 1;
-        width: 100%;
-        height: 55vh;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    body.is-mobile-app #game-section,
-    body.is-mobile-app .canvas-container {
-        height: 100%;
-        width: 100%;
-    }
+/* OCULTAR TODOS OS MENUS ANTIGOS DO SITE */
+body.is-mobile-app .site-header,
+body.is-mobile-app .social-links-container,
+body.is-mobile-app .episode-title,
+body.is-mobile-app .character-name-container,
+body.is-mobile-app #downloadMobileBtn,
+body.is-mobile-app .mobile-app-download-area,
+body.is-mobile-app #gameScreenModeBtn,
+body.is-mobile-app #tutorial-btn-section,
+body.is-mobile-app #play-modes-explanation,
+body.is-mobile-app #lore-section,
+body.is-mobile-app #rules-section,
+body.is-mobile-app #equipment-showcase-section,
+body.is-mobile-app #founder-section,
+body.is-mobile-app .overlay-panel,
+body.is-mobile-app #navbarPanel,
+body.is-mobile-app #rpgPanel,
+body.is-mobile-app #chatPanel,
+body.is-mobile-app #characterSelectionOverlay,
+body.is-mobile-app #leaderboardModal,
+body.is-mobile-app #playerProfileModal {
+    display: none !important;
+}
 
-    body.is-mobile-app #myCanvas {
-        height: 100%;
-        width: auto;
-        object-fit: contain;
-        aspect-ratio: 640 / 300;
-        max-width: 100vw;
-    }
+/* O JOGO FICA NA METADE SUPERIOR */
+body.is-mobile-app #fullscreenGameArea {
+    flex: none !important;
+    width: 100vw !important;
+    height: 45vh !important;
+    position: relative !important;
+    overflow: hidden !important;
+    background: #000 !important;
+    border-bottom: 4px solid #333 !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
+}
 
-    body.is-mobile-app #mobileControlsContainer {
-        height: 45vh;
-        width: 100%;
-        background: #0d0d10;
-        display: flex;
-        flex-direction: column;
-        padding: 5px;
-        box-sizing: border-box;
-        border-top: 2px solid var(--cyan-neon);
-        position: relative !important;
-        bottom: auto !important;
-    }
+body.is-mobile-app #game-section,
+body.is-mobile-app .canvas-container {
+    height: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
 
-    .mobile-app-nav {
-        display: flex;
-        overflow-x: auto;
-        gap: 5px;
-        padding-bottom: 5px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        margin-bottom: 5px;
-    }
+body.is-mobile-app #myCanvas {
+    height: 100% !important;
+    width: 100% !important;
+    object-fit: contain !important;
+}
 
-    .mobile-app-nav button {
-        background: transparent;
-        border: 1px solid var(--cyan-neon);
-        color: var(--cyan-neon);
-        padding: 5px 8px;
-        font-family: var(--font-title);
-        font-size: 9px;
-        border-radius: 4px;
-        white-space: nowrap;
-    }
+/* CORPO DO GAMEBOY (METADE INFERIOR) */
+body.is-mobile-app #mobileControlsContainer {
+    height: 55vh !important;
+    width: 100vw !important;
+    background: #d1d5d8 !important; /* Gameboy gray */
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 10px !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+    z-index: 1000 !important;
+}
 
-    body.is-mobile-app .mobile-controls-bottom {
-        display: flex;
-        flex: 1;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-        position: relative;
-        bottom: 0;
-        padding: 0 15px;
-    }
+/* MENUS SUPERIORES DO GAMEBOY */
+body.is-mobile-app .mobile-app-nav {
+    display: flex !important;
+    overflow-x: auto !important;
+    gap: 8px !important;
+    padding-bottom: 10px !important;
+    margin-bottom: 20px !important;
+    justify-content: flex-start !important;
+}
 
-    body.is-mobile-app .mobile-btn-group {
-        display: flex;
-        gap: 5px;
-    }
+body.is-mobile-app .mobile-app-nav button {
+    background: #444 !important;
+    border: 2px solid #222 !important;
+    color: #fff !important;
+    padding: 8px 12px !important;
+    font-family: 'Courier New', monospace !important;
+    font-size: 11px !important;
+    font-weight: bold !important;
+    border-radius: 4px !important;
+    white-space: nowrap !important;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.5) !important;
+}
 
-    body.is-mobile-app .left-group {
-        align-items: center;
-    }
-    
-    body.is-mobile-app .middle-group {
-        flex-direction: column;
-        justify-content: center;
-        gap: 10px;
-    }
-    
-    body.is-mobile-app .right-group {
-        flex-direction: column;
-        gap: 5px;
-        align-items: flex-end;
-    }
+/* CONTAINER DOS CONTROLES */
+body.is-mobile-app .mobile-controls-bottom {
+    display: flex !important;
+    flex: 1 !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    position: relative !important;
+    padding: 0 10px !important;
+}
 
-    body.is-mobile-app .action-row {
-        display: flex;
-        gap: 5px;
-    }
+/* D-PAD */
+body.is-mobile-app .gb-dpad {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 5px !important;
+    align-items: center !important;
+}
 
-    body.is-mobile-app .touch-btn {
-        background: rgba(0, 0, 0, 0.6);
-        border: 2px solid var(--border-light);
-        color: #FFF;
-        font-family: var(--font-title);
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-shadow: 0 0 5px rgba(255,255,255,0.5);
-    }
-    
-    body.is-mobile-app .dpad-btn {
-        width: 50px;
-        height: 50px;
-        font-size: 20px;
-    }
+body.is-mobile-app .gb-btn-dpad {
+    width: 60px !important;
+    height: 60px !important;
+    background: #333 !important;
+    border: none !important;
+    border-radius: 5px !important;
+    color: transparent !important; /* hides original text */
+    position: relative !important;
+    box-shadow: -2px 2px 5px rgba(0,0,0,0.4), inset -2px -2px 5px rgba(255,255,255,0.1) !important;
+}
+body.is-mobile-app .gb-btn-dpad::after {
+    position: absolute !important;
+    width: 100% !important;
+    height: 100% !important;
+    top:0 !important; left:0 !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    color: #777 !important;
+    font-size: 24px !important;
+}
+body.is-mobile-app .gb-left::after { content: '◀' !important; }
+body.is-mobile-app .gb-right::after { content: '▶' !important; }
 
-    body.is-mobile-app .util-btn {
-        width: 40px;
-        height: 35px;
-        font-size: 10px;
-        border-color: var(--pink-neon);
-        color: var(--pink-neon);
-    }
+/* START / UTILS */
+body.is-mobile-app .gb-center {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 15px !important;
+    align-items: center !important;
+    position: absolute !important;
+    bottom: 20px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+}
 
-    body.is-mobile-app .spell-btn {
-        width: 45px;
-        height: 45px;
-        font-size: 12px;
-        border-color: var(--yellow-neon);
-        color: var(--yellow-neon);
-    }
+body.is-mobile-app .gb-btn-pill {
+    width: 70px !important;
+    height: 25px !important;
+    background: #666 !important;
+    border: 2px solid #444 !important;
+    border-radius: 15px !important;
+    color: #fff !important;
+    font-size: 10px !important;
+    font-family: Arial, sans-serif !important;
+    font-weight: bold !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3) !important;
+    transform: rotate(-15deg) !important;
+}
 
-    body.is-mobile-app .jump-btn {
-        width: 55px;
-        height: 55px;
-        font-size: 14px;
-        border-color: var(--cyan-neon);
-        color: var(--cyan-neon);
-        font-weight: bold;
-    }
+/* ACTION BUTTONS (DIREITA) */
+body.is-mobile-app .gb-actions {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    align-items: flex-end !important;
+}
 
-    body.is-mobile-app .centered-start {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 150px;
-        height: 60px;
-        font-size: 20px;
-        background: rgba(0, 0, 0, 0.8);
-        border: 2px solid var(--cyan-neon);
-        color: var(--cyan-neon);
-        box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-        z-index: 2000;
-        border-radius: 30px;
-    }
+body.is-mobile-app .action-row {
+    display: flex !important;
+    gap: 10px !important;
+}
+
+body.is-mobile-app .gb-btn-round {
+    width: 45px !important;
+    height: 45px !important;
+    border-radius: 50% !important;
+    background: #9d1c47 !important; /* Gameboy B/A button color */
+    border: 2px solid #5a0921 !important;
+    color: #fff !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
+    font-family: Arial, sans-serif !important;
+    box-shadow: -2px 2px 5px rgba(0,0,0,0.4), inset -2px -2px 5px rgba(255,255,255,0.2) !important;
+}
+
+body.is-mobile-app .center-jump {
+    justify-content: center !important;
+    margin-top: 5px !important;
+}
+
+body.is-mobile-app .jump-btn {
+    width: 60px !important;
+    height: 60px !important;
+    font-size: 18px !important;
+    background: #4a148c !important; /* distinct jump color */
+    border-color: #2a0b52 !important;
+}
+
+/* Ocultar o start central gigante da versão antiga */
+body.is-mobile-app .centered-start {
+    display: none !important;
+}
 
     /* REGRAS PARA O SITE (PC/Web Mobile) - Mantém o visual antigo */
     body:not(.is-mobile-app) .site-header {

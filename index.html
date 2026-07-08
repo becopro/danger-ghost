@@ -99,7 +99,7 @@
             <button id="touchStartBtn" class="touch-btn start-btn centered-start">START ⏸</button>
         </div> <!-- End of canvas-container -->
 
-        <!-- Controles Touch para Mobile (UI 2026) -->
+        <!-- Controles Touch para Mobile (Gameboy Layout) -->
         <div id="mobileControlsContainer">
             <!-- Menus Superiores do App -->
             <div id="mobileAppNavbar" class="mobile-app-nav">
@@ -114,29 +114,32 @@
             </div>
             
             <div class="mobile-controls-bottom">
-                <!-- D-PAD -->
-                <div class="mobile-btn-group left-group">
-                    <button id="touchLeftBtn" class="touch-btn action-btn dpad-btn">⬅️</button>
-                    <button id="touchRightBtn" class="touch-btn action-btn dpad-btn">➡️</button>
+                <!-- D-PAD (Esquerda) -->
+                <div class="mobile-btn-group gb-dpad">
+                    <button id="touchLeftBtn" class="touch-btn action-btn gb-btn-dpad gb-left">◀</button>
+                    <button id="touchRightBtn" class="touch-btn action-btn gb-btn-dpad gb-right">▶</button>
                 </div>
                 
-                <!-- Utility -->
-                <div class="mobile-btn-group middle-group">
-                    <button id="touchSlotFBtn" class="touch-btn action-btn util-btn">F (👻)</button>
+                <!-- Start e F (Centro Inferior) -->
+                <div class="mobile-btn-group gb-center">
+                    <button id="touchSlotFBtn" class="touch-btn action-btn gb-btn-pill">F</button>
+                    <button id="touchStartBtnPersist" class="touch-btn action-btn gb-btn-pill">START</button>
                 </div>
 
-                <!-- Ações -->
-                <div class="mobile-btn-group right-group">
+                <!-- Ações (Direita) -->
+                <div class="mobile-btn-group gb-actions">
                     <div class="action-row">
-                        <button id="touchSlotVBtn" class="touch-btn action-btn spell-btn">V(⚡)</button>
-                        <button id="touchSlotEBtn" class="touch-btn action-btn spell-btn">E(🔮)</button>
-                        <button id="touchSlotRBtn" class="touch-btn action-btn spell-btn">R(💨)</button>
+                        <button id="touchSlotVBtn" class="touch-btn action-btn gb-btn-round spell-btn">V</button>
+                        <button id="touchSlotEBtn" class="touch-btn action-btn gb-btn-round spell-btn">E</button>
+                        <button id="touchSlotRBtn" class="touch-btn action-btn gb-btn-round spell-btn">R</button>
                     </div>
                     <div class="action-row">
-                        <button id="touchSpell1Btn" class="touch-btn action-btn spell-btn">1</button>
-                        <button id="touchSpell2Btn" class="touch-btn action-btn spell-btn">2</button>
-                        <button id="touchSpell3Btn" class="touch-btn action-btn spell-btn">3</button>
-                        <button id="touchJumpBtn" class="touch-btn action-btn jump-btn">JUMP</button>
+                        <button id="touchSpell1Btn" class="touch-btn action-btn gb-btn-round spell-btn">1</button>
+                        <button id="touchSpell2Btn" class="touch-btn action-btn gb-btn-round spell-btn">2</button>
+                        <button id="touchSpell3Btn" class="touch-btn action-btn gb-btn-round spell-btn">3</button>
+                    </div>
+                    <div class="action-row center-jump">
+                        <button id="touchJumpBtn" class="touch-btn action-btn gb-btn-round jump-btn">W</button>
                     </div>
                 </div>
             </div>
@@ -367,7 +370,8 @@
             setupTouchButton('touchSpell1Btn', 49); // '1' key
             setupTouchButton('touchSpell2Btn', 50); // '2' key
             setupTouchButton('touchSpell3Btn', 51); // '3' key
-            setupTouchButton('touchStartBtn', 32);  // SPACE key (Start/Pause)
+            setupTouchButton('touchStartBtn', 32);  // SPACE key (Start/Pause original)
+            setupTouchButton('touchStartBtnPersist', 32); // SPACE key (Start/Pause persistant)
 
             setupTouchButton('touchLeftBtn', 37);   // Left Arrow
             setupTouchButton('touchRightBtn', 39);  // Right Arrow
