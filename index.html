@@ -101,17 +101,41 @@
 
         <!-- Controles Touch para Mobile (UI 2026) -->
         <div id="mobileControlsContainer">
+            <!-- Menus Superiores do App -->
+            <div id="mobileAppNavbar" class="mobile-app-nav">
+                <button onclick="LoginGoogle()">🔑 LOGIN</button>
+                <button onclick="ToggleNavbarTab('controls')">🎮 CTRL</button>
+                <button onclick="ToggleNavbarTab('rpg')">👤 STAT</button>
+                <button onclick="ToggleNavbarTab('spells')">⚡ SPL</button>
+                <button onclick="ToggleNavbarTab('bag')">🎒 BAG</button>
+                <button onclick="ToggleNavbarTab('equip')">⚔️ EQP</button>
+                <button onclick="ToggleNavbarTab('chat')">💬 CHT</button>
+                <button onclick="window.TriggerRPGSaveToDeSo()">💾 SAV</button>
+            </div>
+            
             <div class="mobile-controls-bottom">
-                <!-- D-PAD Escuro Retro -->
+                <!-- D-PAD -->
                 <div class="mobile-btn-group left-group">
                     <button id="touchLeftBtn" class="touch-btn action-btn dpad-btn">⬅️</button>
                     <button id="touchRightBtn" class="touch-btn action-btn dpad-btn">➡️</button>
                 </div>
                 
+                <!-- Utility -->
+                <div class="mobile-btn-group middle-group">
+                    <button id="touchSlotFBtn" class="touch-btn action-btn util-btn">F (👻)</button>
+                </div>
+
                 <!-- Ações -->
                 <div class="mobile-btn-group right-group">
-                    <button id="touchSpellBtn" class="touch-btn action-btn spell-btn">🔥</button>
-                    <button id="touchJumpBtn" class="touch-btn action-btn jump-btn">W (▲)</button>
+                    <div class="action-row">
+                        <button id="touchSlotVBtn" class="touch-btn action-btn spell-btn">V (⚡)</button>
+                        <button id="touchSlotEBtn" class="touch-btn action-btn spell-btn">E (🔮)</button>
+                        <button id="touchSlotRBtn" class="touch-btn action-btn spell-btn">R (💨)</button>
+                    </div>
+                    <div class="action-row">
+                        <button id="touchJumpBtn" class="touch-btn action-btn jump-btn">W (▲)</button>
+                        <button id="touchSpell1Btn" class="touch-btn action-btn spell-btn">1 (🔥)</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -337,12 +361,18 @@
                 });
             }
             
-            setupTouchButton('touchJumpBtn', 38);  // Up Arrow (Jump)
-            setupTouchButton('touchSpellBtn', 49); // '1' key (Cast Spell 1)
-            setupTouchButton('touchStartBtn', 32); // SPACE key (Start/Pause)
+            setupTouchButton('touchJumpBtn', 38);   // Up Arrow (Jump)
+            setupTouchButton('touchSpell1Btn', 49); // '1' key (Cast Spell)
+            setupTouchButton('touchStartBtn', 32);  // SPACE key (Start/Pause)
 
-            setupTouchButton('touchLeftBtn', 37);  // Left Arrow
-            setupTouchButton('touchRightBtn', 39); // Right Arrow
+            setupTouchButton('touchLeftBtn', 37);   // Left Arrow
+            setupTouchButton('touchRightBtn', 39);  // Right Arrow
+
+            setupTouchButton('touchSlotVBtn', 86);  // V key
+            setupTouchButton('touchSlotEBtn', 69);  // E key
+            setupTouchButton('touchSlotRBtn', 82);  // R key
+            setupTouchButton('touchSlotFBtn', 70);  // F key
+            setupTouchButton('touchSlotTBtn', 84);  // T key
 
             // Esconder botão START ao clicar
             var startBtn = document.getElementById('touchStartBtn');
