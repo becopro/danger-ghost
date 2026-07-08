@@ -116,8 +116,16 @@
             <div class="mobile-controls-bottom">
                 <!-- D-PAD (Esquerda) -->
                 <div class="mobile-btn-group gb-dpad">
-                    <button id="touchLeftBtn" class="touch-btn action-btn gb-btn-dpad gb-left">◀</button>
-                    <button id="touchRightBtn" class="touch-btn action-btn gb-btn-dpad gb-right">▶</button>
+                    <div class="dpad-column">
+                        <button id="touchLeftBtn" class="touch-btn action-btn gb-btn-dpad gb-left">◀</button>
+                    </div>
+                    <div class="dpad-column dpad-vertical">
+                        <button id="touchUpBtn" class="touch-btn action-btn gb-btn-dpad gb-up">▲</button>
+                        <button id="touchDownBtn" class="touch-btn action-btn gb-btn-dpad gb-down">▼</button>
+                    </div>
+                    <div class="dpad-column">
+                        <button id="touchRightBtn" class="touch-btn action-btn gb-btn-dpad gb-right">▶</button>
+                    </div>
                 </div>
                 
                 <!-- Start e F (Centro Inferior) -->
@@ -375,6 +383,8 @@
 
             setupTouchButton('touchLeftBtn', 37);   // Left Arrow
             setupTouchButton('touchRightBtn', 39);  // Right Arrow
+            setupTouchButton('touchUpBtn', 38);     // Up Arrow
+            setupTouchButton('touchDownBtn', 40);   // Down Arrow
 
             setupTouchButton('touchSlotVBtn', 86);  // V key
             setupTouchButton('touchSlotEBtn', 69);  // E key

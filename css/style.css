@@ -1999,7 +1999,9 @@ body.is-mobile-app #rpgPanel,
 body.is-mobile-app #chatPanel,
 body.is-mobile-app #characterSelectionOverlay,
 body.is-mobile-app #leaderboardModal,
-body.is-mobile-app #playerProfileModal {
+body.is-mobile-app #playerProfileModal,
+body.is-mobile-app #game-section h2,
+body.is-mobile-app #muteBtn {
     display: none !important;
 }
 
@@ -2048,25 +2050,26 @@ body.is-mobile-app #mobileControlsContainer {
     box-sizing: border-box !important;
     position: relative !important;
     z-index: 1000 !important;
+    pointer-events: auto !important; /* Habilita o toque! */
 }
 
 /* MENUS SUPERIORES DO GAMEBOY */
 body.is-mobile-app .mobile-app-nav {
     display: flex !important;
-    overflow-x: auto !important;
-    gap: 8px !important;
-    padding-bottom: 10px !important;
-    margin-bottom: 20px !important;
-    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    padding-bottom: 5px !important;
+    margin-bottom: 10px !important;
+    justify-content: center !important;
 }
 
 body.is-mobile-app .mobile-app-nav button {
     background: #444 !important;
     border: 2px solid #222 !important;
     color: #fff !important;
-    padding: 8px 12px !important;
+    padding: 6px 8px !important;
     font-family: 'Courier New', monospace !important;
-    font-size: 11px !important;
+    font-size: 10px !important;
     font-weight: bold !important;
     border-radius: 4px !important;
     white-space: nowrap !important;
@@ -2092,6 +2095,13 @@ body.is-mobile-app .gb-dpad {
     align-items: center !important;
 }
 
+body.is-mobile-app .dpad-column {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+    justify-content: center !important;
+}
+
 body.is-mobile-app .gb-btn-dpad {
     width: 60px !important;
     height: 60px !important;
@@ -2115,6 +2125,8 @@ body.is-mobile-app .gb-btn-dpad::after {
 }
 body.is-mobile-app .gb-left::after { content: '◀' !important; }
 body.is-mobile-app .gb-right::after { content: '▶' !important; }
+body.is-mobile-app .gb-up::after { content: '▲' !important; }
+body.is-mobile-app .gb-down::after { content: '▼' !important; }
 
 /* START / UTILS */
 body.is-mobile-app .gb-center {
