@@ -1963,17 +1963,62 @@ body {
         padding-top: max(10px, env(safe-area-inset-top));
     }
     
-    /* 2026 UI: Esconde o site no celular para focar 100% no jogo */
-    #navbar, .social-links-container, .episode-title, .character-name-container, #downloadMobileBtn, .mobile-app-download-area {
-        display: none !important;
-    }
-    
-    body {
+    /* 2026 UI: Apenas para o App (Capacitor) */
+    body.is-mobile-app {
         overflow: hidden; /* Previne scroll no celular */
         background-color: #000;
     }
 
-    #game-section {
+    body.is-mobile-app .social-links-container,
+    body.is-mobile-app .episode-title,
+    body.is-mobile-app .character-name-container,
+    body.is-mobile-app #downloadMobileBtn,
+    body.is-mobile-app .mobile-app-download-area {
+        display: none !important;
+    }
+
+    /* O Navbar do jogo precisa ficar flutuando e menor no app */
+    body.is-mobile-app .site-header {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        z-index: 500;
+        background: rgba(7, 7, 8, 0.7);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        padding: 5px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 5px;
+    }
+    
+    body.is-mobile-app .neon-title {
+        font-size: 14px !important;
+        margin: 0;
+    }
+    
+    body.is-mobile-app .header-logo-img {
+        width: 25px;
+        height: 25px;
+    }
+
+    body.is-mobile-app #gameNavbar {
+        gap: 5px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    body.is-mobile-app #gameNavbar button {
+        padding: 4px 8px !important;
+        font-size: 10px !important;
+        min-height: 30px;
+        border-width: 1px;
+    }
+
+    body.is-mobile-app #game-section {
         padding: 0 !important;
         margin: 0 !important;
         width: 100vw;
@@ -1983,7 +2028,7 @@ body {
         align-items: center;
     }
 
-    .canvas-container {
+    body.is-mobile-app .canvas-container {
         width: 100vw !important;
         height: 100vh !important;
         border: none !important;
@@ -1996,17 +2041,20 @@ body {
         background-color: #000;
     }
 
-    #myCanvas, #uiCanvas {
+    body.is-mobile-app #myCanvas, 
+    body.is-mobile-app #uiCanvas {
         width: 100vw !important;
         height: 100vh !important;
         object-fit: contain; /* Garante que o jogo não fique esticado */
     }
 
-    .site-header {
+    /* REGRAS PARA O SITE (PC/Web Mobile) - Mantém o visual antigo */
+    body:not(.is-mobile-app) .site-header {
         flex-direction: column;
         gap: 12px;
         padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 10px max(10px, env(safe-area-inset-left));
     }
+
     .header-logo {
         justify-content: center;
     }
