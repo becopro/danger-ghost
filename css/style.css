@@ -1836,28 +1836,53 @@ body {
 #mobileControlsContainer {
     display: none;
     position: absolute;
-    bottom: 10px;
+    bottom: 0;
     left: 0;
     right: 0;
     width: 100%;
-    justify-content: space-between;
-    padding: 0 15px;
-    box-sizing: border-box;
+    height: 100%;
     pointer-events: none; /* Deixa cliques vazios passarem para o Canvas */
     z-index: 450;
 }
 
-.mobile-btn-group {
+.mobile-controls-top {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    pointer-events: auto;
+}
+
+.mobile-controls-bottom {
+    position: absolute;
+    bottom: 20px;
+    left: 0;
+    width: 100%;
     display: flex;
-    gap: 15px;
-    pointer-events: auto; /* Permite interações de toque nos botões */
+    justify-content: space-between;
     align-items: flex-end;
+    padding: 0 20px;
+    box-sizing: border-box;
+}
+
+#joystickZone {
+    width: 130px;
+    height: 130px;
+    position: relative;
+    pointer-events: auto;
+}
+
+.mobile-btn-group.right-group {
+    display: flex;
+    gap: 20px;
+    pointer-events: auto;
 }
 
 .touch-btn {
-    width: 60px;
-    height: 60px;
-    background: rgba(0, 0, 0, 0.6);
+    width: 65px;
+    height: 65px;
+    background: rgba(10, 10, 15, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 2px solid var(--cyan-neon);
     color: var(--cyan-neon);
     font-size: 24px;
@@ -1869,7 +1894,7 @@ body {
     user-select: none;
     -webkit-user-select: none;
     touch-action: manipulation;
-    box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
     outline: none;
     cursor: pointer;
     transition: background 0.1s, color 0.1s;
@@ -1916,39 +1941,89 @@ body {
 
 @media (max-width: 1024px) {
     .site-header {
-        padding: 10px 20px;
+        padding: max(10px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 10px max(20px, env(safe-area-inset-left));
     }
     .neon-title {
-        font-size: 24px !important;
+        font-size: 26px !important;
         letter-spacing: 3px;
+    }
+    .hud-container {
+        padding-top: env(safe-area-inset-top);
+        padding-left: max(20px, env(safe-area-inset-left));
+        padding-right: max(20px, env(safe-area-inset-right));
     }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 950px), (max-height: 600px) and (orientation: landscape) {
     #mobileControlsContainer {
-        display: flex;
+        display: block;
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+        padding-left: max(15px, env(safe-area-inset-left));
+        padding-right: max(15px, env(safe-area-inset-right));
+        padding-top: max(10px, env(safe-area-inset-top));
     }
+    
+    /* 2026 UI: Esconde o site no celular para focar 100% no jogo */
+    #navbar, .social-links-container, .episode-title, .character-name-container, #downloadMobileBtn, .mobile-app-download-area {
+        display: none !important;
+    }
+    
+    body {
+        overflow: hidden; /* Previne scroll no celular */
+        background-color: #000;
+    }
+
+    #game-section {
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .canvas-container {
+        width: 100vw !important;
+        height: 100vh !important;
+        border: none !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #000;
+    }
+
+    #myCanvas, #uiCanvas {
+        width: 100vw !important;
+        height: 100vh !important;
+        object-fit: contain; /* Garante que o jogo não fique esticado */
+    }
+
     .site-header {
         flex-direction: column;
-        gap: 10px;
-        padding: 10px 10px;
+        gap: 12px;
+        padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 10px max(10px, env(safe-area-inset-left));
     }
     .header-logo {
         justify-content: center;
     }
     .neon-title {
-        font-size: 20px !important;
+        font-size: 22px !important;
         letter-spacing: 2px;
     }
     #gameNavbar {
         justify-content: center;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 10px;
     }
     #gameNavbar button {
-        padding: 6px 12px !important;
-        font-size: 11px !important;
+        padding: 10px 14px !important;
+        font-size: 13px !important;
         letter-spacing: 1px;
+        min-height: 44px; /* Minimum tap target size for mobile */
     }
     #game-section {
         padding: 20px 10px;
@@ -1970,6 +2045,8 @@ body {
         top: 0 !important;
         bottom: 0 !important;
         z-index: 500 !important;
+        padding-top: max(12px, env(safe-area-inset-top)) !important;
+        padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
     }
     .panel-left, .panel-right {
         border-left: 2px solid var(--cyan-neon) !important;
@@ -1982,30 +2059,45 @@ body {
         flex-direction: column;
         align-items: center;
     }
+    .hud-title {
+        font-size: 18px;
+    }
 }
 
 @media (max-width: 480px) {
     .site-header {
-        padding: 8px 5px;
+        padding: max(8px, env(safe-area-inset-top)) max(5px, env(safe-area-inset-right)) 8px max(5px, env(safe-area-inset-left));
     }
     .neon-title {
-        font-size: 18px !important;
+        font-size: 20px !important;
     }
     #gameNavbar {
-        gap: 4px;
+        gap: 6px;
     }
     #gameNavbar button {
-        padding: 4px 8px !important;
-        font-size: 10px !important;
+        padding: 8px 10px !important;
+        font-size: 12px !important;
+        min-height: 44px; /* Maintain safe tap target */
     }
     /* Character name field responsiveness */
     #charNameInput {
         width: 120px !important;
+        font-size: 14px !important;
     }
     #downloadMobileBtn {
-        font-size: 13px !important;
-        padding: 10px 20px !important;
+        font-size: 14px !important;
+        padding: 12px 20px !important;
         letter-spacing: 1px !important;
+        line-height: 1.4;
+    }
+    .touch-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+    }
+    .touch-btn.start-btn {
+        height: 40px;
+        font-size: 13px;
     }
 }
 

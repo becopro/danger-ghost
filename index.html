@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Ghost Games</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
     <!-- Fontes do Sistema de Design (Acessibilidade) -->
@@ -14,6 +14,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     <script src="js/core/event_bus.js?v=10"></script>
     <script src="js/globals.js?v=10"></script>
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
@@ -94,18 +95,17 @@
             </button>
             <button id="muteBtn" onclick="ToggleMute()" style="position: absolute; right: 0px; top: -45px; font-size: 30px; background: none; border: none; cursor: pointer; padding: 0; outline: none; text-shadow: 0 0 5px #00FFFF;" title="Mute/Unmute">🔊</button>
 
-            <!-- Controles Touch para Mobile -->
+            <!-- Controles Touch para Mobile (UI 2026) -->
             <div id="mobileControlsContainer">
-                <div class="mobile-btn-group left-group">
-                    <button id="touchLeftBtn" class="touch-btn">◀</button>
-                    <button id="touchRightBtn" class="touch-btn">▶</button>
-                </div>
-                <div class="mobile-btn-group center-group">
+                <div class="mobile-controls-top">
                     <button id="touchStartBtn" class="touch-btn start-btn">START ⏸</button>
                 </div>
-                <div class="mobile-btn-group right-group">
-                    <button id="touchSpellBtn" class="touch-btn action-btn">🔥</button>
-                    <button id="touchJumpBtn" class="touch-btn action-btn">▲</button>
+                <div class="mobile-controls-bottom">
+                    <div id="joystickZone"></div>
+                    <div class="mobile-btn-group right-group">
+                        <button id="touchSpellBtn" class="touch-btn action-btn spell-btn">🔥</button>
+                        <button id="touchJumpBtn" class="touch-btn action-btn jump-btn">▲</button>
+                    </div>
                 </div>
             </div>
 
@@ -151,7 +151,7 @@
         </div>
         
         <!-- Mobile App Download Area -->
-        <div style="display: flex; justify-content: center; align-items: center; margin-top: 15px;">
+        <div class="mobile-app-download-area" style="display: flex; justify-content: center; align-items: center; margin-top: 15px;">
             <a href="DangerGhostMobile.apk" download="DangerGhostMobile.apk" style="text-decoration: none;">
                 <button id="downloadMobileBtn" style="background: rgba(0, 0, 0, 0.8); border: 2px solid #FF00FF; color: #FF00FF; font-family: 'Courier New', monospace; font-weight: bold; font-size: 16px; cursor: pointer; padding: 12px 30px; border-radius: 6px; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 15px rgba(255, 0, 255, 0.2); transition: all 0.2s ease-in-out;" onmouseover="this.style.background='#FF00FF'; this.style.color='#000'; this.style.boxShadow='0 0 20px #FF00FF';" onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='#FF00FF'; this.style.boxShadow='0 0 15px rgba(255, 0, 255, 0.2)';">
                     📱 DOWNLOAD DANGER GHOST MOBILE APP
@@ -330,11 +330,59 @@
                 });
             }
             
-            setupTouchButton('touchLeftBtn', 37);  // Left Arrow
-            setupTouchButton('touchRightBtn', 39); // Right Arrow
             setupTouchButton('touchJumpBtn', 38);  // Up Arrow (Jump)
             setupTouchButton('touchSpellBtn', 49); // '1' key (Cast Spell 1)
             setupTouchButton('touchStartBtn', 32); // SPACE key (Start/Pause)
+
+            // NIPPLE.JS VIRTUAL JOYSTICK FOR MOVEMENT
+            var joystickZone = document.getElementById('joystickZone');
+            if (joystickZone && typeof nipplejs !== 'undefined') {
+                var joystick = nipplejs.create({
+                    zone: joystickZone,
+                    mode: 'static',
+                    position: { left: '50%', top: '50%' },
+                    color: 'cyan',
+                    size: 100
+                });
+
+                var currentKey = null;
+
+                joystick.on('move', function(evt, data) {
+                    if (data.direction && data.direction.x) {
+                        var dirX = data.direction.x; // "left" or "right"
+                        if (dirX === 'left') {
+                            if (currentKey === 39) {
+                                window.dispatchEvent(new KeyboardEvent('keyup', { keyCode: 39, which: 39, bubbles: true }));
+                            }
+                            if (currentKey !== 37) {
+                                window.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 37, which: 37, bubbles: true }));
+                                currentKey = 37;
+                            }
+                        } else if (dirX === 'right') {
+                            if (currentKey === 37) {
+                                window.dispatchEvent(new KeyboardEvent('keyup', { keyCode: 37, which: 37, bubbles: true }));
+                            }
+                            if (currentKey !== 39) {
+                                window.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 39, which: 39, bubbles: true }));
+                                currentKey = 39;
+                            }
+                        }
+                    } else {
+                        // Se o joystick centralizou ou foi para cima/baixo direto, libera o movimento lateral
+                        if (currentKey) {
+                            window.dispatchEvent(new KeyboardEvent('keyup', { keyCode: currentKey, which: currentKey, bubbles: true }));
+                            currentKey = null;
+                        }
+                    }
+                });
+
+                joystick.on('end', function() {
+                    if (currentKey) {
+                        window.dispatchEvent(new KeyboardEvent('keyup', { keyCode: currentKey, which: currentKey, bubbles: true }));
+                        currentKey = null;
+                    }
+                });
+            }
         });
     </script>
 
