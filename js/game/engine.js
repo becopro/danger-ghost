@@ -2278,6 +2278,13 @@
 			function StartCutscene(targetLevel, preserve) {
                 g_cutsceneTargetLevel = targetLevel || 1;
                 g_cutscenePreserve = !!preserve;
+                if (window.g_cutscenePlayed) {
+                    ResetGame(g_cutsceneTargetLevel, g_cutscenePreserve);
+                    if (typeof PlayBGM === "function") {
+                        PlayBGM();
+                    }
+                    return;
+                }
 				SetGameState(G_CUTSCENE);
 				var video = document.getElementById("openingCutsceneVideo");
 				video.style.display = "block";

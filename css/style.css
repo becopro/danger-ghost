@@ -2024,13 +2024,16 @@ body {
         width: 100vw;
         height: 100vh;
         display: flex;
-        justify-content: center;
+        flex-direction: column;
+        justify-content: flex-start;
         align-items: center;
+        background-color: #050508;
     }
 
     body.is-mobile-app .canvas-container {
         width: 100vw !important;
-        height: 100vh !important;
+        flex: 1;
+        height: auto !important;
         border: none !important;
         box-shadow: none !important;
         margin: 0 !important;
@@ -2039,13 +2042,88 @@ body {
         justify-content: center;
         align-items: center;
         background-color: #000;
+        position: relative;
     }
 
     body.is-mobile-app #myCanvas, 
     body.is-mobile-app #uiCanvas {
-        width: 100vw !important;
-        height: 100vh !important;
+        width: 100% !important;
+        height: 100% !important;
         object-fit: contain; /* Garante que o jogo não fique esticado */
+    }
+
+    /* CONSOLE STYLE BOTTOM BAR */
+    body.is-mobile-app #mobileControlsContainer {
+        position: relative !important;
+        bottom: auto !important;
+        width: 100vw !important;
+        height: 90px !important;
+        background: #09090c;
+        border-top: 2px solid var(--purple-neon);
+        box-shadow: 0 -2px 15px rgba(150, 0, 255, 0.2);
+        z-index: 1000;
+        pointer-events: auto;
+    }
+
+    body.is-mobile-app .mobile-controls-top {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        right: auto;
+    }
+
+    body.is-mobile-app .mobile-controls-bottom {
+        position: relative;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        padding: 0 15px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    body.is-mobile-app .mobile-btn-group {
+        display: flex;
+        gap: 10px;
+    }
+
+    body.is-mobile-app .dpad-btn {
+        width: 60px;
+        height: 60px;
+        font-size: 24px;
+        border-radius: 8px;
+        background: rgba(30, 30, 40, 0.9);
+        border: 2px solid #555;
+        color: #fff;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    body.is-mobile-app .touch-btn {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        font-weight: bold;
+    }
+
+    body.is-mobile-app .centered-start {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 150px;
+        height: 60px;
+        font-size: 20px;
+        background: rgba(0, 0, 0, 0.8);
+        border: 2px solid var(--cyan-neon);
+        color: var(--cyan-neon);
+        box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        z-index: 2000;
+        border-radius: 30px;
     }
 
     /* REGRAS PARA O SITE (PC/Web Mobile) - Mantém o visual antigo */
