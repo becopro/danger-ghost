@@ -128,13 +128,15 @@
                 <!-- Ações -->
                 <div class="mobile-btn-group right-group">
                     <div class="action-row">
-                        <button id="touchSlotVBtn" class="touch-btn action-btn spell-btn">V (⚡)</button>
-                        <button id="touchSlotEBtn" class="touch-btn action-btn spell-btn">E (🔮)</button>
-                        <button id="touchSlotRBtn" class="touch-btn action-btn spell-btn">R (💨)</button>
+                        <button id="touchSlotVBtn" class="touch-btn action-btn spell-btn">V(⚡)</button>
+                        <button id="touchSlotEBtn" class="touch-btn action-btn spell-btn">E(🔮)</button>
+                        <button id="touchSlotRBtn" class="touch-btn action-btn spell-btn">R(💨)</button>
                     </div>
                     <div class="action-row">
-                        <button id="touchJumpBtn" class="touch-btn action-btn jump-btn">W (▲)</button>
-                        <button id="touchSpell1Btn" class="touch-btn action-btn spell-btn">1 (🔥)</button>
+                        <button id="touchSpell1Btn" class="touch-btn action-btn spell-btn">1</button>
+                        <button id="touchSpell2Btn" class="touch-btn action-btn spell-btn">2</button>
+                        <button id="touchSpell3Btn" class="touch-btn action-btn spell-btn">3</button>
+                        <button id="touchJumpBtn" class="touch-btn action-btn jump-btn">JUMP</button>
                     </div>
                 </div>
             </div>
@@ -362,7 +364,9 @@
             }
             
             setupTouchButton('touchJumpBtn', 38);   // Up Arrow (Jump)
-            setupTouchButton('touchSpell1Btn', 49); // '1' key (Cast Spell)
+            setupTouchButton('touchSpell1Btn', 49); // '1' key
+            setupTouchButton('touchSpell2Btn', 50); // '2' key
+            setupTouchButton('touchSpell3Btn', 51); // '3' key
             setupTouchButton('touchStartBtn', 32);  // SPACE key (Start/Pause)
 
             setupTouchButton('touchLeftBtn', 37);   // Left Arrow
@@ -1187,6 +1191,9 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            if (window.Capacitor || (window.navigator && window.navigator.userAgent.includes('Capacitor'))) {
+                document.body.classList.add('is-mobile-app');
+            }
             if (document.body.classList.contains('is-mobile-app')) {
                 var splash = document.getElementById('mobileAppSplash');
                 var video = document.getElementById('openingCutsceneVideo');

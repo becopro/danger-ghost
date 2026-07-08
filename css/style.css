@@ -1979,7 +1979,13 @@ body {
     body.is-mobile-app .character-name-container,
     body.is-mobile-app #downloadMobileBtn,
     body.is-mobile-app .mobile-app-download-area,
-    body.is-mobile-app #gameScreenModeBtn {
+    body.is-mobile-app #gameScreenModeBtn,
+    body.is-mobile-app #tutorial-btn-section,
+    body.is-mobile-app #play-modes-explanation,
+    body.is-mobile-app #lore-section,
+    body.is-mobile-app #rules-section,
+    body.is-mobile-app #equipment-showcase-section,
+    body.is-mobile-app #founder-section {
         display: none !important;
     }
 
