@@ -156,13 +156,19 @@ body {
 }
 
 .panel-left {
-    left: -320px !important;
+    position: fixed !important;
+    left: 20px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
     border-left: 2px solid var(--green-neon) !important;
     box-shadow: 0 0 15px rgba(0, 255, 0, 0.15) !important;
 }
 
 .panel-right {
-    right: -320px !important;
+    position: fixed !important;
+    right: 20px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
     border-right: 2px solid var(--magenta-neon) !important;
     box-shadow: 0 0 15px rgba(255, 0, 255, 0.15) !important;
 }
@@ -1692,16 +1698,14 @@ body {
     transform: translate(-50%, -50%) !important;
 }
 #fullscreenGameArea:fullscreen .panel-left {
-    left: 0px !important;
-    z-index: 1001 !important;
-    height: calc(100vh - 60px) !important;
-    top: 0px !important;
+    left: 20px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
 }
 #fullscreenGameArea:fullscreen .panel-right {
-    right: 0px !important;
-    z-index: 1001 !important;
-    height: calc(100vh - 60px) !important;
-    top: 0px !important;
+    right: 20px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
 }
 #fullscreenGameArea:fullscreen .modal-overlay {
     width: 100vw !important;
