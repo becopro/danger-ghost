@@ -1128,10 +1128,6 @@
 						
 						// Draw Local Player Name
 						var charName = localStorage.getItem("playerName") || "Ghost";
-						if (window.GhostRPG && window.GhostRPG.getStats) {
-							var stats = window.GhostRPG.getStats();
-							if (stats && stats.name) charName = stats.name;
-						}
 						g_ctx.fillStyle = "#00FFCC";
 						g_ctx.font = "10px Arial";
 						g_ctx.textAlign = "center";
@@ -1942,10 +1938,6 @@
 				
 				// Nome e Vidas na parte de baixo do jogo
 				var charName = localStorage.getItem("playerName") || "Ghost";
-				if (window.GhostRPG && window.GhostRPG.getStats) {
-					var stats = window.GhostRPG.getStats();
-					if (stats && stats.name) charName = stats.name;
-				}
 				if (charName.length > 12) charName = charName.substring(0, 10) + "..";
 				g_ctx.textAlign = "left";
 				g_ctx.fillText(charName, 10, g_canvas.height - 10);

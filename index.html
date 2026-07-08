@@ -19,7 +19,6 @@
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
     <script src="js/game/network.js?v=10"></script>
     <script src="js/web2/game_core.js?v=1"></script>
-    <script src="js/game/engine.js?v=14"></script>
     <script src="js/web2/scores.js?v=1"></script>
     <script src="rpg_system.js?v=10"></script>
     <script src="js/ui/ui_manager.js?v=10"></script>
@@ -129,6 +128,13 @@
 
         </div>
         
+        <!-- Character Name Input Area -->
+        <div style="display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 15px; font-family: 'Courier New', monospace; background: rgba(13, 13, 16, 0.85); border: 1.5px solid var(--cyan-neon); padding: 10px; border-radius: 4px; box-shadow: 0 0 10px rgba(0, 255, 255, 0.15); max-width: 640px; margin-left: auto; margin-right: auto; box-sizing: border-box;">
+            <label for="charNameInput" style="color: var(--cyan-neon); font-weight: bold; text-shadow: 0 0 5px var(--cyan-neon); font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">Character Name:</label>
+            <input type="text" id="charNameInput" placeholder="Enter Ghost Name..." maxlength="15" style="background: #000; color: #FFF; border: 1px solid var(--border-light); padding: 6px 12px; font-family: 'Courier New', monospace; font-size: 13px; outline: none; border-radius: 2px; width: 180px; box-sizing: border-box; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--cyan-neon)'" onblur="this.style.borderColor='var(--border-light)'" />
+            <button id="saveCharNameBtn" onclick="SaveCharacterName()" style="background: rgba(0, 0, 0, 0.8); border: 1.5px solid var(--cyan-neon); color: var(--cyan-neon); font-family: 'Courier New', monospace; font-weight: bold; font-size: 13px; cursor: pointer; padding: 6px 20px; border-radius: 2px; text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s ease-in-out;" onmouseover="this.style.background='var(--cyan-neon)'; this.style.color='#000'; this.style.boxShadow='0 0 10px var(--cyan-neon)';" onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='var(--cyan-neon)'; this.style.boxShadow='none';">Save</button>
+        </div>
+        
         <!-- Leaderboard Modal (Hidden by default) -->
         <div id="leaderboardModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 2000; align-items: center; justify-content: center;">
             <div style="background: #181224; border: 2px solid #FF00FF; border-radius: 10px; padding: 30px; width: 90%; max-width: 450px; box-shadow: 0 0 20px rgba(255, 0, 255, 0.3); font-family: 'Courier New', monospace; color: #FFF;">
@@ -212,6 +218,52 @@
             var menu = document.getElementById("loginButtonsContainer");
             if (menu) menu.style.display = "flex";
         }
+
+        function SaveCharacterName() {
+            var input = document.getElementById("charNameInput");
+            if (input) {
+                var name = input.value.trim();
+                if (name !== "") {
+                    localStorage.setItem("playerName", name);
+                    
+                    if (window.GhostRPG && window.GhostRPG.getStats) {
+                        var stats = window.GhostRPG.getStats();
+                        if (stats) {
+                            stats.name = name;
+                        }
+                    }
+                    
+                    if (window.NetworkState && window.NetworkState.socket && window.NetworkState.connected) {
+                        window.NetworkState.socket.emit('join_game', { playerName: name });
+                    }
+                    
+                    var btn = document.getElementById("saveCharNameBtn");
+                    if (btn) {
+                        var originalText = btn.innerText;
+                        btn.innerText = "SAVED!";
+                        btn.style.background = "var(--cyan-neon)";
+                        btn.style.color = "#000";
+                        btn.style.boxShadow = "0 0 10px var(--cyan-neon)";
+                        setTimeout(function() {
+                            btn.innerText = originalText;
+                            btn.style.background = "rgba(0, 0, 0, 0.8)";
+                            btn.style.color = "var(--cyan-neon)";
+                            btn.style.boxShadow = "none";
+                        }, 1000);
+                    }
+                } else {
+                    alert("Name cannot be empty!");
+                }
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            var savedName = localStorage.getItem("playerName") || "Ghost";
+            var input = document.getElementById("charNameInput");
+            if (input) {
+                input.value = savedName;
+            }
+        });
     </script>
 
     <!-- Playable Tutorial Section -->
@@ -889,7 +941,7 @@
     </div>
 
     <!-- Script de inicialização da Engine -->
-    <script src="js/game/engine.js?v=5"></script>
+    <script src="js/game/engine.js?v=15"></script>
 
     <!-- Script para rotação de backgrounds com fade-in suave -->
     <script type="text/javascript">
