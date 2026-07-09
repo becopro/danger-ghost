@@ -134,6 +134,32 @@
 			var g_canvas = document.getElementById("myCanvas");
 			var g_ctx = g_canvas.getContext("2d");
 
+			function ResizeMobileCanvas() {
+				if (document.body.classList.contains("is-mobile-app")) {
+					var viewportHeight = window.innerHeight;
+					var viewportWidth = window.innerWidth;
+					// Controls container takes up exactly 55vh on mobile, leaving 45vh for canvas
+					var canvasPhysicalHeight = viewportHeight * 0.45;
+					// Keep 640 logical width
+					var logicalWidth = 640;
+					var logicalHeight = logicalWidth * (canvasPhysicalHeight / viewportWidth);
+					
+					g_canvas.width = logicalWidth;
+					g_canvas.height = Math.round(logicalHeight);
+					
+					var mapHeight = 11 * 24; // 264px
+					var hudHeight = 35;
+					var availableSpace = g_canvas.height - hudHeight;
+					g_map_y_offset = availableSpace > mapHeight ? (availableSpace - mapHeight) : 0;
+				} else {
+					g_canvas.width = 640;
+					g_canvas.height = 300;
+					g_map_y_offset = 0;
+				}
+			}
+			window.addEventListener('resize', ResizeMobileCanvas);
+			ResizeMobileCanvas();
+
 			// --- ASSET DEFINITIONS ---
 			var desoGhostRight = new Image(); desoGhostRight.src = 'assets/sprites/Ftasma d.webp';
 			var desoGhostLeft = new Image(); desoGhostLeft.src = 'assets/sprites/Ftasma e.webp';
@@ -277,6 +303,7 @@
 			// --- GAME STATE ---
 			var G_START = 0, G_PLAY = 1, G_WIN = 2, G_GAMEOVER = 3, G_CUTSCENE = 4, G_END_CUTSCENE = 5, G_PAUSE = 6;
 			var g_gameState = G_START;
+			var g_map_y_offset = 0;
 			function SetGameState(newState) {
 				if (g_gameState === newState) return;
 				g_gameState = newState;
@@ -3047,6 +3074,8 @@ var g_binaryBits = [];
 				}
 				else if (g_gameState == G_PLAY) {
 					drawBinaryBackground(false);
+					g_ctx.save();
+					g_ctx.translate(0, g_map_y_offset);
 					map.draw();
 					if (typeof g_bosses !== 'undefined') {
 						g_bosses.forEach(function(b) { b.draw(); });
@@ -3057,12 +3086,15 @@ var g_binaryBits = [];
 					drawOtherPlayers();
 					DeSoGhost.draw();
 					drawVisualEffects();
+					g_ctx.restore();
 					Print_HUD();
 				}
 				else if (g_gameState == G_WIN) DrawWinScreen();
 				else if (g_gameState == G_GAMEOVER) DrawGameOverScreen();
 				else if (g_gameState == G_PAUSE) {
 					drawBinaryBackground(false);
+					g_ctx.save();
+					g_ctx.translate(0, g_map_y_offset);
 					map.draw();
 					if (typeof g_bosses !== 'undefined') {
 						g_bosses.forEach(function(b) { b.draw(); });
@@ -3072,6 +3104,7 @@ var g_binaryBits = [];
 					drawProjectiles();
 					drawVisualEffects();
 					DeSoGhost.draw();
+					g_ctx.restore();
 					Print_HUD();
 					
 					g_ctx.fillStyle = "rgba(0,0,0,0.7)"; g_ctx.fillRect(0, 0, g_canvas.width, g_canvas.height);
@@ -3536,7 +3569,7 @@ var g_binaryBits = [];
 							var p0 = f0.players[pid];
 							if (p0 && p0.position) {
 								var px = p0.position.x + (window.map_offset || 0);
-								var py = p0.position.y;
+								var py = p0.position.y + (window.g_map_y_offset || 0);
 								// Bounding box of 24x24 sprite
 								if (clickX >= px && clickX <= px + 24 && clickY >= py && clickY <= py + 24) {
 									var targetName = window.NetworkState.playerNames[pid] || 'Ghost';
