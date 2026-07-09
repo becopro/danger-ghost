@@ -2195,6 +2195,7 @@ body.is-mobile-app .centered-start {
     display: none !important;
 }
 
+@media (max-width: 1024px) {
     /* REGRAS PARA O SITE (PC/Web Mobile) - Mantém o visual antigo */
     body:not(.is-mobile-app) .site-header {
         flex-direction: row;
