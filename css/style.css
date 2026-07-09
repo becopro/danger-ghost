@@ -2197,13 +2197,13 @@ body.is-mobile-app .centered-start {
 
     /* REGRAS PARA O SITE (PC/Web Mobile) - Mantém o visual antigo */
     body:not(.is-mobile-app) .site-header {
-        flex-direction: column;
+        flex-direction: row;
         gap: 12px;
         padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 10px max(10px, env(safe-area-inset-left));
     }
 
     .header-logo {
-        justify-content: center;
+        justify-content: flex-start;
     }
     .neon-title {
         font-size: 22px !important;
