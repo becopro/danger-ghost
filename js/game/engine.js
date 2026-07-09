@@ -3037,6 +3037,15 @@ var g_binaryBits = [];
 					g_screenShakeTime--;
 				}
 				
+				var isMobileApp = document.body.classList.contains("is-mobile-app");
+				if (isMobileApp && (g_gameState == G_PLAY || g_gameState == G_PAUSE)) {
+					var availableMapHeight = g_canvas.height - 35; // Total height minus HUD
+					var scaleY = availableMapHeight / 264; // Map logical height is 11 * 24 = 264
+					if (scaleY > 1) {
+						g_ctx.scale(1, scaleY);
+					}
+				}
+				
 				if (g_gameState == G_START) {
 					drawBinaryBackground(true);
 					DrawStartScreen();
@@ -3057,6 +3066,13 @@ var g_binaryBits = [];
 					drawOtherPlayers();
 					DeSoGhost.draw();
 					drawVisualEffects();
+					
+					if (isMobileApp && (g_canvas.height - 35) / 264 > 1) {
+						g_ctx.restore();
+						g_ctx.save();
+						// Re-apply screen shake for HUD if needed, but actually HUD is better without shake
+					}
+					
 					Print_HUD();
 				}
 				else if (g_gameState == G_WIN) DrawWinScreen();
@@ -3072,6 +3088,12 @@ var g_binaryBits = [];
 					drawProjectiles();
 					drawVisualEffects();
 					DeSoGhost.draw();
+					
+					if (isMobileApp && (g_canvas.height - 35) / 264 > 1) {
+						g_ctx.restore();
+						g_ctx.save();
+					}
+					
 					Print_HUD();
 					
 					g_ctx.fillStyle = "rgba(0,0,0,0.7)"; g_ctx.fillRect(0, 0, g_canvas.width, g_canvas.height);
