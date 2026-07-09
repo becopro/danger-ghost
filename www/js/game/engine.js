@@ -1458,7 +1458,12 @@
 
 					if (this.xPos > 200) {
 						map_offset = -(this.xPos - 200);
-						var maxOffset = -(100 * 24 - 640); // -1760 pixels
+						var logicalCanvasWidth = 640;
+						if (document.body.classList.contains("is-mobile-app")) {
+							var sY = (g_canvas.height - 35) / 264;
+							if (sY > 1) logicalCanvasWidth = 640 / sY;
+						}
+						var maxOffset = -(100 * 24 - logicalCanvasWidth);
 						if (map_offset < maxOffset) map_offset = maxOffset;
 					}
 
@@ -3042,7 +3047,7 @@ var g_binaryBits = [];
 					var availableMapHeight = g_canvas.height - 35; // Total height minus HUD
 					var scaleY = availableMapHeight / 264; // Map logical height is 11 * 24 = 264
 					if (scaleY > 1) {
-						g_ctx.scale(1, scaleY);
+						g_ctx.scale(scaleY, scaleY);
 					}
 				}
 				
@@ -3549,6 +3554,16 @@ var g_binaryBits = [];
 				var scaleY = g_canvas.height / rect.height;
 				var clickX = (e.clientX - rect.left) * scaleX;
 				var clickY = (e.clientY - rect.top) * scaleY;
+				
+				var isMobileApp = document.body.classList.contains("is-mobile-app");
+				var mapScale = 1;
+				if (isMobileApp) {
+					var sY = (g_canvas.height - 35) / 264;
+					if (sY > 1) mapScale = sY;
+				}
+				
+				var adjustedClickX = clickX / mapScale;
+				var adjustedClickY = clickY / mapScale;
 
 				if (window.NetworkState && window.NetworkState.frameBuffer && window.NetworkState.frameBuffer.length >= 2) {
 					var f0 = window.NetworkState.frameBuffer[window.NetworkState.frameBuffer.length - 1];
@@ -3560,7 +3575,7 @@ var g_binaryBits = [];
 								var px = p0.position.x + (window.map_offset || 0);
 								var py = p0.position.y;
 								// Bounding box of 24x24 sprite
-								if (clickX >= px && clickX <= px + 24 && clickY >= py && clickY <= py + 24) {
+								if (adjustedClickX >= px && adjustedClickX <= px + 24 && adjustedClickY >= py && adjustedClickY <= py + 24) {
 									var targetName = window.NetworkState.playerNames[pid] || 'Ghost';
 									if (window.OpenPlayerProfile) {
 										window.OpenPlayerProfile(targetName);
