@@ -156,13 +156,19 @@ body {
 }
 
 .panel-left {
-    left: -320px !important;
+    position: fixed !important;
+    left: 20px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
     border-left: 2px solid var(--green-neon) !important;
     box-shadow: 0 0 15px rgba(0, 255, 0, 0.15) !important;
 }
 
 .panel-right {
-    right: -320px !important;
+    position: fixed !important;
+    right: 20px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
     border-right: 2px solid var(--magenta-neon) !important;
     box-shadow: 0 0 15px rgba(255, 0, 255, 0.15) !important;
 }
@@ -1692,16 +1698,14 @@ body {
     transform: translate(-50%, -50%) !important;
 }
 #fullscreenGameArea:fullscreen .panel-left {
-    left: 0px !important;
-    z-index: 1001 !important;
-    height: calc(100vh - 60px) !important;
-    top: 0px !important;
+    left: 20px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
 }
 #fullscreenGameArea:fullscreen .panel-right {
-    right: 0px !important;
-    z-index: 1001 !important;
-    height: calc(100vh - 60px) !important;
-    top: 0px !important;
+    right: 20px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
 }
 #fullscreenGameArea:fullscreen .modal-overlay {
     width: 100vw !important;
@@ -1836,28 +1840,53 @@ body {
 #mobileControlsContainer {
     display: none;
     position: absolute;
-    bottom: 10px;
+    bottom: 0;
     left: 0;
     right: 0;
     width: 100%;
-    justify-content: space-between;
-    padding: 0 15px;
-    box-sizing: border-box;
+    height: 100%;
     pointer-events: none; /* Deixa cliques vazios passarem para o Canvas */
     z-index: 450;
 }
 
-.mobile-btn-group {
+.mobile-controls-top {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    pointer-events: auto;
+}
+
+.mobile-controls-bottom {
+    position: absolute;
+    bottom: 20px;
+    left: 0;
+    width: 100%;
     display: flex;
-    gap: 15px;
-    pointer-events: auto; /* Permite interações de toque nos botões */
+    justify-content: space-between;
     align-items: flex-end;
+    padding: 0 20px;
+    box-sizing: border-box;
+}
+
+#joystickZone {
+    width: 130px;
+    height: 130px;
+    position: relative;
+    pointer-events: auto;
+}
+
+.mobile-btn-group.right-group {
+    display: flex;
+    gap: 20px;
+    pointer-events: auto;
 }
 
 .touch-btn {
-    width: 60px;
-    height: 60px;
-    background: rgba(0, 0, 0, 0.6);
+    width: 65px;
+    height: 65px;
+    background: rgba(10, 10, 15, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 2px solid var(--cyan-neon);
     color: var(--cyan-neon);
     font-size: 24px;
@@ -1869,7 +1898,7 @@ body {
     user-select: none;
     -webkit-user-select: none;
     touch-action: manipulation;
-    box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
     outline: none;
     cursor: pointer;
     transition: background 0.1s, color 0.1s;
@@ -1916,39 +1945,281 @@ body {
 
 @media (max-width: 1024px) {
     .site-header {
-        padding: 10px 20px;
+        padding: max(10px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 10px max(20px, env(safe-area-inset-left));
     }
     .neon-title {
-        font-size: 24px !important;
+        font-size: 26px !important;
         letter-spacing: 3px;
+    }
+    .hud-container {
+        padding-top: env(safe-area-inset-top);
+        padding-left: max(20px, env(safe-area-inset-left));
+        padding-right: max(20px, env(safe-area-inset-right));
     }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 950px) and (pointer: coarse), (max-height: 600px) and (orientation: landscape) and (pointer: coarse) {
     #mobileControlsContainer {
-        display: flex;
+        display: block;
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+        padding-left: max(15px, env(safe-area-inset-left));
+        padding-right: max(15px, env(safe-area-inset-right));
+        padding-top: max(10px, env(safe-area-inset-top));
     }
-    .site-header {
+    
+} /* FECHA A MEDIA QUERY AQUI PARA DEIXAR O APP STANDALONE */
+
+/* ========================================================= */
+/* 2026 UI: GAMEBOY PORTRAIT LAYOUT PARA O APP (CAPACITOR)   */
+/* ========================================================= */
+body.is-mobile-app {
+    overflow: hidden !important;
+    background-color: #d1d5d8 !important; /* Gameboy light gray */
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+    width: 100vw !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* OCULTAR TODOS OS MENUS ANTIGOS DO SITE (Apenas elementos de fundo e headers) */
+body.is-mobile-app .site-header,
+body.is-mobile-app .social-link-bar,
+body.is-mobile-app .episode-title,
+body.is-mobile-app #charNameArea,
+body.is-mobile-app #downloadMobileBtn,
+body.is-mobile-app .mobile-app-download-area,
+body.is-mobile-app #gameScreenModeBtn,
+body.is-mobile-app #tutorial-btn-section,
+body.is-mobile-app #play-modes-explanation,
+body.is-mobile-app #lore-section,
+body.is-mobile-app #rules-section,
+body.is-mobile-app #equipment-showcase-section,
+body.is-mobile-app #founder-section,
+body.is-mobile-app #game-section h2,
+body.is-mobile-app #muteBtn {
+    display: none !important;
+}
+
+/* O JOGO FICA NA METADE SUPERIOR */
+body.is-mobile-app #fullscreenGameArea {
+    flex: none !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    position: relative !important;
+    overflow: hidden !important;
+    background: #000 !important;
+}
+
+body.is-mobile-app #game-section {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+    width: 100vw !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+body.is-mobile-app .canvas-container {
+    height: 55vh !important;
+    width: 100vw !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-bottom: 4px solid #333 !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
+    overflow: hidden !important;
+    display: block !important;
+}
+
+body.is-mobile-app #myCanvas {
+    height: 100% !important;
+    width: 100% !important;
+    object-fit: fill !important;
+}
+
+/* CORPO DO GAMEBOY (METADE INFERIOR) */
+body.is-mobile-app #mobileControlsContainer {
+    height: 45vh !important;
+    width: 100vw !important;
+    background: #d1d5d8 !important; /* Gameboy gray */
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 10px !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+    z-index: 1000 !important;
+    pointer-events: auto !important; /* Habilita o toque! */
+}
+
+/* MENUS SUPERIORES DO GAMEBOY */
+body.is-mobile-app .mobile-app-nav {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-bottom: 5px !important;
+    justify-content: center !important;
+}
+
+body.is-mobile-app .mobile-app-nav button {
+    background: #444 !important;
+    border: 2px solid #222 !important;
+    color: #fff !important;
+    padding: 6px 8px !important;
+    font-family: 'Courier New', monospace !important;
+    font-size: 10px !important;
+    font-weight: bold !important;
+    border-radius: 4px !important;
+    white-space: nowrap !important;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.5) !important;
+}
+
+/* CONTAINER DOS CONTROLES */
+body.is-mobile-app .mobile-controls-bottom {
+    display: flex !important;
+    flex: 1 !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    position: relative !important;
+    padding: 0 10px !important;
+}
+
+/* D-PAD */
+body.is-mobile-app .gb-dpad {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 5px !important;
+    align-items: center !important;
+}
+
+body.is-mobile-app .dpad-column {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+    justify-content: center !important;
+}
+
+body.is-mobile-app .gb-btn-dpad {
+    width: 60px !important;
+    height: 60px !important;
+    background: #333 !important;
+    border: none !important;
+    border-radius: 5px !important;
+    color: transparent !important; /* hides original text */
+    position: relative !important;
+    box-shadow: -2px 2px 5px rgba(0,0,0,0.4), inset -2px -2px 5px rgba(255,255,255,0.1) !important;
+}
+body.is-mobile-app .gb-btn-dpad::after {
+    position: absolute !important;
+    width: 100% !important;
+    height: 100% !important;
+    top:0 !important; left:0 !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    color: #777 !important;
+    font-size: 24px !important;
+}
+body.is-mobile-app .gb-left::after { content: '◀' !important; }
+body.is-mobile-app .gb-right::after { content: '▶' !important; }
+body.is-mobile-app .gb-up::after { content: '▲' !important; }
+body.is-mobile-app .gb-down::after { content: '▼' !important; }
+
+/* START / UTILS */
+body.is-mobile-app .gb-center {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 15px !important;
+    align-items: center !important;
+    position: absolute !important;
+    bottom: 5px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+}
+
+body.is-mobile-app .gb-btn-pill {
+    width: 70px !important;
+    height: 25px !important;
+    background: #666 !important;
+    border: 2px solid #444 !important;
+    border-radius: 15px !important;
+    color: #fff !important;
+    font-size: 10px !important;
+    font-family: Arial, sans-serif !important;
+    font-weight: bold !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3) !important;
+    transform: rotate(-15deg) !important;
+}
+
+/* ACTION BUTTONS (DIREITA) */
+body.is-mobile-app .gb-actions {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    align-items: flex-end !important;
+}
+
+body.is-mobile-app .action-row {
+    display: flex !important;
+    gap: 10px !important;
+}
+
+body.is-mobile-app .gb-btn-round {
+    width: 45px !important;
+    height: 45px !important;
+    border-radius: 50% !important;
+    background: #9d1c47 !important; /* Gameboy B/A button color */
+    border: 2px solid #5a0921 !important;
+    color: #fff !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
+    font-family: Arial, sans-serif !important;
+    box-shadow: -2px 2px 5px rgba(0,0,0,0.4), inset -2px -2px 5px rgba(255,255,255,0.2) !important;
+}
+
+body.is-mobile-app .center-jump {
+    justify-content: center !important;
+    margin-top: 5px !important;
+}
+
+body.is-mobile-app .jump-btn {
+    width: 60px !important;
+    height: 60px !important;
+    font-size: 18px !important;
+    background: #4a148c !important; /* distinct jump color */
+    border-color: #2a0b52 !important;
+}
+
+/* Ocultar o start central gigante da versão antiga */
+body.is-mobile-app .centered-start {
+    display: none !important;
+}
+
+    /* REGRAS PARA O SITE (PC/Web Mobile) - Mantém o visual antigo */
+    body:not(.is-mobile-app) .site-header {
         flex-direction: column;
-        gap: 10px;
-        padding: 10px 10px;
+        gap: 12px;
+        padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 10px max(10px, env(safe-area-inset-left));
     }
+
     .header-logo {
         justify-content: center;
     }
     .neon-title {
-        font-size: 20px !important;
+        font-size: 22px !important;
         letter-spacing: 2px;
     }
     #gameNavbar {
         justify-content: center;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 10px;
     }
     #gameNavbar button {
-        padding: 6px 12px !important;
-        font-size: 11px !important;
+        padding: 10px 14px !important;
+        font-size: 13px !important;
         letter-spacing: 1px;
+        min-height: 44px; /* Minimum tap target size for mobile */
     }
     #game-section {
         padding: 20px 10px;
@@ -1970,8 +2241,11 @@ body {
         top: 0 !important;
         bottom: 0 !important;
         z-index: 500 !important;
+        padding-top: max(12px, env(safe-area-inset-top)) !important;
+        padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
     }
     .panel-left, .panel-right {
+        transform: none !important;
         border-left: 2px solid var(--cyan-neon) !important;
         border-right: 2px solid var(--cyan-neon) !important;
         box-shadow: 0 0 15px rgba(0, 255, 255, 0.2) !important;
@@ -1982,30 +2256,45 @@ body {
         flex-direction: column;
         align-items: center;
     }
+    .hud-title {
+        font-size: 18px;
+    }
 }
 
 @media (max-width: 480px) {
     .site-header {
-        padding: 8px 5px;
+        padding: max(8px, env(safe-area-inset-top)) max(5px, env(safe-area-inset-right)) 8px max(5px, env(safe-area-inset-left));
     }
     .neon-title {
-        font-size: 18px !important;
+        font-size: 20px !important;
     }
     #gameNavbar {
-        gap: 4px;
+        gap: 6px;
     }
     #gameNavbar button {
-        padding: 4px 8px !important;
-        font-size: 10px !important;
+        padding: 8px 10px !important;
+        font-size: 12px !important;
+        min-height: 44px; /* Maintain safe tap target */
     }
     /* Character name field responsiveness */
     #charNameInput {
         width: 120px !important;
+        font-size: 14px !important;
     }
     #downloadMobileBtn {
-        font-size: 13px !important;
-        padding: 10px 20px !important;
+        font-size: 14px !important;
+        padding: 12px 20px !important;
         letter-spacing: 1px !important;
+        line-height: 1.4;
+    }
+    .touch-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+    }
+    .touch-btn.start-btn {
+        height: 40px;
+        font-size: 13px;
     }
 }
 
