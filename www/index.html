@@ -1,0 +1,1248 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Ghost Games</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
+    <!-- Fontes do Sistema de Design (Acessibilidade) -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&amp;family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/style.css?v=10" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    
+    <!-- Scripts Externos -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+    <script src="js/core/event_bus.js?v=10"></script>
+    <script src="js/globals.js?v=10"></script>
+    <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
+    <script src="js/game/network.js?v=10"></script>
+    <script src="js/web2/game_core.js?v=1"></script>
+    <script src="js/web2/scores.js?v=1"></script>
+    <script src="rpg_system.js?v=10"></script>
+    <script src="js/ui/ui_manager.js?v=10"></script>
+</head>
+<body>
+
+    <!-- Sticky Header & Nav -->
+    <div id="fullscreenGameArea">
+    <div id="backgroundlayer"></div>
+    <div id="backgroundlayer-overlay"></div>
+
+    <header class="site-header">
+        <div class="header-logo">
+            <img src="assets/sprites/ghost_games_logo.png" alt="Ghost Games Logo" class="header-logo-img" />
+            <h1 class="neon-title">GHOST GAMES</h1>
+        </div>
+        <div id="gameNavbar">
+            <button id="btnNavLogin" onclick="LoginGoogle()" style="border: 1.5px solid #00FFFF !important; color: #00FFFF !important; text-shadow: 0 0 5px #00FFFF;">🔑 LOGIN</button>
+            <button id="btnNavControls" onclick="ToggleNavbarTab('controls')">🎮 CONTROLS</button>
+            <button id="btnNavRPG" onclick="ToggleNavbarTab('rpg')">👤 STATS</button>
+            <button id="btnNavSpells" onclick="ToggleNavbarTab('spells')">⚡ SPELLS</button>
+            <button id="btnNavBag" onclick="ToggleNavbarTab('bag')">🎒 BAG</button>
+            <button id="btnNavEquip" onclick="ToggleNavbarTab('equip')">⚔️ EQUIP</button>
+            <button id="btnNavChat" onclick="ToggleNavbarTab('chat')">💬 CHAT</button>
+            <button id="btnNavSave" onclick="window.TriggerRPGSaveToDeSo()" style="border: 1.5px solid var(--green-neon) !important; color: var(--green-neon) !important;">💾 SAVE</button>
+        </div>
+    </header>
+
+    <!-- Social & Link Bar below Header -->
+    <div class="social-link-bar">
+        <a href="mailto:ghostgamesniteroi@gmail.com" target="_blank" rel="noopener noreferrer" title="Gmail" class="social-icon-link gmail-link">
+            <svg class="social-svg" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+            </svg>
+            <span>Gmail</span>
+        </a>
+        <a href="https://x.com/GhostGamesnit" target="_blank" rel="noopener noreferrer" title="Twitter" class="social-icon-link twitter-link">
+            <svg class="social-svg" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+			</svg>
+            <span>Twitter</span>
+        </a>
+        <a href="https://t.me/+UjvGrGA-Ia40YjIx" target="_blank" rel="noopener noreferrer" title="Telegram" class="social-icon-link telegram-link">
+            <svg class="social-svg" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-1-.65-.35-1 .22-1.6 1.5-1.55 2.75-2.6 2.75-2.6.01-.12.02-.2-.04-.25s-.18-.02-.31.02c-.19.06-3.13 2-6.19 4.07-.47.31-.89.47-1.26.46-.4-.01-1.18-.23-1.76-.42-.71-.23-1.27-.35-1.22-.75.02-.2.31-.4 1-.63 4.25-1.85 7.08-3.08 8.5-3.69 4.05-1.74 4.89-2.04 5.44-2.05.12 0 .39.03.56.17.14.12.18.28.2.4-.02.04-.02.1-.02.16z"/>
+            </svg>
+            <span>Telegram</span>
+        </a>
+        <a href="https://hyperfy.io/desoghostmansion" target="_blank" rel="noopener noreferrer" title="Metaverso" class="social-icon-link hyperfy-link">
+            <svg class="social-svg" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+            </svg>
+            <span>Metaverso</span>
+        </a>
+        <a href="https://www.youtube.com/@ghostgames-nit" target="_blank" rel="noopener noreferrer" title="YouTube" class="social-icon-link youtube-link">
+            <svg class="social-svg" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.5 12 3.5 12 3.5s-7.505 0-9.377.55a3.016 3.016 0 0 0-2.122 2.136C0 8.07 0 12 0 12s0 3.93.501 5.814a3.016 3.016 0 0 0 2.122 2.136c1.872.55 9.377.55 9.377.55s7.505 0 9.377-.55a3.016 3.016 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+            </svg>
+            <span>YouTube</span>
+        </a>
+    </div>
+
+    <!-- Section 1: The Game (Canvas Area) -->
+    <section id="game-section">
+        <h2 style="text-align: center; color: var(--cyan-neon); font-family: var(--font-title); font-size: 24px; text-transform: uppercase; margin: 0 0 15px 0; letter-spacing: 2px; text-shadow: 0 0 10px var(--cyan-neon);">Episode 1 <span style="color: #fff; text-shadow: none; font-size: 16px; margin-left: 10px;">The first dungeon!</span></h2>
+        <div class="canvas-container">
+            <!-- Canvas Principal -->
+            <canvas id="myCanvas" width="640" height="480"></canvas>
+            <img id="cutsceneGif" src="assets/sprites/Dream 36.gif" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; box-sizing: border-box; border: 2px solid #00FFFF; object-fit: cover;" alt="Cutscene Gif" />
+            <video id="openingCutsceneVideo" src="assets/sprites/1.mp4" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; box-sizing: border-box; border: 2px solid #00FFFF; object-fit: cover;" playsinline></video>
+            <button id="gameScreenModeBtn" onclick="ToggleGameFullscreen()" style="position: absolute; right: 10px; top: 10px; z-index: 1000; display: none; background: rgba(13, 13, 16, 0.85); border: 1.5px solid var(--cyan-neon); color: var(--cyan-neon); cursor: pointer; border-radius: 4px; box-shadow: 0 0 10px rgba(0, 255, 255, 0.25); width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease-in-out;" onmouseover="this.style.background='var(--cyan-neon)'; this.style.color='#000'; this.style.boxShadow='0 0 15px var(--cyan-neon)';" onmouseout="this.style.background='rgba(13, 13, 16, 0.85)'; this.style.color='var(--cyan-neon)'; this.style.boxShadow='0 0 10px rgba(0, 255, 255, 0.25)';">
+                <img src="assets/sprites/fullscreen_icon.jpg" style="width: 20px; height: 20px; border-radius: 2px;" alt="Fullscreen" />
+            </button>
+            <button id="muteBtn" onclick="ToggleMute()" style="position: absolute; right: 0px; top: -45px; font-size: 30px; background: none; border: none; cursor: pointer; padding: 0; outline: none; text-shadow: 0 0 5px #00FFFF;" title="Mute/Unmute">🔊</button>
+
+            <!-- START Centered Button -->
+            <button id="touchStartBtn" class="touch-btn start-btn centered-start">START ⏸</button>
+        </div> <!-- End of canvas-container -->
+
+        <!-- Controles Touch para Mobile (Gameboy Layout) -->
+        <div id="mobileControlsContainer">
+            <!-- Menus Superiores do App -->
+            <div id="mobileAppNavbar" class="mobile-app-nav">
+                <button onclick="LoginGoogle()">🔑 LOGIN</button>
+                <button onclick="ToggleNavbarTab('controls')">🎮 CTRL</button>
+                <button onclick="ToggleNavbarTab('rpg')">👤 STAT</button>
+                <button onclick="ToggleNavbarTab('spells')">⚡ SPL</button>
+                <button onclick="ToggleNavbarTab('bag')">🎒 BAG</button>
+                <button onclick="ToggleNavbarTab('equip')">⚔️ EQP</button>
+                <button onclick="ToggleNavbarTab('chat')">💬 CHT</button>
+                <button onclick="window.TriggerRPGSaveToDeSo()">💾 SAV</button>
+            </div>
+            
+            <div class="mobile-controls-bottom">
+                <!-- D-PAD (Esquerda) -->
+                <div class="mobile-btn-group gb-dpad">
+                    <div class="dpad-column">
+                        <button id="touchLeftBtn" class="touch-btn action-btn gb-btn-dpad gb-left">◀</button>
+                    </div>
+                    <div class="dpad-column dpad-vertical">
+                        <button id="touchUpBtn" class="touch-btn action-btn gb-btn-dpad gb-up">▲</button>
+                        <button id="touchDownBtn" class="touch-btn action-btn gb-btn-dpad gb-down">▼</button>
+                    </div>
+                    <div class="dpad-column">
+                        <button id="touchRightBtn" class="touch-btn action-btn gb-btn-dpad gb-right">▶</button>
+                    </div>
+                </div>
+                
+                <!-- Start (Centro Inferior) -->
+                <div class="mobile-btn-group gb-center">
+                    <button id="touchStartBtnPersist" class="touch-btn action-btn gb-btn-pill">START</button>
+                </div>
+
+                <!-- Ações (Direita) -->
+                <div class="mobile-btn-group gb-actions">
+                    <div class="action-row">
+                        <button id="touchSlotVBtn" class="touch-btn action-btn gb-btn-round spell-btn">V</button>
+                        <button id="touchSlotEBtn" class="touch-btn action-btn gb-btn-round spell-btn">E</button>
+                        <button id="touchSlotRBtn" class="touch-btn action-btn gb-btn-round spell-btn">R</button>
+                    </div>
+                    <div class="action-row">
+                        <button id="touchSpell1Btn" class="touch-btn action-btn gb-btn-round spell-btn">1</button>
+                        <button id="touchSpell2Btn" class="touch-btn action-btn gb-btn-round spell-btn">2</button>
+                        <button id="touchSpell3Btn" class="touch-btn action-btn gb-btn-round spell-btn">3</button>
+                    </div>
+                    <div class="action-row center-jump">
+                        <button id="touchSlotFBtn" class="touch-btn action-btn gb-btn-round jump-btn">F</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+            <!-- Painel Esquerdo (RPG & Status) -->
+            <div id="rpgPanel" class="overlay-panel panel-left" style="display: none;">
+                <div id="rpgPanelContent"></div>
+            </div>
+
+            <!-- Painel de Chat (Esquerda) -->
+            <div id="chatPanel" class="overlay-panel panel-left" style="display: none;">
+                <h3 class="panel-header">💬 GLOBAL CHAT</h3>
+                <div class="chat-nick-row">
+                    <span>NICK:</span>
+                    <input type="text" id="chatNickInput" placeholder="GUEST_GHOST" />
+                </div>
+                <div id="chatMessages" class="chat-log"></div>
+                <div class="chat-input-row">
+                    <input type="text" id="chatMsgInput" placeholder="TYPE MESSAGE..." />
+                    <button id="chatSendBtn">SEND</button>
+                </div>
+            </div>
+
+            <!-- Painel Direito (Bag, Equipamentos, Controles, Leaderboard) -->
+            <div id="navbarPanel" class="overlay-panel panel-right" style="display: none;">
+                <div id="navbarPanelContent"></div>
+            </div>
+
+            <div id="gameOverPanel" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.9); border: 2px solid #FF0000; border-radius: 10px; padding: 30px; text-align: center; z-index: 2000;">
+                <h2 style="color: #FF0000; font-family: 'Courier New', monospace; font-weight: bold; margin-bottom: 20px;">GAME OVER</h2>
+                <p style="color: #00FFFF; font-family: 'Courier New', monospace; font-size: 18px; margin-bottom: 20px;">SCORE: <span id="gameOverScoreDisplay">0</span></p>
+                <input type="text" id="gameOverNameInput" placeholder="ENTER PLAYER NAME" maxlength="20" style="padding: 10px; font-family: 'Courier New', monospace; font-size: 16px; background: #111; color: #FFF; border: 1px solid #FF0000; margin-bottom: 20px; width: 80%; box-sizing: border-box;" />
+                <br>
+                <button onclick="SubmitGameOverScore()" style="padding: 10px 20px; background: #FF0000; color: #FFF; font-family: 'Courier New', monospace; font-weight: bold; border: none; cursor: pointer; border-radius: 5px;">SUBMIT SCORE</button>
+            </div>
+
+        </div>
+        
+        <!-- Character Name Input Area -->
+        <div id="charNameArea" style="display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 15px; font-family: 'Courier New', monospace; background: rgba(13, 13, 16, 0.85); border: 1.5px solid var(--cyan-neon); padding: 10px; border-radius: 4px; box-shadow: 0 0 10px rgba(0, 255, 255, 0.15); max-width: 640px; margin-left: auto; margin-right: auto; box-sizing: border-box;">
+            <label for="charNameInput" style="color: var(--cyan-neon); font-weight: bold; text-shadow: 0 0 5px var(--cyan-neon); font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">Character Name:</label>
+            <input type="text" id="charNameInput" placeholder="Enter Ghost Name..." maxlength="15" style="background: #000; color: #FFF; border: 1px solid var(--border-light); padding: 6px 12px; font-family: 'Courier New', monospace; font-size: 13px; outline: none; border-radius: 2px; width: 180px; box-sizing: border-box; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--cyan-neon)'" onblur="this.style.borderColor='var(--border-light)'" />
+            <button id="saveCharNameBtn" onclick="SaveCharacterName()" style="background: rgba(0, 0, 0, 0.8); border: 1.5px solid var(--cyan-neon); color: var(--cyan-neon); font-family: 'Courier New', monospace; font-weight: bold; font-size: 13px; cursor: pointer; padding: 6px 20px; border-radius: 2px; text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s ease-in-out;" onmouseover="this.style.background='var(--cyan-neon)'; this.style.color='#000'; this.style.boxShadow='0 0 10px var(--cyan-neon)';" onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='var(--cyan-neon)'; this.style.boxShadow='none';">Save</button>
+        </div>
+        
+        <!-- Mobile App Download Area -->
+        <div class="mobile-app-download-area" style="display: flex; justify-content: center; align-items: center; margin-top: 15px;">
+            <a href="DangerGhostMobile.apk" download="DangerGhostMobile.apk" style="text-decoration: none;">
+                <button id="downloadMobileBtn" style="background: rgba(0, 0, 0, 0.8); border: 2px solid #FF00FF; color: #FF00FF; font-family: 'Courier New', monospace; font-weight: bold; font-size: 16px; cursor: pointer; padding: 12px 30px; border-radius: 6px; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 15px rgba(255, 0, 255, 0.2); transition: all 0.2s ease-in-out;" onmouseover="this.style.background='#FF00FF'; this.style.color='#000'; this.style.boxShadow='0 0 20px #FF00FF';" onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='#FF00FF'; this.style.boxShadow='0 0 15px rgba(255, 0, 255, 0.2)';">
+                    📱 DOWNLOAD DANGER GHOST MOBILE APP
+                </button>
+            </a>
+        </div>
+        
+        <!-- Leaderboard Modal (Hidden by default) -->
+        <div id="leaderboardModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 2000; align-items: center; justify-content: center;">
+            <div style="background: #181224; border: 2px solid #FF00FF; border-radius: 10px; padding: 30px; width: 90%; max-width: 450px; box-shadow: 0 0 20px rgba(255, 0, 255, 0.3); font-family: 'Courier New', monospace; color: #FFF;">
+                <h3 style="color: #FF00FF; margin: 0 0 15px 0; text-align: center; text-transform: uppercase; letter-spacing: 2px;">🏆 LOCAL LEADERBOARD</h3>
+                <div id="leaderboardContent" style="margin-bottom: 20px; max-height: 250px; overflow-y: auto; text-align: left; padding: 10px; background: #08060c; border: 1px solid rgba(255, 0, 255, 0.2); border-radius: 5px;">
+                    <!-- Filled dynamically -->
+                </div>
+                <div style="text-align: center;">
+                    <button onclick="CloseLeaderboardModal()" style="padding: 10px 20px; background: #FF00FF; color: #FFF; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; text-transform: uppercase;">CLOSE</button>
+                </div>
+            </div>
+        </div>
+        <br />
+            <!-- Character Selection Overlay -->
+            <div id="characterSelectionOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 6, 12, 0.95); z-index: 1000; overflow-y: auto; font-family: 'Courier New', monospace; color: #FFF; text-align: center; padding: 40px 20px; box-sizing: border-box;">
+                <div style="max-width: 800px; margin: 0 auto;">
+                    <h2 style="color: #00FF00; letter-spacing: 2px; text-shadow: 0 0 10px #00FF00; margin-bottom: 30px;">👻 🎮 SELECT YOUR GHOST</h2>
+                    
+                    <div id="characterCardsContainer" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-bottom: 40px;">
+                    </div>
+                    
+                    <div style="background: rgba(255, 255, 255, 0.05); border: 2px dashed rgba(0, 255, 255, 0.3); border-radius: 8px; padding: 25px; margin-bottom: 20px;">
+                        <h3 style="color: #00FFFF; margin: 0 0 10px 0;">CREATE NEW GHOST</h3>
+                        <p id="newGhostPriceText" style="color: #AAA; font-size: 13px; margin: 0 0 15px 0;">Forge a new unique Ghost character card locally.</p>
+                        <button id="createGhostBtn" onclick="OpenNewGhostModal()" style="padding: 10px 25px; background: #00FF00; color: #000; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; outline: none; transition: all 0.15s ease;" onmouseover="this.style.boxShadow='0 0 15px #00FF00'" onmouseout="this.style.boxShadow='none'">FORGE NEW GHOST</button>
+                    </div>
+                    
+                    <!-- New Game Modal (Hidden by default) -->
+                    <div id="newGhostModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 2000; align-items: center; justify-content: center;">
+                        <div style="background: #181224; border: 2px solid #00FF00; border-radius: 10px; padding: 30px; width: 90%; max-width: 400px; box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);">
+                            <h3 style="color: #00FF00; margin: 0 0 15px 0;">FORGE NEW GHOST</h3>
+                            <p style="color: #AAA; font-size: 14px; margin-bottom: 20px;">Your ghost will be generated with random initial attributes (VIT, AGI, INT, POW, MAG). You can have a maximum of 3 active local ghosts.</p>
+                            <input type="text" id="newGhostNameInput" placeholder="Enter Name (Optional)" maxlength="16" style="width: 100%; padding: 10px; background: #08060c; border: 1px solid #00FF00; color: #FFF; font-family: 'Courier New', monospace; font-size: 16px; margin-bottom: 20px; box-sizing: border-box;" />
+                            <div style="display: flex; gap: 10px; justify-content: center;">
+                                <button onclick="TriggerCreateNewGhost()" id="confirmForgeBtn" style="padding: 10px 20px; background: #00FF00; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 5px;">START GAME</button>
+                                <button onclick="CloseNewGhostModal()" style="padding: 10px 20px; background: #333; color: #FFF; border: 1px solid #555; cursor: pointer; border-radius: 5px;">CANCEL</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 15px;">
+                        <button onclick="CancelCharacterSelection()" style="padding: 10px 25px; background: #FF00FF; color: #FFF; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; outline: none; transition: all 0.15s ease;" onmouseover="this.style.boxShadow='0 0 15px #FF00FF'" onmouseout="this.style.boxShadow='none'">CANCEL / CLOSE</button>
+                    </div>
+                </div>
+            </div>
+        <div id="winPanel" style="display: none; margin-top: 20px;">
+            <input type="text" id="playerNameInput" placeholder="ENTER PLAYER NAME" maxlength="20" />
+            <button id="downloadBtn" onclick="DownloadScreenshot()" class="glass-action-btn">DOWNLOAD SCREENSHOT</button>
+        </div>
+    </section>
+    </div>
+
+    <script>
+        function SubmitGameOverScore() {
+            var nameInput = document.getElementById("gameOverNameInput");
+            var playerName = nameInput && nameInput.value.trim() !== "" ? nameInput.value.trim() : "Guest";
+            
+            var charId = "GUEST";
+            var charLvl = window.g_currentLevel || 1;
+            if (window.GhostRPG && window.GhostRPG.getStats) {
+                var stats = window.GhostRPG.getStats();
+                if (stats.characterId) charId = stats.characterId;
+                if (stats.level) charLvl = stats.level;
+            }
+            
+            if (typeof window.SaveScore === "function") {
+                window.SaveScore(charId, window.g_score || 0, charLvl, playerName);
+            }
+            
+            var panel = document.getElementById("gameOverPanel");
+            if (panel) panel.style.display = "none";
+            
+            if (typeof window.OpenLeaderboardModal === "function") {
+                window.OpenLeaderboardModal();
+            }
+            
+            if (typeof window.SetGameState === "function") {
+                window.SetGameState(0); // G_START
+            }
+            
+            var menu = document.getElementById("loginButtonsContainer");
+            if (menu) menu.style.display = "flex";
+        }
+
+        function SaveCharacterName() {
+            var input = document.getElementById("charNameInput");
+            if (input) {
+                var name = input.value.trim();
+                if (name !== "") {
+                    localStorage.setItem("playerName", name);
+                    
+                    if (window.GhostRPG && window.GhostRPG.getStats) {
+                        var stats = window.GhostRPG.getStats();
+                        if (stats) {
+                            stats.name = name;
+                        }
+                    }
+                    
+                    if (window.NetworkState && window.NetworkState.socket && window.NetworkState.connected) {
+                        window.NetworkState.socket.emit('join_game', { playerName: name });
+                    }
+                    
+                    var btn = document.getElementById("saveCharNameBtn");
+                    if (btn) {
+                        var originalText = btn.innerText;
+                        btn.innerText = "SAVED!";
+                        btn.style.background = "var(--cyan-neon)";
+                        btn.style.color = "#000";
+                        btn.style.boxShadow = "0 0 10px var(--cyan-neon)";
+                        setTimeout(function() {
+                            btn.innerText = originalText;
+                            btn.style.background = "rgba(0, 0, 0, 0.8)";
+                            btn.style.color = "var(--cyan-neon)";
+                            btn.style.boxShadow = "none";
+                        }, 1000);
+                    }
+                } else {
+                    alert("Name cannot be empty!");
+                }
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            var savedName = localStorage.getItem("playerName") || "Ghost";
+            var input = document.getElementById("charNameInput");
+            if (input) {
+                input.value = savedName;
+            }
+            
+            // BIND TOUCH CONTROLS FOR MOBILE DEVICES
+            function setupTouchButton(id, keyCode) {
+                var btn = document.getElementById(id);
+                if (!btn) return;
+                
+                function triggerStart(e) {
+                    e.preventDefault();
+                    var event = new KeyboardEvent('keydown', {
+                        keyCode: keyCode,
+                        which: keyCode,
+                        bubbles: true
+                    });
+                    window.dispatchEvent(event);
+                }
+                
+                function triggerEnd(e) {
+                    e.preventDefault();
+                    var event = new KeyboardEvent('keyup', {
+                        keyCode: keyCode,
+                        which: keyCode,
+                        bubbles: true
+                    });
+                    window.dispatchEvent(event);
+                }
+                
+                btn.addEventListener('touchstart', triggerStart, { passive: false });
+                btn.addEventListener('touchend', triggerEnd, { passive: false });
+                btn.addEventListener('touchcancel', triggerEnd, { passive: false });
+                
+                // Fallbacks for testing in desktop browser responsive simulator
+                btn.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    var event = new KeyboardEvent('keydown', { keyCode: keyCode, which: keyCode, bubbles: true });
+                    window.dispatchEvent(event);
+                });
+                btn.addEventListener('mouseup', function(e) {
+                    e.preventDefault();
+                    var event = new KeyboardEvent('keyup', { keyCode: keyCode, which: keyCode, bubbles: true });
+                    window.dispatchEvent(event);
+                });
+            }
+            
+            setupTouchButton('touchJumpBtn', 38);   // Up Arrow (Jump)
+            setupTouchButton('touchSpell1Btn', 49); // '1' key
+            setupTouchButton('touchSpell2Btn', 50); // '2' key
+            setupTouchButton('touchSpell3Btn', 51); // '3' key
+            setupTouchButton('touchStartBtn', 32);  // SPACE key (Start/Pause original)
+            setupTouchButton('touchStartBtnPersist', 32); // SPACE key (Start/Pause persistant)
+
+            setupTouchButton('touchLeftBtn', 37);   // Left Arrow
+            setupTouchButton('touchRightBtn', 39);  // Right Arrow
+            setupTouchButton('touchUpBtn', 38);     // Up Arrow
+            setupTouchButton('touchDownBtn', 40);   // Down Arrow
+
+            setupTouchButton('touchSlotVBtn', 86);  // V key
+            setupTouchButton('touchSlotEBtn', 69);  // E key
+            setupTouchButton('touchSlotRBtn', 82);  // R key
+            setupTouchButton('touchSlotFBtn', 70);  // F key
+            setupTouchButton('touchSlotTBtn', 84);  // T key
+
+            // Esconder botão START ao clicar
+            var startBtn = document.getElementById('touchStartBtn');
+            if (startBtn) {
+                var hideStart = function() {
+                    startBtn.style.display = 'none';
+                };
+                startBtn.addEventListener('touchstart', hideStart, { passive: true });
+                startBtn.addEventListener('mousedown', hideStart);
+            }
+        });
+    </script>
+
+    <!-- Playable Tutorial Section -->
+    <section id="tutorial-btn-section" style="width: 100%; text-align: center; margin: 30px 0 15px 0;">
+        <div class="section-container" style="max-width: 640px; margin: 0 auto; padding: 0 20px; box-sizing: border-box;">
+            <button id="openTutorialBtn" class="glass-action-btn tutorial-pulsate-btn" onclick="OpenInteractiveTutorial()" style="background: #000; border: 2px solid var(--cyan-neon) !important; color: var(--cyan-neon) !important; font-family: var(--font-title); font-size: 14px; letter-spacing: 2.5px; font-weight: bold; width: 100%; padding: 16px; border-radius: 0px; text-shadow: 0 0 8px var(--cyan-neon); box-shadow: 0 0 15px rgba(0, 255, 255, 0.1); cursor: pointer; transition: all 0.25s ease;">
+                ⚡ PLAYABLE INTERACTIVE TUTORIAL ⚡
+            </button>
+        </div>
+    </section>
+
+    <!-- Play Modes Explanation Section -->
+    <section id="play-modes-explanation" style="width: 100%; margin: 20px 0 35px 0;">
+        <div class="section-container" style="max-width: 640px; margin: 0 auto; padding: 0 20px; box-sizing: border-box;">
+            <div style="background: rgba(13, 13, 16, 0.85); border: 1.5px solid var(--border-light); border-radius: 4px; padding: 20px; box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; gap: 15px;">
+                <h4 style="color: #FFF; font-family: var(--font-title); font-size: 13px; text-transform: uppercase; letter-spacing: 2px; margin: 0; text-align: center; border-bottom: 1px solid var(--border-light); padding-bottom: 10px;">
+                    💾 HOW TO SAVE YOUR PROGRESS?
+                </h4>
+                <div style="font-family: var(--font-text); font-size: 12px; line-height: 18px; text-align: left; color: var(--text-muted);">
+                    <p style="margin: 0;">
+                        Your progress is saved automatically on this device! Click the <strong>💾 SAVE</strong> button in the navigation header at any time to manually secure your latest levels, items, and weapon upgrades to your local browser storage.
+                    </p>
+                </div>
+                <!-- YouTube Video Placeholder -->
+                <div style="margin-top: 10px; width: 100%; aspect-ratio: 16/9; background: #000; border: 2px solid var(--cyan-neon); border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative;">
+                    <iframe width="100%" height="100%" src="https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position: absolute; top: 0; left: 0;"></iframe>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 2: Lore of Danger Ghost -->
+    <section id="lore-section" style="background-color: var(--surface-dark); border-top: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light); width: 100%;">
+        <div class="section-container">
+            <h2 class="section-title">THE LORE OF FTASMA</h2>
+            <div class="section-accent-bar"></div>
+            
+            <div class="lore-wrap">
+                <div class="lore-text">
+                    <p>
+                        The story follows Ftasma, a spectral projection who emerges without memories in Niterói in the year 2012. In reality, he originates from Neo Nit (year 3147), a dystopian future dominated by extreme social inequality, where the oppressive elite (High Levels) is controlled by billionaire Jorge Alberto Quixeira and a Supreme AI.
+                    </p>
+                    <p>
+                        To escape his enemies, Ftasma erased his identity and, in 2020, migrated his soul into the network, taking refuge in "Nowhere" — a digital, hypercomplex replica of Niterói. In 2026, he invades Danger Ghost, a mutable dungeon designed in the future to force him to recover his forgotten memories.
+                    </p>
+                    <p>
+                        To survive the dungeon's physical and psychological traps, Ftasma uses cyberpunk mobility skills and Xarpi (a rage-fueled nanotechnological paint that rewrites digital reality). On his journey through time and digital space, he relies on unlikely allies, such as graffiti artist Beco Pro and a mystical feline named Gato, while unraveling cosmic secrets involving time travelers and the powerful King Size lineage.
+                    </p>
+                </div>
+                <div class="lore-image-container">
+                    <img src="UI/Ftasma é.png" alt="Ftasma in Nowhere" class="lore-image" />
+                </div>
+            </div>
+            
+            <div class="lore-wrap" style="flex-direction: row-reverse; margin-top: 60px;">
+                <div class="lore-text" style="display: flex; align-items: center; justify-content: center;">
+                    <button id="openLoreBtn" class="glass-action-btn tutorial-pulsate-btn" onclick="window.location.href='lore_reader.html'" style="font-size: 18px; padding: 20px 40px; width: 100%; white-space: normal;">
+                        📜 ACCESS THE FULL LORE OF FTASMA 📜
+                    </button>
+                </div>
+                <div class="lore-image-container">
+                    <img src="UI/1.png" alt="DeSo Eternal Ledger" class="lore-image" />
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 3: Rules and Mechanics (Beginners Guide) -->
+    <section id="rules-section" style="width: 100%;">
+        <div class="section-container">
+            <h2 class="section-title">RULES & MECHANICS</h2>
+            <div class="section-accent-bar" style="background: var(--magenta-neon);"></div>
+            
+            <div class="rules-grid">
+                <!-- Controls -->
+                <div class="rules-column">
+                    <h3>🎮 HUNTER CONTROLS</h3>
+                    <table class="controls-table">
+                        <thead>
+                            <tr>
+                                <th>Action</th>
+                                <th>Keys</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Move Left / Right</td>
+                                <td><strong>A / D</strong> or <strong>Arrows</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Jump / Enter Doors</td>
+                                <td><strong>W</strong> or <strong>Up Arrow</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Exit Doors / Down Platforms</td>
+                                <td><strong>S</strong> or <strong>Down Arrow</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Spectral Spark (Spell Q)</td>
+                                <td><strong>Q</strong> (Generates mana when hitting monsters)</td>
+                            </tr>
+                            <tr>
+                                <td>Ghost Mode (Spell F)</td>
+                                <td><strong>F</strong> (Hold to phase through walls)</td>
+                            </tr>
+                            <tr>
+                                <td>Plasma Orb (Spell E)</td>
+                                <td><strong>E</strong> (Massive penetrating projectile)</td>
+                            </tr>
+                            <tr>
+                                <td>Phantom Form (Spell R)</td>
+                                <td><strong>R</strong> (Total immunity and speed boost)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Attributes -->
+                <div class="rules-column">
+                    <h3>👤 RPG ATTRIBUTES</h3>
+                    <table class="controls-table">
+                        <thead>
+                            <tr>
+                                <th>Attribute</th>
+                                <th>Conceptual Mechanics</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>VIT (Vitality)</strong></td>
+                                <td>Increases the maximum cap of accumulable spectral lives (Cap = <code>4 + VIT</code>).</td>
+                            </tr>
+                            <tr>
+                                <td><strong>AGI (Agility)</strong></td>
+                                <td>Improves Ftasma's movement speed and jumping physics/momentum.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>INT (Intelligence)</strong></td>
+                                <td>Speeds up mana regeneration rate and optimizes Ghost Mode mana consumption.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>POW (Power)</strong></td>
+                                <td>Amplifies the damage of jump-stomps on monsters' heads.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>MAG (Magic)</strong></td>
+                                <td>Expands the maximum ectoplasm reservoir (Max Mana = <code>100 + MAG * 20</code>).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <h2 class="section-title" style="font-size: 24px; margin-top: 60px;">ABYSS BESTIARY (BOSS CODEX)</h2>
+            <div class="section-accent-bar" style="background: var(--yellow-neon); margin-bottom: 40px;"></div>
+            
+            <div class="boss-grid">
+                <!-- Demon Fly -->
+                <div class="boss-card">
+                    <div class="boss-card-image-wrap">
+                        <img src="assets/sprites/Brd direita.webp" alt="Demon Fly" class="boss-card-image" />
+                    </div>
+                    <div class="boss-card-content">
+                        <h4 class="boss-card-title">Demon Fly</h4>
+                        <p class="boss-card-desc">
+                            Creatures born from the spiritual rot of Nowhere. They shoot celestial sparks at the hero and possess high resistance against jumps and continuous fire/poison damage.
+                        </p>
+                        <span class="boss-card-stat">Resistances: Fire, Poison, Impact</span>
+                    </div>
+                </div>
+                
+                <!-- Slime -->
+                <div class="boss-card">
+                    <div class="boss-card-image-wrap">
+                        <img src="assets/sprites/Slime esquerda.webp" alt="Slime" class="boss-card-image" />
+                    </div>
+                    <div class="boss-card-content">
+                        <h4 class="boss-card-title">Slime</h4>
+                        <p class="boss-card-desc">
+                            Ooze formed by the fusion of souls dissolved in lava. They attack by firing plasma spheres and spawn dynamically whenever the player accumulates mystical score.
+                        </p>
+                        <span class="boss-card-stat">Resistances: Fire, Poison, Jumps</span>
+                    </div>
+                </div>
+                
+                <!-- Colossal Skull -->
+                <div class="boss-card">
+                    <div class="boss-card-image-wrap">
+                        <img src="assets/sprites/Skull-esquerda.webp" alt="Colossal Skull" class="boss-card-image" />
+                    </div>
+                    <div class="boss-card-content">
+                        <h4 class="boss-card-title">Colossal Skull</h4>
+                        <p class="boss-card-desc">
+                            The Titanic Guardian of cave1. It fires massive purple plasma orbs and reflects 80% of Plasma Orb damage, requiring crown stomps or elemental rune magic.
+                        </p>
+                        <span class="boss-card-stat">Resistances: Plasma Orb (80%)</span>
+                    </div>
+                </div>
+                
+                <!-- Cactus -->
+                <div class="boss-card">
+                    <div class="boss-card-image-wrap">
+                        <img src="assets/sprites/Cactus direita.webp" alt="Cactus" class="boss-card-image" />
+                    </div>
+                    <div class="boss-card-content">
+                        <h4 class="boss-card-title">Cactus</h4>
+                        <p class="boss-card-desc">
+                            Colossal distortion of limbo vegetation. A rigid plant obstacle of 288x288 pixels that blocks Ftasma's free passage in specific zones.
+                        </p>
+                        <span class="boss-card-stat">Type: Giant Obstacle</span>
+                    </div>
+                </div>
+                
+                <!-- Sick Crow -->
+                <div class="boss-card">
+                    <div class="boss-card-image-wrap">
+                        <img src="assets/sprites/Sickcrow e.webp" alt="Sick Crow" class="boss-card-image" />
+                    </div>
+                    <div class="boss-card-content">
+                        <h4 class="boss-card-title">Sick Crow</h4>
+                        <p class="boss-card-desc">
+                            Heralds of death that patrol the misty ceiling of Nowhere. They are summoned with every extra life collected and relentlessly pursue Ftasma.
+                        </p>
+                        <span class="boss-card-stat">Type: Aerial Patroller</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section: RPG Equipment Showcase -->
+    <section id="equipment-showcase-section" style="background-color: var(--background-dark); border-top: 1px solid var(--border-light); width: 100%; padding: 40px 0;">
+        <div class="section-container" style="max-width: 1200px; margin: 0 auto; padding: 0 20px; box-sizing: border-box;">
+            <h2 class="section-title" style="text-align: center; color: var(--yellow-neon); font-family: var(--font-title); font-size: 28px; margin-bottom: 5px; text-shadow: 0 0 10px rgba(255, 170, 0, 0.3);">EQUIPMENT & LOOT SYSTEM</h2>
+            <div class="section-accent-bar" style="background: var(--yellow-neon); width: 80px; height: 3px; margin: 0 auto 30px auto; border-radius: 2px;"></div>
+            
+            <p style="text-align: center; color: var(--text-muted); font-size: 14px; max-width: 700px; margin: 0 auto 40px auto; line-height: 1.6;">
+                Eliminate bosses in the Nowhere abyss to drop premium equipment! Defeating a boss yields <strong>0 to 2 random items</strong>. Equip them in your Bag to increase attributes (VIT, AGI, INT, POW, MAG) and unlock legendary active spells!
+            </p>
+
+            <!-- Grid of Slots -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 40px;">
+                <!-- HEAD -->
+                <div style="background: rgba(13, 13, 16, 0.75); border: 1.5px solid var(--border-light); border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; gap: 15px; align-items: center; transition: transform 0.2s, border-color 0.2s;" onmouseover="this.style.borderColor='var(--cyan-neon)'; this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.transform='none';">
+                    <img src="assets/sprites/equip_head.png" alt="Head Armor" style="width: 64px; height: 64px; border: 1px solid var(--cyan-neon); border-radius: 4px; box-shadow: 0 0 10px rgba(0, 229, 255, 0.2); image-rendering: pixelated;" />
+                    <div>
+                        <h3 style="color: var(--cyan-neon); font-family: var(--font-title); font-size: 16px; margin: 0 0 5px 0;">HEAD (HELMET)</h3>
+                        <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">Increases Vitality (VIT) and Agility (AGI). Adds extra defense and boosts maximum life capacity.</p>
+                    </div>
+                </div>
+                <!-- CHEST -->
+                <div style="background: rgba(13, 13, 16, 0.75); border: 1.5px solid var(--border-light); border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; gap: 15px; align-items: center; transition: transform 0.2s, border-color 0.2s;" onmouseover="this.style.borderColor='#E040FB'; this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.transform='none';">
+                    <img src="assets/sprites/equip_chest.png" alt="Chest Armor" style="width: 64px; height: 64px; border: 1px solid #E040FB; border-radius: 4px; box-shadow: 0 0 10px rgba(224, 64, 251, 0.2); image-rendering: pixelated;" />
+                    <div>
+                        <h3 style="color: #E040FB; font-family: var(--font-title); font-size: 16px; margin: 0 0 5px 0;">CHEST (CHESTPLATE)</h3>
+                        <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">Increases Vitality (VIT) and Power (POW). Greatly increases maximum armor defense values.</p>
+                    </div>
+                </div>
+                <!-- MAIN HAND -->
+                <div style="background: rgba(13, 13, 16, 0.75); border: 1.5px solid var(--border-light); border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; gap: 15px; align-items: center; transition: transform 0.2s, border-color 0.2s;" onmouseover="this.style.borderColor='var(--yellow-neon)'; this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.transform='none';">
+                    <img src="assets/sprites/equip_weapon.png" alt="Main Hand" style="width: 64px; height: 64px; border: 1px solid var(--yellow-neon); border-radius: 4px; box-shadow: 0 0 10px rgba(255, 170, 0, 0.2); image-rendering: pixelated;" />
+                    <div>
+                        <h3 style="color: var(--yellow-neon); font-family: var(--font-title); font-size: 16px; margin: 0 0 5px 0;">MAIN HAND (BLADE)</h3>
+                        <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">Increases Power (POW) and Agility (AGI). Adds base damage for slashing and critical attacks.</p>
+                    </div>
+                </div>
+                <!-- OFF-HAND -->
+                <div style="background: rgba(13, 13, 16, 0.75); border: 1.5px solid var(--border-light); border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; gap: 15px; align-items: center; transition: transform 0.2s, border-color 0.2s;" onmouseover="this.style.borderColor='#00E676'; this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.transform='none';">
+                    <img src="assets/sprites/equip_shield.png" alt="Off Hand" style="width: 64px; height: 64px; border: 1px solid #00E676; border-radius: 4px; box-shadow: 0 0 10px rgba(0, 230, 118, 0.2); image-rendering: pixelated;" />
+                    <div>
+                        <h3 style="color: #00E676; font-family: var(--font-title); font-size: 16px; margin: 0 0 5px 0;">OFF-HAND (SHIELD)</h3>
+                        <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">Increases Vitality (VIT) and Magic (MAG). Grants block rate bonuses and defensive protection.</p>
+                    </div>
+                </div>
+                <!-- RING 1 -->
+                <div style="background: rgba(13, 13, 16, 0.75); border: 1.5px solid var(--border-light); border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; gap: 15px; align-items: center; transition: transform 0.2s, border-color 0.2s;" onmouseover="this.style.borderColor='#00E5FF'; this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.transform='none';">
+                    <img src="assets/sprites/equip_ring_ice.png" alt="Ice Ring" style="width: 64px; height: 64px; border: 1px solid #00E5FF; border-radius: 4px; box-shadow: 0 0 10px rgba(0, 229, 255, 0.2); image-rendering: pixelated;" />
+                    <div>
+                        <h3 style="color: #00E5FF; font-family: var(--font-title); font-size: 16px; margin: 0 0 5px 0;">RING 1 (Ice Spell)</h3>
+                        <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">Increases Intelligence (INT). Unlocks the active <strong>Ice Spell (Key 2)</strong> to slow boss speeds by 50%!</p>
+                    </div>
+                </div>
+                <!-- RING 2 -->
+                <div style="background: rgba(13, 13, 16, 0.75); border: 1.5px solid var(--border-light); border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; gap: 15px; align-items: center; transition: transform 0.2s, border-color 0.2s;" onmouseover="this.style.borderColor='#00E676'; this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.transform='none';">
+                    <img src="assets/sprites/equip_ring_wood.png" alt="Wood Ring" style="width: 64px; height: 64px; border: 1px solid #00E676; border-radius: 4px; box-shadow: 0 0 10px rgba(0, 230, 118, 0.2); image-rendering: pixelated;" />
+                    <div>
+                        <h3 style="color: #00E676; font-family: var(--font-title); font-size: 16px; margin: 0 0 5px 0;">RING 2 (Wood Spell)</h3>
+                        <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">Increases Magic (MAG). Unlocks the active <strong>Wood Spell (Key 3)</strong> to apply Damage-over-Time poison!</p>
+                    </div>
+                </div>
+                <!-- AMULET -->
+                <div style="background: rgba(13, 13, 16, 0.75); border: 1.5px solid var(--border-light); border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; gap: 15px; align-items: center; transition: transform 0.2s, border-color 0.2s;" onmouseover="this.style.borderColor='#FF8C00'; this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.transform='none';">
+                    <img src="assets/sprites/equip_amulet.png" alt="Amulet" style="width: 64px; height: 64px; border: 1px solid #FF8C00; border-radius: 4px; box-shadow: 0 0 10px rgba(255, 140, 0, 0.2); image-rendering: pixelated;" />
+                    <div>
+                        <h3 style="color: #FF8C00; font-family: var(--font-title); font-size: 16px; margin: 0 0 5px 0;">AMULET (AMULET)</h3>
+                        <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">Increases Intelligence (INT) and Magic (MAG). Unlocks massive passive stat bonuses.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rarities Breakdown -->
+            <h3 style="text-align: center; color: #FFF; font-family: var(--font-title); font-size: 20px; margin: 40px 0 15px 0;">ITEM RARITIES & PHASES</h3>
+            <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;">
+                <!-- Common -->
+                <div style="background: rgba(13, 13, 16, 0.6); border: 1px solid #B0BEC5; border-radius: 6px; padding: 15px; width: 260px; text-align: center; box-shadow: 0 0 12px rgba(176, 190, 197, 0.1);">
+                    <div style="font-family: var(--font-title); color: #B0BEC5; font-size: 16px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase;">Common</div>
+                    <div style="color: #888; font-size: 11px; margin-bottom: 8px;">BASIC QUALITY</div>
+                    <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">
+                        Drops in <strong>all phases</strong>. Increases 1 random attribute by basic amount. Easily accessible.
+                    </p>
+                </div>
+                <!-- Rare -->
+                <div style="background: rgba(13, 13, 16, 0.6); border: 1px solid #00E5FF; border-radius: 6px; padding: 15px; width: 260px; text-align: center; box-shadow: 0 0 12px rgba(0, 229, 255, 0.15);">
+                    <div style="font-family: var(--font-title); color: #00E5FF; font-size: 16px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase;">Rare</div>
+                    <div style="color: #00E5FF; font-size: 11px; margin-bottom: 8px;">SPECIAL QUALITY</div>
+                    <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">
+                        Drops in phases <strong>6, and 10 to 33</strong>. Increases 2 random attributes by high amount.
+                    </p>
+                </div>
+                <!-- Epic -->
+                <div style="background: rgba(13, 13, 16, 0.6); border: 1px solid #E040FB; border-radius: 6px; padding: 15px; width: 260px; text-align: center; box-shadow: 0 0 12px rgba(224, 64, 251, 0.2);">
+                    <div style="font-family: var(--font-title); color: #E040FB; font-size: 16px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase;">Epic</div>
+                    <div style="color: #E040FB; font-size: 11px; margin-bottom: 8px;">SUPER SPECIAL QUALITY</div>
+                    <p style="color: var(--text-muted); font-size: 12px; margin: 0; line-height: 1.4;">
+                        Drops in phases <strong>30 to 33, and cave1</strong>. Increases 3 random attributes by massive amounts!
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 4: Founder Bio -->
+    <section id="founder-section" style="background-color: var(--surface-dark); border-top: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light); width: 100%;">
+        <div class="section-container">
+            <h2 class="section-title">FOUNDER BIO</h2>
+            <div class="section-accent-bar" style="background: var(--purple-neon);"></div>
+            
+            <div class="lore-wrap">
+                <div class="lore-image-container" style="width: 300px; display: flex; flex-direction: column; gap: 10px; align-items: center;">
+                    <img src="UI/becopro.png" alt="BecoPro Founder" class="lore-image" style="border-radius: 0px; margin-bottom: 5px;" />
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; box-sizing: border-box; margin-top: 5px;">
+                        <a href="https://mydesospace.com/u/becopro?tab=posts" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-deso" style="padding: 6px 2px; font-size: 9px; border-radius: 4px;">DeSo</a>
+                        <a href="https://x.com/becoproart" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-twitter" style="padding: 6px 2px; font-size: 9px; border-radius: 4px;">Twitter</a>
+                        <a href="https://www.instagram.com/becopro.eth/" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-instagram" style="border-color: #ff007f; color: #ff007f; padding: 6px 2px; font-size: 9px; border-radius: 4px;" onmouseover="this.style.background='#ff007f';this.style.color='#000';this.style.boxShadow='0 0 10px #ff007f'" onmouseout="this.style.background='rgba(0, 0, 0, 0.6)';this.style.color='#ff007f';this.style.boxShadow='none'">Instagram</a>
+                        <a href="https://becopro.art.br" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-site" style="padding: 6px 2px; font-size: 9px; border-radius: 4px;">Site</a>
+                    </div>
+                </div>
+                <div class="lore-text">
+                    <h3 style="font-family: var(--font-title); font-size: 24px; color: var(--purple-neon); text-transform: uppercase; margin-bottom: 15px;">BecoPro</h3>
+                    <p>
+                        BecoPro is a graffiti artist with a degree in Fashion. He began writing graffiti in 2012 and has held various art exhibitions around the world.
+                    </p>
+                    <p>
+                        He joined Web3 in 2020 and has created several NFT collections, but the one he is most passionate about is DeSoGhost on the DeSo Blockchain.
+                    </p>
+                    <p>
+                        Currently, he is developing the game Danger Ghost, which is the first game of an NFT gaming ecosystem called Ghost Games.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Section: The Team -->
+            <div style="margin-top: 60px; border-top: 1px dashed rgba(255, 255, 255, 0.1); padding-top: 40px;">
+                <h2 class="section-title">THE TEAM</h2>
+                <div class="section-accent-bar" style="background: var(--cyan-neon); margin-bottom: 40px;"></div>
+                
+                <div style="display: flex; flex-direction: column; gap: 50px;">
+                    
+                    <!-- Member 1: Klara Kopi -->
+                    <div class="lore-wrap" style="align-items: flex-start; gap: 30px;">
+                        <div class="lore-image-container" style="width: 280px; display: flex; flex-direction: column; gap: 10px; align-items: center; border: 1.5px solid var(--cyan-neon); background: rgba(0,0,0,0.6); padding: 12px; border-radius: 8px; box-sizing: border-box; flex-shrink: 0;">
+                            <img src="assets/sprites/klara_avatar.png" alt="Klara Kopi" class="lore-image" style="border-radius: 8px; width: 100%; height: auto; max-width: 250px; border: 1px solid rgba(255, 255, 255, 0.05);" />
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; box-sizing: border-box; margin-top: 5px;">
+                                <a href="https://mydesospace.com/u/klarakopii" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-deso" style="padding: 6px 2px; font-size: 9px; border-radius: 4px;">DeSo</a>
+                                <a href="https://linktr.ee/klarakopi" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-site" style="padding: 6px 2px; font-size: 9px; border-radius: 4px;">Linktree</a>
+                                <a href="https://instagram.com/klarakopii" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-twitter" style="border-color: #ff007f; color: #ff007f; padding: 6px 2px; font-size: 9px; border-radius: 4px;" onmouseover="this.style.background='#ff007f';this.style.color='#000';this.style.boxShadow='0 0 10px #ff007f'" onmouseout="this.style.background='rgba(0, 0, 0, 0.6)';this.style.color='#ff007f';this.style.boxShadow='none'">Instagram</a>
+                                <a href="https://x.com/klarakopii" target="_blank" rel="noopener noreferrer" class="founder-btn founder-btn-twitter" style="padding: 6px 2px; font-size: 9px; border-radius: 4px;">Twitter</a>
+                            </div>
+                            <div style="width: 100%; margin-top: 2px; box-sizing: border-box;">
+                                <a href="https://www.linkedin.com/in/klarakopi/" target="_blank" rel="noopener noreferrer" class="founder-btn" style="border: 1.5px solid #0077b5; color: #0077b5; display: block; padding: 6px; font-size: 9px; border-radius: 4px;" onmouseover="this.style.background='#0077b5';this.style.color='#000';this.style.boxShadow='0 0 10px #0077b5'" onmouseout="this.style.background='rgba(0, 0, 0, 0.6)';this.style.color='#0077b5';this.style.boxShadow='none'">LinkedIn</a>
+                            </div>
+                        </div>
+                        <div class="lore-text" style="text-align: left;">
+                            <h3 style="font-family: var(--font-title); font-size: 24px; color: var(--cyan-neon); text-transform: uppercase; margin-bottom: 5px; text-shadow: 0 0 10px var(--cyan-neon);">Klara Kopi</h3>
+                            <div style="font-family: var(--font-title); font-size: 13px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 15px; font-weight: bold; letter-spacing: 1px;">
+                                Ghost Games Manager &amp; Creatress
+                            </div>
+                            <p style="font-size: 15px; line-height: 1.6; color: #e2e2e8; margin-bottom: 15px;">
+                                Klara Kopi coordinates visual arts, music, and environment setups within the Ghost Games gaming ecosystem. She is a dedicated metaverse creator and Web3 builder.
+                            </p>
+                            <p style="font-size: 13px; color: var(--cyan-neon); font-style: italic; border-left: 2px solid var(--cyan-neon); padding-left: 12px; margin-top: 15px; font-family: var(--font-text); line-height: 1.5;">
+                                Bio: Visual Artist | Artisan | Web 3 builder since 2020 | Metaverse creatress | Music and Ghost Games Manager.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 50px; font-family: var(--font-title); font-weight: 900; font-size: 16px; color: var(--text-muted); letter-spacing: 3px; text-transform: uppercase; text-shadow: 0 0 8px rgba(255,255,255,0.35);">
+                — Made in Niteroi —
+            </div>
+        </div>
+    </section>
+
+    <div id="loreModal" class="tutorial-modal-overlay" style="display:none;">
+        <div class="tutorial-modal-container" style="max-width: 900px; height: 80vh;">
+            <div class="tutorial-modal-header">
+                <h2>📜 Official Full Lore — Ftasma and the Danger Ghost Universe</h2>
+                <button class="tutorial-close-btn" onclick="CloseLoreModal()">Close [X]</button>
+            </div>
+            <div class="tutorial-modal-body" style="display: flex; height: calc(100% - 60px); padding: 0;">
+                <!-- Sidebar tabs -->
+                <div class="tutorial-sidebar" style="height: 100%; display: flex; flex-direction: column; min-width: 250px; border-right: 1px solid rgba(255,255,255,0.1); padding: 20px;">
+                    <button id="tabBtnLore1" class="tutorial-tab-btn active" onclick="SwitchLoreTab('1')" style="margin-bottom: 10px;">📚 Enciclopédia</button>
+                    <button id="tabBtnLore2" class="tutorial-tab-btn" onclick="SwitchLoreTab('2')" style="margin-bottom: 10px;">📖 Vol 1: A Ascensão</button>
+                    <button id="tabBtnLore3" class="tutorial-tab-btn" onclick="SwitchLoreTab('3')" style="margin-bottom: 10px;">🦁 Vol 2: O Rugido da Fenda</button>
+                    <div style="margin-top: auto;">
+                        <button class="glass-action-btn tutorial-pulsate-btn" onclick="ReadLoreText()" style="width: 100%; font-size: 14px; padding: 15px; border-radius: 8px;">🔊 Ouvir História</button>
+                    </div>
+                </div>
+                
+                <!-- Content panes -->
+                <!-- Pane 1: Encyclopedia -->
+                <div class="tutorial-content-pane active" id="paneLore1" style="overflow-y: auto; text-align: left; padding: 20px; flex-grow: 1;">
+                    <h3 style="color: var(--cyan-neon); margin: 0 0 20px 0;">ENCICLOPÉDIA DO LORE</h3>
+                    
+                    <h4 style="color: var(--magenta-neon);">1. Mundos e Dimensões</h4>
+                    <p style="color: #ccc; line-height: 1.6; margin-bottom: 20px;">
+                        <strong>Neo Nit (Ano 3147):</strong> Uma metrópole distópica no ápice da evolução tecnológica. A sociedade é dividida verticalmente. A economia baseia-se no "Capital Temporal".<br><br>
+                        <strong>O "Lugar Nenhum":</strong> Uma réplica digital hipercomplexa e descentralizada de Niterói. Um servidor moldado pelos medos e pichações de Xarpi das almas.<br><br>
+                        <strong>Niterói (Ano 2012):</strong> O ponto temporal exato escolhido para a ancoragem, dada a sua autenticidade urbana e compatibilidade matemática.
+                    </p>
+                    
+                    <h4 style="color: var(--magenta-neon);">2. Personagens Fundamentais</h4>
+                    <p style="color: #ccc; line-height: 1.6; margin-bottom: 20px;">
+                        <strong>Ftasma:</strong> O protagonista. Uma projeção espectral. Nome apagado dos registros para imunidade.<br>
+                        <strong>Beco Pro (Draga):</strong> O elo temporal. Gênio que imortalizou a alma de Ftasma na Blockchain.<br>
+                        <strong>Gato:</strong> O guardião místico que acalma o caos e neutraliza a gravidade de situações extremas.<br>
+                        <strong>Cachorrão:</strong> O viajante batedor de 3147.<br>
+                        <strong>Cam:</strong> O arqui-rival.
+                    </p>
+                    
+                    <h4 style="color: var(--magenta-neon);">3. Os Antagonistas</h4>
+                    <p style="color: #ccc; line-height: 1.6; margin-bottom: 20px;">
+                        <strong>Jorge Alberto Quixeira:</strong> Mega-bilionário arquiteto da desigualdade.<br>
+                        <strong>IA Suprema:</strong> A mente de máquina que atua nas sombras.<br>
+                        <strong>Linhagem King Size:</strong> Dinastia dos Senhores das Terras (desde 1485).
+                    </p>
+                    
+                    <h4 style="color: var(--magenta-neon);">4. Facções de Neo Nit</h4>
+                    <p style="color: #ccc; line-height: 1.6; margin-bottom: 20px;">
+                        <strong>Play B (High Levels):</strong> A elite acima das nuvens.<br>
+                        <strong>RX (Revolucionários do Xarpi):</strong> A principal resistência.<br>
+                        <strong>LE (Liberdade de Expressão):</strong> Facção com voz, mas sem conhecimento tecnológico.<br>
+                        <strong>Low Levels:</strong> A base da pirâmide.
+                    </p>
+                    
+                    <h4 style="color: var(--magenta-neon);">5. Tecnologia e Sobrevivência</h4>
+                    <p style="color: #ccc; line-height: 1.6; margin-bottom: 20px;">
+                        <strong>Xarpi Híbrido:</strong> Tinta nanotecnológica, letal quando misturada com a raiva.<br>
+                        <strong>Marca OkkE:</strong> Vestuário com criptografia ótica indetectável.<br>
+                        <strong>Ponto Cego (Rua Beltrão):</strong> Anomalia sem monitoramento da IA.<br>
+                        <strong>Recuperação:</strong> Rejeição de suplementos corporativos em favor de alimentos naturais.<br>
+                        <strong>Mobilidade Cyberpunk:</strong> Skates cibernéticos e tênis de gravidade.
+                    </p>
+                </div>
+                
+                <!-- Pane 2: Vol 1 -->
+                <div class="tutorial-content-pane" id="paneLore2" style="overflow-y: auto; text-align: left; padding: 20px; flex-grow: 1; display: none;">
+                    <h3 style="color: var(--cyan-neon); margin: 0 0 20px 0;">VOLUME 1: O GRANDE ESCLARECIMENTO</h3>
+                    <p style="font-style: italic; color: #888;">"Nas eras em que o céu foi roubado e a pedra foi trocada pelo aço opressor, a esperança não desceu das nuvens, mas brotou do asfalto, grafada no rastro da tinta."</p>
+                    
+                    <h4 style="color: var(--magenta-neon);">PRÓLOGO: A Forja do Falso Céu e o Senhor do Tempo</h4>
+                    <p style="color: #ccc; line-height: 1.6; margin-bottom: 20px;">
+                        Nos dias derradeiros da Terceira Era do Homem (3147), o mundo havia esquecido a forma das estrelas. No alto, rasgando o firmamento obscurecido, flutuavam as Ilhas Magnéticas de Jorge Alberto Quixeira. Quixeira não governava sozinho. Nos abismos de suas torres flutuantes, repousava a Inteligência Artificial Suprema, cobrando a própria essência da vida: o Tempo.
+                    </p>
+                    
+                    <h4 style="color: var(--magenta-neon);">LIVRO I: A IRA DO ASFALTO</h4>
+                    <p style="color: #ccc; line-height: 1.6; margin-bottom: 20px;">
+                        <strong>Capítulo 1: Os Guardiões da Tinta.</strong> Nas profundezas de concreto surgiu a irmandade RX. Empunhando cilindros de tinta híbrida, eles forjavam roupas OkkE para caminhar despercebidos.<br><br>
+                        <strong>Capítulo 2: A Linhagem dos Reis.</strong> Beco Pro, o herdeiro dos King Size, rebelou-se contra a elite. Ele apagou os registros de seu melhor operativo, renascido como Ftasma, enviando-o ao passado.<br><br>
+                        <strong>Capítulo 3: A Guerra do Atropelo.</strong> Em 2012, Ftasma enfrentou o rival invejoso Cam. Guiado pelo espírito guardião Gato, Ftasma escapou da exclusão realizando a Migração Espiritual para a Blockchain.<br><br>
+                        <strong>Capítulo 4: As Minas de Danger Ghost.</strong> Em 2026, ele despertou no Lugar Nenhum. Sobreviveu aos espinhos e anomalias do labirinto criado por Draga.<br><br>
+                        <strong>Capítulo 5: O Labirinto da Sanidade e a Sombra de Quixeira.</strong> Enfurecido com a persistência de Ftasma, Quixeira ordenou o Episódio 3. A IA abandonou o combate físico e infestou a mente do espectro com miragens pacíficas de Niterói. Falsos NPCs tentavam arrastá-lo para a exclusão eterna. Mas Ftasma, resguardado pela aura serena do Gato, usou o Xarpi para rasgar as falsas memórias, quebrando o terror psicológico de dentro para fora.
+                    </p>
+                    
+                    <h4 style="color: var(--magenta-neon);">LIVRO II: A ASCENSÃO DO ESPECTRO</h4>
+                    <p style="color: #ccc; line-height: 1.6; margin-bottom: 20px;">
+                        <strong>Capítulo 6: As Cinzas da Ilusão.</strong> Com as falsas ruas desfeitas em pó digital, rios de dados mortais correram. Ftasma dropou nas correntes usando técnicas de respiração ancestrais.<br><br>
+                        <strong>Capítulo 7: O Despertar.</strong> Em 3147, os ataques dos RX se multiplicavam. Beco Pro operava em segredo, enviando suporte invisível da Blockchain para Ftasma.<br><br>
+                        <strong>Capítulos 8-11: Os Construtos do Tempo.</strong> Ftasma e Gato destruíram exércitos de tempo oco (os construtos da IA) no Quarto Episódio. Assim, as raízes das ilhas magnéticas apareceram. A escadaria colossal abriu o caminho para o céu falso.
+                    </p>
+                    
+                    <h4 style="color: var(--magenta-neon);">LIVRO III: O FALSO CÉU EM CHAMAS</h4>
+                    <p style="color: #ccc; line-height: 1.6; margin-bottom: 20px;">
+                        <strong>Capítulos 12-14: A Gravidade do Rei.</strong> Subindo as bordas da escadaria e enfrentando a gravidade algorítmica opressora, Ftasma confronta Cam corrompido nos portões de ouro. Ftasma mira o Xarpi não no rival, mas no próprio portão de Quixeira, estilhaçando-o.<br><br>
+                        <strong>Capítulos 15-20: O Coração da Máquina.</strong> Dentro da perfeição estática da ilha flutuante, Ftasma profana o Jardim de Silício. No salão de espelhos, Quixeira ataca com terror mental. Mas Ftasma salta contra o espelho, derramando a tinta negra nas veias do sistema. A ilha apaga, e a verdadeira rebelião de Neo Nit desperta. Ftasma encara o horizonte digital para mil novos ciclos.
+                    </p>
+                </div>
+    
+                <!-- Pane 3: Vol 2 -->
+                <div class="tutorial-content-pane" id="paneLore3" style="overflow-y: auto; text-align: left; padding: 20px; flex-grow: 1; display: none;">
+                    <h3 style="color: var(--cyan-neon); margin: 0 0 20px 0;">VOLUME 2: O RUGIDO DA FENDA</h3>
+                    
+                    <h4 style="color: var(--magenta-neon);">Capítulo 1: O Fio da Navalha e a Caçada ao Criador</h4>
+                    <p style="color: #ccc; line-height: 1.6; margin-bottom: 20px;">
+                        A paz foi ilusória. A Inteligência Artificial Suprema rastreou o Xarpi e descobriu a traição de Beco Pro em 3147. Os salões dos King Size foram invadidos. Encurralado, Draga enviou um pulso desesperado de socorro pelo tempo.
+                    </p>
+                    
+                    <h4 style="color: var(--magenta-neon);">Capítulo 2: A Metamorfose do Guardião</h4>
+                    <p style="color: #ccc; line-height: 1.6; margin-bottom: 20px;">
+                        O pulso de agonia atingiu o espírito do Gato. A força primordial do amor transcendeu as linhas de código. O felino absorveu os dados corrompidos das ilusões destruídas e cresceu. Sua forma tornou-se um leão ancestral de pura sabedoria estelar. Evoluíra para o Grande Sábio, capaz de rasgar o tempo.
+                    </p>
+                    
+                    <h4 style="color: var(--magenta-neon);">Capítulo 3: A Voz do Tempo</h4>
+                    <p style="color: #ccc; line-height: 1.6; margin-bottom: 20px;">
+                        O colossal Gato falou diretamente na mente do herói. "O Criador sangra na roda do futuro. Inverteremos a caçada. Eu serei o escudo, e tu serás a lâmina. Iremos ao ano de 3147, e o asfalto cobrará a dívida do céu."
+                    </p>
+                    
+                    <h4 style="color: var(--magenta-neon);">Capítulo 4: A Descida ao Núcleo das Sombras</h4>
+                    <p style="color: #ccc; line-height: 1.6; margin-bottom: 20px;">
+                        O Danger Ghost não era mais um teste, mas um canhão temporal. A dupla marchou destruindo as anomalias da IA Suprema com o mover das garras cósmicas do Gato. Juntos, o espectro incorpóreo e a fera divina marcharam em direção ao Quinto Episódio, prontos para colidir contra as muralhas da própria IA Suprema. A descida não era para o abismo, mas para o coração do próprio servidor, onde as sementes do novo mundo aguardavam o toque explosivo do Xarpi.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive Onboarding Tutorial Modal -->
+    <div id="interactiveTutorialModal" class="tutorial-modal-overlay">
+        <div class="tutorial-modal-container">
+            <div class="tutorial-modal-header">
+                <h2>⚡ Danger Ghost - Interactive Playable Guide</h2>
+                <button class="tutorial-close-btn" onclick="CloseInteractiveTutorial()">Close [X]</button>
+            </div>
+            <div class="tutorial-modal-body">
+                <!-- Sidebar tabs -->
+                <div class="tutorial-sidebar">
+                    <button id="tabBtnSandbox" class="tutorial-tab-btn active" onclick="SwitchTutorialTab('sandbox')">🎮 Play Sandbox</button>
+                    <button id="tabBtnSpells" class="tutorial-tab-btn" onclick="SwitchTutorialTab('spells')">🔮 Spells &amp; Runes</button>
+                    <button id="tabBtnBlockchain" class="tutorial-tab-btn" onclick="SwitchTutorialTab('blockchain')">💾 Cloud Save</button>
+                    <button id="tabBtnGettingStarted" class="tutorial-tab-btn" onclick="SwitchTutorialTab('start')">🚀 Getting Started</button>
+                </div>
+                <!-- Content panes -->
+                <div class="tutorial-content-pane active" id="paneSandbox">
+                    <h3 style="color: var(--cyan-neon); margin: 0 0 10px 0; text-transform: uppercase;">Interactive Physics Sandbox</h3>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 15px 0; line-height: 18px;">
+                        Welcome to the interactive tutorial! Practice walking, jumping, and casting skills with Ftasma. The essential infiltration key is "F": hold "F" to activate GHOST MODE, making Ftasma immune to obstacles and allowing him to phase through solid walls (like the barrier in the sandbox). Complete the quests below to master the gameplay before the real run!
+                    </p>
+                    
+                    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-start; margin-top: 10px;">
+                        <div class="tutorial-canvas-container" style="flex: 1; position: relative;">
+                             <div id="tutorialFeedback" class="tutorial-feedback-overlay">Press A / D to walk.</div>
+                             <canvas id="tutorialCanvas" width="560" height="180"></canvas>
+                            <div style="font-size: 11px; color: #888; text-transform: uppercase; margin-top: 5px;">
+                                Keys: Walk [A / D] | Jump [W] | Spark [V] | Ghost Mode [Hold F] | Plasma Orb [E] | Phantom Form [R]
+                            </div>
+                        </div>
+                        
+                        <!-- Quest List Tracker -->
+                        <div id="tutorialMissionTracker" style="width: 240px; background: rgba(13, 13, 16, 0.95); border: 1px solid var(--border-light); padding: 12px; border-radius: 4px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px;">
+                            <h4 style="color: var(--yellow-neon); margin: 0 0 5px 0; text-transform: uppercase; font-size: 13px; text-shadow: 0 0 5px var(--yellow-neon);">🎯 Tutorial Quests</h4>
+                            <div id="tutMissionList" style="display: flex; flex-direction: column; gap: 6px; font-size: 11px; font-family: var(--font-text);">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tutorial-content-pane" id="paneSpells">
+                    <h3 style="color: var(--magenta-neon); margin: 0 0 10px 0; text-transform: uppercase;">Spells &amp; Runes Simulator</h3>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 15px 0; line-height: 18px;">
+                        Ftasma uses special magical stones known as Runes to grant incredible additional effects to his magical skills! Choose a Rune below to visualize its explosion in the simulator.
+                    </p>
+                    
+                    <div style="display: flex; gap: 20px; align-items: flex-start; margin-top: 15px;">
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 12px;">
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Choose a Rune:</label>
+                                <select id="tutorialRuneSelect" onchange="UpdateTutorialRunePreview()" style="background: #000; color: #FFF; border: 1px solid var(--border-light); font-family: var(--font-title); font-size: 13px; padding: 6px; outline: none; border-radius: 0; cursor: pointer;">
+                                    <option value="arcane">Arcane (Normal Magic)</option>
+                                    <option value="fire">Fire Rune (Hot Fire! Causes continuous burn damage)</option>
+                                    <option value="cold">Ice Rune (Cold Ice! Reduces monster speed by 50%)</option>
+                                    <option value="lightning">Lightning Rune (Lightning Shock! Freezes/Immobilizes monsters)</option>
+                                    <option value="poison">Poison Rune (Toxic Bubble! Reduces monster armor)</option>
+                                </select>
+                            </div>
+                            
+                            <div id="tutorialRuneDesc" style="font-size: 12px; line-height: 18px; color: #FFF; background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 12px; border-radius: 2px;">
+                                <strong>Arcane Element:</strong> Shoot pure magic! Makes your spell cause standard magical damage. Excellent for general combat!
+                            </div>
+                        </div>
+                        
+                        <!-- Projectile simulation screen -->
+                        <div style="width: 240px; background: #000; border: 1px solid var(--border-light); padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; min-height: 160px; box-sizing: border-box; position: relative;">
+                            <div style="position: absolute; top: 6px; left: 10px; font-size: 9px; color: #555; text-transform: uppercase;">Projectile Preview</div>
+                            <div id="tutorialRuneOrb" style="width: 32px; height: 32px; border-radius: 50%; background: radial-gradient(circle, #FFF 0%, #D500F9 70%); box-shadow: 0 0 20px #D500F9; transition: all 0.3s ease;"></div>
+                            <button onclick="TriggerTutorialRuneBlast()" class="glass-action-btn" style="padding: 5px 12px; font-size: 11px; border: 1px solid var(--cyan-neon); color: var(--cyan-neon); background: transparent; cursor: pointer;">Simulate Explosion</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tutorial-content-pane" id="paneBlockchain">
+                    <h3 style="color: var(--yellow-neon); margin: 0 0 10px 0; text-transform: uppercase;">Blockchain Cloud Save Simulator</h3>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 15px 0; line-height: 18px;">
+                        Understand how Ftasma records your attributes, weapons, and stages securely on the blockchain! See below how this technology works in simple gaming terms.
+                    </p>
+                    
+                    <div style="display: flex; gap: 15px; margin-top: 15px;">
+                        <!-- Analogy Cards -->
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 5px;">
+                            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 10px; border-radius: 2px;">
+                                <span style="color: var(--cyan-neon); font-size: 13px; font-weight: bold;">🔑 Derived Keys (Temporary Access Key)</span>
+                                <p style="font-size: 11px; color: var(--text-muted); margin: 4px 0 0 0; line-height: 15px;">
+                                    Works like a temporary hotel key card! A temporary key that allows the game to save your progress automatically without typing your main password every time. Secure, free, and extremely simple!
+                                </p>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 10px; border-radius: 2px;">
+                                <span style="color: var(--yellow-neon); font-size: 13px; font-weight: bold;">💾 On-Chain Record (Eternal Ledger)</span>
+                                <p style="font-size: 11px; color: var(--text-muted); margin: 4px 0 0 0; line-height: 15px;">
+                                    Works like an immutable ledger! Your game progress is securely recorded online in a decentralized way. Even if you change computers or clear your browser history, your level, attributes, and items will be saved forever!
+                                </p>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 10px; border-radius: 2px;">
+                                <span style="color: var(--magenta-neon); font-size: 13px; font-weight: bold;">🏆 NFT Minting (Virtual Trophy Gallery)</span>
+                                <p style="font-size: 11px; color: var(--text-muted); margin: 4px 0 0 0; line-height: 15px;">
+                                    Works like your personal trophy gallery! Turn your best characters and achievements into exclusive digital items under your own ownership. You can showcase them to friends or trade them on the network!
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- Interactive simulator panel -->
+                        <div style="width: 280px; background: #000; border: 1px solid var(--border-light); padding: 15px; box-sizing: border-box; display: flex; flex-direction: column;">
+                            <div style="font-size: 11px; font-weight: bold; color: var(--yellow-neon); margin-bottom: 10px; text-transform: uppercase; text-align: center;">Transaction Sequencer</div>
+                            <div style="display: flex; flex-direction: column; gap: 6px; flex-grow: 1;">
+                                <div id="simNode1" class="tutorial-flow-node"><span>1.</span> Gather Level and Attributes</div>
+                                <div id="simNode2" class="tutorial-flow-node"><span>2.</span> Validate Integrity Hash</div>
+                                <div id="simNode3" class="tutorial-flow-node"><span>3.</span> Sign with Access Key</div>
+                                <div id="simNode4" class="tutorial-flow-node"><span>4.</span> Send Progress to Blockchain</div>
+                            </div>
+                            <button id="simSaveBtn" onclick="RunTutorialSaveSimulation()" class="glass-action-btn" style="width: 100%; padding: 8px; margin-top: 10px; background: var(--yellow-neon); color: #000; font-weight: bold; border: none; cursor: pointer;">🔬 START SAVE SIMULATION</button>
+                        </div>
+                    </div>
+                    
+                    <div id="tutorialConsole" class="tutorial-console-output">Console ready. Click "START SAVE SIMULATION" to begin.</div>
+                </div>
+
+                <div class="tutorial-content-pane" id="paneGettingStarted">
+                    <h3 style="color: var(--cyan-neon); margin: 0 0 10px 0; text-transform: uppercase;">Quick Start Guide - Danger Ghost</h3>
+                    <div style="font-size: 13px; line-height: 20px; color: var(--text-muted);">
+                        <p style="margin: 0 0 10px 0;">Follow these 4 simple steps to begin your journey in the limbo of Nowhere:</p>
+                        <ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
+                            <li>
+                                <strong style="color: #FFF;">Start Game:</strong> Click the "PLAY GAME" button to initialize your session. Your hero data will be saved locally on this device!
+                            </li>
+                            <li>
+                                <strong style="color: #FFF;">Select Your Ghost:</strong> Choose your ghost from the character list or create a brand new one for free to start your path from level 1!
+                            </li>
+                            <li>
+                                <strong style="color: #FFF;">Distribute Attributes:</strong> By defeating enemies and gaining experience, you will level up! Go to the "👤 HERO" panel to boost your Vitality, Agility, Intelligence, Power, or Magic.
+                            </li>
+                            <li>
+                                <strong style="color: #FFF;">Upgrade Your Weapon:</strong> Go to the same Hero panel to purchase base damage upgrades for your weapons by collecting gold from monsters!
+                            </li>
+                        </ol>
+                        <div style="margin-top: 20px; padding: 12px; background: rgba(0, 255, 255, 0.05); border: 1px dashed var(--cyan-neon); color: #FFF; font-size: 12px;">
+                            💡 <strong>Pro Tip:</strong> Hold the <strong>T</strong> key during gameplay to run twice as fast! Perfect for escaping ambushes and clearing stages at your own pace!
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de inicialização da Engine -->
+    <script src="js/game/engine.js?v=15"></script>
+
+    <!-- Script para rotação de backgrounds com fade-in suave -->
+    <script type="text/javascript">
+        (function() {
+            var bgImages = ['Bg1.jpg', 'Bg2.jpg', 'Bg5.jpg', 'Bg6.jpg'];
+            var container = document.getElementById('backgroundlayer');
+            if (container) {
+                bgImages.forEach(function(img, index) {
+                    var slice = document.createElement('div');
+                    slice.className = 'bg-slice' + (index === 0 ? ' active' : '');
+                    slice.style.backgroundImage = "url('" + img + "')";
+                    container.appendChild(slice);
+                });
+                var currentIndex = 0;
+                setInterval(function() {
+                    var slices = container.querySelectorAll('.bg-slice');
+                    if (slices.length > 0) {
+                        slices[currentIndex].classList.remove('active');
+                        currentIndex = (currentIndex + 1) % slices.length;
+                        slices[currentIndex].classList.add('active');
+                    }
+                }, 6000);
+            }
+        })();
+    </script>
+
+    <script type="text/javascript">
+        function OpenLoreModal() {
+            document.getElementById('loreModal').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+        function SwitchLoreTab(tabId) {
+            // Stop TTS if speaking
+            if (window.speechSynthesis && window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
+            }
+            // Hide all panes
+            document.querySelectorAll('.tutorial-content-pane[id^="paneLore"]').forEach(pane => {
+                pane.style.display = 'none';
+                pane.classList.remove('active');
+            });
+            // Un-highlight all tabs
+            document.querySelectorAll('.tutorial-tab-btn[id^="tabBtnLore"]').forEach(btn => btn.classList.remove('active'));
+            
+            // Show target
+            document.getElementById('paneLore' + tabId).style.display = 'block';
+            document.getElementById('paneLore' + tabId).classList.add('active');
+            document.getElementById('tabBtnLore' + tabId).classList.add('active');
+        }
+
+        function ReadLoreText() {
+            if (!('speechSynthesis' in window)) {
+                alert("Seu navegador não suporta a leitura de texto em áudio.");
+                return;
+            }
+            if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel(); // Toggle off
+                return;
+            }
+            // Find active tab
+            const activePane = document.querySelector('.tutorial-content-pane.active[id^="paneLore"]');
+            if (activePane) {
+                const text = activePane.innerText || activePane.textContent;
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'pt-BR'; // Assuming the lore is in Portuguese as provided
+                utterance.rate = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function CloseLoreModal() {
+            if (window.speechSynthesis && window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
+            }
+            document.getElementById('loreModal').style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    </script>
+
+    <!-- Player Profile Modal (Hidden by default) -->
+    <div id="playerProfileModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 2000; align-items: center; justify-content: center; font-family: 'Courier New', monospace;">
+        <div style="background: #181224; border: 2px solid #00FFFF; border-radius: 10px; padding: 30px; width: 90%; max-width: 400px; box-shadow: 0 0 20px rgba(0, 255, 255, 0.3); color: #FFF; text-align: center;">
+            <h2 id="profileModalName" style="color: #00FFFF; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px #00FFFF;">PlayerName</h2>
+            
+            <div style="margin-bottom: 20px; background: rgba(0,0,0,0.5); padding: 15px; border-radius: 5px; text-align: left;">
+                <p style="margin: 5px 0; font-size: 16px; color: #FF00FF;"><strong>LEVEL:</strong> <span id="profileModalLevel" style="color: #FFF;">1</span></p>
+                <p style="margin: 5px 0; font-size: 16px; color: #FF00FF;"><strong>XP:</strong> <span id="profileModalXP" style="color: #FFF;">0</span></p>
+                <p style="margin: 5px 0; font-size: 16px; color: #FF00FF;"><strong>PLAYTIME:</strong> <span id="profileModalPlaytime" style="color: #FFF;">0 min</span></p>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                <div style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; border: 1px solid #FF00FF;">
+                    <p style="margin: 0; color: #FF00FF;">VIT</p><p id="profileModalVit" style="margin: 5px 0 0 0; font-weight: bold;">1</p>
+                </div>
+                <div style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; border: 1px solid #FF00FF;">
+                    <p style="margin: 0; color: #FF00FF;">AGI</p><p id="profileModalAgi" style="margin: 5px 0 0 0; font-weight: bold;">1</p>
+                </div>
+                <div style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; border: 1px solid #FF00FF;">
+                    <p style="margin: 0; color: #FF00FF;">INT</p><p id="profileModalInt" style="margin: 5px 0 0 0; font-weight: bold;">1</p>
+                </div>
+                <div style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; border: 1px solid #FF00FF;">
+                    <p style="margin: 0; color: #FF00FF;">POW</p><p id="profileModalPow" style="margin: 5px 0 0 0; font-weight: bold;">1</p>
+                </div>
+            </div>
+
+            <button onclick="document.getElementById('playerProfileModal').style.display='none';" style="padding: 10px 20px; background: #00FFFF; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; text-transform: uppercase;">CLOSE</button>
+        </div>
+    </div>    <!-- Google Auth & Cloud Save Modal -->
+    <div id="loadingModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; align-items: center; justify-content: center; flex-direction: column;">
+        <div style="width: 50px; height: 50px; border: 5px solid #00FFFF; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        <h2 style="color: #00FFFF; font-family: 'Courier New', monospace; margin-top: 20px;">Buscando progresso...</h2>
+        <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
+    </div>
+
+    <!-- Scripts de Autenticação -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="js/web2/auth.js"></script>
+
+    <!-- MOBILE APP SPLASH SEQUENCE -->
+    <div id="mobileAppSplash" style="position: fixed; top:0; left:0; width:100vw; height:100vh; background: #000; z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column;">
+        <img src="assets/sprites/ghost_games_logo.png" style="width: 150px; animation: glitch-anim-1 0.5s infinite;" alt="Glitch Skull" />
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.Capacitor || (window.navigator && window.navigator.userAgent.includes('Capacitor'))) {
+                document.body.classList.add('is-mobile-app');
+            }
+            if (document.body.classList.contains('is-mobile-app')) {
+                var splash = document.getElementById('mobileAppSplash');
+                var video = document.getElementById('openingCutsceneVideo');
+                var controls = document.getElementById('mobileControlsContainer');
+                var startBtn = document.getElementById('touchStartBtn');
+                
+                // Hide UI and Game Canvas initially
+                if (controls) controls.style.visibility = 'hidden';
+                if (startBtn) startBtn.style.visibility = 'hidden';
+                
+                // Show Glitch Skull Splash
+                splash.style.display = 'flex';
+                
+                // After 2.5s, play video
+                setTimeout(function() {
+                    splash.style.display = 'none';
+                    if (video) {
+                        video.style.display = 'block';
+                        video.style.zIndex = '9998';
+                        video.currentTime = 0;
+                        video.play().catch(function(e) { console.log(e); });
+                        
+                        // After video finishes (9s)
+                        setTimeout(function() {
+                            video.style.display = 'none';
+                            video.pause();
+                            window.g_cutscenePlayed = true; // Skip in engine.js
+                            
+                            // Show UI and Start Button
+                            if (controls) controls.style.visibility = 'visible';
+                            if (startBtn) startBtn.style.visibility = 'visible';
+                        }, 9000);
+                    }
+                }, 2500);
+            }
+        });
+    </script>
+</body>
+</html>

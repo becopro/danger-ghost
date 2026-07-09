@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Danger Ghost</string>
+    <string name="title_activity_main">Danger Ghost</string>
+    <string name="package_name">danger.ghost.mobile</string>
+    <string name="custom_url_scheme">danger.ghost.mobile</string>
+</resources>
