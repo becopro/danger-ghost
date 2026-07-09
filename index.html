@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Ghost Games</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
     <!-- Fontes do Sistema de Design (Acessibilidade) -->
@@ -14,7 +14,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     <script src="js/core/event_bus.js?v=10"></script>
     <script src="js/globals.js?v=10"></script>
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
@@ -87,7 +86,7 @@
         <h2 style="text-align: center; color: var(--cyan-neon); font-family: var(--font-title); font-size: 24px; text-transform: uppercase; margin: 0 0 15px 0; letter-spacing: 2px; text-shadow: 0 0 10px var(--cyan-neon);">Episode 1 <span style="color: #fff; text-shadow: none; font-size: 16px; margin-left: 10px;">The first dungeon!</span></h2>
         <div class="canvas-container">
             <!-- Canvas Principal -->
-            <canvas id="myCanvas" width="640" height="480"></canvas>
+            <canvas id="myCanvas" width="640" height="300"></canvas>
             <img id="cutsceneGif" src="assets/sprites/Dream 36.gif" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; box-sizing: border-box; border: 2px solid #00FFFF; object-fit: cover;" alt="Cutscene Gif" />
             <video id="openingCutsceneVideo" src="assets/sprites/1.mp4" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; box-sizing: border-box; border: 2px solid #00FFFF; object-fit: cover;" playsinline></video>
             <button id="gameScreenModeBtn" onclick="ToggleGameFullscreen()" style="position: absolute; right: 10px; top: 10px; z-index: 1000; display: none; background: rgba(13, 13, 16, 0.85); border: 1.5px solid var(--cyan-neon); color: var(--cyan-neon); cursor: pointer; border-radius: 4px; box-shadow: 0 0 10px rgba(0, 255, 255, 0.25); width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease-in-out;" onmouseover="this.style.background='var(--cyan-neon)'; this.style.color='#000'; this.style.boxShadow='0 0 15px var(--cyan-neon)';" onmouseout="this.style.background='rgba(13, 13, 16, 0.85)'; this.style.color='var(--cyan-neon)'; this.style.boxShadow='0 0 10px rgba(0, 255, 255, 0.25)';">
@@ -95,62 +94,20 @@
             </button>
             <button id="muteBtn" onclick="ToggleMute()" style="position: absolute; right: 0px; top: -45px; font-size: 30px; background: none; border: none; cursor: pointer; padding: 0; outline: none; text-shadow: 0 0 5px #00FFFF;" title="Mute/Unmute">🔊</button>
 
-            <!-- START Centered Button -->
-            <button id="touchStartBtn" class="touch-btn start-btn centered-start">START ⏸</button>
-        </div> <!-- End of canvas-container -->
-
-        <!-- Controles Touch para Mobile (Gameboy Layout) -->
-        <div id="mobileControlsContainer">
-            <!-- Menus Superiores do App -->
-            <div id="mobileAppNavbar" class="mobile-app-nav">
-                <button onclick="LoginGoogle()">🔑 LOGIN</button>
-                <button onclick="ToggleNavbarTab('controls')">🎮 CTRL</button>
-                <button onclick="ToggleNavbarTab('rpg')">👤 STAT</button>
-                <button onclick="ToggleNavbarTab('spells')">⚡ SPL</button>
-                <button onclick="ToggleNavbarTab('bag')">🎒 BAG</button>
-                <button onclick="ToggleNavbarTab('equip')">⚔️ EQP</button>
-                <button onclick="ToggleNavbarTab('chat')">💬 CHT</button>
-                <button onclick="window.TriggerRPGSaveToDeSo()">💾 SAV</button>
-            </div>
-            
-            <div class="mobile-controls-bottom">
-                <!-- D-PAD (Esquerda) -->
-                <div class="mobile-btn-group gb-dpad">
-                    <div class="dpad-column">
-                        <button id="touchLeftBtn" class="touch-btn action-btn gb-btn-dpad gb-left">◀</button>
-                    </div>
-                    <div class="dpad-column dpad-vertical">
-                        <button id="touchUpBtn" class="touch-btn action-btn gb-btn-dpad gb-up">▲</button>
-                        <button id="touchDownBtn" class="touch-btn action-btn gb-btn-dpad gb-down">▼</button>
-                    </div>
-                    <div class="dpad-column">
-                        <button id="touchRightBtn" class="touch-btn action-btn gb-btn-dpad gb-right">▶</button>
-                    </div>
+            <!-- Controles Touch para Mobile -->
+            <div id="mobileControlsContainer">
+                <div class="mobile-btn-group left-group">
+                    <button id="touchLeftBtn" class="touch-btn">◀</button>
+                    <button id="touchRightBtn" class="touch-btn">▶</button>
                 </div>
-                
-                <!-- Start (Centro Inferior) -->
-                <div class="mobile-btn-group gb-center">
-                    <button id="touchStartBtnPersist" class="touch-btn action-btn gb-btn-pill">START</button>
+                <div class="mobile-btn-group center-group">
+                    <button id="touchStartBtn" class="touch-btn start-btn">START ⏸</button>
                 </div>
-
-                <!-- Ações (Direita) -->
-                <div class="mobile-btn-group gb-actions">
-                    <div class="action-row">
-                        <button id="touchSlotVBtn" class="touch-btn action-btn gb-btn-round spell-btn">V</button>
-                        <button id="touchSlotEBtn" class="touch-btn action-btn gb-btn-round spell-btn">E</button>
-                        <button id="touchSlotRBtn" class="touch-btn action-btn gb-btn-round spell-btn">R</button>
-                    </div>
-                    <div class="action-row">
-                        <button id="touchSpell1Btn" class="touch-btn action-btn gb-btn-round spell-btn">1</button>
-                        <button id="touchSpell2Btn" class="touch-btn action-btn gb-btn-round spell-btn">2</button>
-                        <button id="touchSpell3Btn" class="touch-btn action-btn gb-btn-round spell-btn">3</button>
-                    </div>
-                    <div class="action-row center-jump">
-                        <button id="touchSlotFBtn" class="touch-btn action-btn gb-btn-round jump-btn">F</button>
-                    </div>
+                <div class="mobile-btn-group right-group">
+                    <button id="touchSpellBtn" class="touch-btn action-btn">🔥</button>
+                    <button id="touchJumpBtn" class="touch-btn action-btn">▲</button>
                 </div>
             </div>
-        </div>
 
             <!-- Painel Esquerdo (RPG & Status) -->
             <div id="rpgPanel" class="overlay-panel panel-left" style="display: none;">
@@ -187,7 +144,7 @@
         </div>
         
         <!-- Character Name Input Area -->
-        <div id="charNameArea" style="display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 15px; font-family: 'Courier New', monospace; background: rgba(13, 13, 16, 0.85); border: 1.5px solid var(--cyan-neon); padding: 10px; border-radius: 4px; box-shadow: 0 0 10px rgba(0, 255, 255, 0.15); max-width: 640px; margin-left: auto; margin-right: auto; box-sizing: border-box;">
+        <div style="display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 15px; font-family: 'Courier New', monospace; background: rgba(13, 13, 16, 0.85); border: 1.5px solid var(--cyan-neon); padding: 10px; border-radius: 4px; box-shadow: 0 0 10px rgba(0, 255, 255, 0.15); max-width: 640px; margin-left: auto; margin-right: auto; box-sizing: border-box;">
             <label for="charNameInput" style="color: var(--cyan-neon); font-weight: bold; text-shadow: 0 0 5px var(--cyan-neon); font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">Character Name:</label>
             <input type="text" id="charNameInput" placeholder="Enter Ghost Name..." maxlength="15" style="background: #000; color: #FFF; border: 1px solid var(--border-light); padding: 6px 12px; font-family: 'Courier New', monospace; font-size: 13px; outline: none; border-radius: 2px; width: 180px; box-sizing: border-box; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--cyan-neon)'" onblur="this.style.borderColor='var(--border-light)'" />
             <button id="saveCharNameBtn" onclick="SaveCharacterName()" style="background: rgba(0, 0, 0, 0.8); border: 1.5px solid var(--cyan-neon); color: var(--cyan-neon); font-family: 'Courier New', monospace; font-weight: bold; font-size: 13px; cursor: pointer; padding: 6px 20px; border-radius: 2px; text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s ease-in-out;" onmouseover="this.style.background='var(--cyan-neon)'; this.style.color='#000'; this.style.boxShadow='0 0 10px var(--cyan-neon)';" onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='var(--cyan-neon)'; this.style.boxShadow='none';">Save</button>
@@ -195,9 +152,9 @@
         
         <!-- Mobile App Download Area -->
         <div class="mobile-app-download-area" style="display: flex; justify-content: center; align-items: center; margin-top: 15px;">
-            <a href="DangerGhostMobile.apk" download="DangerGhostMobile.apk" style="text-decoration: none;">
+            <a href="public/DangerGhostMobile.zip" download="DangerGhostMobile.zip" style="text-decoration: none;">
                 <button id="downloadMobileBtn" style="background: rgba(0, 0, 0, 0.8); border: 2px solid #FF00FF; color: #FF00FF; font-family: 'Courier New', monospace; font-weight: bold; font-size: 16px; cursor: pointer; padding: 12px 30px; border-radius: 6px; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 15px rgba(255, 0, 255, 0.2); transition: all 0.2s ease-in-out;" onmouseover="this.style.background='#FF00FF'; this.style.color='#000'; this.style.boxShadow='0 0 20px #FF00FF';" onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='#FF00FF'; this.style.boxShadow='0 0 15px rgba(255, 0, 255, 0.2)';">
-                    📱 DOWNLOAD DANGER GHOST MOBILE APP
+                    📱 DOWNLOAD DANGER GHOST MOBILE (ZIP)
                 </button>
             </a>
         </div>
@@ -373,33 +330,11 @@
                 });
             }
             
-            setupTouchButton('touchJumpBtn', 38);   // Up Arrow (Jump)
-            setupTouchButton('touchSpell1Btn', 49); // '1' key
-            setupTouchButton('touchSpell2Btn', 50); // '2' key
-            setupTouchButton('touchSpell3Btn', 51); // '3' key
-            setupTouchButton('touchStartBtn', 32);  // SPACE key (Start/Pause original)
-            setupTouchButton('touchStartBtnPersist', 32); // SPACE key (Start/Pause persistant)
-
-            setupTouchButton('touchLeftBtn', 37);   // Left Arrow
-            setupTouchButton('touchRightBtn', 39);  // Right Arrow
-            setupTouchButton('touchUpBtn', 38);     // Up Arrow
-            setupTouchButton('touchDownBtn', 40);   // Down Arrow
-
-            setupTouchButton('touchSlotVBtn', 86);  // V key
-            setupTouchButton('touchSlotEBtn', 69);  // E key
-            setupTouchButton('touchSlotRBtn', 82);  // R key
-            setupTouchButton('touchSlotFBtn', 70);  // F key
-            setupTouchButton('touchSlotTBtn', 84);  // T key
-
-            // Esconder botão START ao clicar
-            var startBtn = document.getElementById('touchStartBtn');
-            if (startBtn) {
-                var hideStart = function() {
-                    startBtn.style.display = 'none';
-                };
-                startBtn.addEventListener('touchstart', hideStart, { passive: true });
-                startBtn.addEventListener('mousedown', hideStart);
-            }
+            setupTouchButton('touchLeftBtn', 37);  // Left Arrow
+            setupTouchButton('touchRightBtn', 39); // Right Arrow
+            setupTouchButton('touchJumpBtn', 38);  // Up Arrow (Jump)
+            setupTouchButton('touchSpellBtn', 49); // '1' key (Cast Spell 1)
+            setupTouchButton('touchStartBtn', 32); // SPACE key (Start/Pause)
         });
     </script>
 
@@ -1197,52 +1132,5 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="js/web2/auth.js"></script>
 
-    <!-- MOBILE APP SPLASH SEQUENCE -->
-    <div id="mobileAppSplash" style="position: fixed; top:0; left:0; width:100vw; height:100vh; background: #000; z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column;">
-        <img src="assets/sprites/ghost_games_logo.png" style="width: 150px; animation: glitch-anim-1 0.5s infinite;" alt="Glitch Skull" />
-    </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            if (window.Capacitor || (window.navigator && window.navigator.userAgent.includes('Capacitor'))) {
-                document.body.classList.add('is-mobile-app');
-            }
-            if (document.body.classList.contains('is-mobile-app')) {
-                var splash = document.getElementById('mobileAppSplash');
-                var video = document.getElementById('openingCutsceneVideo');
-                var controls = document.getElementById('mobileControlsContainer');
-                var startBtn = document.getElementById('touchStartBtn');
-                
-                // Hide UI and Game Canvas initially
-                if (controls) controls.style.visibility = 'hidden';
-                if (startBtn) startBtn.style.visibility = 'hidden';
-                
-                // Show Glitch Skull Splash
-                splash.style.display = 'flex';
-                
-                // After 2.5s, play video
-                setTimeout(function() {
-                    splash.style.display = 'none';
-                    if (video) {
-                        video.style.display = 'block';
-                        video.style.zIndex = '9998';
-                        video.currentTime = 0;
-                        video.play().catch(function(e) { console.log(e); });
-                        
-                        // After video finishes (9s)
-                        setTimeout(function() {
-                            video.style.display = 'none';
-                            video.pause();
-                            window.g_cutscenePlayed = true; // Skip in engine.js
-                            
-                            // Show UI and Start Button
-                            if (controls) controls.style.visibility = 'visible';
-                            if (startBtn) startBtn.style.visibility = 'visible';
-                        }, 9000);
-                    }
-                }, 2500);
-            }
-        });
-    </script>
 </body>
 </html>
