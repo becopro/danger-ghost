@@ -156,17 +156,17 @@ body {
 }
 
 .panel-left {
-    position: fixed !important;
-    left: 20px !important;
+    position: absolute !important;
+    left: calc(50% - 340px) !important;
     top: 50% !important;
-    transform: translateY(-50%) !important;
+    transform: translate(-100%, -50%) !important;
     border-left: 2px solid var(--green-neon) !important;
     box-shadow: 0 0 15px rgba(0, 255, 0, 0.15) !important;
 }
 
 .panel-right {
-    position: fixed !important;
-    right: 20px !important;
+    position: absolute !important;
+    left: calc(50% + 340px) !important;
     top: 50% !important;
     transform: translateY(-50%) !important;
     border-right: 2px solid var(--magenta-neon) !important;
