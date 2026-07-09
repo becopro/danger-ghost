@@ -1958,7 +1958,7 @@ body {
     }
 }
 
-@media (max-width: 950px), (max-height: 600px) and (orientation: landscape) {
+@media (max-width: 950px) and (pointer: coarse), (max-height: 600px) and (orientation: landscape) and (pointer: coarse) {
     #mobileControlsContainer {
         display: block;
         padding-bottom: max(10px, env(safe-area-inset-bottom));
@@ -2244,6 +2244,7 @@ body.is-mobile-app .centered-start {
         padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
     }
     .panel-left, .panel-right {
+        transform: none !important;
         border-left: 2px solid var(--cyan-neon) !important;
         border-right: 2px solid var(--cyan-neon) !important;
         box-shadow: 0 0 15px rgba(0, 255, 255, 0.2) !important;
