@@ -473,9 +473,10 @@ var GhostRPG = (function() {
                         });
                     }
                     
-                    state.deaths = (!isNaN(parsedDeaths)) ? Math.max(0, parsedDeaths) : 0;
-                
-                updateIntegrityHash();
+                    if (typeof state.deaths === 'undefined') state.deaths = 0;
+                    state.xpRequired = calculateXpRequired(state.level);
+                    updateIntegrityHash();
+                }
                 console.log("[RPG] Status carregado do LocalStorage.");
             } catch (e) {
                 console.warn("[RPG] Nenhum save encontrado ou corrompido, usando default.");
