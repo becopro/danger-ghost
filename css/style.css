@@ -157,17 +157,18 @@ body {
 
 .panel-left {
     position: absolute !important;
-    left: calc(50% - 340px) !important;
-    top: 65px !important;
-    transform: translateX(-100%) !important;
+    left: -320px !important;
+    top: -2px !important;
+    transform: none !important;
     border-left: 2px solid var(--green-neon) !important;
     box-shadow: 0 0 15px rgba(0, 255, 0, 0.15) !important;
 }
 
 .panel-right {
     position: absolute !important;
-    left: calc(50% + 340px) !important;
-    top: 65px !important;
+    left: auto !important;
+    right: -320px !important;
+    top: -2px !important;
     transform: none !important;
     border-right: 2px solid var(--magenta-neon) !important;
     box-shadow: 0 0 15px rgba(255, 0, 255, 0.15) !important;

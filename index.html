@@ -96,6 +96,38 @@
             <button id="muteBtn" onclick="ToggleMute()" style="position: absolute; right: 0px; top: -45px; font-size: 30px; background: none; border: none; cursor: pointer; padding: 0; outline: none; text-shadow: 0 0 5px #00FFFF;" title="Mute/Unmute">🔊</button>
 
 
+            <!-- Painel Esquerdo (RPG & Status) -->
+            <div id="rpgPanel" class="overlay-panel panel-left" style="display: none;">
+                <div id="rpgPanelContent"></div>
+            </div>
+
+            <!-- Painel de Chat (Esquerda) -->
+            <div id="chatPanel" class="overlay-panel panel-left" style="display: none;">
+                <h3 class="panel-header">💬 GLOBAL CHAT</h3>
+                <div class="chat-nick-row">
+                    <span>NICK:</span>
+                    <input type="text" id="chatNickInput" placeholder="GUEST_GHOST" />
+                </div>
+                <div id="chatMessages" class="chat-log"></div>
+                <div class="chat-input-row">
+                    <input type="text" id="chatMsgInput" placeholder="TYPE MESSAGE..." />
+                    <button id="chatSendBtn">SEND</button>
+                </div>
+            </div>
+
+            <!-- Painel Direito (Bag, Equipamentos, Controles, Leaderboard) -->
+            <div id="navbarPanel" class="overlay-panel panel-right" style="display: none;">
+                <div id="navbarPanelContent"></div>
+            </div>
+
+            <div id="gameOverPanel" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.9); border: 2px solid #FF0000; border-radius: 10px; padding: 30px; text-align: center; z-index: 2000;">
+                <h2 style="color: #FF0000; font-family: 'Courier New', monospace; font-weight: bold; margin-bottom: 20px;">GAME OVER</h2>
+                <p style="color: #00FFFF; font-family: 'Courier New', monospace; font-size: 18px; margin-bottom: 20px;">SCORE: <span id="gameOverScoreDisplay">0</span></p>
+                <input type="text" id="gameOverNameInput" placeholder="ENTER PLAYER NAME" maxlength="20" style="padding: 10px; font-family: 'Courier New', monospace; font-size: 16px; background: #111; color: #FFF; border: 1px solid #FF0000; margin-bottom: 20px; width: 80%; box-sizing: border-box;" />
+                <br>
+                <button onclick="SubmitGameOverScore()" style="padding: 10px 20px; background: #FF0000; color: #FFF; font-family: 'Courier New', monospace; font-weight: bold; border: none; cursor: pointer; border-radius: 5px;">SUBMIT SCORE</button>
+            </div>
+
         </div> <!-- End of canvas-container -->
 
         <!-- Controles Touch para Mobile (Gameboy Layout) -->
@@ -150,38 +182,6 @@
                 </div>
             </div>
         </div>
-
-            <!-- Painel Esquerdo (RPG & Status) -->
-            <div id="rpgPanel" class="overlay-panel panel-left" style="display: none;">
-                <div id="rpgPanelContent"></div>
-            </div>
-
-            <!-- Painel de Chat (Esquerda) -->
-            <div id="chatPanel" class="overlay-panel panel-left" style="display: none;">
-                <h3 class="panel-header">💬 GLOBAL CHAT</h3>
-                <div class="chat-nick-row">
-                    <span>NICK:</span>
-                    <input type="text" id="chatNickInput" placeholder="GUEST_GHOST" />
-                </div>
-                <div id="chatMessages" class="chat-log"></div>
-                <div class="chat-input-row">
-                    <input type="text" id="chatMsgInput" placeholder="TYPE MESSAGE..." />
-                    <button id="chatSendBtn">SEND</button>
-                </div>
-            </div>
-
-            <!-- Painel Direito (Bag, Equipamentos, Controles, Leaderboard) -->
-            <div id="navbarPanel" class="overlay-panel panel-right" style="display: none;">
-                <div id="navbarPanelContent"></div>
-            </div>
-
-            <div id="gameOverPanel" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.9); border: 2px solid #FF0000; border-radius: 10px; padding: 30px; text-align: center; z-index: 2000;">
-                <h2 style="color: #FF0000; font-family: 'Courier New', monospace; font-weight: bold; margin-bottom: 20px;">GAME OVER</h2>
-                <p style="color: #00FFFF; font-family: 'Courier New', monospace; font-size: 18px; margin-bottom: 20px;">SCORE: <span id="gameOverScoreDisplay">0</span></p>
-                <input type="text" id="gameOverNameInput" placeholder="ENTER PLAYER NAME" maxlength="20" style="padding: 10px; font-family: 'Courier New', monospace; font-size: 16px; background: #111; color: #FFF; border: 1px solid #FF0000; margin-bottom: 20px; width: 80%; box-sizing: border-box;" />
-                <br>
-                <button onclick="SubmitGameOverScore()" style="padding: 10px 20px; background: #FF0000; color: #FFF; font-family: 'Courier New', monospace; font-weight: bold; border: none; cursor: pointer; border-radius: 5px;">SUBMIT SCORE</button>
-            </div>
 
         </div>
         
