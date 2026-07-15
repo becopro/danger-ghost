@@ -1,0 +1,2172 @@
+{
+  "ghostdex_db": [
+    {
+      "id": "001",
+      "nome": "Polterstalk",
+      "categoria": "Assombração Urbana",
+      "tipos": [
+        "Sucata",
+        "Holográfico"
+      ],
+      "altura_m": 2.08,
+      "peso_kg": 86.55,
+      "stats_base": {
+        "hp": 44,
+        "ataque": 40,
+        "defesa": 43,
+        "atq_especial": 41,
+        "def_especial": 39,
+        "velocidade": 49,
+        "total": 256
+      },
+      "habitat": "Estação Abandonada de Charitas",
+      "lore": "Uma massa de dados blockchain que escapou da rede DeSo. Gosta de assustar skatistas mudando a gravidade dos obstáculos."
+    },
+    {
+      "id": "002",
+      "nome": "Toxiwisp",
+      "categoria": "Anomalia Cibernética",
+      "tipos": [
+        "Neon",
+        "Sucata"
+      ],
+      "altura_m": 0.33,
+      "peso_kg": 111.92,
+      "stats_base": {
+        "hp": 46,
+        "ataque": 50,
+        "defesa": 31,
+        "atq_especial": 46,
+        "def_especial": 42,
+        "velocidade": 44,
+        "total": 259
+      },
+      "habitat": "Fábrica Desativada do Barreto",
+      "lore": "Atraído pelo som de batidas de rap e hip-hop no subsolo. Causa interferência em fones de ouvido bluetooth quando se aproxima."
+    },
+    {
+      "id": "003",
+      "nome": "Holovoid",
+      "categoria": "Vulto de Rua",
+      "tipos": [
+        "Neon",
+        "Virtual"
+      ],
+      "altura_m": 2.29,
+      "peso_kg": 56.82,
+      "stats_base": {
+        "hp": 60,
+        "ataque": 52,
+        "defesa": 41,
+        "atq_especial": 54,
+        "def_especial": 47,
+        "velocidade": 54,
+        "total": 308
+      },
+      "habitat": "MAC - Museu de Arte Contemporânea (Subterrâneo)",
+      "lore": "Assombração comum nas ruas de Niterói durante a madrugada. Gosta de assustar skatistas mudando a gravidade dos obstáculos."
+    },
+    {
+      "id": "004",
+      "nome": "Fogoghoul",
+      "categoria": "Espírito Marginal",
+      "tipos": [
+        "Urbano"
+      ],
+      "altura_m": 0.43,
+      "peso_kg": 128.04,
+      "stats_base": {
+        "hp": 43,
+        "ataque": 36,
+        "defesa": 44,
+        "atq_especial": 43,
+        "def_especial": 50,
+        "velocidade": 40,
+        "total": 256
+      },
+      "habitat": "Rua Ator Paulo Gustavo (Madrugada)",
+      "lore": "Manifesta-se em locais com alta eletricidade estática. Seus olhos brilham no escuro em tons neon ameaçadores."
+    },
+    {
+      "id": "005",
+      "nome": "Cromobyte",
+      "categoria": "Espírito Marginal",
+      "tipos": [
+        "Sombra"
+      ],
+      "altura_m": 1.54,
+      "peso_kg": 50.75,
+      "stats_base": {
+        "hp": 40,
+        "ataque": 50,
+        "defesa": 47,
+        "atq_especial": 51,
+        "def_especial": 39,
+        "velocidade": 48,
+        "total": 275
+      },
+      "habitat": "Estação Abandonada de Charitas",
+      "lore": "Uma inteligência artificial corrompida que ganhou forma ectoplasmática. Alimenta-se da luz de placas de publicidade à noite."
+    },
+    {
+      "id": "006",
+      "nome": "Bytefade",
+      "categoria": "Vulto de Rua",
+      "tipos": [
+        "Cibernético"
+      ],
+      "altura_m": 0.55,
+      "peso_kg": 36.53,
+      "stats_base": {
+        "hp": 48,
+        "ataque": 43,
+        "defesa": 57,
+        "atq_especial": 46,
+        "def_especial": 46,
+        "velocidade": 44,
+        "total": 284
+      },
+      "habitat": "Esconderijo Hacker de Icaraí",
+      "lore": "Atraído pelo som de batidas de rap e hip-hop no subsolo. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "007",
+      "nome": "Aerogrim",
+      "categoria": "Poltergeist Digital",
+      "tipos": [
+        "Urbano",
+        "Fogo-Fátuo"
+      ],
+      "altura_m": 2.07,
+      "peso_kg": 34.11,
+      "stats_base": {
+        "hp": 47,
+        "ataque": 48,
+        "defesa": 55,
+        "atq_especial": 50,
+        "def_especial": 44,
+        "velocidade": 46,
+        "total": 290
+      },
+      "habitat": "Lixão Digital",
+      "lore": "Atraído pelo som de batidas de rap e hip-hop no subsolo. Causa interferência em fones de ouvido bluetooth quando se aproxima."
+    },
+    {
+      "id": "008",
+      "nome": "Sucatnull",
+      "categoria": "Anomalia Cibernética",
+      "tipos": [
+        "Sombra",
+        "Sucata"
+      ],
+      "altura_m": 1.33,
+      "peso_kg": 12.12,
+      "stats_base": {
+        "hp": 43,
+        "ataque": 41,
+        "defesa": 39,
+        "atq_especial": 47,
+        "def_especial": 44,
+        "velocidade": 51,
+        "total": 265
+      },
+      "habitat": "Lixão Digital",
+      "lore": "Uma massa de dados blockchain que escapou da rede DeSo. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "009",
+      "nome": "Aerosoul",
+      "categoria": "Vulto de Rua",
+      "tipos": [
+        "Neon",
+        "Sucata"
+      ],
+      "altura_m": 0.38,
+      "peso_kg": 52.78,
+      "stats_base": {
+        "hp": 49,
+        "ataque": 53,
+        "defesa": 42,
+        "atq_especial": 41,
+        "def_especial": 43,
+        "velocidade": 44,
+        "total": 272
+      },
+      "habitat": "Estação Abandonada de Charitas",
+      "lore": "Uma massa de dados blockchain que escapou da rede DeSo. Seus olhos brilham no escuro em tons neon ameaçadores."
+    },
+    {
+      "id": "010",
+      "nome": "Byteglitch",
+      "categoria": "Anomalia Cibernética",
+      "tipos": [
+        "Pixação",
+        "Espectro"
+      ],
+      "altura_m": 1.74,
+      "peso_kg": 87.11,
+      "stats_base": {
+        "hp": 46,
+        "ataque": 47,
+        "defesa": 57,
+        "atq_especial": 57,
+        "def_especial": 50,
+        "velocidade": 38,
+        "total": 295
+      },
+      "habitat": "Rua Ator Paulo Gustavo (Madrugada)",
+      "lore": "Assombração comum nas ruas de Niterói durante a madrugada. Deixa um rastro de tinta fluorescente por onde passa."
+    },
+    {
+      "id": "011",
+      "nome": "Cristacreep",
+      "categoria": "Assombração Urbana",
+      "tipos": [
+        "Neon"
+      ],
+      "altura_m": 2.12,
+      "peso_kg": 26.28,
+      "stats_base": {
+        "hp": 59,
+        "ataque": 51,
+        "defesa": 62,
+        "atq_especial": 39,
+        "def_especial": 50,
+        "velocidade": 51,
+        "total": 312
+      },
+      "habitat": "MAC - Museu de Arte Contemporânea (Subterrâneo)",
+      "lore": "Ecos de grafiteiros que desapareceram na década de 90. Causa interferência em fones de ouvido bluetooth quando se aproxima."
+    },
+    {
+      "id": "012",
+      "nome": "Fogovoid",
+      "categoria": "Eco do Passado",
+      "tipos": [
+        "Cristal"
+      ],
+      "altura_m": 2.32,
+      "peso_kg": 91.88,
+      "stats_base": {
+        "hp": 34,
+        "ataque": 54,
+        "defesa": 48,
+        "atq_especial": 45,
+        "def_especial": 56,
+        "velocidade": 57,
+        "total": 294
+      },
+      "habitat": "Beco do Neon - Zona Leste",
+      "lore": "Uma inteligência artificial corrompida que ganhou forma ectoplasmática. Dizem que absorve as más vibrações da poluição urbana."
+    },
+    {
+      "id": "013",
+      "nome": "Pixospark",
+      "categoria": "Aparição Tóxica",
+      "tipos": [
+        "Pixação",
+        "Caos"
+      ],
+      "altura_m": 2.17,
+      "peso_kg": 104.97,
+      "stats_base": {
+        "hp": 39,
+        "ataque": 52,
+        "defesa": 52,
+        "atq_especial": 51,
+        "def_especial": 57,
+        "velocidade": 49,
+        "total": 300
+      },
+      "habitat": "Esconderijo Hacker de Icaraí",
+      "lore": "Nasce de latas de spray descartadas incorretamente. Deixa um rastro de tinta fluorescente por onde passa."
+    },
+    {
+      "id": "014",
+      "nome": "Pixoloom",
+      "categoria": "Aparição Tóxica",
+      "tipos": [
+        "Urbano",
+        "Fogo-Fátuo"
+      ],
+      "altura_m": 0.91,
+      "peso_kg": 146.67,
+      "stats_base": {
+        "hp": 60,
+        "ataque": 49,
+        "defesa": 47,
+        "atq_especial": 53,
+        "def_especial": 43,
+        "velocidade": 47,
+        "total": 299
+      },
+      "habitat": "Estação Abandonada de Charitas",
+      "lore": "Manifesta-se em locais com alta eletricidade estática. Deixa um rastro de tinta fluorescente por onde passa."
+    },
+    {
+      "id": "015",
+      "nome": "Toxitron",
+      "categoria": "Entidade Neon",
+      "tipos": [
+        "Espectro",
+        "Tóxico"
+      ],
+      "altura_m": 1.79,
+      "peso_kg": 110.83,
+      "stats_base": {
+        "hp": 48,
+        "ataque": 44,
+        "defesa": 42,
+        "atq_especial": 44,
+        "def_especial": 53,
+        "velocidade": 48,
+        "total": 279
+      },
+      "habitat": "Rua Ator Paulo Gustavo (Madrugada)",
+      "lore": "Manifesta-se em locais com alta eletricidade estática. Pode possuir caixas eletrônicos para distribuir moedas digitais falsas."
+    },
+    {
+      "id": "016",
+      "nome": "Sombroshade",
+      "categoria": "Assombração Urbana",
+      "tipos": [
+        "Fogo-Fátuo",
+        "Holográfico"
+      ],
+      "altura_m": 1.57,
+      "peso_kg": 35.08,
+      "stats_base": {
+        "hp": 49,
+        "ataque": 42,
+        "defesa": 39,
+        "atq_especial": 41,
+        "def_especial": 51,
+        "velocidade": 36,
+        "total": 258
+      },
+      "habitat": "Complexo de Favelas (Servidor Central)",
+      "lore": "Atraído pelo som de batidas de rap e hip-hop no subsolo. Dizem que absorve as más vibrações da poluição urbana."
+    },
+    {
+      "id": "017",
+      "nome": "Spectrogeist",
+      "categoria": "Entidade Neon",
+      "tipos": [
+        "Sucata"
+      ],
+      "altura_m": 1.41,
+      "peso_kg": 75.93,
+      "stats_base": {
+        "hp": 48,
+        "ataque": 42,
+        "defesa": 48,
+        "atq_especial": 36,
+        "def_especial": 46,
+        "velocidade": 58,
+        "total": 278
+      },
+      "habitat": "Laboratório Secreto Web3",
+      "lore": "Ecos de grafiteiros que desapareceram na década de 90. Seus olhos brilham no escuro em tons neon ameaçadores."
+    },
+    {
+      "id": "018",
+      "nome": "Asfaltron",
+      "categoria": "Anomalia Cibernética",
+      "tipos": [
+        "Pixação"
+      ],
+      "altura_m": 1.6,
+      "peso_kg": 74.64,
+      "stats_base": {
+        "hp": 50,
+        "ataque": 54,
+        "defesa": 43,
+        "atq_especial": 55,
+        "def_especial": 58,
+        "velocidade": 52,
+        "total": 312
+      },
+      "habitat": "Esconderijo Hacker de Icaraí",
+      "lore": "Manifesta-se em locais com alta eletricidade estática. Causa interferência em fones de ouvido bluetooth quando se aproxima."
+    },
+    {
+      "id": "019",
+      "nome": "Vultowisp",
+      "categoria": "Eco do Passado",
+      "tipos": [
+        "Virtual"
+      ],
+      "altura_m": 1.19,
+      "peso_kg": 110.55,
+      "stats_base": {
+        "hp": 45,
+        "ataque": 52,
+        "defesa": 40,
+        "atq_especial": 49,
+        "def_especial": 50,
+        "velocidade": 42,
+        "total": 278
+      },
+      "habitat": "Praça Araribóia - Caos",
+      "lore": "Atraído pelo som de batidas de rap e hip-hop no subsolo. Pode possuir caixas eletrônicos para distribuir moedas digitais falsas."
+    },
+    {
+      "id": "020",
+      "nome": "Pixovoid",
+      "categoria": "Espírito Marginal",
+      "tipos": [
+        "Urbano",
+        "Fogo-Fátuo"
+      ],
+      "altura_m": 0.24,
+      "peso_kg": 84.11,
+      "stats_base": {
+        "hp": 62,
+        "ataque": 41,
+        "defesa": 47,
+        "atq_especial": 56,
+        "def_especial": 53,
+        "velocidade": 52,
+        "total": 311
+      },
+      "habitat": "Laboratório Secreto Web3",
+      "lore": "Assombração comum nas ruas de Niterói durante a madrugada. Causa interferência em fones de ouvido bluetooth quando se aproxima."
+    },
+    {
+      "id": "021",
+      "nome": "Holonull",
+      "categoria": "Aparição Tóxica",
+      "tipos": [
+        "Urbano"
+      ],
+      "altura_m": 2.03,
+      "peso_kg": 56.03,
+      "stats_base": {
+        "hp": 44,
+        "ataque": 40,
+        "defesa": 65,
+        "atq_especial": 44,
+        "def_especial": 52,
+        "velocidade": 39,
+        "total": 284
+      },
+      "habitat": "Laboratório Secreto Web3",
+      "lore": "Uma massa de dados blockchain que escapou da rede DeSo. Seus olhos brilham no escuro em tons neon ameaçadores."
+    },
+    {
+      "id": "022",
+      "nome": "Vazglitch",
+      "categoria": "Assombração Urbana",
+      "tipos": [
+        "Neon"
+      ],
+      "altura_m": 1.54,
+      "peso_kg": 6.36,
+      "stats_base": {
+        "hp": 65,
+        "ataque": 59,
+        "defesa": 33,
+        "atq_especial": 52,
+        "def_especial": 52,
+        "velocidade": 54,
+        "total": 315
+      },
+      "habitat": "Fábrica Desativada do Barreto",
+      "lore": "Formado pela energia de celulares quebrados e abandonados. Causa interferência em fones de ouvido bluetooth quando se aproxima."
+    },
+    {
+      "id": "023",
+      "nome": "Fogocreep",
+      "categoria": "Eco do Passado",
+      "tipos": [
+        "Cibernético",
+        "Cristal"
+      ],
+      "altura_m": 1.01,
+      "peso_kg": 132.14,
+      "stats_base": {
+        "hp": 33,
+        "ataque": 49,
+        "defesa": 43,
+        "atq_especial": 37,
+        "def_especial": 47,
+        "velocidade": 45,
+        "total": 254
+      },
+      "habitat": "Complexo de Favelas (Servidor Central)",
+      "lore": "Ecos de grafiteiros que desapareceram na década de 90. Causa interferência em fones de ouvido bluetooth quando se aproxima."
+    },
+    {
+      "id": "024",
+      "nome": "Cromowisp",
+      "categoria": "Espírito Marginal",
+      "tipos": [
+        "Neon",
+        "Sombrio"
+      ],
+      "altura_m": 1.17,
+      "peso_kg": 133.34,
+      "stats_base": {
+        "hp": 62,
+        "ataque": 53,
+        "defesa": 57,
+        "atq_especial": 47,
+        "def_especial": 46,
+        "velocidade": 53,
+        "total": 318
+      },
+      "habitat": "Praça Araribóia - Caos",
+      "lore": "Uma massa de dados blockchain que escapou da rede DeSo. Seus olhos brilham no escuro em tons neon ameaçadores."
+    },
+    {
+      "id": "025",
+      "nome": "Sombroloom",
+      "categoria": "Entidade Neon",
+      "tipos": [
+        "Caos",
+        "Cibernético"
+      ],
+      "altura_m": 0.28,
+      "peso_kg": 134.3,
+      "stats_base": {
+        "hp": 51,
+        "ataque": 46,
+        "defesa": 42,
+        "atq_especial": 36,
+        "def_especial": 52,
+        "velocidade": 44,
+        "total": 271
+      },
+      "habitat": "Complexo de Favelas (Servidor Central)",
+      "lore": "Formado pela energia de celulares quebrados e abandonados. Deixa um rastro de tinta fluorescente por onde passa."
+    },
+    {
+      "id": "026",
+      "nome": "Ectosoul",
+      "categoria": "Entidade Neon",
+      "tipos": [
+        "Sucata",
+        "Neon"
+      ],
+      "altura_m": 1.65,
+      "peso_kg": 129.37,
+      "stats_base": {
+        "hp": 44,
+        "ataque": 55,
+        "defesa": 43,
+        "atq_especial": 44,
+        "def_especial": 39,
+        "velocidade": 60,
+        "total": 285
+      },
+      "habitat": "MAC - Museu de Arte Contemporânea (Subterrâneo)",
+      "lore": "Nasce de latas de spray descartadas incorretamente. Gosta de assustar skatistas mudando a gravidade dos obstáculos."
+    },
+    {
+      "id": "027",
+      "nome": "Toxigeist",
+      "categoria": "Eco do Passado",
+      "tipos": [
+        "Sucata"
+      ],
+      "altura_m": 0.28,
+      "peso_kg": 99.36,
+      "stats_base": {
+        "hp": 51,
+        "ataque": 44,
+        "defesa": 57,
+        "atq_especial": 62,
+        "def_especial": 46,
+        "velocidade": 48,
+        "total": 308
+      },
+      "habitat": "Praça Araribóia - Caos",
+      "lore": "Assombração comum nas ruas de Niterói durante a madrugada. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "028",
+      "nome": "Poltersoul",
+      "categoria": "Aparição Tóxica",
+      "tipos": [
+        "Pixação"
+      ],
+      "altura_m": 0.71,
+      "peso_kg": 122.57,
+      "stats_base": {
+        "hp": 47,
+        "ataque": 37,
+        "defesa": 46,
+        "atq_especial": 37,
+        "def_especial": 41,
+        "velocidade": 42,
+        "total": 250
+      },
+      "habitat": "MAC - Museu de Arte Contemporânea (Subterrâneo)",
+      "lore": "Nasce de latas de spray descartadas incorretamente. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "029",
+      "nome": "Cromocreep",
+      "categoria": "Entidade Neon",
+      "tipos": [
+        "Neon",
+        "Urbano"
+      ],
+      "altura_m": 0.63,
+      "peso_kg": 86.28,
+      "stats_base": {
+        "hp": 49,
+        "ataque": 58,
+        "defesa": 56,
+        "atq_especial": 59,
+        "def_especial": 51,
+        "velocidade": 42,
+        "total": 315
+      },
+      "habitat": "Complexo de Favelas (Servidor Central)",
+      "lore": "Uma massa de dados blockchain que escapou da rede DeSo. Alimenta-se da luz de placas de publicidade à noite."
+    },
+    {
+      "id": "030",
+      "nome": "Spectrophant",
+      "categoria": "Assombração Urbana",
+      "tipos": [
+        "Espectro"
+      ],
+      "altura_m": 1.15,
+      "peso_kg": 138.39,
+      "stats_base": {
+        "hp": 63,
+        "ataque": 33,
+        "defesa": 51,
+        "atq_especial": 41,
+        "def_especial": 42,
+        "velocidade": 47,
+        "total": 277
+      },
+      "habitat": "Fábrica Desativada do Barreto",
+      "lore": "Assombração comum nas ruas de Niterói durante a madrugada. Pode possuir caixas eletrônicos para distribuir moedas digitais falsas."
+    },
+    {
+      "id": "031",
+      "nome": "Cromostalk",
+      "categoria": "Entidade Neon",
+      "tipos": [
+        "Caos",
+        "Fogo-Fátuo"
+      ],
+      "altura_m": 1.27,
+      "peso_kg": 124.65,
+      "stats_base": {
+        "hp": 49,
+        "ataque": 53,
+        "defesa": 53,
+        "atq_especial": 54,
+        "def_especial": 56,
+        "velocidade": 60,
+        "total": 325
+      },
+      "habitat": "Beco do Neon - Zona Leste",
+      "lore": "Manifesta-se em locais com alta eletricidade estática. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "032",
+      "nome": "Bytecreep",
+      "categoria": "Eco do Passado",
+      "tipos": [
+        "Sombra",
+        "Sucata"
+      ],
+      "altura_m": 0.21,
+      "peso_kg": 5.83,
+      "stats_base": {
+        "hp": 70,
+        "ataque": 66,
+        "defesa": 64,
+        "atq_especial": 64,
+        "def_especial": 65,
+        "velocidade": 62,
+        "total": 391
+      },
+      "habitat": "Praça Araribóia - Caos",
+      "lore": "Manifesta-se em locais com alta eletricidade estática. Alimenta-se da luz de placas de publicidade à noite."
+    },
+    {
+      "id": "033",
+      "nome": "Becopunk",
+      "categoria": "Eco do Passado",
+      "tipos": [
+        "Urbano"
+      ],
+      "altura_m": 1.6,
+      "peso_kg": 6.41,
+      "stats_base": {
+        "hp": 73,
+        "ataque": 66,
+        "defesa": 60,
+        "atq_especial": 64,
+        "def_especial": 67,
+        "velocidade": 55,
+        "total": 385
+      },
+      "habitat": "Complexo de Favelas (Servidor Central)",
+      "lore": "Formado pela energia de celulares quebrados e abandonados. Deixa um rastro de tinta fluorescente por onde passa."
+    },
+    {
+      "id": "034",
+      "nome": "Vazbyte",
+      "categoria": "Aparição Tóxica",
+      "tipos": [
+        "Holográfico"
+      ],
+      "altura_m": 1.84,
+      "peso_kg": 76.92,
+      "stats_base": {
+        "hp": 59,
+        "ataque": 85,
+        "defesa": 83,
+        "atq_especial": 67,
+        "def_especial": 66,
+        "velocidade": 62,
+        "total": 422
+      },
+      "habitat": "Laboratório Secreto Web3",
+      "lore": "Manifesta-se em locais com alta eletricidade estática. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "035",
+      "nome": "Neonvoid",
+      "categoria": "Poltergeist Digital",
+      "tipos": [
+        "Holográfico",
+        "Urbano"
+      ],
+      "altura_m": 1.82,
+      "peso_kg": 31.95,
+      "stats_base": {
+        "hp": 59,
+        "ataque": 49,
+        "defesa": 49,
+        "atq_especial": 56,
+        "def_especial": 53,
+        "velocidade": 57,
+        "total": 323
+      },
+      "habitat": "Esconderijo Hacker de Icaraí",
+      "lore": "Manifesta-se em locais com alta eletricidade estática. Deixa um rastro de tinta fluorescente por onde passa."
+    },
+    {
+      "id": "036",
+      "nome": "Gigaspark",
+      "categoria": "Espírito Marginal",
+      "tipos": [
+        "Sucata",
+        "Cibernético"
+      ],
+      "altura_m": 1.48,
+      "peso_kg": 28.04,
+      "stats_base": {
+        "hp": 66,
+        "ataque": 49,
+        "defesa": 58,
+        "atq_especial": 78,
+        "def_especial": 59,
+        "velocidade": 57,
+        "total": 367
+      },
+      "habitat": "Beco do Neon - Zona Leste",
+      "lore": "Assombração comum nas ruas de Niterói durante a madrugada. Deixa um rastro de tinta fluorescente por onde passa."
+    },
+    {
+      "id": "037",
+      "nome": "Spectrowraith",
+      "categoria": "Entidade Neon",
+      "tipos": [
+        "Caos",
+        "Sombrio"
+      ],
+      "altura_m": 1.26,
+      "peso_kg": 57.27,
+      "stats_base": {
+        "hp": 62,
+        "ataque": 57,
+        "defesa": 53,
+        "atq_especial": 64,
+        "def_especial": 59,
+        "velocidade": 60,
+        "total": 355
+      },
+      "habitat": "Praça Araribóia - Caos",
+      "lore": "Atraído pelo som de batidas de rap e hip-hop no subsolo. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "038",
+      "nome": "Becohex",
+      "categoria": "Entidade Neon",
+      "tipos": [
+        "Caos",
+        "Fogo-Fátuo"
+      ],
+      "altura_m": 2.12,
+      "peso_kg": 54.55,
+      "stats_base": {
+        "hp": 56,
+        "ataque": 64,
+        "defesa": 57,
+        "atq_especial": 64,
+        "def_especial": 74,
+        "velocidade": 71,
+        "total": 386
+      },
+      "habitat": "Estação Abandonada de Charitas",
+      "lore": "Atraído pelo som de batidas de rap e hip-hop no subsolo. Deixa um rastro de tinta fluorescente por onde passa."
+    },
+    {
+      "id": "039",
+      "nome": "Holofade",
+      "categoria": "Aparição Tóxica",
+      "tipos": [
+        "Sombra",
+        "Cibernético"
+      ],
+      "altura_m": 0.99,
+      "peso_kg": 11.75,
+      "stats_base": {
+        "hp": 58,
+        "ataque": 58,
+        "defesa": 61,
+        "atq_especial": 62,
+        "def_especial": 50,
+        "velocidade": 63,
+        "total": 352
+      },
+      "habitat": "Ruínas da Cantareira",
+      "lore": "Manifesta-se em locais com alta eletricidade estática. Alimenta-se da luz de placas de publicidade à noite."
+    },
+    {
+      "id": "040",
+      "nome": "Vaznull",
+      "categoria": "Anomalia Cibernética",
+      "tipos": [
+        "Virtual"
+      ],
+      "altura_m": 0.41,
+      "peso_kg": 12.35,
+      "stats_base": {
+        "hp": 55,
+        "ataque": 69,
+        "defesa": 57,
+        "atq_especial": 52,
+        "def_especial": 61,
+        "velocidade": 69,
+        "total": 363
+      },
+      "habitat": "Praça Araribóia - Caos",
+      "lore": "Formado pela energia de celulares quebrados e abandonados. Seus olhos brilham no escuro em tons neon ameaçadores."
+    },
+    {
+      "id": "041",
+      "nome": "Fogonull",
+      "categoria": "Espírito Marginal",
+      "tipos": [
+        "Neon"
+      ],
+      "altura_m": 0.52,
+      "peso_kg": 76.98,
+      "stats_base": {
+        "hp": 68,
+        "ataque": 68,
+        "defesa": 73,
+        "atq_especial": 75,
+        "def_especial": 78,
+        "velocidade": 83,
+        "total": 445
+      },
+      "habitat": "Esconderijo Hacker de Icaraí",
+      "lore": "Assombração comum nas ruas de Niterói durante a madrugada. Dizem que absorve as más vibrações da poluição urbana."
+    },
+    {
+      "id": "042",
+      "nome": "Polternull",
+      "categoria": "Espírito Marginal",
+      "tipos": [
+        "Neon",
+        "Espectro"
+      ],
+      "altura_m": 0.65,
+      "peso_kg": 48.46,
+      "stats_base": {
+        "hp": 45,
+        "ataque": 56,
+        "defesa": 58,
+        "atq_especial": 56,
+        "def_especial": 56,
+        "velocidade": 58,
+        "total": 329
+      },
+      "habitat": "Beco do Neon - Zona Leste",
+      "lore": "Atraído pelo som de batidas de rap e hip-hop no subsolo. Seus olhos brilham no escuro em tons neon ameaçadores."
+    },
+    {
+      "id": "043",
+      "nome": "Neoncreep",
+      "categoria": "Assombração Urbana",
+      "tipos": [
+        "Sombra"
+      ],
+      "altura_m": 1.45,
+      "peso_kg": 10.21,
+      "stats_base": {
+        "hp": 58,
+        "ataque": 72,
+        "defesa": 74,
+        "atq_especial": 58,
+        "def_especial": 74,
+        "velocidade": 72,
+        "total": 408
+      },
+      "habitat": "Beco do Neon - Zona Leste",
+      "lore": "Assombração comum nas ruas de Niterói durante a madrugada. Deixa um rastro de tinta fluorescente por onde passa."
+    },
+    {
+      "id": "044",
+      "nome": "Sucatphant",
+      "categoria": "Vulto de Rua",
+      "tipos": [
+        "Holográfico"
+      ],
+      "altura_m": 0.27,
+      "peso_kg": 149.1,
+      "stats_base": {
+        "hp": 80,
+        "ataque": 68,
+        "defesa": 78,
+        "atq_especial": 47,
+        "def_especial": 61,
+        "velocidade": 68,
+        "total": 402
+      },
+      "habitat": "Rua Ator Paulo Gustavo (Madrugada)",
+      "lore": "Atraído pelo som de batidas de rap e hip-hop no subsolo. Gosta de assustar skatistas mudando a gravidade dos obstáculos."
+    },
+    {
+      "id": "045",
+      "nome": "Vultogeist",
+      "categoria": "Aparição Tóxica",
+      "tipos": [
+        "Cristal",
+        "Caos"
+      ],
+      "altura_m": 1.52,
+      "peso_kg": 66.21,
+      "stats_base": {
+        "hp": 81,
+        "ataque": 62,
+        "defesa": 60,
+        "atq_especial": 77,
+        "def_especial": 69,
+        "velocidade": 78,
+        "total": 427
+      },
+      "habitat": "Terminal João Goulart",
+      "lore": "Uma inteligência artificial corrompida que ganhou forma ectoplasmática. Gosta de assustar skatistas mudando a gravidade dos obstáculos."
+    },
+    {
+      "id": "046",
+      "nome": "Metawisp",
+      "categoria": "Espírito Marginal",
+      "tipos": [
+        "Holográfico",
+        "Pixação"
+      ],
+      "altura_m": 1.22,
+      "peso_kg": 67.83,
+      "stats_base": {
+        "hp": 68,
+        "ataque": 60,
+        "defesa": 50,
+        "atq_especial": 58,
+        "def_especial": 61,
+        "velocidade": 72,
+        "total": 369
+      },
+      "habitat": "Estação Abandonada de Charitas",
+      "lore": "Ecos de grafiteiros que desapareceram na década de 90. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "047",
+      "nome": "Poltergeist",
+      "categoria": "Espírito Marginal",
+      "tipos": [
+        "Tóxico",
+        "Sombrio"
+      ],
+      "altura_m": 1.68,
+      "peso_kg": 37.3,
+      "stats_base": {
+        "hp": 61,
+        "ataque": 58,
+        "defesa": 46,
+        "atq_especial": 61,
+        "def_especial": 41,
+        "velocidade": 56,
+        "total": 323
+      },
+      "habitat": "Praça Araribóia - Caos",
+      "lore": "Nasce de latas de spray descartadas incorretamente. Pode possuir caixas eletrônicos para distribuir moedas digitais falsas."
+    },
+    {
+      "id": "048",
+      "nome": "Gigaloom",
+      "categoria": "Anomalia Cibernética",
+      "tipos": [
+        "Espectro"
+      ],
+      "altura_m": 0.5,
+      "peso_kg": 71.12,
+      "stats_base": {
+        "hp": 65,
+        "ataque": 78,
+        "defesa": 77,
+        "atq_especial": 62,
+        "def_especial": 67,
+        "velocidade": 46,
+        "total": 395
+      },
+      "habitat": "Beco do Neon - Zona Leste",
+      "lore": "Assombração comum nas ruas de Niterói durante a madrugada. Pode possuir caixas eletrônicos para distribuir moedas digitais falsas."
+    },
+    {
+      "id": "049",
+      "nome": "Sucatcreep",
+      "categoria": "Aparição Tóxica",
+      "tipos": [
+        "Urbano",
+        "Virtual"
+      ],
+      "altura_m": 0.93,
+      "peso_kg": 56.87,
+      "stats_base": {
+        "hp": 50,
+        "ataque": 65,
+        "defesa": 83,
+        "atq_especial": 53,
+        "def_especial": 59,
+        "velocidade": 70,
+        "total": 380
+      },
+      "habitat": "Laboratório Secreto Web3",
+      "lore": "Uma inteligência artificial corrompida que ganhou forma ectoplasmática. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "050",
+      "nome": "Substalk",
+      "categoria": "Assombração Urbana",
+      "tipos": [
+        "Urbano"
+      ],
+      "altura_m": 0.47,
+      "peso_kg": 117.54,
+      "stats_base": {
+        "hp": 65,
+        "ataque": 62,
+        "defesa": 58,
+        "atq_especial": 79,
+        "def_especial": 76,
+        "velocidade": 57,
+        "total": 397
+      },
+      "habitat": "MAC - Museu de Arte Contemporânea (Subterrâneo)",
+      "lore": "Nasce de latas de spray descartadas incorretamente. Dizem que absorve as más vibrações da poluição urbana."
+    },
+    {
+      "id": "051",
+      "nome": "Sombronull",
+      "categoria": "Eco do Passado",
+      "tipos": [
+        "Virtual"
+      ],
+      "altura_m": 0.91,
+      "peso_kg": 126.19,
+      "stats_base": {
+        "hp": 80,
+        "ataque": 63,
+        "defesa": 50,
+        "atq_especial": 53,
+        "def_especial": 64,
+        "velocidade": 59,
+        "total": 369
+      },
+      "habitat": "Rua Ator Paulo Gustavo (Madrugada)",
+      "lore": "Manifesta-se em locais com alta eletricidade estática. Alimenta-se da luz de placas de publicidade à noite."
+    },
+    {
+      "id": "052",
+      "nome": "Sombrotron",
+      "categoria": "Espírito Marginal",
+      "tipos": [
+        "Holográfico",
+        "Espectro"
+      ],
+      "altura_m": 1.33,
+      "peso_kg": 101.85,
+      "stats_base": {
+        "hp": 64,
+        "ataque": 82,
+        "defesa": 79,
+        "atq_especial": 60,
+        "def_especial": 56,
+        "velocidade": 71,
+        "total": 412
+      },
+      "habitat": "Praça Araribóia - Caos",
+      "lore": "Uma massa de dados blockchain que escapou da rede DeSo. Gosta de assustar skatistas mudando a gravidade dos obstáculos."
+    },
+    {
+      "id": "053",
+      "nome": "Metashade",
+      "categoria": "Entidade Neon",
+      "tipos": [
+        "Sombrio"
+      ],
+      "altura_m": 1.63,
+      "peso_kg": 82.67,
+      "stats_base": {
+        "hp": 70,
+        "ataque": 68,
+        "defesa": 56,
+        "atq_especial": 77,
+        "def_especial": 78,
+        "velocidade": 71,
+        "total": 420
+      },
+      "habitat": "Fábrica Desativada do Barreto",
+      "lore": "Uma inteligência artificial corrompida que ganhou forma ectoplasmática. Causa interferência em fones de ouvido bluetooth quando se aproxima."
+    },
+    {
+      "id": "054",
+      "nome": "Fumabyte",
+      "categoria": "Poltergeist Digital",
+      "tipos": [
+        "Sucata"
+      ],
+      "altura_m": 2.13,
+      "peso_kg": 92.88,
+      "stats_base": {
+        "hp": 86,
+        "ataque": 63,
+        "defesa": 61,
+        "atq_especial": 60,
+        "def_especial": 69,
+        "velocidade": 55,
+        "total": 394
+      },
+      "habitat": "Laboratório Secreto Web3",
+      "lore": "Uma inteligência artificial corrompida que ganhou forma ectoplasmática. Alimenta-se da luz de placas de publicidade à noite."
+    },
+    {
+      "id": "055",
+      "nome": "Cromotron",
+      "categoria": "Entidade Neon",
+      "tipos": [
+        "Cristal",
+        "Virtual"
+      ],
+      "altura_m": 1.13,
+      "peso_kg": 15.83,
+      "stats_base": {
+        "hp": 54,
+        "ataque": 51,
+        "defesa": 61,
+        "atq_especial": 56,
+        "def_especial": 48,
+        "velocidade": 50,
+        "total": 320
+      },
+      "habitat": "Lixão Digital",
+      "lore": "Uma inteligência artificial corrompida que ganhou forma ectoplasmática. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "056",
+      "nome": "Fogoghost",
+      "categoria": "Poltergeist Digital",
+      "tipos": [
+        "Sombra",
+        "Cibernético"
+      ],
+      "altura_m": 2,
+      "peso_kg": 45.18,
+      "stats_base": {
+        "hp": 64,
+        "ataque": 70,
+        "defesa": 67,
+        "atq_especial": 65,
+        "def_especial": 73,
+        "velocidade": 52,
+        "total": 391
+      },
+      "habitat": "MAC - Museu de Arte Contemporânea (Subterrâneo)",
+      "lore": "Ecos de grafiteiros que desapareceram na década de 90. Gosta de assustar skatistas mudando a gravidade dos obstáculos."
+    },
+    {
+      "id": "057",
+      "nome": "Asfalpunk",
+      "categoria": "Poltergeist Digital",
+      "tipos": [
+        "Pixação",
+        "Urbano"
+      ],
+      "altura_m": 1.06,
+      "peso_kg": 116.31,
+      "stats_base": {
+        "hp": 57,
+        "ataque": 69,
+        "defesa": 62,
+        "atq_especial": 59,
+        "def_especial": 66,
+        "velocidade": 72,
+        "total": 385
+      },
+      "habitat": "Praça Araribóia - Caos",
+      "lore": "Nasce de latas de spray descartadas incorretamente. Seus olhos brilham no escuro em tons neon ameaçadores."
+    },
+    {
+      "id": "058",
+      "nome": "Asfalshade",
+      "categoria": "Eco do Passado",
+      "tipos": [
+        "Tóxico",
+        "Sombrio"
+      ],
+      "altura_m": 0.34,
+      "peso_kg": 129.44,
+      "stats_base": {
+        "hp": 49,
+        "ataque": 52,
+        "defesa": 70,
+        "atq_especial": 44,
+        "def_especial": 52,
+        "velocidade": 56,
+        "total": 323
+      },
+      "habitat": "Terminal João Goulart",
+      "lore": "Nasce de latas de spray descartadas incorretamente. Pode possuir caixas eletrônicos para distribuir moedas digitais falsas."
+    },
+    {
+      "id": "059",
+      "nome": "Vazsoul",
+      "categoria": "Vulto de Rua",
+      "tipos": [
+        "Urbano"
+      ],
+      "altura_m": 1.77,
+      "peso_kg": 63.19,
+      "stats_base": {
+        "hp": 63,
+        "ataque": 71,
+        "defesa": 68,
+        "atq_especial": 77,
+        "def_especial": 73,
+        "velocidade": 79,
+        "total": 431
+      },
+      "habitat": "Rua Ator Paulo Gustavo (Madrugada)",
+      "lore": "Assombração comum nas ruas de Niterói durante a madrugada. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "060",
+      "nome": "Cybershade",
+      "categoria": "Aparição Tóxica",
+      "tipos": [
+        "Urbano",
+        "Fogo-Fátuo"
+      ],
+      "altura_m": 2.09,
+      "peso_kg": 59.41,
+      "stats_base": {
+        "hp": 56,
+        "ataque": 65,
+        "defesa": 77,
+        "atq_especial": 62,
+        "def_especial": 62,
+        "velocidade": 66,
+        "total": 388
+      },
+      "habitat": "Ruínas da Cantareira",
+      "lore": "Ecos de grafiteiros que desapareceram na década de 90. Seus olhos brilham no escuro em tons neon ameaçadores."
+    },
+    {
+      "id": "061",
+      "nome": "Sucatloom",
+      "categoria": "Assombração Urbana",
+      "tipos": [
+        "Cibernético"
+      ],
+      "altura_m": 1.51,
+      "peso_kg": 119.22,
+      "stats_base": {
+        "hp": 48,
+        "ataque": 62,
+        "defesa": 49,
+        "atq_especial": 59,
+        "def_especial": 53,
+        "velocidade": 53,
+        "total": 324
+      },
+      "habitat": "Laboratório Secreto Web3",
+      "lore": "Manifesta-se em locais com alta eletricidade estática. Dizem que absorve as más vibrações da poluição urbana."
+    },
+    {
+      "id": "062",
+      "nome": "Aerofume",
+      "categoria": "Aparição Tóxica",
+      "tipos": [
+        "Virtual"
+      ],
+      "altura_m": 0.31,
+      "peso_kg": 124.44,
+      "stats_base": {
+        "hp": 77,
+        "ataque": 74,
+        "defesa": 69,
+        "atq_especial": 69,
+        "def_especial": 73,
+        "velocidade": 66,
+        "total": 428
+      },
+      "habitat": "Complexo de Favelas (Servidor Central)",
+      "lore": "Assombração comum nas ruas de Niterói durante a madrugada. Gosta de assustar skatistas mudando a gravidade dos obstáculos."
+    },
+    {
+      "id": "063",
+      "nome": "Polterspark",
+      "categoria": "Vulto de Rua",
+      "tipos": [
+        "Sombra"
+      ],
+      "altura_m": 2.3,
+      "peso_kg": 6.02,
+      "stats_base": {
+        "hp": 46,
+        "ataque": 66,
+        "defesa": 60,
+        "atq_especial": 55,
+        "def_especial": 52,
+        "velocidade": 42,
+        "total": 321
+      },
+      "habitat": "Laboratório Secreto Web3",
+      "lore": "Formado pela energia de celulares quebrados e abandonados. Causa interferência em fones de ouvido bluetooth quando se aproxima."
+    },
+    {
+      "id": "064",
+      "nome": "Aerobyte",
+      "categoria": "Aparição Tóxica",
+      "tipos": [
+        "Caos"
+      ],
+      "altura_m": 0.37,
+      "peso_kg": 84.25,
+      "stats_base": {
+        "hp": 62,
+        "ataque": 85,
+        "defesa": 58,
+        "atq_especial": 71,
+        "def_especial": 65,
+        "velocidade": 73,
+        "total": 414
+      },
+      "habitat": "Estação Abandonada de Charitas",
+      "lore": "Formado pela energia de celulares quebrados e abandonados. Dizem que absorve as más vibrações da poluição urbana."
+    },
+    {
+      "id": "065",
+      "nome": "Ectovoid",
+      "categoria": "Vulto de Rua",
+      "tipos": [
+        "Espectro"
+      ],
+      "altura_m": 0.29,
+      "peso_kg": 73.14,
+      "stats_base": {
+        "hp": 55,
+        "ataque": 67,
+        "defesa": 71,
+        "atq_especial": 66,
+        "def_especial": 62,
+        "velocidade": 60,
+        "total": 381
+      },
+      "habitat": "Rua Ator Paulo Gustavo (Madrugada)",
+      "lore": "Assombração comum nas ruas de Niterói durante a madrugada. Causa interferência em fones de ouvido bluetooth quando se aproxima."
+    },
+    {
+      "id": "066",
+      "nome": "Holobyte",
+      "categoria": "Assombração Urbana",
+      "tipos": [
+        "Fogo-Fátuo"
+      ],
+      "altura_m": 1.85,
+      "peso_kg": 69.84,
+      "stats_base": {
+        "hp": 71,
+        "ataque": 62,
+        "defesa": 60,
+        "atq_especial": 38,
+        "def_especial": 55,
+        "velocidade": 58,
+        "total": 344
+      },
+      "habitat": "Lixão Digital",
+      "lore": "Nasce de latas de spray descartadas incorretamente. Alimenta-se da luz de placas de publicidade à noite."
+    },
+    {
+      "id": "067",
+      "nome": "Polterpunk",
+      "categoria": "Eco do Passado",
+      "tipos": [
+        "Fogo-Fátuo"
+      ],
+      "altura_m": 1.53,
+      "peso_kg": 99.05,
+      "stats_base": {
+        "hp": 64,
+        "ataque": 69,
+        "defesa": 76,
+        "atq_especial": 72,
+        "def_especial": 66,
+        "velocidade": 71,
+        "total": 418
+      },
+      "habitat": "Laboratório Secreto Web3",
+      "lore": "Uma inteligência artificial corrompida que ganhou forma ectoplasmática. Pode possuir caixas eletrônicos para distribuir moedas digitais falsas."
+    },
+    {
+      "id": "068",
+      "nome": "Vazcreep",
+      "categoria": "Anomalia Cibernética",
+      "tipos": [
+        "Sombra"
+      ],
+      "altura_m": 1.8,
+      "peso_kg": 62.31,
+      "stats_base": {
+        "hp": 62,
+        "ataque": 61,
+        "defesa": 58,
+        "atq_especial": 61,
+        "def_especial": 62,
+        "velocidade": 66,
+        "total": 370
+      },
+      "habitat": "Rua Ator Paulo Gustavo (Madrugada)",
+      "lore": "Uma massa de dados blockchain que escapou da rede DeSo. Causa interferência em fones de ouvido bluetooth quando se aproxima."
+    },
+    {
+      "id": "069",
+      "nome": "Pixotron",
+      "categoria": "Espírito Marginal",
+      "tipos": [
+        "Virtual"
+      ],
+      "altura_m": 0.7,
+      "peso_kg": 63.83,
+      "stats_base": {
+        "hp": 62,
+        "ataque": 57,
+        "defesa": 81,
+        "atq_especial": 56,
+        "def_especial": 62,
+        "velocidade": 56,
+        "total": 374
+      },
+      "habitat": "Esconderijo Hacker de Icaraí",
+      "lore": "Assombração comum nas ruas de Niterói durante a madrugada. Alimenta-se da luz de placas de publicidade à noite."
+    },
+    {
+      "id": "070",
+      "nome": "Vultohex",
+      "categoria": "Espírito Marginal",
+      "tipos": [
+        "Sucata",
+        "Urbano"
+      ],
+      "altura_m": 1.85,
+      "peso_kg": 57.8,
+      "stats_base": {
+        "hp": 69,
+        "ataque": 63,
+        "defesa": 55,
+        "atq_especial": 55,
+        "def_especial": 72,
+        "velocidade": 69,
+        "total": 383
+      },
+      "habitat": "Fábrica Desativada do Barreto",
+      "lore": "Nasce de latas de spray descartadas incorretamente. Seus olhos brilham no escuro em tons neon ameaçadores."
+    },
+    {
+      "id": "071",
+      "nome": "Cristapunk",
+      "categoria": "Entidade Neon",
+      "tipos": [
+        "Sucata"
+      ],
+      "altura_m": 2,
+      "peso_kg": 130.71,
+      "stats_base": {
+        "hp": 75,
+        "ataque": 72,
+        "defesa": 49,
+        "atq_especial": 66,
+        "def_especial": 60,
+        "velocidade": 68,
+        "total": 390
+      },
+      "habitat": "Terminal João Goulart",
+      "lore": "Uma inteligência artificial corrompida que ganhou forma ectoplasmática. Dizem que absorve as más vibrações da poluição urbana."
+    },
+    {
+      "id": "072",
+      "nome": "Poltervoid",
+      "categoria": "Entidade Neon",
+      "tipos": [
+        "Fogo-Fátuo"
+      ],
+      "altura_m": 0.75,
+      "peso_kg": 28.07,
+      "stats_base": {
+        "hp": 62,
+        "ataque": 60,
+        "defesa": 53,
+        "atq_especial": 41,
+        "def_especial": 64,
+        "velocidade": 67,
+        "total": 347
+      },
+      "habitat": "Laboratório Secreto Web3",
+      "lore": "Uma massa de dados blockchain que escapou da rede DeSo. Seus olhos brilham no escuro em tons neon ameaçadores."
+    },
+    {
+      "id": "073",
+      "nome": "Subhex",
+      "categoria": "Eco do Passado",
+      "tipos": [
+        "Fogo-Fátuo"
+      ],
+      "altura_m": 2.12,
+      "peso_kg": 108.5,
+      "stats_base": {
+        "hp": 59,
+        "ataque": 86,
+        "defesa": 67,
+        "atq_especial": 69,
+        "def_especial": 85,
+        "velocidade": 81,
+        "total": 447
+      },
+      "habitat": "Beco do Neon - Zona Leste",
+      "lore": "Atraído pelo som de batidas de rap e hip-hop no subsolo. Gosta de assustar skatistas mudando a gravidade dos obstáculos."
+    },
+    {
+      "id": "074",
+      "nome": "Vultoghoul",
+      "categoria": "Vulto de Rua",
+      "tipos": [
+        "Urbano",
+        "Caos"
+      ],
+      "altura_m": 1.22,
+      "peso_kg": 106.17,
+      "stats_base": {
+        "hp": 76,
+        "ataque": 69,
+        "defesa": 60,
+        "atq_especial": 77,
+        "def_especial": 61,
+        "velocidade": 87,
+        "total": 430
+      },
+      "habitat": "Fábrica Desativada do Barreto",
+      "lore": "Uma massa de dados blockchain que escapou da rede DeSo. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "075",
+      "nome": "Toxinull",
+      "categoria": "Anomalia Cibernética",
+      "tipos": [
+        "Tóxico",
+        "Sucata"
+      ],
+      "altura_m": 1.99,
+      "peso_kg": 40.25,
+      "stats_base": {
+        "hp": 49,
+        "ataque": 70,
+        "defesa": 69,
+        "atq_especial": 55,
+        "def_especial": 50,
+        "velocidade": 59,
+        "total": 352
+      },
+      "habitat": "Terminal João Goulart",
+      "lore": "Nasce de latas de spray descartadas incorretamente. Pode possuir caixas eletrônicos para distribuir moedas digitais falsas."
+    },
+    {
+      "id": "076",
+      "nome": "Subtron",
+      "categoria": "Aparição Tóxica",
+      "tipos": [
+        "Cibernético"
+      ],
+      "altura_m": 0.22,
+      "peso_kg": 68.48,
+      "stats_base": {
+        "hp": 89,
+        "ataque": 88,
+        "defesa": 94,
+        "atq_especial": 97,
+        "def_especial": 89,
+        "velocidade": 89,
+        "total": 546
+      },
+      "habitat": "Pista de Skate Carlos Ermelindo",
+      "lore": "Formado pela energia de celulares quebrados e abandonados. Alimenta-se da luz de placas de publicidade à noite."
+    },
+    {
+      "id": "077",
+      "nome": "Asfalwraith",
+      "categoria": "Poltergeist Digital",
+      "tipos": [
+        "Cristal",
+        "Tóxico"
+      ],
+      "altura_m": 2.08,
+      "peso_kg": 84.71,
+      "stats_base": {
+        "hp": 85,
+        "ataque": 96,
+        "defesa": 86,
+        "atq_especial": 82,
+        "def_especial": 80,
+        "velocidade": 98,
+        "total": 527
+      },
+      "habitat": "Estação Abandonada de Charitas",
+      "lore": "Manifesta-se em locais com alta eletricidade estática. Dizem que absorve as más vibrações da poluição urbana."
+    },
+    {
+      "id": "078",
+      "nome": "Ectowisp",
+      "categoria": "Anomalia Cibernética",
+      "tipos": [
+        "Tóxico"
+      ],
+      "altura_m": 2.48,
+      "peso_kg": 143.88,
+      "stats_base": {
+        "hp": 79,
+        "ataque": 71,
+        "defesa": 80,
+        "atq_especial": 87,
+        "def_especial": 70,
+        "velocidade": 91,
+        "total": 478
+      },
+      "habitat": "Praça Araribóia - Caos",
+      "lore": "Atraído pelo som de batidas de rap e hip-hop no subsolo. Gosta de assustar skatistas mudando a gravidade dos obstáculos."
+    },
+    {
+      "id": "079",
+      "nome": "Pixofume",
+      "categoria": "Anomalia Cibernética",
+      "tipos": [
+        "Sombra",
+        "Espectro"
+      ],
+      "altura_m": 1.62,
+      "peso_kg": 128.47,
+      "stats_base": {
+        "hp": 94,
+        "ataque": 83,
+        "defesa": 81,
+        "atq_especial": 101,
+        "def_especial": 98,
+        "velocidade": 94,
+        "total": 551
+      },
+      "habitat": "Estação Abandonada de Charitas",
+      "lore": "Uma massa de dados blockchain que escapou da rede DeSo. Deixa um rastro de tinta fluorescente por onde passa."
+    },
+    {
+      "id": "080",
+      "nome": "Fumagrim",
+      "categoria": "Eco do Passado",
+      "tipos": [
+        "Sombra"
+      ],
+      "altura_m": 1.2,
+      "peso_kg": 117.55,
+      "stats_base": {
+        "hp": 77,
+        "ataque": 96,
+        "defesa": 79,
+        "atq_especial": 74,
+        "def_especial": 72,
+        "velocidade": 94,
+        "total": 492
+      },
+      "habitat": "Beco do Neon - Zona Leste",
+      "lore": "Uma massa de dados blockchain que escapou da rede DeSo. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "081",
+      "nome": "Aerotron",
+      "categoria": "Assombração Urbana",
+      "tipos": [
+        "Virtual"
+      ],
+      "altura_m": 0.54,
+      "peso_kg": 14.07,
+      "stats_base": {
+        "hp": 102,
+        "ataque": 70,
+        "defesa": 76,
+        "atq_especial": 70,
+        "def_especial": 88,
+        "velocidade": 83,
+        "total": 489
+      },
+      "habitat": "Praça Araribóia - Caos",
+      "lore": "Manifesta-se em locais com alta eletricidade estática. Seus olhos brilham no escuro em tons neon ameaçadores."
+    },
+    {
+      "id": "082",
+      "nome": "Byteghost",
+      "categoria": "Vulto de Rua",
+      "tipos": [
+        "Tóxico",
+        "Urbano"
+      ],
+      "altura_m": 1.69,
+      "peso_kg": 106.86,
+      "stats_base": {
+        "hp": 80,
+        "ataque": 88,
+        "defesa": 89,
+        "atq_especial": 83,
+        "def_especial": 83,
+        "velocidade": 88,
+        "total": 511
+      },
+      "habitat": "Laboratório Secreto Web3",
+      "lore": "Assombração comum nas ruas de Niterói durante a madrugada. Causa interferência em fones de ouvido bluetooth quando se aproxima."
+    },
+    {
+      "id": "083",
+      "nome": "Cyberwraith",
+      "categoria": "Poltergeist Digital",
+      "tipos": [
+        "Cristal"
+      ],
+      "altura_m": 1.21,
+      "peso_kg": 126.5,
+      "stats_base": {
+        "hp": 73,
+        "ataque": 78,
+        "defesa": 86,
+        "atq_especial": 68,
+        "def_especial": 92,
+        "velocidade": 70,
+        "total": 467
+      },
+      "habitat": "Complexo de Favelas (Servidor Central)",
+      "lore": "Ecos de grafiteiros que desapareceram na década de 90. Gosta de assustar skatistas mudando a gravidade dos obstáculos."
+    },
+    {
+      "id": "084",
+      "nome": "Fumaphant",
+      "categoria": "Poltergeist Digital",
+      "tipos": [
+        "Sombra",
+        "Fogo-Fátuo"
+      ],
+      "altura_m": 2.2,
+      "peso_kg": 54.75,
+      "stats_base": {
+        "hp": 97,
+        "ataque": 88,
+        "defesa": 87,
+        "atq_especial": 97,
+        "def_especial": 66,
+        "velocidade": 90,
+        "total": 525
+      },
+      "habitat": "Rua Ator Paulo Gustavo (Madrugada)",
+      "lore": "Ecos de grafiteiros que desapareceram na década de 90. Alimenta-se da luz de placas de publicidade à noite."
+    },
+    {
+      "id": "085",
+      "nome": "Cristawraith",
+      "categoria": "Aparição Tóxica",
+      "tipos": [
+        "Holográfico"
+      ],
+      "altura_m": 1.25,
+      "peso_kg": 88.17,
+      "stats_base": {
+        "hp": 79,
+        "ataque": 79,
+        "defesa": 77,
+        "atq_especial": 75,
+        "def_especial": 78,
+        "velocidade": 80,
+        "total": 468
+      },
+      "habitat": "Lixão Digital",
+      "lore": "Uma massa de dados blockchain que escapou da rede DeSo. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "086",
+      "nome": "Holocreep",
+      "categoria": "Anomalia Cibernética",
+      "tipos": [
+        "Neon"
+      ],
+      "altura_m": 0.33,
+      "peso_kg": 85.19,
+      "stats_base": {
+        "hp": 81,
+        "ataque": 73,
+        "defesa": 82,
+        "atq_especial": 90,
+        "def_especial": 82,
+        "velocidade": 83,
+        "total": 491
+      },
+      "habitat": "Praça Araribóia - Caos",
+      "lore": "Atraído pelo som de batidas de rap e hip-hop no subsolo. Seus olhos brilham no escuro em tons neon ameaçadores."
+    },
+    {
+      "id": "087",
+      "nome": "Becocreep",
+      "categoria": "Eco do Passado",
+      "tipos": [
+        "Espectro",
+        "Urbano"
+      ],
+      "altura_m": 1.99,
+      "peso_kg": 131.89,
+      "stats_base": {
+        "hp": 78,
+        "ataque": 84,
+        "defesa": 98,
+        "atq_especial": 101,
+        "def_especial": 87,
+        "velocidade": 99,
+        "total": 547
+      },
+      "habitat": "Rua Ator Paulo Gustavo (Madrugada)",
+      "lore": "Formado pela energia de celulares quebrados e abandonados. Gosta de assustar skatistas mudando a gravidade dos obstáculos."
+    },
+    {
+      "id": "088",
+      "nome": "Asfalghoul",
+      "categoria": "Anomalia Cibernética",
+      "tipos": [
+        "Sombra"
+      ],
+      "altura_m": 2.33,
+      "peso_kg": 61.83,
+      "stats_base": {
+        "hp": 91,
+        "ataque": 76,
+        "defesa": 86,
+        "atq_especial": 76,
+        "def_especial": 88,
+        "velocidade": 100,
+        "total": 517
+      },
+      "habitat": "Esconderijo Hacker de Icaraí",
+      "lore": "Uma inteligência artificial corrompida que ganhou forma ectoplasmática. Causa interferência em fones de ouvido bluetooth quando se aproxima."
+    },
+    {
+      "id": "089",
+      "nome": "Neonpunk",
+      "categoria": "Eco do Passado",
+      "tipos": [
+        "Caos",
+        "Virtual"
+      ],
+      "altura_m": 1.14,
+      "peso_kg": 107.19,
+      "stats_base": {
+        "hp": 85,
+        "ataque": 76,
+        "defesa": 87,
+        "atq_especial": 72,
+        "def_especial": 80,
+        "velocidade": 73,
+        "total": 473
+      },
+      "habitat": "Praça Araribóia - Caos",
+      "lore": "Ecos de grafiteiros que desapareceram na década de 90. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "090",
+      "nome": "Polterfade",
+      "categoria": "Poltergeist Digital",
+      "tipos": [
+        "Sombra"
+      ],
+      "altura_m": 0.23,
+      "peso_kg": 76.09,
+      "stats_base": {
+        "hp": 80,
+        "ataque": 85,
+        "defesa": 90,
+        "atq_especial": 93,
+        "def_especial": 85,
+        "velocidade": 88,
+        "total": 521
+      },
+      "habitat": "Pista de Skate Carlos Ermelindo",
+      "lore": "Uma massa de dados blockchain que escapou da rede DeSo. Causa interferência em fones de ouvido bluetooth quando se aproxima."
+    },
+    {
+      "id": "091",
+      "nome": "Neonhex",
+      "categoria": "Poltergeist Digital",
+      "tipos": [
+        "Urbano",
+        "Pixação"
+      ],
+      "altura_m": 1.99,
+      "peso_kg": 129.88,
+      "stats_base": {
+        "hp": 88,
+        "ataque": 78,
+        "defesa": 81,
+        "atq_especial": 79,
+        "def_especial": 105,
+        "velocidade": 87,
+        "total": 518
+      },
+      "habitat": "Praça Araribóia - Caos",
+      "lore": "Ecos de grafiteiros que desapareceram na década de 90. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "092",
+      "nome": "Sombroghoul",
+      "categoria": "Anomalia Cibernética",
+      "tipos": [
+        "Fogo-Fátuo"
+      ],
+      "altura_m": 1.81,
+      "peso_kg": 87.32,
+      "stats_base": {
+        "hp": 92,
+        "ataque": 91,
+        "defesa": 92,
+        "atq_especial": 103,
+        "def_especial": 87,
+        "velocidade": 94,
+        "total": 559
+      },
+      "habitat": "Rua Ator Paulo Gustavo (Madrugada)",
+      "lore": "Formado pela energia de celulares quebrados e abandonados. Deixa um rastro de tinta fluorescente por onde passa."
+    },
+    {
+      "id": "093",
+      "nome": "Fumaloom",
+      "categoria": "Aparição Tóxica",
+      "tipos": [
+        "Pixação"
+      ],
+      "altura_m": 0.8,
+      "peso_kg": 41.09,
+      "stats_base": {
+        "hp": 97,
+        "ataque": 89,
+        "defesa": 95,
+        "atq_especial": 90,
+        "def_especial": 102,
+        "velocidade": 101,
+        "total": 574
+      },
+      "habitat": "Terminal João Goulart",
+      "lore": "Manifesta-se em locais com alta eletricidade estática. Pode possuir caixas eletrônicos para distribuir moedas digitais falsas."
+    },
+    {
+      "id": "094",
+      "nome": "Gigatron",
+      "categoria": "Eco do Passado",
+      "tipos": [
+        "Urbano"
+      ],
+      "altura_m": 0.77,
+      "peso_kg": 78.44,
+      "stats_base": {
+        "hp": 83,
+        "ataque": 85,
+        "defesa": 89,
+        "atq_especial": 89,
+        "def_especial": 79,
+        "velocidade": 95,
+        "total": 520
+      },
+      "habitat": "Beco do Neon - Zona Leste",
+      "lore": "Atraído pelo som de batidas de rap e hip-hop no subsolo. Seus olhos brilham no escuro em tons neon ameaçadores."
+    },
+    {
+      "id": "095",
+      "nome": "Hololoom",
+      "categoria": "Aparição Tóxica",
+      "tipos": [
+        "Sucata"
+      ],
+      "altura_m": 2.44,
+      "peso_kg": 109.34,
+      "stats_base": {
+        "hp": 95,
+        "ataque": 86,
+        "defesa": 97,
+        "atq_especial": 115,
+        "def_especial": 101,
+        "velocidade": 99,
+        "total": 593
+      },
+      "habitat": "Pista de Skate Carlos Ermelindo",
+      "lore": "Nasce de latas de spray descartadas incorretamente. Deixa um rastro de tinta fluorescente por onde passa."
+    },
+    {
+      "id": "096",
+      "nome": "Cybervoid",
+      "categoria": "Eco do Passado",
+      "tipos": [
+        "Fogo-Fátuo"
+      ],
+      "altura_m": 1.64,
+      "peso_kg": 120.87,
+      "stats_base": {
+        "hp": 90,
+        "ataque": 96,
+        "defesa": 103,
+        "atq_especial": 102,
+        "def_especial": 106,
+        "velocidade": 95,
+        "total": 592
+      },
+      "habitat": "Praça Araribóia - Caos",
+      "lore": "Uma massa de dados blockchain que escapou da rede DeSo. Pode possuir caixas eletrônicos para distribuir moedas digitais falsas."
+    },
+    {
+      "id": "097",
+      "nome": "Bytenull",
+      "categoria": "Anomalia Cibernética",
+      "tipos": [
+        "Virtual",
+        "Urbano"
+      ],
+      "altura_m": 1.39,
+      "peso_kg": 41.07,
+      "stats_base": {
+        "hp": 80,
+        "ataque": 109,
+        "defesa": 103,
+        "atq_especial": 98,
+        "def_especial": 75,
+        "velocidade": 105,
+        "total": 570
+      },
+      "habitat": "Estação Abandonada de Charitas",
+      "lore": "Assombração comum nas ruas de Niterói durante a madrugada. Sua presença é notada pelo forte cheiro de ozônio e tinta fresca."
+    },
+    {
+      "id": "098",
+      "nome": "Fogofume",
+      "categoria": "Assombração Urbana",
+      "tipos": [
+        "Urbano",
+        "Tóxico"
+      ],
+      "altura_m": 0.31,
+      "peso_kg": 146.72,
+      "stats_base": {
+        "hp": 73,
+        "ataque": 65,
+        "defesa": 60,
+        "atq_especial": 98,
+        "def_especial": 67,
+        "velocidade": 89,
+        "total": 452
+      },
+      "habitat": "Laboratório Secreto Web3",
+      "lore": "Manifesta-se em locais com alta eletricidade estática. Deixa um rastro de tinta fluorescente por onde passa."
+    },
+    {
+      "id": "099",
+      "nome": "Vultowraith",
+      "categoria": "Entidade Primordial DeSo",
+      "tipos": [
+        "Neon"
+      ],
+      "altura_m": 0.88,
+      "peso_kg": 81.83,
+      "stats_base": {
+        "hp": 97,
+        "ataque": 102,
+        "defesa": 98,
+        "atq_especial": 98,
+        "def_especial": 105,
+        "velocidade": 105,
+        "total": 605
+      },
+      "habitat": "MAC - Museu de Arte Contemporânea (Subterrâneo Profundo)",
+      "lore": "Uma lenda urbana colossal de Niterói. Poucos o viram, e os que viram tiveram seus dispositivos completamente resetados."
+    },
+    {
+      "id": "100",
+      "nome": "Aerovoid",
+      "categoria": "Entidade Primordial DeSo",
+      "tipos": [
+        "Urbano"
+      ],
+      "altura_m": 0.84,
+      "peso_kg": 69.88,
+      "stats_base": {
+        "hp": 98,
+        "ataque": 95,
+        "defesa": 95,
+        "atq_especial": 99,
+        "def_especial": 98,
+        "velocidade": 98,
+        "total": 583
+      },
+      "habitat": "MAC - Museu de Arte Contemporânea (Subterrâneo Profundo)",
+      "lore": "Uma lenda urbana colossal de Niterói. Poucos o viram, e os que viram tiveram seus dispositivos completamente resetados."
+    },
+    {
+      "id": "101",
+      "nome": "Becoshade",
+      "categoria": "Entidade Primordial DeSo",
+      "tipos": [
+        "Neon"
+      ],
+      "altura_m": 2.21,
+      "peso_kg": 91.8,
+      "stats_base": {
+        "hp": 97,
+        "ataque": 98,
+        "defesa": 99,
+        "atq_especial": 98,
+        "def_especial": 103,
+        "velocidade": 104,
+        "total": 599
+      },
+      "habitat": "MAC - Museu de Arte Contemporânea (Subterrâneo Profundo)",
+      "lore": "Uma lenda urbana colossal de Niterói. Poucos o viram, e os que viram tiveram seus dispositivos completamente resetados."
+    }
+  ]
+}

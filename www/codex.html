@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danger Ghost v2.0 | Codex & Lore</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css?v=5">
+    <style>
+        /* Specific Codex Styles */
+        body {
+            overflow-y: auto; /* Allow scrolling on codex page */
+            background-image: none; /* Dark clean background */
+            background-color: var(--bg-dark);
+            padding: 40px 20px;
+        }
+
+        .codex-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(13, 13, 16, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 80vh;
+        }
+
+        .codex-header {
+            padding: 30px;
+            border-bottom: 1px solid var(--border-light);
+            text-align: center;
+        }
+
+        .codex-title {
+            font-family: var(--font-title);
+            color: var(--cyan-neon);
+            font-size: 36px;
+            letter-spacing: 0.1em;
+            margin: 0 0 10px 0;
+            text-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+        }
+
+        .codex-subtitle {
+            font-family: var(--font-text);
+            color: var(--text-muted);
+            font-size: 16px;
+            margin: 0;
+        }
+
+        .codex-tabs {
+            display: flex;
+            background: rgba(0,0,0,0.5);
+            border-bottom: 1px solid var(--cyan-neon);
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 15px;
+            font-family: var(--font-title);
+            font-size: 14px;
+            letter-spacing: 1.5px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+
+        .tab-btn:hover {
+            color: var(--white);
+            background: rgba(255,255,255,0.05);
+        }
+
+        .tab-btn.active {
+            color: #000;
+            background: var(--cyan-neon);
+            box-shadow: 0 0 15px var(--cyan-neon);
+            font-weight: bold;
+        }
+
+        .codex-content {
+            padding: 40px;
+            flex: 1;
+        }
+
+        .tab-pane {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h2 { color: var(--magenta-neon); font-family: var(--font-title); letter-spacing: 1px; }
+        h3 { color: var(--yellow-neon); font-family: var(--font-title); letter-spacing: 1px; margin-top: 30px; }
+        
+        p, li { font-family: var(--font-text); line-height: 1.6; font-size: 16px; color: #ddd; }
+
+        /* Tables for controls */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: left; }
+        th { color: var(--green-neon); font-family: var(--font-title); font-size: 14px; text-transform: uppercase; }
+        td strong { color: var(--yellow-neon); font-family: var(--font-mono); }
+
+        /* Bestiary Grid */
+        .boss-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
+        .boss-card { background: rgba(0,0,0,0.5); border: 1px solid var(--magenta-neon); padding: 20px; border-radius: 8px; text-align: center; }
+        .boss-name { color: var(--magenta-neon); font-family: var(--font-title); font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+        .boss-stat { color: #aaa; font-size: 14px; margin-bottom: 5px; }
+        .boss-stat span { color: var(--white); font-weight: bold; }
+
+        .back-btn {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: var(--cyan-neon);
+            text-decoration: none;
+            font-family: var(--font-title);
+            font-size: 14px;
+            border: 1px solid var(--cyan-neon);
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+        .back-btn:hover { background: var(--cyan-neon); color: #000; box-shadow: 0 0 15px var(--cyan-neon); }
+
+    </style>
+</head>
+<body>
+
+    <a href="index.html" class="back-btn">&larr; BACK TO GAME</a>
+
+    <div class="codex-container">
+        <div class="codex-header">
+            <h1 class="codex-title">GHOST CODEX</h1>
+            <p class="codex-subtitle">The official Wiki and Documentation for Danger Ghost</p>
+        </div>
+
+        <div class="codex-tabs">
+            <button class="tab-btn active" onclick="openTab('lore')">Lore & World</button>
+            <button class="tab-btn" onclick="openTab('controls')">Controls & Rules</button>
+            <button class="tab-btn" onclick="openTab('bestiary')">Boss Bestiary</button>
+            <button class="tab-btn" onclick="openTab('founders')">Founders</button>
+        </div>
+
+        <div class="codex-content">
+            <!-- Lore Tab -->
+            <div id="lore" class="tab-pane active">
+                <h2>The Origins of Nowhere</h2>
+                <p>Welcome to the remnants of the digital realm. After the great collapse of the centralized web, only fragmented souls known as "Ghosts" survived in the blockchain.</p>
+                <p>You play as a rogue Ghost navigating the dark corridors of the "Nowhere" servers, hunting for lost fragments of data, ancient weapons, and spells to defeat the corrupted entities that rule this wasteland.</p>
+                <h3>Relics and Evolution</h3>
+                <p>Every piece of gear you find is cryptographically bound to your essence. When you save your evolution on the DeSo blockchain, your Ghost becomes stronger permanently, crossing dimensions and surviving system reboots.</p>
+            </div>
+
+            <!-- Controls Tab -->
+            <div id="controls" class="tab-pane">
+                <h2>Game Rules & Mechanics</h2>
+                <p>Surviving in Nowhere requires precise movement and tactical spellcasting.</p>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Key Binding</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Move Left</td><td><strong>A</strong> or <strong>&larr;</strong></td><td>Run towards the left side.</td></tr>
+                        <tr><td>Move Right</td><td><strong>D</strong> or <strong>&rarr;</strong></td><td>Run towards the right side.</td></tr>
+                        <tr><td>Jump</td><td><strong>W</strong> or <strong>&uarr;</strong></td><td>Jump. Press again in mid-air to double jump.</td></tr>
+                        <tr><td>Triple Jump</td><td><strong>W (x3)</strong></td><td>Execute a rare triple jump to reach high platforms.</td></tr>
+                        <tr><td>Cast Spell</td><td><strong>1</strong></td><td>Use the spell currently equipped in your Bag.</td></tr>
+                        <tr><td>Pause Game</td><td><strong>SPACE</strong></td><td>Pause the engine loop.</td></tr>
+                        <tr><td>Fast Mode</td><td>Hold <strong>T</strong></td><td>Accelerate game speed (Risk of desync).</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Bestiary Tab -->
+            <div id="bestiary" class="tab-pane">
+                <h2>Boss Bestiary</h2>
+                <p>Identify the corrupted entities before engaging them in combat.</p>
+                
+                <div class="boss-grid">
+                    <div class="boss-card">
+                        <div class="boss-name">Null Phantom</div>
+                        <div class="boss-stat">HP: <span>500</span></div>
+                        <div class="boss-stat">Weakness: <span>Arcane</span></div>
+                        <div class="boss-stat">Drop: <span>Starter Dirk</span></div>
+                    </div>
+                    <div class="boss-card">
+                        <div class="boss-name">Cyber Demon</div>
+                        <div class="boss-stat">HP: <span>1200</span></div>
+                        <div class="boss-stat">Weakness: <span>Cold</span></div>
+                        <div class="boss-stat">Drop: <span>Ghostblade</span></div>
+                    </div>
+                    <div class="boss-card">
+                        <div class="boss-name">The Glitch King</div>
+                        <div class="boss-stat">HP: <span>4500</span></div>
+                        <div class="boss-stat">Weakness: <span>Lightning</span></div>
+                        <div class="boss-stat">Drop: <span>Desolation Sword</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Founders Tab -->
+            <div id="founders" class="tab-pane">
+                <h2>BecoPro Team</h2>
+                <p>Danger Ghost is crafted by the BecoPro development team, pioneers in fully on-chain gaming experiences.</p>
+                <h3>Mission</h3>
+                <p>To create the first immersive, fast-paced ARPG that lives entirely on the DeSo blockchain, where players actually own their evolution and gear.</p>
+                <h3>Socials</h3>
+                <ul>
+                    <li><strong>DeSo:</strong> @BecoPro</li>
+                    <li><strong>Twitter/X:</strong> @BecoProGaming</li>
+                </ul>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        function openTab(tabId) {
+            // Remove active class from all buttons and panes
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            
+            // Add active class to target pane
+            document.getElementById(tabId).classList.add('active');
+            
+            // Add active class to clicked button
+            event.currentTarget.classList.add('active');
+        }
+    </script>
+</body>
+</html>

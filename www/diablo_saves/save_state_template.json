@@ -1,0 +1,311 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DangerGhostSaveState",
+  "description": "Schema de validação para o estado de salvamento local (Save State) de personagem do RPG Danger Ghost, otimizado para persistência Web3/DeSo.",
+  "type": "object",
+  "required": [
+    "id_jogador",
+    "nivel",
+    "pontos_experiencia",
+    "atributos",
+    "habilidades_alocadas",
+    "coordenadas_mapa",
+    "equipamento_ativo",
+    "lista_bau_stash"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id_jogador": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+      "description": "Identificador único universal (UUID v4) do jogador."
+    },
+    "nivel": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 99,
+      "description": "Nível atual do herói (limite clássico de 1 a 99)."
+    },
+    "pontos_experiencia": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Quantidade total de pontos de experiência acumulados pelo herói."
+    },
+    "atributos": {
+      "type": "object",
+      "description": "Atributos primários do personagem.",
+      "required": ["forca", "destreza", "inteligencia", "vitalidade"],
+      "additionalProperties": false,
+      "properties": {
+        "forca": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Força física do herói: escala dano físico, requisitos de armaduras e armas pesadas."
+        },
+        "destreza": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Destreza/Agilidade do herói: escala chance de acerto crítico, taxa de evasão e precisão."
+        },
+        "inteligencia": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Inteligência arcana: escala mana total, regeneração de mana e eficácia de magias/amuletos."
+        },
+        "vitalidade": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Vitalidade/Vigor do herói: determina a vida máxima e a taxa de recuperação física."
+        }
+      }
+    },
+    "habilidades_alocadas": {
+      "type": "array",
+      "description": "Lista de nós alocados na árvore de habilidades do personagem.",
+      "items": {
+        "type": "object",
+        "required": ["id_habilidade", "pontos"],
+        "additionalProperties": false,
+        "properties": {
+          "id_habilidade": {
+            "type": "string",
+            "enum": ["ghost_walk", "blood_rite", "soul_rend", "shadow_step", "iron_will", "death_mark"],
+            "description": "Identificador do nó/habilidade na árvore de talentos."
+          },
+          "pontos": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "description": "Pontos investidos nesta habilidade específica (máximo de 20 por nó)."
+          }
+        }
+      }
+    },
+    "coordenadas_mapa": {
+      "type": "object",
+      "description": "Localização geográfica exata do herói no mundo gótico.",
+      "required": ["mapa_id", "x", "y"],
+      "additionalProperties": false,
+      "properties": {
+        "mapa_id": {
+          "type": "string",
+          "description": "Nome ou ID da área/masmorra onde o jogador se encontra."
+        },
+        "x": {
+          "type": "number",
+          "description": "Coordenada X no plano cartesiano do mapa."
+        },
+        "y": {
+          "type": "number",
+          "description": "Coordenada Y no plano cartesiano do mapa."
+        }
+      }
+    },
+    "equipamento_ativo": {
+      "type": "object",
+      "description": "Lista de equipamentos equipados nos slots físicos do herói.",
+      "required": ["cabeca", "peitoral", "mao_principal", "mao_secundaria", "anel_1", "anel_2", "amuleto"],
+      "additionalProperties": false,
+      "properties": {
+        "cabeca": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/definitions/ItemEquipado" }
+          ],
+          "description": "Elmo / Coroa equipado na cabeça."
+        },
+        "peitoral": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/definitions/ItemEquipado" }
+          ],
+          "description": "Armadura / Manto equipado no peito."
+        },
+        "mao_principal": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/definitions/ItemEquipado" }
+          ],
+          "description": "Arma (Espada, Cajado, Adaga) equipada na mão principal."
+        },
+        "mao_secundaria": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/definitions/ItemEquipado" }
+          ],
+          "description": "Escudo, catalisador mágico ou item defensivo na mão secundária."
+        },
+        "anel_1": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/definitions/ItemEquipado" }
+          ],
+          "description": "Primeiro anel equipado."
+        },
+        "anel_2": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/definitions/ItemEquipado" }
+          ],
+          "description": "Segundo anel equipado."
+        },
+        "amuleto": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/definitions/ItemEquipado" }
+          ],
+          "description": "Amuleto/Corrente rúnica equipado no pescoço."
+        }
+      }
+    },
+    "lista_bau_stash": {
+      "type": "array",
+      "description": "Lista física de itens armazenados no baú compartilhado (Stash), organizados por grade bidimensional.",
+      "items": {
+        "$ref": "#/definitions/ItemStash"
+      }
+    }
+  },
+  "definitions": {
+    "ItemEquipado": {
+      "type": "object",
+      "required": ["id", "nome", "qualidade", "slot", "nivel_item"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "description": "UUID v4 único para identificação estrutural do item."
+        },
+        "nome": {
+          "type": "string",
+          "description": "Nome completo gerado processualmente (ex: 'Espada Curta Flamejante do Falcão')."
+        },
+        "qualidade": {
+          "type": "string",
+          "enum": ["Comum", "Magico", "Raro", "Unico"],
+          "description": "Nível de raridade/qualidade do item."
+        },
+        "slot": {
+          "type": "string",
+          "enum": ["Head", "Chest", "MainHand", "OffHand", "Ring", "Amulet"],
+          "description": "Slot físico de equipamento onde o item pode ser acoplado."
+        },
+        "nivel_item": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 99,
+          "description": "Nível do item (iLvl), usado para calcular escala de atributos e requisitos."
+        },
+        "dano_base": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Dano físico base (relevante para armas na mão principal/secundária)."
+        },
+        "defesa_base": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Defesa física base (relevante para elmos, peitorais e escudos)."
+        },
+        "atributos_adicionais": {
+          "type": "object",
+          "description": "Afixos dinâmicos e bônus secundários acumulados no item.",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "requisitos": {
+          "type": "object",
+          "description": "Estatísticas necessárias para equipar o item.",
+          "required": ["forca", "destreza", "inteligencia"],
+          "additionalProperties": false,
+          "properties": {
+            "forca": { "type": "integer", "minimum": 0 },
+            "destreza": { "type": "integer", "minimum": 0 },
+            "inteligencia": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "ItemStash": {
+      "type": "object",
+      "required": ["id", "nome", "qualidade", "slot", "nivel_item", "x", "y", "largura", "altura"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "description": "UUID v4 único do item armazenado."
+        },
+        "nome": {
+          "type": "string",
+          "description": "Nome completo gerado processualmente."
+        },
+        "qualidade": {
+          "type": "string",
+          "enum": ["Comum", "Magico", "Raro", "Unico"],
+          "description": "Qualidade/raridade do item."
+        },
+        "slot": {
+          "type": "string",
+          "enum": ["Head", "Chest", "MainHand", "OffHand", "Ring", "Amulet"],
+          "description": "Slot ao qual o item pertence."
+        },
+        "nivel_item": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 99,
+          "description": "Nível do item (iLvl)."
+        },
+        "x": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9,
+          "description": "Coordenada X (coluna) inicial na grade do baú (0 a 9)."
+        },
+        "y": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7,
+          "description": "Coordenada Y (linha) inicial na grade do baú (0 a 7)."
+        },
+        "largura": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2,
+          "description": "Tamanho em largura ocupado pelo item na grade (ex: 1 slot para anel, 2 slots para escudo)."
+        },
+        "altura": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4,
+          "description": "Tamanho em altura ocupado pelo item na grade (ex: 1 slot para anel, 3 slots para peitoral, 4 slots para espada de duas mãos)."
+        },
+        "dano_base": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "defesa_base": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "atributos_adicionais": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "requisitos": {
+          "type": "object",
+          "required": ["forca", "destreza", "inteligencia"],
+          "additionalProperties": false,
+          "properties": {
+            "forca": { "type": "integer", "minimum": 0 },
+            "destreza": { "type": "integer", "minimum": 0 },
+            "inteligencia": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+node_modules/
+scratch/
+*.log
+.env*
+optimize_all.js
+refactor.js
+split_index.js
+split_main.js
+reconstruct_main.js
+resize.js
+server/node_modules/

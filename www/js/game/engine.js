@@ -69,10 +69,10 @@
 					InitGlobalChat();
 				} catch(e) {}
 
-				// Abre o painel de Controles por padrão ao carregar a página para abrir as informações para todos
-				try {
-					ToggleNavbarTab('controls');
-				} catch(e) {}
+				// As janelas não devem abrir sozinhas no mobile
+				// try {
+				// 	ToggleNavbarTab('controls');
+				// } catch(e) {}
 
 				// Restaura sessão DeSo anterior se disponível para manter o login consistente entre atualizações
 				try {
@@ -342,6 +342,12 @@
 					return;
 				}
 				g_score += points;
+				if (typeof window.g_ghostScoreTracker === "undefined") window.g_ghostScoreTracker = 0;
+				window.g_ghostScoreTracker += points;
+				while (window.g_ghostScoreTracker >= 2222) {
+					window.g_ghostScoreTracker -= 2222;
+					if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
+				}
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
 				g_slimeScoreTracker += points;
 				if (g_slimeScoreTracker >= 3000) {
@@ -431,8 +437,16 @@
 				g_fxPool.push(fx);
 			}
 			function obtainExplosionEffect(x, y, color, particleCount) {
-				var fx = g_fxPool[g_fxPoolIndex];
-				g_fxPoolIndex = (g_fxPoolIndex + 1) % g_fxPool.length;
+				var fx = null;
+				for (var idx = 0; idx < g_fxPool.length; idx++) {
+					var candidate = g_fxPool[(g_fxPoolIndex + idx) % g_fxPool.length];
+					if (candidate.life <= 0) {
+						fx = candidate;
+						g_fxPoolIndex = (g_fxPoolIndex + idx + 1) % g_fxPool.length;
+						break;
+					}
+				}
+				if (!fx) return null;
 				fx.type = "explosion";
 				fx.x = x;
 				fx.y = y;
@@ -835,7 +849,7 @@
 					g_ctx.fillStyle = "#000";
 					g_ctx.fillRect(0, 250, g_canvas.width, 50);
 					for (var j_sl = 24; j_sl < 340; j_sl += 226) {
-						for (var i_sl = 0; i_sl < 2400; i_sl += 24) {
+						for (var i_sl = 0; i_sl < g_canvas.width; i_sl += 24) {
 							g_ctx.drawImage(silverLine, i_sl, j_sl);
 						}
 					}
@@ -1122,12 +1136,16 @@
 							g_ctx.stroke();
 						}
 						
-						var sprite = (this.face == 1) ? desoGhostRight : desoGhostLeft;
+						var sprite = (this.face == 1) ? 
+                            (window.g_customPlayerGhostRight ? window.g_customPlayerGhostRight : desoGhostRight) : 
+                            (window.g_customPlayerGhostLeft ? window.g_customPlayerGhostLeft : desoGhostLeft);
 						g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, 24, 24);
 						if (this.ghostMode) g_ctx.globalAlpha = 1.0;
 						
 						// Draw Local Player Name
-						var charName = localStorage.getItem("playerName") || "Ghost";
+						if (window.g_playerNameTick === undefined) window.g_playerNameTick = 0;
+						if (window.g_playerNameTick++ % 60 === 0) window.g_cachedPlayerName = localStorage.getItem("playerName") || "Ghost";
+						var charName = window.g_cachedPlayerName || "Ghost";
 						g_ctx.fillStyle = "#00FFCC";
 						g_ctx.font = "10px Arial";
 						g_ctx.textAlign = "center";
@@ -1393,6 +1411,9 @@
 									else if (tile == 8) {
 										AddScore(100);
 										this.collectedBlueDiamonds = (this.collectedBlueDiamonds || 0) + 1;
+										if (this.collectedBlueDiamonds % 4 === 0) {
+											window.SpawnNativeGhosts(1);
+										}
 										if (this.collectedBlueDiamonds % 3 === 0) {
 											SpawnBossAtRandomLocation("demon_fly");
 										}
@@ -1408,6 +1429,9 @@
 										}
 										AddScore(666);
 										this.collectedLives = (this.collectedLives || 0) + 1;
+										if (this.collectedLives % 5 === 0) {
+											window.SpawnNativeGhosts(1);
+										}
 										if (this.collectedLives % 3 === 0) {
 											SpawnBossAtRandomLocation();
 										}
@@ -1670,14 +1694,15 @@
 
 										var canHit = true;
 										if (p.penetrates) {
-											var lastHitTime = p.hits[boss.xPos + "_" + boss.yPos] || 0;
+											if (!boss.uid) boss.uid = Math.random();
+											var lastHitTime = p.hits[boss.uid] || 0;
 											if (g_count - lastHitTime < 10 && lastHitTime !== 0) {
 												canHit = false;
 											}
 										}
 
 										if (canHit) {
-											p.hits[boss.xPos + "_" + boss.yPos] = g_count;
+											p.hits[boss.uid] = g_count;
 											var finalDmg = p.damage;
 											if (boss.level > 1) {
 												var reduction = Math.min(0.70, (boss.level - 1) * 0.04);
@@ -1734,14 +1759,15 @@
 
 								var canHit = true;
 								if (p.penetrates) {
-									var lastHitTime = p.hits[g_boss.xPos + "_" + g_boss.yPos] || 0;
+									if (!g_boss.uid) g_boss.uid = Math.random();
+									var lastHitTime = p.hits[g_boss.uid] || 0;
 									if (g_count - lastHitTime < 10 && lastHitTime !== 0) {
 										canHit = false;
 									}
 								}
 
 								if (canHit) {
-									p.hits[g_boss.xPos + "_" + g_boss.yPos] = g_count;
+									p.hits[g_boss.uid] = g_count;
 									var finalDmg = p.damage;
 									if (g_boss.level > 1) {
 										var reduction = Math.min(0.70, (g_boss.level - 1) * 0.04);
@@ -1942,7 +1968,9 @@
 				g_ctx.font = "bold 18px 'Courier New'"; g_ctx.fillStyle = "#FF00FF";
 				
 				// Nome e Vidas na parte de baixo do jogo
-				var charName = localStorage.getItem("playerName") || "Ghost";
+				if (window.g_playerNameTick === undefined) window.g_playerNameTick = 0;
+				if (window.g_playerNameTick++ % 60 === 0) window.g_cachedPlayerName = localStorage.getItem("playerName") || "Ghost";
+				var charName = window.g_cachedPlayerName || "Ghost";
 				if (charName.length > 12) charName = charName.substring(0, 10) + "..";
 				g_ctx.textAlign = "left";
 				g_ctx.fillText(charName, 10, g_canvas.height - 10);
@@ -2814,10 +2842,138 @@
 				return null;
 			}
 
+			var EnemyBoss = function(x, y) { this.xPos = x; this.yPos = y; this.alive = true; this.burnTicks = 0; this.poisonTicks = 0; this.shockTimer = 0; this.slowTimer = 0; };
+			window.SpawnEpisode1Ghost = function(ghostId) {
+				g_screenShakeTime = 30;
+				g_screenShakeIntensity = 12;
+
+				var epx = g_canvas.width;
+				var epy = -40;
+				if (Math.random() > 0.5) { epx = -40; }
+				var boss = new EnemyBoss(epx, epy);
+				boss.type = "episode1_ghost";
+				boss.ghostId = ghostId;
+				boss.isEpisode1Ghost = true;
+				boss.maxHp = 100;
+				boss.lives = 100;
+				boss.vx = (epx < 0) ? 2 : -2;
+				boss.vy = 2;
+				boss.width = 32;
+				boss.height = 32;
+				boss.shootCooldown = 100;
+				boss.phantomFormTimer = 0;
+
+				var coords = FindRandomPlatformCoordinates();
+				if (coords) {
+					boss.xPos = coords.x;
+					boss.yPos = coords.y;
+					boss.minX = coords.minX;
+					boss.maxX = coords.maxX;
+					boss.groundY = coords.y;
+				} else {
+					boss.xPos = DeSoGhost.xPos;
+					boss.yPos = DeSoGhost.yPos;
+					boss.minX = DeSoGhost.xPos - 100;
+					boss.maxX = DeSoGhost.xPos + 100;
+					boss.groundY = DeSoGhost.yPos;
+				}
+
+				// Load specific sprite
+				var bossImgR = new Image(); bossImgR.src = 'assets/sprites/ghost_' + ghostId + '_r.webp';
+				var bossImgL = new Image(); bossImgL.src = 'assets/sprites/ghost_' + ghostId + '_l.webp';
+
+				boss.update = function () {
+					this.vy += 0.5; // gravity
+					this.xPos += this.vx;
+					this.yPos += this.vy;
+
+					if (this.yPos >= this.groundY) {
+						this.yPos = this.groundY;
+						this.vy = 0;
+						if (Math.random() < 0.05) { // random jump trigger
+							this.vy = -10;
+						}
+					}
+
+					if (this.xPos <= this.minX) {
+						this.xPos = this.minX;
+						this.vx = Math.abs(this.vx) || 2;
+					} else if (this.xPos >= this.maxX) {
+						this.xPos = this.maxX;
+						this.vx = -Math.abs(this.vx) || -2;
+					}
+
+					if (this.shootCooldown > 0) {
+						this.shootCooldown--;
+					} else {
+						if (typeof g_projectiles !== 'undefined') {
+							g_projectiles.push({
+								xPos: this.xPos,
+								yPos: this.yPos,
+								vx: (this.vx > 0 ? 4 : -4),
+								vy: 0,
+								hostile: true,
+								width: 10,
+								height: 10,
+								damage: 10
+							});
+						}
+						this.shootCooldown = 100 + Math.floor(Math.random() * 100);
+					}
+
+					if (this.phantomFormTimer > 0) {
+						this.phantomFormTimer--;
+					} else {
+						if (Math.random() < 0.005) {
+							this.phantomFormTimer = 150;
+						}
+					}
+
+					if (this.shockTimer > 0) this.shockTimer--;
+
+					if (this.lives <= 0) {
+						if (this.alive) {
+							this.alive = false;
+							if (window.emitKillBoss) window.emitKillBoss(this.id || 0);
+							if (typeof GhostRPG !== 'undefined' && GhostRPG.addXp) GhostRPG.addXp(Math.floor(this.maxHp * 5));
+							if (window.RollEnemyDrop) window.RollEnemyDrop(g_currentLevel);
+							
+							// CAPTURE THE GHOST!
+							if (window.UnlockGhostForPlayer) {
+								window.UnlockGhostForPlayer(this.ghostId);
+								if (typeof window.PushChatMessage === "function") {
+									window.PushChatMessage("SYSTEM", "Ghost #" + this.ghostId + " captured and sent to Ghostdex!", "#00FF00");
+								}
+							}
+						}
+						return;
+					}
+				};
+
+				boss.draw = function() {
+					// Draw Episode 1 Ghost
+					var sprite = (this.vx > 0) ? bossImgR : bossImgL;
+					if (this.phantomFormTimer > 0 || (this.shockTimer > 0 && Math.floor(Date.now() / 100) % 2 === 0)) {
+						g_ctx.globalAlpha = 0.5;
+					}
+					g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, this.width, this.height);
+					g_ctx.globalAlpha = 1.0;
+
+					// Boss HP bar
+					var hpRatio = this.lives / this.maxHp;
+					g_ctx.fillStyle = "#FF0000";
+					g_ctx.fillRect(this.xPos + map_offset, this.yPos - 10, this.width, 4);
+					g_ctx.fillStyle = "#00FF00";
+					g_ctx.fillRect(this.xPos + map_offset, this.yPos - 10, this.width * hpRatio, 4);
+				};
+				
+				g_bosses.push(boss);
+			};
+
 			function SpawnBossAtRandomLocation(bossType) {
 				if (g_currentLevel === "cave1" || g_currentLevel === "CAVE1") return;
 				if (typeof g_bosses !== 'undefined') {
-					var aliveBosses = g_bosses.filter(function(b) { return b.alive; });
+					var aliveBosses = g_bosses.filter(function(b) { return b.alive && !b.isEpisode1Ghost; });
 					if (aliveBosses.length >= 6) return;
 				}
 				bossType = bossType || "crow";
@@ -3105,7 +3261,7 @@ var g_binaryBits = [];
 					g_ctx.font = "bold 40px 'Courier New'"; g_ctx.fillStyle = "#FF00FF"; g_ctx.textAlign = "center";
 					g_ctx.fillText("PAUSED", g_canvas.width / 2, 140);
 					g_ctx.font = "bold 20px 'Courier New'"; g_ctx.fillStyle = "#FFF";
-					g_ctx.fillText("PRESS SPACE TO RESUME", g_canvas.width / 2, 180);
+					g_ctx.fillText("PRESS START TO RESUME", g_canvas.width / 2, 180);
 					g_ctx.textAlign = "left";
 				}
 				
