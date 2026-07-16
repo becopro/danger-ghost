@@ -484,6 +484,7 @@ var GhostRPG = (function() {
         },
 
         SwitchActiveGhost: function(ghostId) {
+            this.saveLocalStorage();
             activeGhostId = ghostId;
             this.loadLocalStorage();
             if (typeof RenderRPGStatusDrawer === "function") { RenderRPGStatusDrawer(); }

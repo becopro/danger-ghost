@@ -179,6 +179,36 @@ window.ShowGhostdexDetail = function(ghostId) {
     h += st === 2 ? ghost.lore : 'Capture this ghost to unlock details.';
     h += '</div>';
 
+    // HERO STATUS
+    if (st === 2) {
+        var rawSave = localStorage.getItem("DangerGhost_RPG_Save_" + ghost.id);
+        var heroStats = { level: 1, xp: 0, vit: 1, agi: 1, pow: 1, mag: 1 };
+        if (rawSave) {
+            try {
+                var decrypted = (window.SafeAtob || atob)(rawSave);
+                var parts = decrypted.split("||");
+                heroStats = JSON.parse(parts[0]);
+            } catch(e) {}
+        }
+        var hp = 4 + heroStats.vit;
+        var atk = heroStats.pow;
+        var def = heroStats.agi;
+        h += '<div style="margin-top:10px; padding:10px; background:rgba(255, 215, 0, 0.1); border:1px solid #FFD700; border-radius:5px;">';
+        h += '<div style="color:#FFD700; font-weight:bold; font-size:14px; text-align:center; margin-bottom:5px;">🛡️ HERO STATUS</div>';
+        h += '<div style="display:flex; justify-content:space-around; color:#FFF; font-size:12px;">';
+        h += '<span>Nível: <b style="color:#00FF00">' + heroStats.level + '</b></span>';
+        h += '<span>XP: <b style="color:#00FFFF">' + heroStats.xp + '</b></span>';
+        h += '<span>HP: <b>' + hp + '</b></span>';
+        h += '<span>ATK: <b>' + atk + '</b></span>';
+        h += '<span>DEF: <b>' + def + '</b></span>';
+        h += '</div></div>';
+    } else {
+        h += '<div style="margin-top:10px; padding:10px; background:rgba(50, 50, 50, 0.5); border:1px solid #555; border-radius:5px;">';
+        h += '<div style="color:#777; font-weight:bold; font-size:14px; text-align:center;">🛡️ HERO STATUS: Bloqueado</div>';
+        h += '</div>';
+    }
+
+
     // Play Button
     if (st === 2) {
         h += '<button onclick="PlayAsGhost(\'' + ghost.id + '\')" style="display:block; width:100%; margin-top:15px; padding:10px; background:var(--green-neon); border:none; color:#000; font-weight:bold; font-family:Orbitron,sans-serif; border-radius:5px; cursor:pointer; box-shadow:0 0 10px var(--green-neon);">PLAY AS THIS GHOST</button>';
