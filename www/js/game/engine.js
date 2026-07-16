@@ -1144,7 +1144,14 @@
 						
 						// Draw Local Player Name
 						if (window.g_playerNameTick === undefined) window.g_playerNameTick = 0;
-						if (window.g_playerNameTick++ % 60 === 0) window.g_cachedPlayerName = localStorage.getItem("playerName") || "Ghost";
+						if (window.g_playerNameTick++ % 60 === 0) {
+                            var pName = localStorage.getItem("playerName") || "Ghost";
+                            if (window.g_currentPlayerGhost && window.g_ghostdexDB) {
+                                var found = window.g_ghostdexDB.find(g => g.id === window.g_currentPlayerGhost);
+                                if (found) pName = found.nome;
+                            }
+                            window.g_cachedPlayerName = pName;
+                        }
 						var charName = window.g_cachedPlayerName || "Ghost";
 						g_ctx.fillStyle = "#00FFCC";
 						g_ctx.font = "10px Arial";
@@ -1969,7 +1976,14 @@
 				
 				// Nome e Vidas na parte de baixo do jogo
 				if (window.g_playerNameTick === undefined) window.g_playerNameTick = 0;
-				if (window.g_playerNameTick++ % 60 === 0) window.g_cachedPlayerName = localStorage.getItem("playerName") || "Ghost";
+				if (window.g_playerNameTick++ % 60 === 0) {
+                    var pName = localStorage.getItem("playerName") || "Ghost";
+                    if (window.g_currentPlayerGhost && window.g_ghostdexDB) {
+                        var found = window.g_ghostdexDB.find(g => g.id === window.g_currentPlayerGhost);
+                        if (found) pName = found.nome;
+                    }
+                    window.g_cachedPlayerName = pName;
+                }
 				var charName = window.g_cachedPlayerName || "Ghost";
 				if (charName.length > 12) charName = charName.substring(0, 10) + "..";
 				g_ctx.textAlign = "left";
