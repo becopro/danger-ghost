@@ -442,9 +442,9 @@ var GhostRPG = (function() {
             try {
                 window.g_currentPlayerGhost = activeGhostId;
                 if (!window.g_customPlayerGhostRight) window.g_customPlayerGhostRight = new Image();
-                window.g_customPlayerGhostRight.src = 'assets/sprites/ghost_' + activeGhostId + '_r.webp?v=10';
+                window.g_customPlayerGhostRight.src = 'assets/sprites/ghost_' + activeGhostId + '_r.webp?v=16';
                 if (!window.g_customPlayerGhostLeft) window.g_customPlayerGhostLeft = new Image();
-                window.g_customPlayerGhostLeft.src = 'assets/sprites/ghost_' + activeGhostId + '_l.webp?v=10';
+                window.g_customPlayerGhostLeft.src = 'assets/sprites/ghost_' + activeGhostId + '_l.webp?v=16';
                 
                 var saved = localStorage.getItem("DangerGhost_RPG_Save_" + activeGhostId);
                 if (saved) {
