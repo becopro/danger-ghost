@@ -49,6 +49,7 @@ function RenderGhostdexInNavbar(db) {
     }
 
     var progress = GetPlayerGhostdexProgress();
+    var favs = window.GetFavoriteGhosts ? window.GetFavoriteGhosts() : [];
     var seen = 0, caught = 0;
 
     db.forEach(function(ghost) {
@@ -75,7 +76,11 @@ function RenderGhostdexInNavbar(db) {
             bg = '#0a1a0a'; border = '#00FF00'; opacity = '1';
         }
 
-        html += '<div onclick="ShowGhostdexDetail(\'' + ghost.id + '\')" style="cursor:pointer; background:' + bg + '; border:1px solid ' + border + '; border-radius:6px; padding:6px; text-align:center; opacity:' + opacity + ';">';
+        var isFav = favs.indexOf(ghost.id) !== -1;
+        html += '<div onclick="ShowGhostdexDetail(\'' + ghost.id + '\')" style="position:relative; cursor:pointer; background:' + bg + '; border:1px solid ' + border + '; border-radius:6px; padding:6px; text-align:center; opacity:' + opacity + ';">';
+        if (isFav) {
+            html += '<div style="position:absolute; top:-4px; left:-4px; font-size:16px; text-shadow:0 0 6px #FFD700; color:#FFD700; z-index:5;">⭐</div>';
+        }
         html += '<div style="color:#666; font-size:10px;">#' + ghost.id + '</div>';
         if (st < 2) {
             html += '<div style="font-size:20px;">❓</div>';
@@ -209,9 +214,16 @@ window.ShowGhostdexDetail = function(ghostId) {
     }
 
 
-    // Play Button
+    // Play Button & Favorite Button
     if (st === 2) {
-        h += '<button onclick="PlayAsGhost(\'' + ghost.id + '\')" style="display:block; width:100%; margin-top:15px; padding:10px; background:var(--green-neon); border:none; color:#000; font-weight:bold; font-family:Orbitron,sans-serif; border-radius:5px; cursor:pointer; box-shadow:0 0 10px var(--green-neon);">PLAY AS THIS GHOST</button>';
+        var favs = window.GetFavoriteGhosts ? window.GetFavoriteGhosts() : [];
+        var isFav = favs.indexOf(ghost.id) !== -1;
+        var favText = isFav ? "⭐ UNFAVORITE" : "⭐ FAVORITE";
+        
+        h += '<div style="display:flex; gap:10px; margin-top:15px;">';
+        h += '<button onclick="PlayAsGhost(\'' + ghost.id + '\')" style="flex:1; padding:10px; background:var(--green-neon); border:none; color:#000; font-weight:bold; font-family:Orbitron,sans-serif; border-radius:5px; cursor:pointer; box-shadow:0 0 10px var(--green-neon);">PLAY</button>';
+        h += '<button onclick="ToggleFavoriteGhost(\'' + ghost.id + '\')" style="flex:1; padding:10px; background:' + (isFav ? '#555' : '#FFD700') + '; border:none; color:#000; font-weight:bold; font-family:Orbitron,sans-serif; border-radius:5px; cursor:pointer; box-shadow:0 0 10px ' + (isFav ? '#333' : '#FFD700') + ';">' + favText + '</button>';
+        h += '</div>';
     }
 
     content.innerHTML = h;
@@ -246,3 +258,30 @@ window.CloseGhostdexModal = function() {
     if (overlay) overlay.style.display = 'none';
 };
 
+window.GetFavoriteGhosts = function() {
+    try {
+        var f = localStorage.getItem("DangerGhost_Favorites");
+        return f ? JSON.parse(f) : [];
+    } catch(e) { return []; }
+};
+
+window.ToggleFavoriteGhost = function(ghostId) {
+    var favs = window.GetFavoriteGhosts();
+    var idx = favs.indexOf(ghostId);
+    if (idx !== -1) {
+        favs.splice(idx, 1);
+    } else {
+        if (favs.length >= 3) {
+            alert("You can only favorite up to 3 ghosts!");
+            return;
+        }
+        favs.push(ghostId);
+    }
+    localStorage.setItem("DangerGhost_Favorites", JSON.stringify(favs));
+    
+    // Re-render
+    if (window.g_ghostdexDB) {
+        RenderGhostdexInNavbar(window.g_ghostdexDB);
+        ShowGhostdexDetail(ghostId);
+    }
+};
