@@ -1998,6 +1998,17 @@
 				// Texto completo do Level com os dois pontos para alinhar perfeitamente com a fonte
 				g_ctx.fillText("LEVEL : " + g_currentLevel, 200, 20);
 				
+				// Draw Active Ghost Name at the top right
+				var activeGhostName = "Unknown Ghost";
+				if (window.g_currentPlayerGhost && window.g_ghostdexDB) {
+					var foundGhost = window.g_ghostdexDB.find(function(g) { return g.id === window.g_currentPlayerGhost; });
+					if (foundGhost) activeGhostName = foundGhost.nome;
+				}
+				g_ctx.textAlign = "right";
+				g_ctx.fillStyle = "#00FFFF";
+				g_ctx.fillText(activeGhostName, g_canvas.width - 10, 20);
+				g_ctx.textAlign = "left"; // reset alignment for other text
+				
 				// Atualiza o cronômetro externo (TIME: MM:SS)
 				var tr = g_timeRemaining < 0 ? 0 : g_timeRemaining;
 				var mins = Math.floor(tr / 60);
@@ -2854,6 +2865,10 @@
 				boss.type = "episode1_ghost";
 				boss.ghostId = ghostId;
 				boss.isEpisode1Ghost = true;
+				boss.ghostImgR = new Image();
+				boss.ghostImgR.src = 'assets/sprites/ghost_' + ghostId + '_r.webp';
+				boss.ghostImgL = new Image();
+				boss.ghostImgL.src = 'assets/sprites/ghost_' + ghostId + '_l.webp';
 				boss.maxHp = 100;
 				boss.lives = 100;
 				boss.vx = (epx < 0) ? 2 : -2;
@@ -2952,7 +2967,7 @@
 
 				boss.draw = function() {
 					// Draw Episode 1 Ghost
-					var sprite = (this.vx > 0) ? bossImgR : bossImgL;
+					var sprite = (this.vx > 0) ? (this.ghostImgR || bossImgR) : (this.ghostImgL || bossImgL);
 					if (this.phantomFormTimer > 0 || (this.shockTimer > 0 && Math.floor(Date.now() / 100) % 2 === 0)) {
 						g_ctx.globalAlpha = 0.5;
 					}

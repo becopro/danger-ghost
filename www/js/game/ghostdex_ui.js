@@ -192,6 +192,10 @@ window.PlayAsGhost = function(ghostId) {
     window.g_currentPlayerGhost = ghostId;
     console.log("Player is now playing as Ghost ID:", ghostId);
     
+    if (typeof GhostRPG !== 'undefined' && GhostRPG.SwitchActiveGhost) {
+        GhostRPG.SwitchActiveGhost(ghostId);
+    }
+    
     // Cache the images so the engine can use them
     window.g_customPlayerGhostRight = new Image();
     window.g_customPlayerGhostRight.src = 'assets/sprites/ghost_' + ghostId + '_r.webp';
