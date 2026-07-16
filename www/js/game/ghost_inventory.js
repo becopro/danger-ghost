@@ -79,11 +79,31 @@ window.AddXpToGhost = function(ghostId, xpAmount) {
 
 window.SpawnNativeGhosts = function(count) {
     console.log("Y' 2222 SCORE REACHED! Spawning " + count + " Ghosts!");
-    // Randomly spawn from IDs 001 to 101.
-    // Assuming engine.js handles bosses/enemies in g_bosses or similar.
-    for (let i = 0; i < count; i++) {
-        let ghostId = (Math.floor(Math.random() * 101) + 1).toString().padStart(3, '0');
-        // If SpawnBossAtRandomLocation is available, use it or a similar wrapper
+    
+    var validIds = [];
+    var level = window.g_currentLevel || 1;
+    
+    // Pool 1: #001 to #030 (always valid on any level)
+    for (var i = 1; i <= 30; i++) validIds.push(i);
+    
+    // Pool 2: #031 to #050 (Levels 20 to 30)
+    if (level >= 20 && level <= 30) {
+        for (var i = 31; i <= 50; i++) validIds.push(i);
+    }
+    
+    // Pool 3: #051 to #080 (Levels 31, 32, and cave1)
+    if (level == 31 || level == 32 || level == "cave1") {
+        for (var i = 51; i <= 80; i++) validIds.push(i);
+    }
+    
+    // Pool 4: #081 to #101 (Level 33)
+    if (level == 33) {
+        for (var i = 81; i <= 101; i++) validIds.push(i);
+    }
+
+    for (var i = 0; i < count; i++) {
+        var picked = validIds[Math.floor(Math.random() * validIds.length)];
+        var ghostId = picked.toString().padStart(3, '0');
         if (typeof window.SpawnEpisode1Ghost === 'function') {
             window.SpawnEpisode1Ghost(ghostId);
         }
