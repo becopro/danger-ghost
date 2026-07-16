@@ -2869,9 +2869,9 @@
 				boss.ghostId = ghostId;
 				boss.isEpisode1Ghost = true;
 				boss.ghostImgR = new Image();
-				boss.ghostImgR.src = 'assets/sprites/ghost_' + ghostId + '_r.webp?v=16';
+				boss.ghostImgR.src = 'assets/sprites/ghost_' + ghostId + '_r.webp?v=18';
 				boss.ghostImgL = new Image();
-				boss.ghostImgL.src = 'assets/sprites/ghost_' + ghostId + '_l.webp?v=16';
+				boss.ghostImgL.src = 'assets/sprites/ghost_' + ghostId + '_l.webp?v=18';
 				boss.maxHp = 100;
 				boss.lives = 100;
 				boss.vx = (epx < 0) ? 2 : -2;
@@ -2897,7 +2897,7 @@
 				}
 
 				// Load specific sprite
-				var bossImgR = new Image(); bossImgR.src = 'assets/sprites/ghost_' + ghostId + '_r.webp?v=16';
+				var bossImgR = new Image(); bossImgR.src = 'assets/sprites/ghost_' + ghostId + '_r.webp?v=18';
 				var bossImgL = new Image(); bossImgL.src = 'assets/sprites/ghost_' + ghostId + '_l.webp?v=16';
 
 				boss.update = function () {
