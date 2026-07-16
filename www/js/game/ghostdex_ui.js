@@ -86,7 +86,7 @@ function RenderGhostdexInNavbar(db) {
             html += '<div style="font-size:20px;">❓</div>';
             html += '<div style="color:#555; font-size:10px;">???</div>';
         } else {
-            html += '<div style="margin:4px 0;"><img src="assets/sprites/ghost_' + ghost.id + '_r.webp?v=16" style="width:24px; height:24px; image-rendering:pixelated;" /></div>';
+            html += '<div style="margin:4px 0;"><img src="assets/sprites/ghost_' + ghost.id + '_r.webp?v=16" style="width:24px; height:24px; image-rendering:pixelated; filter: drop-shadow(0 0 5px #00FFFF);" /></div>';
             html += '<div style="color:#00FF00; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + ghost.nome + '</div>';
         }
         html += '</div>';
@@ -129,7 +129,7 @@ window.ShowGhostdexDetail = function(ghostId) {
     if (st === 1) {
         h += '<img src="assets/sprites/ghost_' + ghost.id + '_r.webp?v=16" style="width:48px; height:48px; image-rendering:pixelated; filter:brightness(0);" />';
     } else {
-        h += '<img src="assets/sprites/ghost_' + ghost.id + '_r.webp?v=16" style="width:48px; height:48px; image-rendering:pixelated;" />';
+        h += '<img src="assets/sprites/ghost_' + ghost.id + '_r.webp?v=16" style="width:48px; height:48px; image-rendering:pixelated; filter: drop-shadow(0 0 10px #FF00FF);" />';
     }
     h += '<h3 style="color:#9932CC; margin:5px 0 10px 0; font-family:Orbitron,sans-serif;">#' + ghost.id + ' - ' + ghost.nome + '</h3>';
     h += '</div>';
