@@ -1244,7 +1244,9 @@
 											var reduction = Math.min(0.70, (boss.level - 1) * 0.04);
 											finalDmg = Math.max(1, Math.floor(dmg * (1 - reduction)));
 										}
-										if (boss.type === "demon_fly" || boss.type === "slime") {
+										if (boss.phantomFormTimer > 0) {
+											finalDmg = 0;
+										} else if (boss.type === "demon_fly" || boss.type === "slime") {
 											finalDmg = Math.max(1, Math.floor(finalDmg / 2));
 										}
 
@@ -1274,7 +1276,9 @@
 									var reduction = Math.min(0.70, (g_boss.level - 1) * 0.04);
 									finalDmg = Math.max(1, Math.floor(dmg * (1 - reduction)));
 								}
-								if (g_boss.type === "demon_fly" || g_boss.type === "slime") {
+								if (g_boss.phantomFormTimer > 0) {
+									finalDmg = 0;
+								} else if (g_boss.type === "demon_fly" || g_boss.type === "slime") {
 									finalDmg = Math.max(1, Math.floor(finalDmg / 2));
 								}
 
@@ -1711,7 +1715,9 @@
 												var reduction = Math.min(0.70, (boss.level - 1) * 0.04);
 												finalDmg = Math.max(1, Math.floor(p.damage * (1 - reduction)));
 											}
-											if (boss.type === "demon_fly" || boss.type === "slime") {
+											if (boss.phantomFormTimer > 0) {
+												finalDmg = 0;
+											} else if (boss.type === "demon_fly" || boss.type === "slime") {
 												finalDmg = Math.max(1, Math.floor(finalDmg / 2));
 											}
 											if (boss.type === "skull" && p.type === "orb") {
@@ -1781,6 +1787,9 @@
 									}
 									if (g_boss.type === "skull" && p.type === "orb") {
 										finalDmg = Math.max(1, Math.floor(finalDmg * 0.20));
+									}
+									if (g_boss.phantomFormTimer > 0) {
+										finalDmg = 0;
 									}
 									if (p.type === "spell_ice") {
 										g_boss.slowTimer = 180;
@@ -2872,8 +2881,17 @@
 				boss.ghostImgR.src = 'assets/sprites/ghost_' + ghostId + '_r.webp?v=19';
 				boss.ghostImgL = new Image();
 				boss.ghostImgL.src = 'assets/sprites/ghost_' + ghostId + '_l.webp?v=19';
-				boss.maxHp = 100;
-				boss.lives = 100;
+
+				var lvlNum = 1;
+				if (typeof g_currentLevel === 'string') {
+					var m = g_currentLevel.match(/\d+/);
+					if (m) lvlNum = parseInt(m[0]);
+				} else if (typeof g_currentLevel === 'number') {
+					lvlNum = g_currentLevel;
+				}
+				boss.maxHp = Math.floor(100 * 10 * Math.pow(1.15, lvlNum));
+				boss.lives = boss.maxHp;
+
 				boss.vx = (epx < 0) ? 2 : -2;
 				boss.vy = 2;
 				boss.width = 32;
@@ -2924,27 +2942,40 @@
 					if (this.shootCooldown > 0) {
 						this.shootCooldown--;
 					} else {
-						if (typeof g_projectiles !== 'undefined') {
-							g_projectiles.push({
-								xPos: this.xPos,
-								yPos: this.yPos,
-								vx: (this.vx > 0 ? 4 : -4),
-								vy: 0,
-								hostile: true,
-								width: 10,
-								height: 10,
-								damage: 10
-							});
+						var spell = Math.floor(Math.random() * 4);
+						if (spell === 0) {
+							// Spectral Spark
+							if (typeof g_projectiles !== 'undefined') {
+								var dirX = (this.vx > 0 ? 6 : -6);
+								g_projectiles.push({ xPos: this.xPos, yPos: this.yPos, vx: dirX, vy: -2, hostile: true, width: 8, height: 8, damage: 15, color: "#00FFFF" });
+								g_projectiles.push({ xPos: this.xPos, yPos: this.yPos, vx: dirX, vy: 0, hostile: true, width: 8, height: 8, damage: 15, color: "#00FFFF" });
+								g_projectiles.push({ xPos: this.xPos, yPos: this.yPos, vx: dirX, vy: 2, hostile: true, width: 8, height: 8, damage: 15, color: "#00FFFF" });
+							}
+						} else if (spell === 1) {
+							// Plasma Orb
+							if (typeof g_projectiles !== 'undefined') {
+								var dirX = (this.vx > 0 ? 3 : -3);
+								g_projectiles.push({ xPos: this.xPos, yPos: this.yPos - 10, vx: dirX, vy: 0, hostile: true, width: 24, height: 24, damage: 45, color: "#FF00FF" });
+							}
+						} else if (spell === 2) {
+							// Ghost Mode
+							this.xPos = this.minX + Math.random() * (this.maxX - this.minX);
+							this.yPos = this.groundY - Math.random() * 60;
+							if (typeof createExplosionEffect === "function") {
+								g_visualEffects.push(createExplosionEffect(this.xPos, this.yPos, "#9932CC", 5));
+							}
+						} else if (spell === 3) {
+							// Phantom Form
+							this.phantomFormTimer = 180;
 						}
-						this.shootCooldown = 100 + Math.floor(Math.random() * 100);
+						this.shootCooldown = 80 + Math.floor(Math.random() * 60);
 					}
 
 					if (this.phantomFormTimer > 0) {
 						this.phantomFormTimer--;
-					} else {
-						if (Math.random() < 0.005) {
-							this.phantomFormTimer = 150;
-						}
+						var speedMod = 1.5;
+						if (this.xPos <= this.minX) { this.vx = Math.abs(this.vx) * speedMod; } 
+						else if (this.xPos >= this.maxX) { this.vx = -Math.abs(this.vx) * speedMod; }
 					}
 
 					if (this.shockTimer > 0) this.shockTimer--;
