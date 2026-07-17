@@ -2878,9 +2878,9 @@
 				boss.ghostId = ghostId;
 				boss.isEpisode1Ghost = true;
 				boss.ghostImgR = new Image();
-				boss.ghostImgR.src = 'assets/sprites/ghost_' + ghostId + '_r.webp?v=24';
+				boss.ghostImgR.src = 'assets/sprites/ghost_' + ghostId + '_r.webp?v=25';
 				boss.ghostImgL = new Image();
-				boss.ghostImgL.src = 'assets/sprites/ghost_' + ghostId + '_l.webp?v=24';
+				boss.ghostImgL.src = 'assets/sprites/ghost_' + ghostId + '_l.webp?v=25';
 
 				var lvlNum = 1;
 				if (typeof g_currentLevel === 'string') {
@@ -2915,8 +2915,8 @@
 				}
 
 				// Load specific sprite
-				var bossImgR = new Image(); bossImgR.src = 'assets/sprites/ghost_' + ghostId + '_r.webp?v=24';
-				var bossImgL = new Image(); bossImgL.src = 'assets/sprites/ghost_' + ghostId + '_l.webp?v=24';
+				var bossImgR = new Image(); bossImgR.src = 'assets/sprites/ghost_' + ghostId + '_r.webp?v=25';
+				var bossImgL = new Image(); bossImgL.src = 'assets/sprites/ghost_' + ghostId + '_l.webp?v=25';
 
 				boss.update = function () {
 					this.vy += 0.5; // gravity
