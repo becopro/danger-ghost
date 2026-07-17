@@ -4,11 +4,11 @@
 // ============================================================
 
 var typeColors = {
-    "Espectro": "#E0E0E0", "Sombra": "#4F4F4F", "Neon": "#00FFFF",
-    "Urbano": "#FF8C00", "Cibernético": "#00FF00", "Fogo-Fátuo": "#FF4500",
-    "Sombrio": "#8B008B", "Cristal": "#00BFFF", "Tóxico": "#ADFF2F",
-    "Sucata": "#A0522D", "Pixação": "#FF1493", "Holográfico": "#87CEFA",
-    "Virtual": "#32CD32", "Caos": "#FF0000"
+    "Specter": "#E0E0E0", "Shadow": "#4F4F4F", "Neon": "#00FFFF",
+    "Urban": "#FF8C00", "Cybernetic": "#00FF00", "Wisp": "#FF4500",
+    "Dark": "#8B008B", "Crystal": "#00BFFF", "Toxic": "#ADFF2F",
+    "Scrap": "#A0522D", "Graffiti": "#FF1493", "Holographic": "#87CEFA",
+    "Virtual": "#32CD32", "Chaos": "#FF0000"
 };
 
 function GetPlayerGhostdexProgress() {
@@ -60,7 +60,8 @@ function RenderGhostdexInNavbar(db) {
 
     // Build full HTML
     var html = '';
-    html += '<div style="text-align:center; margin-bottom:10px;">';
+    html += '<div style="text-align:center; margin-bottom:10px; position:relative;">';
+    html += '<button onclick="window.ShowGlossary()" style="position:absolute; right:10px; top:0; background:#333; color:#FFF; border:1px solid #555; padding:4px 8px; font-size:10px; font-family:Orbitron,sans-serif; cursor:pointer; border-radius:4px;">GLOSSARY</button>';
     html += '<h3 style="margin:0 0 4px 0; color:#9932CC; font-family:Orbitron,sans-serif; font-size:16px; text-shadow:0 0 8px #9932CC;">👻 GHOSTDEX</h3>';
     html += '<div style="color:#AAA; font-size:12px;">Seen: ' + seen + ' / ' + db.length + ' | Caught: ' + caught + ' / ' + db.length + '</div>';
     html += '</div>';
@@ -102,6 +103,39 @@ function RenderGhostdexInNavbar(db) {
 
     container.innerHTML = html;
 }
+
+window.ShowGlossary = function() {
+    var db = window.g_ghostdexDB;
+    if (!db) return;
+
+    var overlay = document.getElementById('ghdx-detail-overlay');
+    var content = document.getElementById('ghdx-detail-content');
+    if (!overlay || !content) return;
+
+    var h = '';
+    h += '<div style="text-align:center; margin-bottom:15px;">';
+    h += '<h3 style="color:#9932CC; font-family:Orbitron,sans-serif;">📖 GLOSSARY</h3>';
+    h += '<div style="color:#888; font-size:12px;">All 101 Ghosts</div>';
+    h += '</div>';
+
+    h += '<div style="display:flex; flex-direction:column; gap:8px; padding-bottom:30px;">';
+    db.forEach(function(g) {
+        h += '<div style="background:#111; border:1px solid #333; padding:8px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;">';
+        h += '<div style="color:#FFF; font-size:12px; font-family:Orbitron,sans-serif;">#' + g.id + ' - ' + g.nome + '</div>';
+        h += '<div style="display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end;">';
+        if (g.tipos) {
+            g.tipos.forEach(function(t) {
+                var color = typeColors[t] || '#FFF';
+                h += '<span style="background:' + color + '; color:#000; padding:2px 6px; border-radius:8px; font-weight:bold; font-size:9px;">' + t + '</span>';
+            });
+        }
+        h += '</div></div>';
+    });
+    h += '</div>';
+
+    content.innerHTML = h;
+    overlay.style.display = 'block';
+};
 
 window.ShowGhostdexDetail = function(ghostId) {
     var db = window.g_ghostdexDB;
@@ -201,7 +235,7 @@ window.ShowGhostdexDetail = function(ghostId) {
         h += '<div style="margin-top:10px; padding:10px; background:rgba(255, 215, 0, 0.1); border:1px solid #FFD700; border-radius:5px;">';
         h += '<div style="color:#FFD700; font-weight:bold; font-size:14px; text-align:center; margin-bottom:5px;">🛡️ HERO STATUS</div>';
         h += '<div style="display:flex; justify-content:space-around; color:#FFF; font-size:12px;">';
-        h += '<span>Nível: <b style="color:#00FF00">' + heroStats.level + '</b></span>';
+        h += '<span>Level: <b style="color:#00FF00">' + heroStats.level + '</b></span>';
         h += '<span>XP: <b style="color:#00FFFF">' + heroStats.xp + '</b></span>';
         h += '<span>HP: <b>' + hp + '</b></span>';
         h += '<span>ATK: <b>' + atk + '</b></span>';
@@ -209,7 +243,7 @@ window.ShowGhostdexDetail = function(ghostId) {
         h += '</div></div>';
     } else {
         h += '<div style="margin-top:10px; padding:10px; background:rgba(50, 50, 50, 0.5); border:1px solid #555; border-radius:5px;">';
-        h += '<div style="color:#777; font-weight:bold; font-size:14px; text-align:center;">🛡️ HERO STATUS: Bloqueado</div>';
+        h += '<div style="color:#777; font-weight:bold; font-size:14px; text-align:center;">🛡️ HERO STATUS: Locked</div>';
         h += '</div>';
     }
 
