@@ -40,15 +40,14 @@
             <h1 class="neon-title">GHOST GAMES</h1>
         </div>
         <div id="gameNavbar">
-            <button id="btnNavLogin" class="custom-pixel-btn" onclick="LoginGoogle()"><img src="assets/sprites/ui/icon_login.png" /> LOGIN</button>
-            <button id="btnNavControls" class="custom-pixel-btn" onclick="ToggleNavbarTab('controls')"><img src="assets/sprites/ui/icon_ctrl.png" /> CTRL</button>
-            <button id="btnNavRPG" class="custom-pixel-btn" onclick="ToggleNavbarTab('rpg')"><img src="assets/sprites/ui/icon_stat.png" /> STATS</button>
-            <button id="btnNavSpells" class="custom-pixel-btn" onclick="ToggleNavbarTab('spells')"><img src="assets/sprites/ui/icon_spl.png" /> SPELLS</button>
-            <button id="btnNavBag" class="custom-pixel-btn" onclick="ToggleNavbarTab('bag')"><img src="assets/sprites/ui/icon_bag.png" /> BAG</button>
-            <button id="btnNavEquip" class="custom-pixel-btn" onclick="ToggleNavbarTab('equip')"><img src="assets/sprites/ui/icon_eqp.png" /> EQUIP</button>
-            <button id="btnNavChat" class="custom-pixel-btn" onclick="ToggleNavbarTab('chat')"><img src="assets/sprites/ui/icon_cht.png" /> CHAT</button>
-            <button id="btnNavSave" class="custom-pixel-btn" onclick="window.TriggerRPGSaveToDeSo()"><img src="assets/sprites/ui/icon_save.png" /> SAVE</button>
-
+            <button id="btnNavLogin" onclick="LoginGoogle()" style="border: 1.5px solid #00FFFF !important; color: #00FFFF !important; text-shadow: 0 0 5px #00FFFF;">🔑 LOGIN</button>
+            <button id="btnNavControls" onclick="ToggleNavbarTab('controls')">🎮 CONTROLS</button>
+            <button id="btnNavRPG" onclick="ToggleNavbarTab('rpg')">👤 STATS</button>
+            <button id="btnNavSpells" onclick="ToggleNavbarTab('spells')">⚡ SPELLS</button>
+            <button id="btnNavBag" onclick="ToggleNavbarTab('bag')">🎒 BAG</button>
+            <button id="btnNavEquip" onclick="ToggleNavbarTab('equip')">⚔️ EQUIP</button>
+            <button id="btnNavChat" onclick="ToggleNavbarTab('chat')">💬 CHAT</button>
+            <button id="btnNavSave" onclick="window.TriggerRPGSaveToDeSo()" style="border: 1.5px solid var(--green-neon) !important; color: var(--green-neon) !important;">💾 SAVE</button>
         </div>
     </header>
 
@@ -1188,14 +1187,14 @@
         <!-- DANGER GHOST title removed to use the background art text -->
         
         <div id="mobileMainMenuGameBtns" style="flex: 0 0 auto; display: none; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 5px; max-width: 95%;">
-            <button onclick="LoginGoogle();" class="custom-pixel-btn"><img src="assets/sprites/ui/icon_login.png" /> LOGIN</button>
-            <button onclick="ToggleNavbarTab('controls');" class="custom-pixel-btn"><img src="assets/sprites/ui/icon_ctrl.png" /> CTRL</button>
-            <button onclick="ToggleNavbarTab('rpg');" class="custom-pixel-btn"><img src="assets/sprites/ui/icon_stat.png" /> STAT</button>
-            <button onclick="ToggleNavbarTab('spells');" class="custom-pixel-btn"><img src="assets/sprites/ui/icon_spl.png" /> SPL</button>
-            <button onclick="ToggleNavbarTab('bag');" class="custom-pixel-btn"><img src="assets/sprites/ui/icon_bag.png" /> BAG</button>
-            <button onclick="ToggleNavbarTab('ghostdex');" class="custom-pixel-btn"><img src="assets/sprites/ui/icon_ghdx.png" /> GHDX</button>
-            <button onclick="ToggleNavbarTab('equip');" class="custom-pixel-btn"><img src="assets/sprites/ui/icon_eqp.png" /> EQP</button>
-            <button onclick="ToggleNavbarTab('chat');" class="custom-pixel-btn"><img src="assets/sprites/ui/icon_cht.png" /> CHT</button>
+            <button onclick="LoginGoogle();" style="padding: 8px; border: 1px solid #00FFFF; background: #111; color: #00FFFF; border-radius: 5px; font-weight: bold;">🔑 LOGIN</button>
+            <button onclick="ToggleNavbarTab('controls');" style="padding: 8px; border: 1px solid #00FFFF; background: #111; color: #00FFFF; border-radius: 5px; font-weight: bold;">🎮 CTRL</button>
+            <button onclick="ToggleNavbarTab('rpg');" style="padding: 8px; border: 1px solid #00FFFF; background: #111; color: #00FFFF; border-radius: 5px; font-weight: bold;">👤 STAT</button>
+            <button onclick="ToggleNavbarTab('spells');" style="padding: 8px; border: 1px solid #00FFFF; background: #111; color: #00FFFF; border-radius: 5px; font-weight: bold;">⚡ SPL</button>
+            <button onclick="ToggleNavbarTab('bag');" style="padding: 8px; border: 1px solid #00FFFF; background: #111; color: #00FFFF; border-radius: 5px; font-weight: bold;">🎒 BAG</button>
+            <button onclick="ToggleNavbarTab('ghostdex');" style="padding: 8px; border: 1px solid #9932CC; background: #111; color: #9932CC; border-radius: 5px; font-weight: bold; text-shadow: 0 0 5px #9932CC; box-shadow: inset 0 0 5px #9932CC;">👻 GHDX</button>
+            <button onclick="ToggleNavbarTab('equip');" style="padding: 8px; border: 1px solid #00FFFF; background: #111; color: #00FFFF; border-radius: 5px; font-weight: bold;">⚔️ EQP</button>
+            <button onclick="ToggleNavbarTab('chat');" style="padding: 8px; border: 1px solid #00FFFF; background: #111; color: #00FFFF; border-radius: 5px; font-weight: bold;">💬 CHT</button>
         </div>
 
         <div id="mobilePanelsContainer" style="flex: 1 1 auto; max-height: 55vh; width: 100%; display: flex; justify-content: center; overflow-y: auto; overflow-x: hidden; position: relative;">
@@ -1215,11 +1214,11 @@
         </div>
 
         <div id="mobileActionBtns" style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: auto; padding-bottom: 0; width: 100%;">
-            <button onclick="window.TriggerRPGSaveToDeSo();" id="mobileSaveBtn" class="custom-pixel-btn" style="display: none;"><img src="assets/sprites/ui/icon_save.png" /> SAVE</button>
-            <button onclick="ShowMobileNameInput()" id="mobileEpisode1Btn" class="custom-pixel-btn"><img src="assets/sprites/ui/icon_ghdx.png" /> Episode 1</button>
-            <button onclick="ResumeMobileGame()" id="mobileResumeBtn" class="custom-pixel-btn" style="display: none;"><img src="assets/sprites/ui/icon_resume.png" /> Resume Game</button>
-            <button onclick="document.getElementById('founderBioModal').style.display='flex'" class="custom-pixel-btn"><img src="assets/sprites/ui/icon_bio.png" /> Bio</button>
-            <button onclick="ExitMobileApp()" class="custom-pixel-btn"><img src="assets/sprites/ui/icon_exit.png" /> Exit</button>
+            <button onclick="window.TriggerRPGSaveToDeSo();" id="mobileSaveBtn" style="background: #001100; border: 3px solid #00FF00; color: #00FF00; padding: 15px 40px; font-size: 20px; font-weight: bold; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; box-shadow: 0 0 20px rgba(0,255,0,0.8); display: none;">💾 SAVE</button>
+            <button onclick="ShowMobileNameInput()" id="mobileEpisode1Btn" style="background: transparent; border: 2px solid #00FFFF; color: #00FFFF; padding: 12px 30px; font-size: 16px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; box-shadow: 0 0 15px rgba(0,255,255,0.5);">Episode 1</button>
+            <button onclick="ResumeMobileGame()" id="mobileResumeBtn" style="background: transparent; border: 2px solid #FFFF00; color: #FFFF00; padding: 12px 30px; font-size: 16px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; box-shadow: 0 0 15px rgba(255,255,0,0.5); display: none;">Resume Game</button>
+            <button onclick="document.getElementById('founderBioModal').style.display='flex'" style="background: transparent; border: 2px solid #00FF00; color: #00FF00; padding: 12px 30px; font-size: 16px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; box-shadow: 0 0 15px rgba(0,255,0,0.5);">Bio</button>
+            <button onclick="ExitMobileApp()" style="background: transparent; border: 2px solid #FF00FF; color: #FF00FF; padding: 12px 30px; font-size: 16px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; box-shadow: 0 0 15px rgba(255,0,255,0.5);">Exit</button>
         </div>
     </div>
 

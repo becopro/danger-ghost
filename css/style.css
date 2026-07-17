@@ -1114,9 +1114,6 @@ body {
     display: flex;
     gap: 15px;
     box-sizing: border-box;
-    margin-top: 15px;
-    flex-wrap: wrap;
-    justify-content: center;
 }
 
 #gameNavbar button {
@@ -2012,39 +2009,7 @@ body {
     }
 }
 
-/* Custom Pixel Art Buttons */
-.custom-pixel-btn {
-    background: url('../assets/sprites/ui/btn_bg.png') no-repeat center center !important;
-    background-size: 100% 100% !important;
-    border: none !important;
-    color: #FFF !important;
-    font-family: var(--font-title) !important;
-    font-weight: 700 !important;
-    font-size: 13px !important;
-    letter-spacing: 1.5px;
-    padding: 12px 20px !important;
-    cursor: pointer !important;
-    outline: none;
-    text-transform: uppercase;
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: all 0.2s ease-in-out !important;
-    box-shadow: none !important;
-    text-shadow: 1px 1px 2px #000, 0 0 5px var(--cyan-neon);
-    image-rendering: pixelated;
-    min-width: 120px;
-}
 
-.custom-pixel-btn:hover {
-    transform: scale(1.05);
-    filter: brightness(1.2);
-}
 
-.custom-pixel-btn img {
-    width: 24px;
-    height: 24px;
-    image-rendering: pixelated;
-    mix-blend-mode: screen;
-}
+
+
