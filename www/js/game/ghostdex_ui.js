@@ -63,7 +63,9 @@ function RenderGhostdexInNavbar(db) {
     html += '<div style="text-align:center; margin-bottom:10px; position:relative;">';
     html += '<h3 style="margin:0 0 4px 0; color:#9932CC; font-family:Orbitron,sans-serif; font-size:16px; text-shadow:0 0 8px #9932CC;">👻 GHOSTDEX</h3>';
     html += '<div style="color:#AAA; font-size:12px; margin-bottom:8px;">Seen: ' + seen + ' / ' + db.length + ' | Caught: ' + caught + ' / ' + db.length + '</div>';
-    html += '<button onclick="window.ShowGlossary()" style="background:#333; color:#FFF; border:1px solid #555; padding:6px 16px; font-size:12px; font-family:Orbitron,sans-serif; cursor:pointer; border-radius:4px; margin-top:2px;">GLOSSARY</button>';
+    html += '<div style="width:100%; text-align:center; margin-top:10px;">';
+    html += '<button onclick="window.ShowGlossary()" style="background:#333; color:#FFF; border:1px solid #555; padding:6px 16px; font-size:12px; font-family:Orbitron,sans-serif; cursor:pointer; border-radius:4px;">GLOSSARY</button>';
+    html += '</div>';
     html += '</div>';
 
     html += '<div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; max-height:50vh; overflow-y:auto; padding:4px;">';
