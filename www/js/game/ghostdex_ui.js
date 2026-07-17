@@ -89,7 +89,7 @@ function RenderGhostdexInNavbar(db) {
             html += '<div style="font-size:20px;">❓</div>';
             html += '<div style="color:#555; font-size:10px;">???</div>';
         } else {
-            html += '<div style="margin:4px 0;"><img src="assets/sprites/ghost_' + ghost.id + '_r.webp?v=19" style="width:24px; height:24px; image-rendering:pixelated; filter: drop-shadow(0 0 5px #00FFFF);" /></div>';
+            html += '<div style="margin:4px 0;"><img src="assets/sprites/ghost_' + ghost.id + '_r.webp?v=24" style="width:24px; height:24px; image-rendering:pixelated; filter: drop-shadow(0 0 5px #00FFFF);" /></div>';
             html += '<div style="color:#00FF00; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + ghost.nome + '</div>';
         }
         html += '</div>';
@@ -163,9 +163,9 @@ window.ShowGhostdexDetail = function(ghostId) {
     // Header with image
     h += '<div style="text-align:center; margin-bottom:10px;">';
     if (st === 1) {
-        h += '<img src="assets/sprites/ghost_' + ghost.id + '_r.webp?v=19" style="width:48px; height:48px; image-rendering:pixelated; filter:brightness(0);" />';
+        h += '<img src="assets/sprites/ghost_' + ghost.id + '_r.webp?v=24" style="width:48px; height:48px; image-rendering:pixelated; filter:brightness(0);" />';
     } else {
-        h += '<img src="assets/sprites/ghost_' + ghost.id + '_r.webp?v=19" style="width:48px; height:48px; image-rendering:pixelated; filter: drop-shadow(0 0 10px #FF00FF);" />';
+        h += '<img src="assets/sprites/ghost_' + ghost.id + '_r.webp?v=24" style="width:48px; height:48px; image-rendering:pixelated; filter: drop-shadow(0 0 10px #FF00FF);" />';
     }
     h += '<h3 style="color:#9932CC; margin:5px 0 10px 0; font-family:Orbitron,sans-serif;">#' + ghost.id + ' - ' + ghost.nome + '</h3>';
     h += '</div>';
@@ -276,10 +276,10 @@ window.PlayAsGhost = function(ghostId) {
     
     // Cache the images so the engine can use them
     window.g_customPlayerGhostRight = new Image();
-    window.g_customPlayerGhostRight.src = 'assets/sprites/ghost_' + ghostId + '_r.webp?v=19';
+    window.g_customPlayerGhostRight.src = 'assets/sprites/ghost_' + ghostId + '_r.webp?v=24';
     
     window.g_customPlayerGhostLeft = new Image();
-    window.g_customPlayerGhostLeft.src = 'assets/sprites/ghost_' + ghostId + '_l.webp?v=19';
+    window.g_customPlayerGhostLeft.src = 'assets/sprites/ghost_' + ghostId + '_l.webp?v=24';
     
     var overlay = document.getElementById('ghdx-detail-overlay');
     if (overlay) overlay.style.display = 'none';
@@ -321,3 +321,4 @@ window.ToggleFavoriteGhost = function(ghostId) {
         ShowGhostdexDetail(ghostId);
     }
 };
+
