@@ -7,7 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
     <!-- Fontes do Sistema de Design (Acessibilidade) -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&amp;family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/style.css?v=33" />
+    <link rel="stylesheet" href="css/style.css?v=34" />
     <link rel="icon" type="image/png" href="favicon.png" />
     
     <!-- Scripts Externos -->
@@ -15,17 +15,17 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
-    <script src="js/core/event_bus.js?v=33"></script>
-    <script src="js/globals.js?v=33"></script>
+    <script src="js/core/event_bus.js?v=34"></script>
+    <script src="js/globals.js?v=34"></script>
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
-    <script src="js/game/network.js?v=33"></script>
-    <script src="js/web2/game_core.js?v=33"></script>
-    <script src="js/web2/scores.js?v=33"></script>
-    <script src="js/game/rpg_system.js?v=33"></script>
-    <script src="js/ui/ui_manager.js?v=33"></script>
-    <script src="js/game/ghost_inventory.js?v=33"></script>
-    <script src="js/game/ghostdex_data.js?v=33"></script>
-    <script src="js/game/ghostdex_ui.js?v=33"></script>
+    <script src="js/game/network.js?v=34"></script>
+    <script src="js/web2/game_core.js?v=34"></script>
+    <script src="js/web2/scores.js?v=34"></script>
+    <script src="js/game/rpg_system.js?v=34"></script>
+    <script src="js/ui/ui_manager.js?v=34"></script>
+    <script src="js/game/ghost_inventory.js?v=34"></script>
+    <script src="js/game/ghostdex_data.js?v=34"></script>
+    <script src="js/game/ghostdex_ui.js?v=34"></script>
 </head>
 <body>
 
@@ -1063,7 +1063,7 @@
     </div>
 
     <!-- Script de inicialização da Engine -->
-    <script src="js/game/engine.js?v=33"></script>
+    <script src="js/game/engine.js?v=34"></script>
 
     <!-- Script para rotação de backgrounds com fade-in suave -->
     <script type="text/javascript">
@@ -1180,7 +1180,7 @@
 
     <!-- Scripts de Autenticação -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="js/web2/auth.js?v=33"></script>
+    <script src="js/web2/auth.js?v=34"></script>
 
     <!-- MOBILE APP MAIN MENU -->
     <div id="mobileMainMenu" style="position: fixed; top:0; left:0; width:100vw; height:100vh; background: url('assets/menu_bg.png') center/cover no-repeat #000; z-index: 9999; display: none; flex-direction: column; justify-content: flex-start; align-items: center; gap: 15px; padding-top: 13vh; padding-bottom: 5vh; box-sizing: border-box;">
@@ -1251,7 +1251,7 @@
     </div>
 
     <!-- IN-GAME MENU BUTTON (Top Right) -->
-    <button id="mobileInGameMenuBtn" onclick="ShowMobileMainMenuFromGame()" style="position: fixed; bottom: 20px; left: 20px; top: auto; right: auto; z-index: 9000; background: rgba(0,0,0,0.7); border: 2px solid #00FFFF; color: #00FFFF; padding: 10px 20px; font-size: 14px; font-weight: bold; border-radius: 5px; box-shadow: 0 0 10px #00FFFF; display: none;">MENU</button>
+    <button id="mobileInGameMenuBtn" onclick="ShowMobileMainMenuFromGame()" style="position: fixed; bottom: 20px; left: 20px; z-index: 9000; background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FFFF; width: 120px; height: 40px; font-size: 16px; font-weight: bold; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; padding: 0; display: none; align-items: center; justify-content: center; text-shadow: 1px 1px 2px #000;">MENU</button>
 
     <script>
         // Funções do Menu Mobile
@@ -1283,7 +1283,7 @@
             
             document.getElementById('mobileNameInputScreen').style.display = 'none';
             document.getElementById('mobileMainMenu').style.display = 'none';
-            document.getElementById('mobileInGameMenuBtn').style.display = 'block';
+            document.getElementById('mobileInGameMenuBtn').style.display = 'flex';
             
             var controls = document.getElementById('mobileControlsContainer');
             var startBtn = document.getElementById('touchStartBtn');
@@ -1360,8 +1360,8 @@
             }
         });
     </script>
-    <script src="js/game/ghost_inventory.js?v=33"></script>
-    <script src="js/game/ghostdex_data.js?v=33"></script>
-    <script src="js/game/ghostdex_ui.js?v=33"></script>
+    <script src="js/game/ghost_inventory.js?v=34"></script>
+    <script src="js/game/ghostdex_data.js?v=34"></script>
+    <script src="js/game/ghostdex_ui.js?v=34"></script>
 </body>
 </html>
