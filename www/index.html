@@ -1,4 +1,4 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
@@ -7,7 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
     <!-- Fontes do Sistema de Design (Acessibilidade) -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&amp;family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/style.css?v=31" />
+    <link rel="stylesheet" href="css/style.css?v=32" />
     <link rel="icon" type="image/png" href="favicon.png" />
     
     <!-- Scripts Externos -->
@@ -15,17 +15,17 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
-    <script src="js/core/event_bus.js?v=31"></script>
-    <script src="js/globals.js?v=31"></script>
+    <script src="js/core/event_bus.js?v=32"></script>
+    <script src="js/globals.js?v=32"></script>
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
-    <script src="js/game/network.js?v=31"></script>
-    <script src="js/web2/game_core.js?v=31"></script>
-    <script src="js/web2/scores.js?v=31"></script>
-    <script src="js/game/rpg_system.js?v=31"></script>
-    <script src="js/ui/ui_manager.js?v=31"></script>
-    <script src="js/game/ghost_inventory.js?v=31"></script>
-    <script src="js/game/ghostdex_data.js?v=31"></script>
-    <script src="js/game/ghostdex_ui.js?v=31"></script>
+    <script src="js/game/network.js?v=32"></script>
+    <script src="js/web2/game_core.js?v=32"></script>
+    <script src="js/web2/scores.js?v=32"></script>
+    <script src="js/game/rpg_system.js?v=32"></script>
+    <script src="js/ui/ui_manager.js?v=32"></script>
+    <script src="js/game/ghost_inventory.js?v=32"></script>
+    <script src="js/game/ghostdex_data.js?v=32"></script>
+    <script src="js/game/ghostdex_ui.js?v=32"></script>
 </head>
 <body>
 
@@ -1063,7 +1063,7 @@
     </div>
 
     <!-- Script de inicialização da Engine -->
-    <script src="js/game/engine.js?v=31"></script>
+    <script src="js/game/engine.js?v=32"></script>
 
     <!-- Script para rotação de backgrounds com fade-in suave -->
     <script type="text/javascript">
@@ -1180,7 +1180,7 @@
 
     <!-- Scripts de Autenticação -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="js/web2/auth.js?v=31"></script>
+    <script src="js/web2/auth.js?v=32"></script>
 
     <!-- MOBILE APP MAIN MENU -->
     <div id="mobileMainMenu" style="position: fixed; top:0; left:0; width:100vw; height:100vh; background: url('assets/menu_bg.png') center/cover no-repeat #000; z-index: 9999; display: none; flex-direction: column; justify-content: flex-start; align-items: center; gap: 15px; padding-top: 13vh; padding-bottom: 5vh; box-sizing: border-box;">
@@ -1238,15 +1238,15 @@
     
     <!-- MOBILE NAME INPUT SCREEN -->
     <div id="mobileNameInputScreen" style="position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.85); z-index: 10000; display: none; flex-direction: column; justify-content: center; align-items: center;">
-        <h2 style="color: #00FFFF; font-family: 'Courier New', monospace; margin: 0 0 10px 0; text-shadow: 1px 1px 2px #000;">Ghost Name:</h2>
+        <h2 style="color: #00FFFF; font-family: 'Courier New', monospace; margin: 0 0 25px 0; font-size: 32px; text-shadow: 1px 1px 2px #000;">Ghost Name:</h2>
         
-        <div style="background-image: url('assets/ui/ghost_name_bg.webp'); background-size: 100% 100%; background-repeat: no-repeat; width: 90vw; max-width: 600px; aspect-ratio: 1024 / 434; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box; position: relative;">
-            <input type="text" id="mobileGhostNameInput" placeholder="Enter your name..." style="background: transparent; border: none; color: #FFF; padding: 10px; font-size: 16px; text-align: center; font-family: 'Courier New', monospace; outline: none; width: 80%; max-width: 280px;" />
+        <div style="background-image: url('assets/ui/ghost_name_bg.webp'); background-size: 100% 100%; background-repeat: no-repeat; width: 95vw; max-width: 900px; aspect-ratio: 1024 / 434; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box; position: relative;">
+            <input type="text" id="mobileGhostNameInput" placeholder="Enter your name..." style="background: transparent; border: none; box-shadow: none !important; color: #FFF; padding: 15px; font-size: clamp(20px, 4vw, 32px); text-align: center; font-family: 'Courier New', monospace; outline: none; width: 85%; max-width: 600px;" />
         </div>
         
-        <div style="display: flex; gap: 20px; margin-top: 20px;">
-            <button onclick="SaveMobileName()" style="background: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-repeat: no-repeat; background-color: transparent; border: none; color: #FFF; width: 120px; height: 40px; font-weight: bold; cursor: pointer; font-family: 'Courier New', monospace; text-shadow: 1px 1px 2px #000; outline: none; text-transform: uppercase;">SAVE</button>
-            <button onclick="StartMobileGame()" style="background: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-repeat: no-repeat; background-color: transparent; border: none; color: #FFF; width: 120px; height: 40px; font-weight: bold; cursor: pointer; font-family: 'Courier New', monospace; text-shadow: 1px 1px 2px #000; outline: none; text-transform: uppercase;">GO</button>
+        <div style="display: flex; gap: 30px; margin-top: 35px;">
+            <button onclick="SaveMobileName()" style="background: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-repeat: no-repeat; background-color: transparent; border: none; color: #FFF; width: 150px; height: 50px; font-size: 20px; font-weight: bold; cursor: pointer; font-family: 'Courier New', monospace; text-shadow: 1px 1px 2px #000; outline: none; text-transform: uppercase;">SAVE</button>
+            <button onclick="StartMobileGame()" style="background: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-repeat: no-repeat; background-color: transparent; border: none; color: #FFF; width: 150px; height: 50px; font-size: 20px; font-weight: bold; cursor: pointer; font-family: 'Courier New', monospace; text-shadow: 1px 1px 2px #000; outline: none; text-transform: uppercase;">GO</button>
         </div>
     </div>
 
@@ -1360,8 +1360,8 @@
             }
         });
     </script>
-    <script src="js/game/ghost_inventory.js?v=31"></script>
-    <script src="js/game/ghostdex_data.js?v=31"></script>
-    <script src="js/game/ghostdex_ui.js?v=31"></script>
+    <script src="js/game/ghost_inventory.js?v=32"></script>
+    <script src="js/game/ghostdex_data.js?v=32"></script>
+    <script src="js/game/ghostdex_ui.js?v=32"></script>
 </body>
 </html>
