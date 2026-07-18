@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
@@ -7,7 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
     <!-- Fontes do Sistema de Design (Acessibilidade) -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&amp;family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/style.css?v=32" />
+    <link rel="stylesheet" href="css/style.css?v=33" />
     <link rel="icon" type="image/png" href="favicon.png" />
     
     <!-- Scripts Externos -->
@@ -15,17 +15,17 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
-    <script src="js/core/event_bus.js?v=32"></script>
-    <script src="js/globals.js?v=32"></script>
+    <script src="js/core/event_bus.js?v=33"></script>
+    <script src="js/globals.js?v=33"></script>
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
-    <script src="js/game/network.js?v=32"></script>
-    <script src="js/web2/game_core.js?v=32"></script>
-    <script src="js/web2/scores.js?v=32"></script>
-    <script src="js/game/rpg_system.js?v=32"></script>
-    <script src="js/ui/ui_manager.js?v=32"></script>
-    <script src="js/game/ghost_inventory.js?v=32"></script>
-    <script src="js/game/ghostdex_data.js?v=32"></script>
-    <script src="js/game/ghostdex_ui.js?v=32"></script>
+    <script src="js/game/network.js?v=33"></script>
+    <script src="js/web2/game_core.js?v=33"></script>
+    <script src="js/web2/scores.js?v=33"></script>
+    <script src="js/game/rpg_system.js?v=33"></script>
+    <script src="js/ui/ui_manager.js?v=33"></script>
+    <script src="js/game/ghost_inventory.js?v=33"></script>
+    <script src="js/game/ghostdex_data.js?v=33"></script>
+    <script src="js/game/ghostdex_ui.js?v=33"></script>
 </head>
 <body>
 
@@ -1063,7 +1063,7 @@
     </div>
 
     <!-- Script de inicialização da Engine -->
-    <script src="js/game/engine.js?v=32"></script>
+    <script src="js/game/engine.js?v=33"></script>
 
     <!-- Script para rotação de backgrounds com fade-in suave -->
     <script type="text/javascript">
@@ -1180,7 +1180,7 @@
 
     <!-- Scripts de Autenticação -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="js/web2/auth.js?v=32"></script>
+    <script src="js/web2/auth.js?v=33"></script>
 
     <!-- MOBILE APP MAIN MENU -->
     <div id="mobileMainMenu" style="position: fixed; top:0; left:0; width:100vw; height:100vh; background: url('assets/menu_bg.png') center/cover no-repeat #000; z-index: 9999; display: none; flex-direction: column; justify-content: flex-start; align-items: center; gap: 15px; padding-top: 13vh; padding-bottom: 5vh; box-sizing: border-box;">
@@ -1214,11 +1214,11 @@
         </div>
 
         <div id="mobileActionBtns" style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 0px; margin-top: auto; padding-bottom: 0; width: 100%;">
-            <button onclick="window.TriggerRPGSaveToDeSo();" id="mobileSaveBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FF00; width: 250px; height: 55px; margin: -2px 0; font-size: 20px; font-weight: bold; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: none;">💾 SAVE</button>
-            <button onclick="ShowMobileNameInput()" id="mobileEpisode1Btn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FFFF; width: 250px; height: 55px; margin: -2px 0; font-size: 16px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase;">Episode 1</button>
-            <button onclick="ResumeMobileGame()" id="mobileResumeBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #FFFF00; width: 250px; height: 55px; margin: -2px 0; font-size: 16px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: none;">Resume Game</button>
-            <button onclick="document.getElementById('founderBioModal').style.display='flex'" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FF00; width: 250px; height: 55px; margin: -2px 0; font-size: 16px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase;">Bio</button>
-            <button onclick="ExitMobileApp()" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #FF00FF; width: 250px; height: 55px; margin: -2px 0; font-size: 16px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase;">Exit</button>
+            <button onclick="window.TriggerRPGSaveToDeSo();" id="mobileSaveBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FF00; width: 250px; height: 55px; margin: -2px 0; font-size: 20px; font-weight: bold; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: none; align-items: center; justify-content: center;">SAVE</button>
+            <button onclick="ShowMobileNameInput()" id="mobileEpisode1Btn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FFFF; width: 250px; height: 55px; margin: -2px 0; font-size: 16px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Episode 1</button>
+            <button onclick="ResumeMobileGame()" id="mobileResumeBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #FFFF00; width: 250px; height: 55px; margin: -2px 0; font-size: 15px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: none; align-items: center; justify-content: center;">RESUME GAME</button>
+            <button onclick="document.getElementById('founderBioModal').style.display='flex'" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FF00; width: 250px; height: 55px; margin: -2px 0; font-size: 16px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Bio</button>
+            <button onclick="ExitMobileApp()" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #FF00FF; width: 250px; height: 55px; margin: -2px 0; font-size: 16px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Exit</button>
         </div>
     </div>
 
@@ -1297,8 +1297,8 @@
             window.g_cutscenePlayed = true; 
             
             document.getElementById('mobileEpisode1Btn').style.display = 'none';
-            document.getElementById('mobileResumeBtn').style.display = 'block';
-            document.getElementById('mobileSaveBtn').style.display = 'block';
+            document.getElementById('mobileResumeBtn').style.display = 'flex';
+            document.getElementById('mobileSaveBtn').style.display = 'flex';
             document.getElementById('mobileMainMenuGameBtns').style.display = 'flex';
 
             // Start the game right away
@@ -1360,8 +1360,8 @@
             }
         });
     </script>
-    <script src="js/game/ghost_inventory.js?v=32"></script>
-    <script src="js/game/ghostdex_data.js?v=32"></script>
-    <script src="js/game/ghostdex_ui.js?v=32"></script>
+    <script src="js/game/ghost_inventory.js?v=33"></script>
+    <script src="js/game/ghostdex_data.js?v=33"></script>
+    <script src="js/game/ghostdex_ui.js?v=33"></script>
 </body>
 </html>
