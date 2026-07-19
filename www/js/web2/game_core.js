@@ -502,6 +502,37 @@
             
             var btn = document.getElementById("gameScreenModeBtn");
             if (btn) btn.style.display = "block";
+
+            // Direct transition to game
+            var mobileMenu = document.getElementById('mobileMainMenu');
+            if (mobileMenu) mobileMenu.style.display = 'none';
+            
+            var inGameMenuBtn = document.getElementById('mobileInGameMenuBtn');
+            if (inGameMenuBtn) inGameMenuBtn.style.display = 'flex';
+            
+            var controls = document.getElementById('mobileControlsContainer');
+            if (controls) controls.style.visibility = 'visible';
+            
+            var startBtn = document.getElementById('touchStartBtn');
+            if (startBtn) startBtn.style.display = 'none';
+            
+            var video = document.getElementById('openingCutsceneVideo');
+            if (video) video.style.display = 'none';
+            
+            // Mark cutscene as played so we skip directly to START or PLAY
+            window.g_cutscenePlayed = true;
+
+            var ep1Btn = document.getElementById('mobileEpisode1Btn');
+            if (ep1Btn) ep1Btn.style.display = 'none';
+            
+            var resumeBtn = document.getElementById('mobileResumeBtn');
+            if (resumeBtn) resumeBtn.style.display = 'flex';
+            
+            var saveBtn = document.getElementById('mobileSaveBtn');
+            if (saveBtn) saveBtn.style.display = 'flex';
+            
+            var mainGameBtns = document.getElementById('mobileMainMenuGameBtns');
+            if (mainGameBtns) mainGameBtns.style.display = 'flex';
             
             if (window.g_gameState === window.G_START) {
                 if (typeof window.StartCutscene === "function") window.StartCutscene(char.worldLevel, true);
