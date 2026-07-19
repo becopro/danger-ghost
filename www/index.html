@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
@@ -7,7 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
     <!-- Fontes do Sistema de Design (Acessibilidade) -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&amp;family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/style.css?v=35" />
+    <link rel="stylesheet" href="css/style.css?v=36" />
     <link rel="icon" type="image/png" href="favicon.png" />
     
     <!-- Scripts Externos -->
@@ -15,17 +15,17 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
-    <script src="js/core/event_bus.js?v=35"></script>
-    <script src="js/globals.js?v=35"></script>
+    <script src="js/core/event_bus.js?v=36"></script>
+    <script src="js/globals.js?v=36"></script>
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
-    <script src="js/game/network.js?v=35"></script>
-    <script src="js/web2/game_core.js?v=35"></script>
-    <script src="js/web2/scores.js?v=35"></script>
-    <script src="js/game/rpg_system.js?v=35"></script>
-    <script src="js/ui/ui_manager.js?v=35"></script>
-    <script src="js/game/ghost_inventory.js?v=35"></script>
-    <script src="js/game/ghostdex_data.js?v=35"></script>
-    <script src="js/game/ghostdex_ui.js?v=35"></script>
+    <script src="js/game/network.js?v=36"></script>
+    <script src="js/web2/game_core.js?v=36"></script>
+    <script src="js/web2/scores.js?v=36"></script>
+    <script src="js/game/rpg_system.js?v=36"></script>
+    <script src="js/ui/ui_manager.js?v=36"></script>
+    <script src="js/game/ghost_inventory.js?v=36"></script>
+    <script src="js/game/ghostdex_data.js?v=36"></script>
+    <script src="js/game/ghostdex_ui.js?v=36"></script>
 </head>
 <body>
 
@@ -1236,12 +1236,19 @@
         </div>
     </div>
     
+    <style>
+        #mobileGhostNameInput::placeholder {
+            color: #b026ff;
+            text-shadow: 0 0 5px #b026ff;
+            opacity: 1;
+        }
+    </style>
     <!-- MOBILE NAME INPUT SCREEN -->
     <div id="mobileNameInputScreen" style="position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.85); z-index: 10000; display: none; flex-direction: column; justify-content: center; align-items: center;">
         <h2 style="color: #00FFFF; font-family: 'Courier New', monospace; margin: 0 0 25px 0; font-size: 32px; text-shadow: 1px 1px 2px #000;">Ghost Name:</h2>
         
         <div style="background-image: url('assets/ui/ghost_name_bg.webp'); background-size: 100% 100%; background-repeat: no-repeat; width: 100vw; max-width: 1000px; aspect-ratio: 1024 / 434; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box; position: relative;">
-            <input type="text" id="mobileGhostNameInput" placeholder="Enter your name..." style="background: transparent; border: none; box-shadow: none !important; color: #FFF; padding: 15px; font-size: clamp(16px, 3.5vw, 24px); text-align: center; font-family: 'Courier New', monospace; outline: none; width: 70%; max-width: 500px; margin: 0 auto; display: block;" />
+            <input type="text" id="mobileGhostNameInput" placeholder="Enter your name..." style="background: transparent; border: none; box-shadow: none !important; color: #b026ff; text-shadow: 0 0 5px #b026ff; padding: 15px; font-size: 14px; text-align: center; font-family: 'Courier New', monospace; outline: none; width: 45%; max-width: 150px; margin: 0 auto; display: block;" />
         </div>
         
         <div style="display: flex; gap: 30px; margin-top: 35px;">
