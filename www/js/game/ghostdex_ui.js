@@ -276,16 +276,74 @@ window.PlayAsGhost = function(ghostId) {
     
     // Cache the images so the engine can use them
     window.g_customPlayerGhostRight = new Image();
-    window.g_customPlayerGhostRight.src = 'assets/sprites/ghost_' + ghostId + '_r.webp?v=31';
+    window.g_customPlayerGhostRight.src = 'assets/sprites/ghost_' + ghostId + '_r.webp?v=38';
     
     window.g_customPlayerGhostLeft = new Image();
-    window.g_customPlayerGhostLeft.src = 'assets/sprites/ghost_' + ghostId + '_l.webp?v=31';
+    window.g_customPlayerGhostLeft.src = 'assets/sprites/ghost_' + ghostId + '_l.webp?v=38';
     
     var overlay = document.getElementById('ghdx-detail-overlay');
     if (overlay) overlay.style.display = 'none';
     
     if (typeof window.ToggleNavbarTab === "function") {
         window.ToggleNavbarTab('ghostdex'); // This toggles it off
+    }
+    
+    // --- FORCE DIRECT TRANSITION TO GAMEPLAY ---
+    var charOverlay = document.getElementById('characterSelectionOverlay');
+    if (charOverlay) charOverlay.style.display = 'none';
+    
+    var mobileMenu = document.getElementById('mobileMainMenu');
+    if (mobileMenu) mobileMenu.style.display = 'none';
+    
+    var nameScreen = document.getElementById('mobileNameInputScreen');
+    if (nameScreen) nameScreen.style.display = 'none';
+    
+    var inGameMenuBtn = document.getElementById('mobileInGameMenuBtn');
+    if (inGameMenuBtn) inGameMenuBtn.style.display = 'flex';
+    
+    var controls = document.getElementById('mobileControlsContainer');
+    if (controls) controls.style.visibility = 'visible';
+    
+    var startBtn = document.getElementById('touchStartBtn');
+    if (startBtn) startBtn.style.display = 'none';
+    
+    var video = document.getElementById('openingCutsceneVideo');
+    if (video) video.style.display = 'none';
+    
+    window.g_cutscenePlayed = true;
+
+    var ep1Btn = document.getElementById('mobileEpisode1Btn');
+    if (ep1Btn) ep1Btn.style.display = 'none';
+    
+    var resumeBtn = document.getElementById('mobileResumeBtn');
+    if (resumeBtn) resumeBtn.style.display = 'flex';
+    
+    var saveBtn = document.getElementById('mobileSaveBtn');
+    if (saveBtn) saveBtn.style.display = 'flex';
+    
+    var mainGameBtns = document.getElementById('mobileMainMenuGameBtns');
+    if (mainGameBtns) mainGameBtns.style.display = 'flex';
+    
+    var modeBtn = document.getElementById("gameScreenModeBtn");
+    if (modeBtn) modeBtn.style.display = "block";
+
+    if (typeof window.g_gameState !== 'undefined') {
+        if (window.g_gameState === 0) { // G_START
+            if (typeof window.StartCutscene === "function") {
+                var savedLevel = localStorage.getItem("dg_saved_level");
+                var startLevel = 1;
+                if (savedLevel && !isNaN(parseInt(savedLevel))) {
+                    startLevel = parseInt(savedLevel);
+                }
+                window.StartCutscene(startLevel, false);
+            }
+        } else if (window.g_gameState === 6 || window.g_gameState === 1) { 
+            // If already in game, we ensure the level resets to use the new ghost 
+            // (or if paused, unpause)
+            if (typeof window.ResetGame === "function") window.ResetGame(window.g_currentLevel || 1, true);
+            window.g_gamePaused = false;
+            if (typeof window.PlayBGM === "function") window.PlayBGM();
+        }
     }
 };
 
