@@ -283,8 +283,44 @@ window.PlayAsGhost = function(ghostId) {
     window.g_currentPlayerGhost = ghostId;
     console.log("Player is now playing as Ghost ID:", ghostId);
     
+    // Retroactive RPG Profile Generation
+    let localChars = localStorage.getItem("dg_local_characters");
+    if (!localChars) localChars = "[]";
+    localChars = JSON.parse(localChars);
+    
+    let charId = "ghost_" + ghostId;
+    let existingChar = localChars.find(c => c.characterId === charId);
+    if (!existingChar) {
+        let ghostName = "Unknown Ghost";
+        let dbGhost = window.g_ghostdexDB ? window.g_ghostdexDB.find(g => g.id === ghostId) : null;
+        if (dbGhost) ghostName = dbGhost.nome;
+        
+        let hp = dbGhost && dbGhost.stats_base ? dbGhost.stats_base.hp : 50;
+        let atk = dbGhost && dbGhost.stats_base ? dbGhost.stats_base.ataque : 50;
+        let def = dbGhost && dbGhost.stats_base ? dbGhost.stats_base.defesa : 50;
+        let spAtk = dbGhost && dbGhost.stats_base ? dbGhost.stats_base.atq_especial : 50;
+        let spDef = dbGhost && dbGhost.stats_base ? dbGhost.stats_base.def_especial : 50;
+        let spd = dbGhost && dbGhost.stats_base ? dbGhost.stats_base.velocidade : 50;
+
+        localChars.push({
+            characterId: charId,
+            name: ghostName,
+            level: 1,
+            xp: 0,
+            vit: hp,
+            agi: spd,
+            int: spAtk,
+            pow: atk,
+            mag: spDef,
+            inventory: [],
+            equipment: { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null }
+        });
+        localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
+        console.log("👻 RPG Profile generated retroactively for ghost:", charId);
+    }
+    
     if (typeof window.SelectCharacterToPlay === 'function') {
-        window.SelectCharacterToPlay("ghost_" + ghostId);
+        window.SelectCharacterToPlay(charId);
     }
     
     if (typeof GhostRPG !== 'undefined' && GhostRPG.SwitchActiveGhost) {
