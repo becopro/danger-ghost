@@ -2009,6 +2009,122 @@ body {
     }
 }
 
+/* -------------------------------------
+   GHOSTDEX UI STYLES
+---------------------------------------- */
+#ghostdex-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 15px;
+    padding: 10px;
+    width: 100%;
+}
+
+.ghost-card {
+    background: rgba(10, 10, 15, 0.9);
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.ghost-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0 10px var(--cyan-neon);
+    border-color: var(--cyan-neon);
+}
+.ghost-card img {
+    width: 64px;
+    height: 64px;
+    image-rendering: pixelated;
+    filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));
+}
+.ghost-card.unknown img {
+    filter: brightness(0) invert(0.2);
+}
+.ghost-card h4 {
+    font-size: 14px;
+    margin: 5px 0 2px 0;
+    color: #fff;
+    text-transform: uppercase;
+}
+.ghost-card .id {
+    font-size: 11px;
+    color: #888;
+}
+
+.type-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin: 2px;
+    border: 1px solid currentColor;
+}
+
+#ghost-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 500px;
+    background: rgba(10, 10, 20, 0.95);
+    border: 2px solid var(--purple-neon);
+    box-shadow: 0 0 20px var(--purple-neon);
+    border-radius: 12px;
+    padding: 20px;
+    z-index: 9999;
+    color: #fff;
+}
+#ghost-modal h2 {
+    color: var(--purple-neon);
+    margin-top: 0;
+}
+#ghost-modal img {
+    width: 128px;
+    height: 128px;
+    image-rendering: pixelated;
+}
+.close-modal {
+    background: transparent;
+    border: 1px solid var(--red-neon);
+    color: var(--red-neon);
+    padding: 5px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    float: right;
+}
+.close-modal:hover {
+    background: rgba(255,0,0,0.2);
+    box-shadow: 0 0 10px var(--red-neon);
+}
+.btn-action {
+    background: transparent;
+    border: 1px solid var(--cyan-neon);
+    color: var(--cyan-neon);
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 15px;
+    transition: all 0.2s;
+}
+.btn-action:hover {
+    background: rgba(0,255,255,0.2);
+    box-shadow: 0 0 10px var(--cyan-neon);
+}
+.btn-action.favorite {
+    border-color: var(--yellow-neon);
+    color: var(--yellow-neon);
+}
+.btn-action.favorite:hover {
+    background: rgba(255,255,0,0.2);
+    box-shadow: 0 0 10px var(--yellow-neon);
+}
+
 
 
 

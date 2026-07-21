@@ -19,8 +19,9 @@ function ToggleNavbarTab(tab) {
         var btnBag = document.getElementById("btnNavBag");
         var btnEquip = document.getElementById("btnNavEquip");
         var btnChat = document.getElementById("btnNavChat");
+        var btnGhostdex = document.getElementById("btnNavGhostdex");
         
-        [btnControls, btnRPG, btnSpells, btnBag, btnEquip, btnChat].forEach(function(btn) {
+        [btnControls, btnRPG, btnSpells, btnBag, btnEquip, btnChat, btnGhostdex].forEach(function(btn) {
             if (btn) {
                 btn.style.background = "transparent";
                 btn.style.borderColor = "var(--border-light)";
@@ -60,6 +61,16 @@ function ToggleNavbarTab(tab) {
                 btnChat.style.boxShadow = "0 0 15px var(--cyan-neon)";
             }
             if (typeof RenderChatHistory === "function") RenderChatHistory();
+        } else if (tab === 'ghostdex') {
+            if (rightPanel) rightPanel.style.display = "flex";
+            if (btnGhostdex) {
+                btnGhostdex.style.background = "rgba(153,50,204,0.2)";
+                btnGhostdex.style.borderColor = "#9932CC";
+                btnGhostdex.style.boxShadow = "0 0 12px #9932CC";
+            }
+            if (typeof window.InitializeGhostdex === 'function') {
+                window.InitializeGhostdex();
+            }
         } else {
             if(rightPanel) rightPanel.style.display = "flex";
             if (tab === 'controls') {

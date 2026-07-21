@@ -342,6 +342,11 @@
 					return;
 				}
 				g_score += points;
+				window.g_ghostScoreTracker = (window.g_ghostScoreTracker || 0) + points;
+				while (window.g_ghostScoreTracker >= 2222) {
+					window.g_ghostScoreTracker -= 2222;
+					if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
+				}
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
 				g_slimeScoreTracker += points;
 				if (g_slimeScoreTracker >= 3000) {
@@ -939,7 +944,9 @@
 				this.draw = function () {
 					if (!this.alive) return;
 					var sprite;
-					if (this.type === "cactus") {
+					if (this.type === "episode1_ghost") {
+						sprite = (this.dir > 0) ? this.ghostImgR : this.ghostImgL;
+					} else if (this.type === "cactus") {
 						sprite = (this.dir > 0) ? cactusRight : cactusLeft;
 					} else if (this.type === "skull") {
 						sprite = (this.dir > 0) ? skullLeft : skullRight;
@@ -947,8 +954,7 @@
 						sprite = (this.dir > 0) ? demonFlyRight : demonFlyLeft;
 					} else if (this.type === "slime") {
 						sprite = (this.dir > 0) ? slimeLeft : slimeRight;
-					}
- else {
+					} else {
 						sprite = (this.dir > 0) ? sickCrowLeft : sickCrowRight;
 					}
 
@@ -1013,6 +1019,9 @@
 					if (this.lives <= 0) {
 						if (this.alive) {
 							this.alive = false;
+							if (this.isEpisode1Ghost && window.UnlockGhostForPlayer) {
+								window.UnlockGhostForPlayer(this.ghostId);
+							}
 							if (window.emitKillBoss) {
 								window.emitKillBoss(this.id || 0);
 							}
@@ -1122,7 +1131,9 @@
 							g_ctx.stroke();
 						}
 						
-						var sprite = (this.face == 1) ? desoGhostRight : desoGhostLeft;
+						var curRight = window.g_customPlayerGhostRight || desoGhostRight;
+						var curLeft = window.g_customPlayerGhostLeft || desoGhostLeft;
+						var sprite = (this.face == 1) ? curRight : curLeft;
 						g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, 24, 24);
 						if (this.ghostMode) g_ctx.globalAlpha = 1.0;
 						
@@ -4015,6 +4026,32 @@ var g_binaryBits = [];
 			});
 
 			window.DrawWinScreen = DrawWinScreen;
+
+			window.SpawnEpisode1Ghost = function(ghostId) {
+				g_screenShakeTime = 30;
+				g_screenShakeIntensity = 12;
+				var epx = g_canvas.width;
+				var epy = -40;
+				if (Math.random() > 0.5) { epx = -40; }
+				var boss = new c_Boss(epx, epy, "episode1_ghost");
+				boss.ghostId = ghostId;
+				boss.isEpisode1Ghost = true;
+				boss.ghostImgR = new Image();
+				boss.ghostImgR.src = 'Ghosts/%23' + ghostId + '.png';
+				boss.ghostImgL = new Image();
+				boss.ghostImgL.src = 'Ghosts/%23' + ghostId + '.png';
+				
+				var lvlNum = 1;
+				if (typeof g_currentLevel === 'string') {
+					var m = g_currentLevel.match(/\d+/);
+					if (m) lvlNum = parseInt(m[0]);
+				} else if (typeof g_currentLevel === 'number') {
+					lvlNum = g_currentLevel;
+				}
+				boss.maxHp = 100 + (lvlNum * 50);
+				boss.lives = boss.maxHp;
+			};
+
 			})(); // Fecha IIFE Caixa Preta
 		
 
