@@ -342,22 +342,22 @@
 					return;
 				}
 				g_score += points;
+				// Clean dead bosses from array to free memory
+				g_bosses = g_bosses.filter(function(b) { return b && b.alive; });
 				window.g_ghostScoreTracker = (window.g_ghostScoreTracker || 0) + points;
 				while (window.g_ghostScoreTracker >= 2222) {
+					if (g_bosses.length >= 5) break; // HARD CAP: stop loop entirely
 					window.g_ghostScoreTracker -= 2222;
 					try {
-						if (typeof window.SpawnNativeGhosts === "function" && g_bosses.length < 5) window.SpawnNativeGhosts(1);
+						if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
 					} catch(e) { console.error("Error spawning ghosts", e); }
 				}
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
 				g_slimeScoreTracker += points;
-				if (g_slimeScoreTracker >= 3000) {
-					while (g_slimeScoreTracker >= 3000) {
-						g_slimeScoreTracker -= 3000;
-						if (g_bosses.length < 5) {
-							SpawnBossAtRandomLocation("slime");
-						}
-					}
+				while (g_slimeScoreTracker >= 3000) {
+					if (g_bosses.length >= 5) break; // HARD CAP: stop loop entirely
+					g_slimeScoreTracker -= 3000;
+					SpawnBossAtRandomLocation("slime");
 				}
 			}
 
@@ -948,8 +948,11 @@
 				this.draw = function () {
 					if (!this.alive) return;
 					var sprite;
+					var needsMirror = false;
 					if (this.type === "episode1_ghost") {
-						sprite = (this.dir > 0) ? this.ghostImgR : this.ghostImgL;
+						// Ghost PNGs face LEFT natively. Use base image always, mirror when going RIGHT.
+						sprite = this.ghostImgR; // same image for both
+						if (this.dir > 0) needsMirror = true; // going right = flip the left-facing sprite
 					} else if (this.type === "cactus") {
 						sprite = (this.dir > 0) ? cactusRight : cactusLeft;
 					} else if (this.type === "skull") {
@@ -962,8 +965,15 @@
 						sprite = (this.dir > 0) ? sickCrowLeft : sickCrowRight;
 					}
 
-
-					g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, this.width, this.height);
+					if (needsMirror) {
+						g_ctx.save();
+						g_ctx.translate(this.xPos + map_offset + this.width / 2, this.yPos + this.height / 2);
+						g_ctx.scale(-1, 1);
+						g_ctx.drawImage(sprite, -this.width / 2, -this.height / 2, this.width, this.height);
+						g_ctx.restore();
+					} else {
+						g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, this.width, this.height);
+					}
 					
 					if (this.lives > 0) {
 						var barWidth = Math.min(this.width, 48);
@@ -4126,6 +4136,7 @@ var g_binaryBits = [];
 							this.xPos = this.maxX;
 							this.vx = -Math.abs(this.vx) || -2;
 						}
+						this.dir = (this.vx > 0) ? 1 : -1;
 
 						if (this.shootCooldown > 0) {
 							this.shootCooldown--;
