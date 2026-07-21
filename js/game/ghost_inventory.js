@@ -61,11 +61,11 @@ window.UnlockGhostForPlayer = function(ghostId) {
                 name: ghostName,
                 level: 1,
                 xp: 0,
-                vit: baseStats.hp || 50,
-                agi: baseStats.velocidade || 50,
-                int: baseStats.atq_especial || 50,
-                pow: baseStats.ataque || 50,
-                mag: baseStats.def_especial || 50,
+                vit: Math.ceil((baseStats.hp || 50) / 10),
+                agi: Math.ceil((baseStats.velocidade || 50) / 10),
+                int: Math.ceil((baseStats.atq_especial || 50) / 10),
+                pow: Math.ceil((baseStats.ataque || 50) / 10),
+                mag: Math.ceil((baseStats.def_especial || 50) / 10),
                 inventory: [],
                 equipment: { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null }
             });

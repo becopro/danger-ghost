@@ -307,16 +307,27 @@ window.PlayAsGhost = function(ghostId) {
             name: ghostName,
             level: 1,
             xp: 0,
-            vit: hp,
-            agi: spd,
-            int: spAtk,
-            pow: atk,
-            mag: spDef,
+            vit: Math.ceil(hp / 10) || 1,
+            agi: Math.ceil(spd / 10) || 1,
+            int: Math.ceil(spAtk / 10) || 1,
+            pow: Math.ceil(atk / 10) || 1,
+            mag: Math.ceil(spDef / 10) || 1,
             inventory: [],
             equipment: { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null }
         });
         localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
         console.log("👻 RPG Profile generated retroactively for ghost:", charId);
+    } else if (existingChar.level === 1 && existingChar.vit > 20) {
+        let dbGhost = window.g_ghostdexDB ? window.g_ghostdexDB.find(g => g.id === ghostId) : null;
+        if (dbGhost && dbGhost.stats_base) {
+            existingChar.vit = Math.ceil(dbGhost.stats_base.hp / 10) || 1;
+            existingChar.pow = Math.ceil(dbGhost.stats_base.ataque / 10) || 1;
+            existingChar.agi = Math.ceil(dbGhost.stats_base.velocidade / 10) || 1;
+            existingChar.int = Math.ceil(dbGhost.stats_base.atq_especial / 10) || 1;
+            existingChar.mag = Math.ceil(dbGhost.stats_base.def_especial / 10) || 1;
+            localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
+            console.log("👻 RPG Profile stats fixed retroactively for ghost:", charId);
+        }
     }
     
     if (typeof window.SelectCharacterToPlay === 'function') {
