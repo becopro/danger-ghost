@@ -144,6 +144,9 @@
                     stats.score = window.g_score;
                     stats.time = window.g_globalTotalTime;
                     
+                    if (typeof window.g_currentLevel !== 'undefined') {
+                        localStorage.setItem("dg_saved_level", window.g_currentLevel);
+                    }
                     var localChars = [];
                     var raw = localStorage.getItem("dg_local_characters");
                     if (raw) localChars = JSON.parse(raw);

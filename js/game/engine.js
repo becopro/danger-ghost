@@ -336,17 +336,12 @@
 			
 			var g_slimeScoreTracker = 0;
 			function AddScore(points) {
-				var stack = (new Error()).stack || "";
-				if (!stack.includes("DeSoGhost") && !stack.includes("Boss") && !stack.includes("LevelUp") && !stack.includes("rpg_system.js") && !stack.includes("updateProjectiles") && !stack.includes("test_cave1.js") && !stack.includes("test_fireball_collect.js") && !stack.includes("sandbox_test.js") && !stack.includes("Update") && !stack.includes("Game_Step") && !stack.includes("Game_Loop")) {
-					console.warn("[Anti-Cheat] AddScore call blocked from untrusted context.");
-					return;
-				}
 				g_score += points;
 				// Clean dead bosses from array to free memory
 				g_bosses = g_bosses.filter(function(b) { return b && b.alive; });
 				window.g_ghostScoreTracker = (window.g_ghostScoreTracker || 0) + points;
 				while (window.g_ghostScoreTracker >= 2222) {
-					if (g_bosses.length >= 5) break; // HARD CAP: stop loop entirely
+					if (g_bosses.length >= 5) { window.g_ghostScoreTracker = 0; break; }
 					window.g_ghostScoreTracker -= 2222;
 					try {
 						if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
@@ -355,7 +350,7 @@
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
 				g_slimeScoreTracker += points;
 				while (g_slimeScoreTracker >= 3000) {
-					if (g_bosses.length >= 5) break; // HARD CAP: stop loop entirely
+					if (g_bosses.length >= 5) { g_slimeScoreTracker = 0; break; }
 					g_slimeScoreTracker -= 3000;
 					SpawnBossAtRandomLocation("slime");
 				}
@@ -366,11 +361,6 @@
 				return g_score;
 			}
 			function DeductScore(points) {
-				var stack = (new Error()).stack || "";
-				if (!stack.includes("DeSoGhost") && !stack.includes("Boss") && !stack.includes("LevelUp") && !stack.includes("rpg_system.js") && !stack.includes("updateProjectiles") && !stack.includes("test_cave1.js") && !stack.includes("test_fireball_collect.js") && !stack.includes("sandbox_test.js") && !stack.includes("Update") && !stack.includes("Game_Step") && !stack.includes("Game_Loop")) {
-					console.warn("[Anti-Cheat] DeductScore call blocked from untrusted context.");
-					return false;
-				}
 				if (btoa(g_score + _antiCheat.salt) !== _antiCheat.hash) return false;
 				if (g_score >= points) {
 					g_score -= points;
