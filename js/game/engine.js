@@ -346,7 +346,7 @@
 				while (window.g_ghostScoreTracker >= 2222) {
 					window.g_ghostScoreTracker -= 2222;
 					try {
-						if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
+						if (typeof window.SpawnNativeGhosts === "function" && g_bosses.length < 20) window.SpawnNativeGhosts(1);
 					} catch(e) { console.error("Error spawning ghosts", e); }
 				}
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
@@ -354,7 +354,9 @@
 				if (g_slimeScoreTracker >= 3000) {
 					while (g_slimeScoreTracker >= 3000) {
 						g_slimeScoreTracker -= 3000;
-						SpawnBossAtRandomLocation("slime");
+						if (g_bosses.length < 20) {
+							SpawnBossAtRandomLocation("slime");
+						}
 					}
 				}
 			}
@@ -1649,7 +1651,7 @@
 
 					var screenX = p.x + map_offset;
 
-					if (p.life <= 0 || screenX < -50 || screenX > 700) {
+					if (p.life <= 0 || screenX < -50 || screenX > 700 || p.y < -50 || p.y > 600) {
 						g_projectiles.splice(i, 1);
 						continue;
 					}
@@ -2993,7 +2995,11 @@ var g_binaryBits = [];
 					}
 
 					if (typeof g_bosses !== 'undefined') {
-						g_bosses = g_bosses.filter(function(b) { return b.alive; });
+						for (var i = g_bosses.length - 1; i >= 0; i--) {
+							if (!g_bosses[i].alive) {
+								g_bosses.splice(i, 1);
+							}
+						}
 						g_bosses.forEach(function(b) { b.update(); });
 						g_boss = g_bosses.length > 0 ? g_bosses[0] : null;
 					} else if (g_boss) {
