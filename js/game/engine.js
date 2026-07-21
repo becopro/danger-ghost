@@ -1137,8 +1137,19 @@
 						
 						var curRight = window.g_customPlayerGhostRight || desoGhostRight;
 						var curLeft = window.g_customPlayerGhostLeft || desoGhostLeft;
-						var sprite = (this.face == 1) ? curRight : curLeft;
-						g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, 24, 24);
+						if (this.face == 1) {
+							g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
+						} else {
+							if (window.g_customPlayerGhostRight && (!window.g_customPlayerGhostLeft || window.g_customPlayerGhostLeft === window.g_customPlayerGhostRight)) {
+								g_ctx.save();
+								g_ctx.translate(this.xPos + map_offset + 12, this.yPos + 12);
+								g_ctx.scale(-1, 1);
+								g_ctx.drawImage(curRight, -12, -12, 24, 24);
+								g_ctx.restore();
+							} else {
+								g_ctx.drawImage(curLeft, this.xPos + map_offset, this.yPos, 24, 24);
+							}
+						}
 						if (this.ghostMode) g_ctx.globalAlpha = 1.0;
 						
 						// Draw Local Player Name
@@ -1642,6 +1653,7 @@
 			}
 
 			function updateProjectiles() {
+				if (g_projectiles.length > 300) g_projectiles.splice(0, g_projectiles.length - 300);
 				var stats = GhostRPG.getStats();
 				for (var i = g_projectiles.length - 1; i >= 0; i--) {
 					var p = g_projectiles[i];
@@ -1871,6 +1883,7 @@
 			}
 
 			function updateVisualEffects() {
+				if (g_visualEffects.length > 300) g_visualEffects.splice(0, g_visualEffects.length - 300);
 				for (var i = g_visualEffects.length - 1; i >= 0; i--) {
 					var fx = g_visualEffects[i];
 					fx.life--;
@@ -2995,6 +3008,7 @@ var g_binaryBits = [];
 					}
 
 					if (typeof g_bosses !== 'undefined') {
+						if (g_bosses.length > 50) g_bosses.splice(0, g_bosses.length - 50);
 						for (var i = g_bosses.length - 1; i >= 0; i--) {
 							if (!g_bosses[i].alive) {
 								g_bosses.splice(i, 1);
