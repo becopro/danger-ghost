@@ -4031,35 +4031,21 @@ var g_binaryBits = [];
 
 			window.SpawnEpisode1Ghost = function(ghostId) {
 				try {
-					var ghostCount = 0;
-					if (typeof g_bosses !== 'undefined') {
-						for (var i = 0; i < g_bosses.length; i++) {
-							if (g_bosses[i].isEpisode1Ghost && g_bosses[i].alive) ghostCount++;
-						}
-					}
-					if (ghostCount >= 5) return; // limit to 5 ghosts on screen at once
-
 					g_screenShakeTime = 30;
 					g_screenShakeIntensity = 12;
-					
-					var epx = (typeof DeSoGhost !== 'undefined') ? DeSoGhost.xPos + (Math.random() > 0.5 ? 150 : -150) : 100;
-					if (epx < 0) epx = 50;
-					if (epx > 2350) epx = 2300;
-					
-					var epy = (typeof DeSoGhost !== 'undefined') ? DeSoGhost.yPos - 20 : 100; 
-					if (epy < 0) epy = 20;
 
+					var epx = g_canvas.width;
+					var epy = -40;
+					if (Math.random() > 0.5) { epx = -40; }
+					
 					var boss = new c_Boss(epx, epy, "episode1_ghost");
 					boss.ghostId = ghostId;
 					boss.isEpisode1Ghost = true;
-					boss.minX = Math.max(0, epx - 200);
-					boss.maxX = Math.min(2350, epx + 200);
-					
 					boss.ghostImgR = new Image();
 					boss.ghostImgR.src = 'Ghosts/%23' + ghostId + '.png';
 					boss.ghostImgL = new Image();
 					boss.ghostImgL.src = 'Ghosts/%23' + ghostId + '.png';
-					
+
 					var lvlNum = 1;
 					if (typeof g_currentLevel === 'string') {
 						var m = g_currentLevel.match(/\d+/);
@@ -4067,8 +4053,122 @@ var g_binaryBits = [];
 					} else if (typeof g_currentLevel === 'number') {
 						lvlNum = g_currentLevel;
 					}
-					boss.maxHp = 100 + (lvlNum * 50);
+					boss.maxHp = Math.floor(100 * 10 * Math.pow(1.15, lvlNum));
 					boss.lives = boss.maxHp;
+
+					boss.vx = (epx < 0) ? 2 : -2;
+					boss.vy = 2;
+					boss.width = 32;
+					boss.height = 32;
+					boss.shootCooldown = 100;
+					boss.phantomFormTimer = 0;
+
+					var coords = (typeof FindRandomPlatformCoordinates === "function") ? FindRandomPlatformCoordinates() : null;
+					if (coords) {
+						boss.xPos = coords.x;
+						boss.yPos = coords.y;
+						boss.minX = coords.minX;
+						boss.maxX = coords.maxX;
+						boss.groundY = coords.y;
+					} else if (typeof DeSoGhost !== 'undefined') {
+						boss.xPos = DeSoGhost.xPos;
+						boss.yPos = DeSoGhost.yPos;
+						boss.minX = DeSoGhost.xPos - 100;
+						boss.maxX = DeSoGhost.xPos + 100;
+						boss.groundY = DeSoGhost.yPos;
+					} else {
+						boss.xPos = 100;
+						boss.yPos = 100;
+						boss.minX = 0;
+						boss.maxX = 200;
+						boss.groundY = 100;
+					}
+
+					boss.update = function () {
+						this.vy += 0.5; // gravity
+						this.xPos += this.vx;
+						this.yPos += this.vy;
+
+						if (this.yPos >= this.groundY) {
+							this.yPos = this.groundY;
+							this.vy = 0;
+							if (Math.random() < 0.05) { // random jump trigger
+								this.vy = -10;
+							}
+						}
+
+						if (this.xPos <= this.minX) {
+							this.xPos = this.minX;
+							this.vx = Math.abs(this.vx) || 2;
+						} else if (this.xPos >= this.maxX) {
+							this.xPos = this.maxX;
+							this.vx = -Math.abs(this.vx) || -2;
+						}
+
+						if (this.shootCooldown > 0) {
+							this.shootCooldown--;
+						} else {
+							var spell = Math.floor(Math.random() * 4);
+							if (spell === 0) {
+								// Spectral Spark
+								if (typeof g_projectiles !== 'undefined') {
+									var dirX = (this.vx > 0 ? 6 : -6);
+									g_projectiles.push({ x: this.xPos, y: this.yPos, vx: dirX, vy: -2, hostile: true, isEnemy: true, width: 8, height: 8, damage: 15, life: 100 });
+									g_projectiles.push({ x: this.xPos, y: this.yPos, vx: dirX, vy: 0, hostile: true, isEnemy: true, width: 8, height: 8, damage: 15, life: 100 });
+									g_projectiles.push({ x: this.xPos, y: this.yPos, vx: dirX, vy: 2, hostile: true, isEnemy: true, width: 8, height: 8, damage: 15, life: 100 });
+								}
+							} else if (spell === 1) {
+								// Plasma Orb
+								if (typeof g_projectiles !== 'undefined') {
+									var dirX = (this.vx > 0 ? 3 : -3);
+									g_projectiles.push({ x: this.xPos, y: this.yPos - 10, vx: dirX, vy: 0, hostile: true, isEnemy: true, width: 24, height: 24, damage: 45, life: 100 });
+								}
+							} else if (spell === 2) {
+								// Ghost Mode
+								this.xPos = this.minX + Math.random() * (this.maxX - this.minX);
+								this.yPos = this.groundY - Math.random() * 60;
+								if (typeof obtainExplosionEffect === "function") {
+									g_visualEffects.push(obtainExplosionEffect(this.xPos, this.yPos, "#9932CC", 5));
+								}
+							} else if (spell === 3) {
+								// Phantom Form
+								this.phantomFormTimer = 180;
+							}
+							this.shootCooldown = 80 + Math.floor(Math.random() * 60);
+						}
+
+						if (this.phantomFormTimer > 0) {
+							this.phantomFormTimer--;
+							var speedMod = 1.5;
+							if (this.xPos <= this.minX) { this.vx = Math.abs(this.vx) * speedMod; } 
+							else if (this.xPos >= this.maxX) { this.vx = -Math.abs(this.vx) * speedMod; }
+						}
+
+						if (this.shockTimer > 0) this.shockTimer--;
+
+						if (this.lives <= 0) {
+							if (this.alive) {
+								this.alive = false;
+								if (window.emitKillBoss) window.emitKillBoss(this.id || 0);
+								if (typeof GhostRPG !== 'undefined' && GhostRPG.addXp) GhostRPG.addXp(Math.floor(this.maxHp * 5));
+								if (window.RollEnemyDrop) window.RollEnemyDrop(g_currentLevel);
+								
+								// CAPTURE THE GHOST!
+								if (window.UnlockGhostForPlayer) {
+									window.UnlockGhostForPlayer(this.ghostId);
+								}
+							}
+						}
+
+						if (DeSoGhost.alive && !DeSoGhost.ghostMode && DeSoGhost.phantomFormTimer <= 0) {
+							if (this.xPos < DeSoGhost.xPos + 24 && this.xPos + this.width > DeSoGhost.xPos &&
+								this.yPos < DeSoGhost.yPos + 24 && this.yPos + this.height > DeSoGhost.yPos) {
+								DeSoGhost.alive = false;
+								if (window.emitBossCollision) window.emitBossCollision();
+							}
+						}
+					};
+
 				} catch(e) {
 					console.error("Error in SpawnEpisode1Ghost:", e);
 				}
