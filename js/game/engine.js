@@ -1137,18 +1137,20 @@
 						
 						var curRight = window.g_customPlayerGhostRight || desoGhostRight;
 						var curLeft = window.g_customPlayerGhostLeft || desoGhostLeft;
+						var isCustom = !!window.g_customPlayerGhostRight;
+
 						if (this.face == 1) {
-							g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
-						} else {
-							if (window.g_customPlayerGhostRight && (!window.g_customPlayerGhostLeft || window.g_customPlayerGhostLeft === window.g_customPlayerGhostRight)) {
+							if (isCustom) {
 								g_ctx.save();
 								g_ctx.translate(this.xPos + map_offset + 12, this.yPos + 12);
 								g_ctx.scale(-1, 1);
 								g_ctx.drawImage(curRight, -12, -12, 24, 24);
 								g_ctx.restore();
 							} else {
-								g_ctx.drawImage(curLeft, this.xPos + map_offset, this.yPos, 24, 24);
+								g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
 							}
+						} else {
+							g_ctx.drawImage(curLeft, this.xPos + map_offset, this.yPos, 24, 24);
 						}
 						if (this.ghostMode) g_ctx.globalAlpha = 1.0;
 						

@@ -42,6 +42,36 @@ window.UnlockGhostForPlayer = function(ghostId) {
         };
         SavePlayerGhostInventory(inv);
         console.log("👻 GHOST CAPTURED! Added to inventory:", idStr);
+
+        // Generate RPG Profile with UNIQUE BAG
+        let localChars = localStorage.getItem("dg_local_characters");
+        if (!localChars) localChars = "[]";
+        localChars = JSON.parse(localChars);
+        
+        let charId = "ghost_" + idStr;
+        let existingChar = localChars.find(c => c.characterId === charId);
+        if (!existingChar) {
+            let ghostName = "Unknown Ghost";
+            if (window.g_ghostdexDB) {
+                let dbGhost = window.g_ghostdexDB.find(g => g.id === idStr);
+                if (dbGhost) ghostName = dbGhost.nome;
+            }
+            localChars.push({
+                characterId: charId,
+                name: ghostName,
+                level: 1,
+                xp: 0,
+                vit: baseStats.hp || 50,
+                agi: baseStats.velocidade || 50,
+                int: baseStats.atq_especial || 50,
+                pow: baseStats.ataque || 50,
+                mag: baseStats.def_especial || 50,
+                inventory: [],
+                equipment: { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null }
+            });
+            localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
+            console.log("👻 RPG Profile generated for ghost:", charId);
+        }
         
         // Update the Ghostdex UI visually
         if (typeof window.UpdateGhostdex === 'function') {

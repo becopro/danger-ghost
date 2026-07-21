@@ -283,6 +283,10 @@ window.PlayAsGhost = function(ghostId) {
     window.g_currentPlayerGhost = ghostId;
     console.log("Player is now playing as Ghost ID:", ghostId);
     
+    if (typeof window.SelectCharacterToPlay === 'function') {
+        window.SelectCharacterToPlay("ghost_" + ghostId);
+    }
+    
     if (typeof GhostRPG !== 'undefined' && GhostRPG.SwitchActiveGhost) {
         GhostRPG.SwitchActiveGhost(ghostId);
     }
