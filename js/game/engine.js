@@ -346,7 +346,7 @@
 				while (window.g_ghostScoreTracker >= 2222) {
 					window.g_ghostScoreTracker -= 2222;
 					try {
-						if (typeof window.SpawnNativeGhosts === "function" && g_bosses.length < 20) window.SpawnNativeGhosts(1);
+						if (typeof window.SpawnNativeGhosts === "function" && g_bosses.length < 5) window.SpawnNativeGhosts(1);
 					} catch(e) { console.error("Error spawning ghosts", e); }
 				}
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
@@ -354,7 +354,7 @@
 				if (g_slimeScoreTracker >= 3000) {
 					while (g_slimeScoreTracker >= 3000) {
 						g_slimeScoreTracker -= 3000;
-						if (g_bosses.length < 20) {
+						if (g_bosses.length < 5) {
 							SpawnBossAtRandomLocation("slime");
 						}
 					}
@@ -2843,7 +2843,7 @@
 				if (g_currentLevel === "cave1" || g_currentLevel === "CAVE1") return;
 				if (typeof g_bosses !== 'undefined') {
 					var aliveBosses = g_bosses.filter(function(b) { return b.alive; });
-					if (aliveBosses.length >= 6) return;
+					if (aliveBosses.length >= 5) return;
 				}
 				bossType = bossType || "crow";
 				g_screenShakeTime = 30; // 30 frames de tremor (~1 segundo)
