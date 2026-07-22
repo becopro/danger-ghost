@@ -1112,92 +1112,53 @@ body {
 
 #gameNavbar {
     display: flex;
-    gap: 15px;
+    gap: 8px;
     box-sizing: border-box;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
 }
 
 #gameNavbar button {
     font-family: var(--font-title) !important;
     font-weight: 700 !important;
     font-size: 13px !important;
-    letter-spacing: 1.5px;
-    padding: 10px 24px !important;
-    border-radius: 0px !important; /* Sharp corners */
-    background: transparent !important;
+    letter-spacing: 2px;
+    padding: 14px 22px !important;
+    min-width: 100px;
+    border-radius: 6px !important;
+    border: none !important;
+    background: url('assets/sprites/btn_bg.png') center/cover no-repeat !important;
+    color: #FFF !important;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.6), 0 1px 2px rgba(0, 0, 0, 0.8);
     cursor: pointer !important;
     outline: none;
     text-transform: uppercase;
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
-#btnNavControls {
-    border: 1.5px solid var(--yellow-neon) !important;
-    color: var(--yellow-neon) !important;
-}
-#btnNavControls:hover {
-    background: var(--yellow-neon) !important;
-    color: #000 !important;
-    box-shadow: 0 0 15px var(--yellow-neon) !important;
+#gameNavbar button:hover {
+    filter: brightness(1.35) !important;
+    transform: scale(1.05);
+    box-shadow: 0 0 18px rgba(0, 255, 255, 0.4), 0 0 18px rgba(255, 0, 255, 0.3) !important;
+    text-shadow: 0 0 12px rgba(0, 255, 255, 0.9), 0 0 20px rgba(255, 0, 255, 0.5);
 }
 
-#btnNavRPG {
-    border: 1.5px solid var(--green-neon) !important;
-    color: var(--green-neon) !important;
-}
-#btnNavRPG:hover {
-    background: var(--green-neon) !important;
-    color: #000 !important;
-    box-shadow: 0 0 15px var(--green-neon) !important;
+#gameNavbar button:active {
+    filter: brightness(0.9) !important;
+    transform: scale(0.97);
 }
 
-#btnNavBag {
-    border: 1.5px solid var(--magenta-neon) !important;
-    color: var(--magenta-neon) !important;
+/* Remove all individual button color overrides — image provides the visual */
+#btnNavControls, #btnNavRPG, #btnNavBag, #btnNavEquip,
+#btnNavSpells, #btnNavChat, #btnNavSave, #btnNavLogin, #btnNavGhostdex {
+    border: none !important;
 }
-#btnNavBag:hover {
-    background: var(--magenta-neon) !important;
-    color: #000 !important;
-    box-shadow: 0 0 15px var(--magenta-neon) !important;
-}
-
-#btnNavEquip {
-    border: 1.5px solid #ffaa00 !important;
-    color: #ffaa00 !important;
-}
-#btnNavEquip:hover {
-    background: #ffaa00 !important;
-    color: #000 !important;
-    box-shadow: 0 0 15px #ffaa00 !important;
-}
-
-#btnNavSpells {
-    border: 1.5px solid var(--red-neon) !important;
-    color: var(--red-neon) !important;
-}
-#btnNavSpells:hover {
-    background: var(--red-neon) !important;
-    color: #000 !important;
-    box-shadow: 0 0 15px var(--red-neon) !important;
-}
-
-#btnNavChat {
-    border: 1.5px solid var(--cyan-neon) !important;
-    color: var(--cyan-neon) !important;
-}
-#btnNavChat:hover {
-    background: var(--cyan-neon) !important;
-    color: #000 !important;
-    box-shadow: 0 0 15px var(--cyan-neon) !important;
-}
-
-#btnNavSave {
-    border: 1.5px solid var(--green-neon) !important;
-    color: var(--green-neon) !important;
-}
-#btnNavSave:hover {
-    background: var(--green-neon) !important;
-    color: #000 !important;
-    box-shadow: 0 0 15px var(--green-neon) !important;
+#btnNavControls:hover, #btnNavRPG:hover, #btnNavBag:hover, #btnNavEquip:hover,
+#btnNavSpells:hover, #btnNavChat:hover, #btnNavSave:hover, #btnNavLogin:hover, #btnNavGhostdex:hover {
+    background-color: transparent !important;
 }
 
 .social-link-bar {
