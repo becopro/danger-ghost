@@ -340,20 +340,25 @@
 				// Clean dead bosses from array to free memory
 				g_bosses = g_bosses.filter(function(b) { return b && b.alive; });
 				window.g_ghostScoreTracker = (window.g_ghostScoreTracker || 0) + points;
-				while (window.g_ghostScoreTracker >= 2222) {
+				var loopSafeGhost = 0;
+				while (window.g_ghostScoreTracker >= 2222 && loopSafeGhost++ < 20) {
 					if (g_bosses.length >= 5) { window.g_ghostScoreTracker = 0; break; }
 					window.g_ghostScoreTracker -= 2222;
 					try {
 						if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
 					} catch(e) { console.error("Error spawning ghosts", e); }
 				}
+				if (loopSafeGhost >= 20) window.g_ghostScoreTracker = 0;
+
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
 				g_slimeScoreTracker += points;
-				while (g_slimeScoreTracker >= 3000) {
+				var loopSafeSlime = 0;
+				while (g_slimeScoreTracker >= 3000 && loopSafeSlime++ < 20) {
 					if (g_bosses.length >= 5) { g_slimeScoreTracker = 0; break; }
 					g_slimeScoreTracker -= 3000;
 					SpawnBossAtRandomLocation("slime");
 				}
+				if (loopSafeSlime >= 20) g_slimeScoreTracker = 0;
 			}
 
 			function GetScore() {
@@ -545,7 +550,8 @@
 					if (levelNum == 26) {
 						// Expandir a matriz para 100 colunas (preenchendo com 0)
 						for (var r = 0; r < 11; r++) {
-							while (this.bitmap[r].length < 100) {
+							var loopSafe1 = 0;
+							while (this.bitmap[r].length < 100 && loopSafe1++ < 200) {
 								this.bitmap[r].push(0);
 							}
 						}
@@ -579,7 +585,8 @@
 
 						for (var rPlat = 4; rPlat <= 8; rPlat += 2) {
 							var c = 4;
-							while (c < 95) {
+							var loopSafe2 = 0;
+							while (c < 95 && loopSafe2++ < 1000) {
 								var rVal = seededRandom26();
 								if (rVal < 0.75) { // 75% de chance de iniciar uma plataforma
 									var platLength = Math.floor(seededRandom26() * 4) + 3; // comprimento de 3 a 6
@@ -679,7 +686,8 @@
 						// Gerar plataformas suspensas e distribuir muitos diamantes e vidas extras
 						for (var rPlat = 3; rPlat <= 7; rPlat += 2) {
 							var c = 50;
-							while (c < 97) {
+							var loopSafe3 = 0;
+							while (c < 97 && loopSafe3++ < 1000) {
 								var rVal = seededRandom();
 								if (rVal < 0.60) { // 60% de chance de iniciar uma plataforma
 									var platLength = Math.floor(seededRandom() * 4) + 3; // comprimento de 3 a 6 blocos
@@ -706,7 +714,8 @@
 
 						// 5. Force exactly 100 cols row size safety
 						for (var r = 0; r < 11; r++) {
-							while (this.bitmap[r].length < 100) this.bitmap[r].push(0);
+							var loopSafe4 = 0;
+							while (this.bitmap[r].length < 100 && loopSafe4++ < 200) this.bitmap[r].push(0);
 							if (this.bitmap[r].length > 100) this.bitmap[r] = this.bitmap[r].slice(0, 100);
 						}
 					}
@@ -2795,7 +2804,8 @@
 							}
 							if (isSpaceFree) {
 								var minCol = c;
-								while (minCol > 0) {
+								var safeMin = 0;
+								while (minCol > 0 && safeMin++ < 200) {
 									var t = map.bitmap[r][minCol - 1];
 									if (t == 1 || t == 2 || t == 13 || t == 14 || t == 20) {
 										minCol--;
@@ -2804,7 +2814,8 @@
 									}
 								}
 								var maxCol = c + 2;
-								while (maxCol < 99) {
+								var safeMax = 0;
+								while (maxCol < 99 && safeMax++ < 200) {
 									var t = map.bitmap[r][maxCol + 1];
 									if (t == 1 || t == 2 || t == 13 || t == 14 || t == 20) {
 										maxCol++;

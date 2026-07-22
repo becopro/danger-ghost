@@ -89,7 +89,9 @@ window.AddXpToGhost = function(ghostId, xpAmount) {
         console.log(`👻 Ghost ${idStr} gained ${xpAmount} XP. Total: ${inv[idStr].xp}/${inv[idStr].xpNext}`);
         
         // Level up logic
-        while (inv[idStr].xp >= inv[idStr].xpNext) {
+        let ghostSafeLoop = 0;
+        while (inv[idStr].xp >= inv[idStr].xpNext && ghostSafeLoop++ < 1000) {
+            if (!inv[idStr].xpNext || inv[idStr].xpNext <= 0) inv[idStr].xpNext = 1000;
             inv[idStr].xp -= inv[idStr].xpNext;
             inv[idStr].level++;
             inv[idStr].xpNext = Math.floor(inv[idStr].xpNext * 1.5);
