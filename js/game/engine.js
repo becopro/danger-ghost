@@ -1149,20 +1149,20 @@
 						var isCustom = !!window.g_customPlayerGhostRight;
 
 						if (this.face == 1) {
-							// For custom ghosts (which naturally face right), we don't flip when moving right
-							g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
-						} else {
-							// Moving left
+							// Moving right
 							if (isCustom) {
-								// Custom ghosts face right natively, so flip them to face left
+								// Custom ghosts face left natively, so flip them to face right
 								g_ctx.save();
 								g_ctx.translate(this.xPos + map_offset + 12, this.yPos + 12);
 								g_ctx.scale(-1, 1);
-								g_ctx.drawImage(curLeft, -12, -12, 24, 24);
+								g_ctx.drawImage(curRight, -12, -12, 24, 24);
 								g_ctx.restore();
 							} else {
-								g_ctx.drawImage(curLeft, this.xPos + map_offset, this.yPos, 24, 24);
+								g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
 							}
+						} else {
+							// Moving left
+							g_ctx.drawImage(curLeft, this.xPos + map_offset, this.yPos, 24, 24);
 						}
 						if (this.ghostMode) g_ctx.globalAlpha = 1.0;
 						
@@ -3050,11 +3050,30 @@ var g_binaryBits = [];
 						if (id === window.NetworkState.playerId) continue;
 						var pos = window.NetworkState.otherPlayers[id];
 						if (pos) {
-							var pLevel = pos.level || 'level 1';
-							// Removed level restriction to force visibility
+							var isCustomNetwork = !!pos.characterId;
 							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
+							if (isCustomNetwork) {
+								var cached = window.NetworkState.ghostImageCache[pos.characterId];
+								if (cached && cached.complete) {
+									sprite = cached;
+								}
+							}
 							g_ctx.globalAlpha = 0.5;
-							g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
+							if (isCustomNetwork) {
+								if (pos.isFacingRight !== false) {
+									// Moving right, flip the natively left-facing custom ghost
+									g_ctx.save();
+									g_ctx.translate(pos.x + map_offset + 12, pos.y + 12);
+									g_ctx.scale(-1, 1);
+									g_ctx.drawImage(sprite, -12, -12, 24, 24);
+									g_ctx.restore();
+								} else {
+									// Moving left, draw natively
+									g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
+								}
+							} else {
+								g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
+							}
 							g_ctx.globalAlpha = 1.0;
 							
 							if (pos.name) {
