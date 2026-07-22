@@ -1,4 +1,4 @@
-			// --- SHIELD PROTOCOL (ANTI-HACKER / ANTI-DEVTOOLS) ---
+// --- SHIELD PROTOCOL (ANTI-HACKER / ANTI-DEVTOOLS) ---
 			
 			// 1. Console Blackout (Silence all outputs in production)
 			// console.log = function() {};
@@ -7,6 +7,17 @@
 			// console.info = function() {};
 			// console.dir = function() {};
 			
+			// --- SAFETY PATCH ---
+			// Prevent "InvalidStateError" crashes when a sprite fails to load
+			var __originalDrawImage = CanvasRenderingContext2D.prototype.drawImage;
+			CanvasRenderingContext2D.prototype.drawImage = function(image) {
+				if (image instanceof HTMLImageElement && (!image.complete || image.naturalWidth === 0)) {
+					return; // Silently skip drawing broken images instead of crashing the entire game loop
+				}
+				return __originalDrawImage.apply(this, arguments);
+			};
+			// --------------------
+
 			// 2. Block Right-Click (Context Menu)
 			document.addEventListener('contextmenu', function(e) {
 				e.preventDefault();
