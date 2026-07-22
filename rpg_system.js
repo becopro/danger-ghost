@@ -511,6 +511,7 @@ var GhostRPG = (function() {
                 }
                 
                 var saved = localStorage.getItem("DangerGhost_RPG_Save");
+                if (saved) {
                     var decrypted = (window.SafeAtob || atob)(saved);
                     var parts = decrypted.split("||");
                     var data = JSON.parse(parts[0]);
