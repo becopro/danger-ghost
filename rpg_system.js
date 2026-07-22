@@ -499,6 +499,14 @@ var GhostRPG = (function() {
                                 });
                             }
                             if (typeof state.deaths === 'undefined') state.deaths = 0;
+                            
+                            var expectedPoints = (state.level - 1) * 5;
+                            var usedPoints = (state.vit - 1) + (state.agi - 1) + (state.int - 1) + (state.pow - 1) + (state.mag - 1);
+                            var rightfulPoints = Math.max(0, expectedPoints - usedPoints);
+                            if (typeof state.pointsToDistribute === 'undefined' || state.pointsToDistribute < rightfulPoints) {
+                                state.pointsToDistribute = rightfulPoints;
+                            }
+                            
                             state.xpRequired = calculateXpRequired(state.level);
                             updateIntegrityHash();
                             console.log("[RPG] Status carregado do dg_local_characters para ghost: " + state.characterId);
@@ -538,6 +546,14 @@ var GhostRPG = (function() {
                     
                     if (charToLoad) state.characterId = charToLoad;
                     if (typeof state.deaths === 'undefined') state.deaths = 0;
+
+                    var expectedPoints = (state.level - 1) * 5;
+                    var usedPoints = (state.vit - 1) + (state.agi - 1) + (state.int - 1) + (state.pow - 1) + (state.mag - 1);
+                    var rightfulPoints = Math.max(0, expectedPoints - usedPoints);
+                    if (typeof state.pointsToDistribute === 'undefined' || state.pointsToDistribute < rightfulPoints) {
+                        state.pointsToDistribute = rightfulPoints;
+                    }
+
                     state.xpRequired = calculateXpRequired(state.level);
                     updateIntegrityHash();
                 }
@@ -601,6 +617,13 @@ var GhostRPG = (function() {
             var parsedPoints = parseInt(pointsToDistribute, 10);
             state.pointsToDistribute = (!isNaN(parsedPoints)) ? parsedPoints : 0;
             
+            var expectedPoints = (state.level - 1) * 5;
+            var usedPoints = (state.vit - 1) + (state.agi - 1) + (state.int - 1) + (state.pow - 1) + (state.mag - 1);
+            var rightfulPoints = Math.max(0, expectedPoints - usedPoints);
+            if (state.pointsToDistribute < rightfulPoints) {
+                state.pointsToDistribute = rightfulPoints;
+            }
+            
             state.xpRequired = calculateXpRequired(state.level);
             state.equippedSkills = equippedSkills || [0, 1, 2, 3];
             state.equippedRunes = equippedRunes || [0, 0, 0, 0];
@@ -642,8 +665,16 @@ var GhostRPG = (function() {
             if (Array.isArray(serverState.equippedPassives)) state.equippedPassives = serverState.equippedPassives;
             
             if (serverState.weapon) state.weapon = serverState.weapon;
-            if (Array.isArray(serverState.inventory)) state.inventory = serverState.inventory;
+            if (serverState.inventory) state.inventory = serverState.inventory;
             if (serverState.equipment) state.equipment = serverState.equipment;
+            if (serverState.deaths !== undefined) state.deaths = serverState.deaths;
+            
+            var expectedPoints = (state.level - 1) * 5;
+            var usedPoints = (state.vit - 1) + (state.agi - 1) + (state.int - 1) + (state.pow - 1) + (state.mag - 1);
+            var rightfulPoints = Math.max(0, expectedPoints - usedPoints);
+            if (typeof state.pointsToDistribute === 'undefined' || state.pointsToDistribute < rightfulPoints) {
+                state.pointsToDistribute = rightfulPoints;
+            }
             
             state.xpRequired = calculateXpRequired(state.level);
             updateIntegrityHash();
