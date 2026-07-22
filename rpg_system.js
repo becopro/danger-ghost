@@ -310,14 +310,15 @@ var GhostRPG = (function() {
             
             return statsCopy;
         },
-        resetStats: function() {
+        resetStats: function(newCharId) {
+            var currCharId = newCharId || state.characterId || "";
             var oldInventory = state.inventory || [];
             var oldEquipment = state.equipment || { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
             if (oldEquipment.helmet || oldEquipment.spell) {
                 oldEquipment = { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
             }
             state = { 
-                level: 1, xp: 0, xpRequired: 100, pointsToDistribute: 0, vit: 1, agi: 1, int: 1, pow: 1, mag: 1, characterId: "",
+                level: 1, xp: 0, xpRequired: 100, pointsToDistribute: 0, vit: 1, agi: 1, int: 1, pow: 1, mag: 1, characterId: currCharId,
                 equippedSkills: [0, 1, 2, 3], equippedRunes: [0, 0, 0, 0], equippedPassives: [-1, -1],
                 weapon: { name: 'Starter Dirk', damage: 10 },
                 inventory: oldInventory,
@@ -439,17 +440,36 @@ var GhostRPG = (function() {
                     window.g_socket.emit('save_game_state', state);
                 }
 
+                var saveKey = "DangerGhost_RPG_Save";
+                if (state.characterId && state.characterId !== 0 && state.characterId !== "0") {
+                    saveKey += "_" + state.characterId;
+                }
+
                 var dataToSave = JSON.stringify(state);
                 var encrypted = (window.SafeBtoa || btoa)(dataToSave + "||" + rpgAntiCheat.hash);
-                localStorage.setItem("DangerGhost_RPG_Save", encrypted);
+                localStorage.setItem(saveKey, encrypted);
             } catch (e) { console.error("Save falhou", e); }
         },
-        loadLocalStorage: function() {
+        loadLocalStorage: function(forceCharId) {
             try {
                 if (window.cloudSave) {
                     return this.applyCloudSave(window.cloudSave);
                 }
-                var saved = localStorage.getItem("DangerGhost_RPG_Save");
+                
+                var charToLoad = forceCharId || state.characterId;
+                var saveKey = "DangerGhost_RPG_Save";
+                if (charToLoad && charToLoad !== 0 && charToLoad !== "0") {
+                    saveKey += "_" + charToLoad;
+                }
+                
+                var saved = localStorage.getItem(saveKey);
+                
+                if (!saved && charToLoad && charToLoad !== 0 && charToLoad !== "0") {
+                    console.log("[RPG] No save found for ghost " + charToLoad + ", starting fresh!");
+                    this.resetStats(charToLoad);
+                    return;
+                }
+
                 if (saved) {
                     var decrypted = (window.SafeAtob || atob)(saved);
                     var parts = decrypted.split("||");
@@ -475,14 +495,15 @@ var GhostRPG = (function() {
                         });
                     }
                     
+                    if (charToLoad) state.characterId = charToLoad;
                     if (typeof state.deaths === 'undefined') state.deaths = 0;
                     state.xpRequired = calculateXpRequired(state.level);
                     updateIntegrityHash();
                 }
-                console.log("[RPG] Status carregado do LocalStorage.");
+                console.log("[RPG] Status carregado do LocalStorage para ghost: " + (state.characterId || "default"));
             } catch (e) {
                 console.warn("[RPG] Nenhum save encontrado ou corrompido, usando default.");
-                this.resetStats();
+                this.resetStats(forceCharId);
             }
         },
 
@@ -807,6 +828,15 @@ var GhostRPG = (function() {
             if (!verifyIntegrity()) return { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
             if (!state.equipment) state.equipment = { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
             return state.equipment;
+        },
+        SwitchActiveGhost: function(ghostId) {
+            this.saveLocalStorage();
+            state.characterId = ghostId;
+            this.loadLocalStorage(ghostId);
+            if (typeof RenderRPGStatusDrawer === "function") RenderRPGStatusDrawer();
+            if (typeof UpdateNavbarBag === "function" && window.g_activeTab === 'bag') UpdateNavbarBag();
+            if (typeof UpdateNavbarEquip === "function" && window.g_activeTab === 'equip') UpdateNavbarEquip();
+            if (typeof UpdateNavbarSpells === "function" && window.g_activeTab === 'spells') UpdateNavbarSpells();
         },
         LootGenerator: LootGenerator
 

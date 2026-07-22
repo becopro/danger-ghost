@@ -1149,17 +1149,20 @@
 						var isCustom = !!window.g_customPlayerGhostRight;
 
 						if (this.face == 1) {
+							// For custom ghosts (which naturally face right), we don't flip when moving right
+							g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
+						} else {
+							// Moving left
 							if (isCustom) {
+								// Custom ghosts face right natively, so flip them to face left
 								g_ctx.save();
 								g_ctx.translate(this.xPos + map_offset + 12, this.yPos + 12);
 								g_ctx.scale(-1, 1);
-								g_ctx.drawImage(curRight, -12, -12, 24, 24);
+								g_ctx.drawImage(curLeft, -12, -12, 24, 24);
 								g_ctx.restore();
 							} else {
-								g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
+								g_ctx.drawImage(curLeft, this.xPos + map_offset, this.yPos, 24, 24);
 							}
-						} else {
-							g_ctx.drawImage(curLeft, this.xPos + map_offset, this.yPos, 24, 24);
 						}
 						if (this.ghostMode) g_ctx.globalAlpha = 1.0;
 						
@@ -3173,19 +3176,24 @@ var g_binaryBits = [];
 				var currentTimestep = g_isFast ? 16.66 : 33.33;
 				
 				var updates = 0;
-				while (g_physicsAccumulator >= currentTimestep) {
-					Game_Step_Logic();
-					g_physicsAccumulator -= currentTimestep;
-					updates++;
-					if (updates > 10) {
-						g_physicsAccumulator = 0;
-						break;
+				try {
+					while (g_physicsAccumulator >= currentTimestep) {
+						Game_Step_Logic();
+						g_physicsAccumulator -= currentTimestep;
+						updates++;
+						if (updates > 10) {
+							g_physicsAccumulator = 0;
+							break;
+						}
 					}
+
+					Game_Step_Render();
+				} catch (err) {
+					console.error("Critical Game Loop Error (Prevented Freeze):", err);
+					// Skip rest of this frame, let next frame try again to prevent permanent freeze
+				} finally {
+					requestAnimationFrame(Game_Step);
 				}
-
-				Game_Step_Render();
-
-				requestAnimationFrame(Game_Step);
 			}
 
 			// Iniciar o loop requestAnimationFrame
