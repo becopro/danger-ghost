@@ -235,26 +235,38 @@ window.ShowGhostdexDetail = function(ghostId) {
 
     // HERO STATUS
     if (st === 2) {
-        var rawSave = localStorage.getItem("DangerGhost_RPG_Save_" + ghost.id);
-        var heroStats = { level: 1, xp: 0, vit: 1, agi: 1, pow: 1, mag: 1 };
-        if (rawSave) {
-            try {
-                var decrypted = (window.SafeAtob || atob)(rawSave);
-                var parts = decrypted.split("||");
-                heroStats = JSON.parse(parts[0]);
-            } catch(e) {}
-        }
-        var hp = 4 + heroStats.vit;
-        var atk = heroStats.pow;
-        var def = heroStats.agi;
+        // Read from dg_local_characters where ghost RPG profiles are stored
+        var heroStats = { level: 1, xp: 0, xpRequired: 100, vit: 1, agi: 1, int: 1, pow: 1, mag: 1 };
+        try {
+            var rawChars = localStorage.getItem("dg_local_characters");
+            if (rawChars) {
+                var localChars = JSON.parse(rawChars);
+                var charId = "ghost_" + ghost.id;
+                var foundChar = localChars.find(function(c) { return c.characterId === charId; });
+                if (foundChar) {
+                    heroStats.level = foundChar.level || 1;
+                    heroStats.xp = foundChar.xp || 0;
+                    heroStats.xpRequired = foundChar.xpRequired || 100;
+                    heroStats.vit = foundChar.vit || 1;
+                    heroStats.agi = foundChar.agi || 1;
+                    heroStats.int = foundChar.int || 1;
+                    heroStats.pow = foundChar.pow || 1;
+                    heroStats.mag = foundChar.mag || 1;
+                }
+            }
+        } catch(e) { console.error("Error reading ghost RPG profile", e); }
         h += '<div style="margin-top:10px; padding:10px; background:rgba(255, 215, 0, 0.1); border:1px solid #FFD700; border-radius:5px;">';
-        h += '<div style="color:#FFD700; font-weight:bold; font-size:14px; text-align:center; margin-bottom:5px;">🛡️ HERO STATUS</div>';
-        h += '<div style="display:flex; justify-content:space-around; color:#FFF; font-size:12px;">';
+        h += '<div style="color:#FFD700; font-weight:bold; font-size:14px; text-align:center; margin-bottom:8px;">🛡️ HERO STATUS</div>';
+        h += '<div style="display:flex; justify-content:space-between; color:#FFF; font-size:12px; margin-bottom:4px;">';
         h += '<span>Level: <b style="color:#00FF00">' + heroStats.level + '</b></span>';
-        h += '<span>XP: <b style="color:#00FFFF">' + heroStats.xp + '</b></span>';
-        h += '<span>HP: <b>' + hp + '</b></span>';
-        h += '<span>ATK: <b>' + atk + '</b></span>';
-        h += '<span>DEF: <b>' + def + '</b></span>';
+        h += '<span>XP: <b style="color:#00FFFF">' + heroStats.xp + '/' + heroStats.xpRequired + '</b></span>';
+        h += '</div>';
+        h += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:3px; font-size:11px; color:#FFF;">';
+        h += '<span>❤️ VIT: <b style="color:#FF6B6B">' + heroStats.vit + '</b></span>';
+        h += '<span>⚡ AGI: <b style="color:#FFFF00">' + heroStats.agi + '</b></span>';
+        h += '<span>🔮 INT: <b style="color:#BB86FC">' + heroStats.int + '</b></span>';
+        h += '<span>⚔️ POW: <b style="color:#FF4500">' + heroStats.pow + '</b></span>';
+        h += '<span>🌀 MAG: <b style="color:#00BFFF">' + heroStats.mag + '</b></span>';
         h += '</div></div>';
     } else {
         h += '<div style="margin-top:10px; padding:10px; background:rgba(50, 50, 50, 0.5); border:1px solid #555; border-radius:5px;">';
