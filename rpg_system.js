@@ -276,24 +276,6 @@ var GhostRPG = (function() {
         getStats: function() {
             if (!verifyIntegrity()) { this.resetStats(); }
             
-            if (state.characterId && state.characterId !== "0" && state.characterId !== 0 && window.GetPlayerGhostInventory) {
-                var inv = window.GetPlayerGhostInventory();
-                var idStr = state.characterId.toString().padStart(3, '0');
-                if (inv[idStr]) {
-                    var g = inv[idStr];
-                    if (state.level < g.level || state.xp !== g.xp) {
-                        if (state.level < g.level) {
-                            state.pointsToDistribute += (g.level - state.level) * 5;
-                        }
-                        state.level = g.level;
-                        state.xp = g.xp;
-                        state.xpRequired = g.xpNext || 1000;
-                        updateIntegrityHash();
-                        this.saveLocalStorage();
-                    }
-                }
-            }
-            
             var statsCopy = JSON.parse(JSON.stringify(state));
             
             var bonuses = { vit: 0, agi: 0, int: 0, pow: 0, mag: 0 };
@@ -348,11 +330,6 @@ var GhostRPG = (function() {
         addXp: function(amount) {
             if (!verifyIntegrity()) return;
             
-            if (state.characterId && state.characterId !== "0" && state.characterId !== 0) {
-                if (typeof RenderRPGStatusDrawer === "function") { RenderRPGStatusDrawer(); }
-                return;
-            }
-
             var maxLevel = 100000000000;
             if (state.level >= maxLevel) {
                 state.level = maxLevel;
@@ -459,19 +436,30 @@ var GhostRPG = (function() {
         },
         saveLocalStorage: function() {
             try {
-                // Cloud Save logic (Google Auth)
                 if (window.g_socket && window.g_socket.connected && window.cloudSave) {
                     window.g_socket.emit('save_game_state', state);
                 }
 
-                var saveKey = "DangerGhost_RPG_Save";
                 if (state.characterId && state.characterId !== 0 && state.characterId !== "0") {
-                    saveKey += "_" + state.characterId;
+                    var targetCharId = "ghost_" + state.characterId.toString().padStart(3, '0');
+                    var rawChars = localStorage.getItem("dg_local_characters");
+                    var localChars = rawChars ? JSON.parse(rawChars) : [];
+                    
+                    var stateToSave = JSON.parse(JSON.stringify(state));
+                    stateToSave.characterId = targetCharId;
+                    
+                    var existingIndex = localChars.findIndex(function(c) { return c.characterId === targetCharId; });
+                    if (existingIndex >= 0) {
+                        localChars[existingIndex] = stateToSave;
+                    } else {
+                        localChars.push(stateToSave);
+                    }
+                    localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
+                } else {
+                    var dataToSave = JSON.stringify(state);
+                    var encrypted = (window.SafeBtoa || btoa)(dataToSave + "||" + rpgAntiCheat.hash);
+                    localStorage.setItem("DangerGhost_RPG_Save", encrypted);
                 }
-
-                var dataToSave = JSON.stringify(state);
-                var encrypted = (window.SafeBtoa || btoa)(dataToSave + "||" + rpgAntiCheat.hash);
-                localStorage.setItem(saveKey, encrypted);
             } catch (e) { console.error("Save falhou", e); }
         },
         loadLocalStorage: function(forceCharId) {
@@ -481,20 +469,48 @@ var GhostRPG = (function() {
                 }
                 
                 var charToLoad = forceCharId || state.characterId;
-                var saveKey = "DangerGhost_RPG_Save";
-                if (charToLoad && charToLoad !== 0 && charToLoad !== "0") {
-                    saveKey += "_" + charToLoad;
-                }
+                var isGhost = charToLoad && charToLoad !== 0 && charToLoad !== "0";
                 
-                var saved = localStorage.getItem(saveKey);
-                
-                if (!saved && charToLoad && charToLoad !== 0 && charToLoad !== "0") {
-                    console.log("[RPG] No save found for ghost " + charToLoad + ", starting fresh!");
+                if (isGhost) {
+                    var targetCharId = "ghost_" + charToLoad.toString().padStart(3, '0');
+                    var rawChars = localStorage.getItem("dg_local_characters");
+                    if (rawChars) {
+                        var localChars = JSON.parse(rawChars);
+                        var foundChar = localChars.find(function(c) { return c.characterId === targetCharId; });
+                        if (foundChar) {
+                            state = foundChar;
+                            state.characterId = charToLoad; // Keep internal state ID as "001" etc
+                            var maxLevel = 100000000000;
+                            if (state.level > maxLevel) {
+                                state.level = maxLevel;
+                                state.xp = 0;
+                            }
+                            if (!state.equippedSkills) state.equippedSkills = [0, 1, 2, 3];
+                            if (!state.equippedRunes) state.equippedRunes = [0, 0, 0, 0];
+                            if (!state.equippedPassives) state.equippedPassives = [-1, -1];
+                            if (!state.weapon) state.weapon = { name: 'Starter Dirk', damage: 10 };
+                            if (!state.inventory) state.inventory = [];
+                            if (!state.equipment || typeof state.equipment.helmet !== 'undefined' || typeof state.equipment.spell !== 'undefined') {
+                                state.equipment = { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
+                            } else {
+                                var slots = ['head', 'chest', 'mainhand', 'offhand', 'ring1', 'ring2', 'amulet'];
+                                slots.forEach(function(s) {
+                                    if (typeof state.equipment[s] === 'undefined') state.equipment[s] = null;
+                                });
+                            }
+                            if (typeof state.deaths === 'undefined') state.deaths = 0;
+                            state.xpRequired = calculateXpRequired(state.level);
+                            updateIntegrityHash();
+                            console.log("[RPG] Status carregado do dg_local_characters para ghost: " + state.characterId);
+                            return;
+                        }
+                    }
+                    console.log("[RPG] No save found for ghost " + charToLoad + " in dg_local_characters, starting fresh!");
                     this.resetStats(charToLoad);
                     return;
                 }
-
-                if (saved) {
+                
+                var saved = localStorage.getItem("DangerGhost_RPG_Save");
                     var decrypted = (window.SafeAtob || atob)(saved);
                     var parts = decrypted.split("||");
                     var data = JSON.parse(parts[0]);
