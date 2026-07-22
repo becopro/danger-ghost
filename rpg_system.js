@@ -276,6 +276,24 @@ var GhostRPG = (function() {
         getStats: function() {
             if (!verifyIntegrity()) { this.resetStats(); }
             
+            if (state.characterId && state.characterId !== "0" && state.characterId !== 0 && window.GetPlayerGhostInventory) {
+                var inv = window.GetPlayerGhostInventory();
+                var idStr = state.characterId.toString().padStart(3, '0');
+                if (inv[idStr]) {
+                    var g = inv[idStr];
+                    if (state.level < g.level || state.xp !== g.xp) {
+                        if (state.level < g.level) {
+                            state.pointsToDistribute += (g.level - state.level) * 5;
+                        }
+                        state.level = g.level;
+                        state.xp = g.xp;
+                        state.xpRequired = g.xpNext || 1000;
+                        updateIntegrityHash();
+                        this.saveLocalStorage();
+                    }
+                }
+            }
+            
             var statsCopy = JSON.parse(JSON.stringify(state));
             
             var bonuses = { vit: 0, agi: 0, int: 0, pow: 0, mag: 0 };
@@ -329,6 +347,12 @@ var GhostRPG = (function() {
 
         addXp: function(amount) {
             if (!verifyIntegrity()) return;
+            
+            if (state.characterId && state.characterId !== "0" && state.characterId !== 0) {
+                if (typeof RenderRPGStatusDrawer === "function") { RenderRPGStatusDrawer(); }
+                return;
+            }
+
             var maxLevel = 100000000000;
             if (state.level >= maxLevel) {
                 state.level = maxLevel;
