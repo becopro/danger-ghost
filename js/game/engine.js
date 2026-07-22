@@ -3209,6 +3209,14 @@ var g_binaryBits = [];
 					Game_Step_Render();
 				} catch (err) {
 					console.error("Critical Game Loop Error (Prevented Freeze):", err);
+					var errDiv = document.getElementById("debugCrashReport");
+					if (!errDiv) {
+						errDiv = document.createElement("div");
+						errDiv.id = "debugCrashReport";
+						errDiv.style = "position:fixed; top:10%; left:10%; width:80%; background:rgba(255,0,0,0.9); color:white; padding:20px; z-index:999999; border:3px solid white; font-family:monospace; max-height: 80%; overflow-y: auto;";
+						document.body.appendChild(errDiv);
+					}
+					errDiv.innerHTML = "<h3>ENGINE CRASH (Game_Step_Logic)</h3><p>Tire um print e envie para o dev:</p><pre style='white-space:pre-wrap;'>" + (err.stack || err.message || err) + "</pre>";
 					// Skip rest of this frame, let next frame try again to prevent permanent freeze
 				} finally {
 					requestAnimationFrame(Game_Step);
