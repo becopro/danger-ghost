@@ -180,8 +180,8 @@
             if (raw) localChars = JSON.parse(raw);
         } catch(e) {}
         
-        if (localChars.length >= 3) {
-            alert("Maximum of 3 Ghosts reached. Delete an existing Ghost to create a new one.");
+        if (localChars.length >= 5) {
+            alert("Maximum of 5 Ghosts reached. Delete an existing Ghost to create a new one.");
             return;
         }
         

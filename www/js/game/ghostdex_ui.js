@@ -369,8 +369,8 @@ window.ToggleFavoriteGhost = function(ghostId) {
     if (idx !== -1) {
         favs.splice(idx, 1);
     } else {
-        if (favs.length >= 3) {
-            alert("You can only favorite up to 3 ghosts!");
+        if (favs.length >= 5) {
+            alert("You can only favorite up to 5 ghosts!");
             return;
         }
         favs.push(ghostId);
