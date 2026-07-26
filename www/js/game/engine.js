@@ -344,17 +344,16 @@
 				g_score += points;
 				if (typeof window.g_ghostScoreTracker === "undefined") window.g_ghostScoreTracker = 0;
 				window.g_ghostScoreTracker += points;
-				while (window.g_ghostScoreTracker >= 2222) {
-					window.g_ghostScoreTracker -= 2222;
-					if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
+				if (window.g_ghostScoreTracker >= 2222) {
+					var spawnCount = Math.min(3, Math.floor(window.g_ghostScoreTracker / 2222));
+					window.g_ghostScoreTracker %= 2222;
+					if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(spawnCount);
 				}
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
 				g_slimeScoreTracker += points;
 				if (g_slimeScoreTracker >= 3000) {
-					while (g_slimeScoreTracker >= 3000) {
-						g_slimeScoreTracker -= 3000;
-						SpawnBossAtRandomLocation("slime");
-					}
+					g_slimeScoreTracker %= 3000;
+					SpawnBossAtRandomLocation("slime");
 				}
 			}
 
@@ -1048,18 +1047,16 @@
 						if (this.shootCooldown > 0) {
 							this.shootCooldown--;
 						} else {
-							if (Math.random() < 0.015) {
-								this.shootCooldown = 90;
-								var projDir = (DeSoGhost.xPos > this.xPos) ? 1 : -1;
-								var startX = this.xPos + this.width / 2;
-								var startY = this.yPos + this.height / 2;
-								var vx = 6 * projDir;
-								var vy = 0;
-								var p = obtainProjectile(startX, startY, vx, vy, "spark", 0, 8, 8, 100, 0, false);
-								p.isEnemy = true;
-								g_projectiles.push(p);
-								g_visualEffects.push(createExplosionEffect(startX, startY, "#00FFFF", 4));
-							}
+							this.shootCooldown = 90 + Math.floor(Math.random() * 60);
+							var projDir = (DeSoGhost.xPos > this.xPos) ? 1 : -1;
+							var startX = this.xPos + this.width / 2;
+							var startY = this.yPos + this.height / 2;
+							var vx = 6 * projDir;
+							var vy = 0;
+							var p = obtainProjectile(startX, startY, vx, vy, "spark", 0, 8, 8, 100, 0, false);
+							p.isEnemy = true;
+							g_projectiles.push(p);
+							g_visualEffects.push(createExplosionEffect(startX, startY, "#00FFFF", 4));
 						}
 					}
 					
@@ -1068,18 +1065,16 @@
 						if (this.shootCooldown > 0) {
 							this.shootCooldown--;
 						} else {
-							if (Math.random() < 0.012) {
-								this.shootCooldown = 120;
-								var projDir = (DeSoGhost.xPos > this.xPos) ? 1 : -1;
-								var startX = this.xPos + this.width / 2;
-								var startY = this.yPos + this.height / 2;
-								var vx = 4.5 * projDir;
-								var vy = 0;
-								var p = obtainProjectile(startX, startY, vx, vy, "orb", 0, 20, 20, 150, 0, true);
-								p.isEnemy = true;
-								g_projectiles.push(p);
-								g_visualEffects.push(createExplosionEffect(startX, startY, "#D500F9", 6));
-							}
+							this.shootCooldown = 120 + Math.floor(Math.random() * 60);
+							var projDir = (DeSoGhost.xPos > this.xPos) ? 1 : -1;
+							var startX = this.xPos + this.width / 2;
+							var startY = this.yPos + this.height / 2;
+							var vx = 4.5 * projDir;
+							var vy = 0;
+							var p = obtainProjectile(startX, startY, vx, vy, "orb", 0, 20, 20, 150, 0, true);
+							p.isEnemy = true;
+							g_projectiles.push(p);
+							g_visualEffects.push(createExplosionEffect(startX, startY, "#D500F9", 6));
 						}
 					}
 
@@ -1144,15 +1139,7 @@
 						g_ctx.shadowColor = '#00FFFF';
 
 						if (this.face == 1) {
-							if (isCustom) {
-								g_ctx.save();
-								g_ctx.translate(this.xPos + map_offset + 12, this.yPos + 12);
-								g_ctx.scale(-1, 1);
-								g_ctx.drawImage(curRight, -12, -12, 24, 24);
-								g_ctx.restore();
-							} else {
-								g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
-							}
+							g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
 						} else {
 							g_ctx.drawImage(curLeft, this.xPos + map_offset, this.yPos, 24, 24);
 						}
@@ -1678,6 +1665,9 @@
 			}
 
 			function updateProjectiles() {
+				if (g_projectiles.length > 50) {
+					g_projectiles.splice(0, g_projectiles.length - 50);
+				}
 				var stats = GhostRPG.getStats();
 				for (var i = g_projectiles.length - 1; i >= 0; i--) {
 					var p = g_projectiles[i];
@@ -1687,7 +1677,7 @@
 
 					var screenX = p.x + map_offset;
 
-					if (p.life <= 0 || screenX < -50 || screenX > 700) {
+					if (isNaN(p.x) || isNaN(p.y) || isNaN(p.life) || p.life <= 0 || screenX < -150 || screenX > g_canvas.width + 150 || p.y < -150 || p.y > g_canvas.height + 150) {
 						g_projectiles.splice(i, 1);
 						continue;
 					}
@@ -1914,10 +1904,13 @@
 			}
 
 			function updateVisualEffects() {
+				if (g_visualEffects.length > 50) {
+					g_visualEffects.splice(0, g_visualEffects.length - 50);
+				}
 				for (var i = g_visualEffects.length - 1; i >= 0; i--) {
 					var fx = g_visualEffects[i];
 					fx.life--;
-					if (fx.life <= 0) {
+					if (isNaN(fx.life) || fx.life <= 0) {
 						g_visualEffects.splice(i, 1);
 						continue;
 					}
@@ -2882,6 +2875,7 @@
 
 			var EnemyBoss = function(x, y) { this.xPos = x; this.yPos = y; this.alive = true; this.burnTicks = 0; this.poisonTicks = 0; this.shockTimer = 0; this.slowTimer = 0; };
 			window.SpawnEpisode1Ghost = function(ghostId) {
+				if (typeof g_bosses !== 'undefined' && g_bosses.length >= 5) return null;
 				g_screenShakeTime = 30;
 				g_screenShakeIntensity = 12;
 
@@ -2962,15 +2956,21 @@
 							// Spectral Spark
 							if (typeof g_projectiles !== 'undefined') {
 								var dirX = (this.vx > 0 ? 6 : -6);
-								g_projectiles.push({ xPos: this.xPos, yPos: this.yPos, vx: dirX, vy: -2, hostile: true, width: 8, height: 8, damage: 15, color: "#00FFFF" });
-								g_projectiles.push({ xPos: this.xPos, yPos: this.yPos, vx: dirX, vy: 0, hostile: true, width: 8, height: 8, damage: 15, color: "#00FFFF" });
-								g_projectiles.push({ xPos: this.xPos, yPos: this.yPos, vx: dirX, vy: 2, hostile: true, width: 8, height: 8, damage: 15, color: "#00FFFF" });
+								var p1 = obtainProjectile(this.xPos, this.yPos, dirX, -2, "spark", 0, 8, 8, 150, 15, false);
+								p1.isEnemy = true;
+								var p2 = obtainProjectile(this.xPos, this.yPos, dirX, 0, "spark", 0, 8, 8, 150, 15, false);
+								p2.isEnemy = true;
+								var p3 = obtainProjectile(this.xPos, this.yPos, dirX, 2, "spark", 0, 8, 8, 150, 15, false);
+								p3.isEnemy = true;
+								g_projectiles.push(p1, p2, p3);
 							}
 						} else if (spell === 1) {
 							// Plasma Orb
 							if (typeof g_projectiles !== 'undefined') {
 								var dirX = (this.vx > 0 ? 3 : -3);
-								g_projectiles.push({ xPos: this.xPos, yPos: this.yPos - 10, vx: dirX, vy: 0, hostile: true, width: 24, height: 24, damage: 45, color: "#FF00FF" });
+								var pOrb = obtainProjectile(this.xPos, this.yPos - 10, dirX, 0, "orb", 0, 24, 24, 150, 45, false);
+								pOrb.isEnemy = true;
+								g_projectiles.push(pOrb);
 							}
 						} else if (spell === 2) {
 							// Ghost Mode
@@ -3040,8 +3040,8 @@
 			function SpawnBossAtRandomLocation(bossType) {
 				if (g_currentLevel === "cave1" || g_currentLevel === "CAVE1") return;
 				if (typeof g_bosses !== 'undefined') {
-					var aliveBosses = g_bosses.filter(function(b) { return b.alive && !b.isEpisode1Ghost; });
-					if (aliveBosses.length >= 6) return;
+					var aliveBosses = g_bosses.filter(function(b) { return b && b.alive; });
+					if (aliveBosses.length >= 5) return;
 				}
 				bossType = bossType || "crow";
 				g_screenShakeTime = 30; // 30 frames de tremor (~1 segundo)
@@ -3208,7 +3208,10 @@ var g_binaryBits = [];
 					}
 
 					if (typeof g_bosses !== 'undefined') {
-						g_bosses = g_bosses.filter(function(b) { return b.alive; });
+						g_bosses = g_bosses.filter(function(b) { return b && b.alive; });
+						if (g_bosses.length > 5) {
+							g_bosses.splice(5);
+						}
 						g_bosses.forEach(function(b) { b.update(); });
 						g_boss = g_bosses.length > 0 ? g_bosses[0] : null;
 					} else if (g_boss) {
@@ -3354,18 +3357,22 @@ var g_binaryBits = [];
 				g_physicsAccumulator += dt;
 				var currentTimestep = g_isFast ? 16.66 : 33.33;
 				
-				var updates = 0;
-				while (g_physicsAccumulator >= currentTimestep) {
-					Game_Step_Logic();
-					g_physicsAccumulator -= currentTimestep;
-					updates++;
-					if (updates > 10) {
-						g_physicsAccumulator = 0;
-						break;
+				try {
+					var updates = 0;
+					while (g_physicsAccumulator >= currentTimestep) {
+						Game_Step_Logic();
+						g_physicsAccumulator -= currentTimestep;
+						updates++;
+						if (updates >= 2) {
+							g_physicsAccumulator = 0;
+							break;
+						}
 					}
-				}
 
-				Game_Step_Render();
+					Game_Step_Render();
+				} catch (err) {
+					console.error("Game loop error prevented crash:", err);
+				}
 
 				requestAnimationFrame(Game_Step);
 			}

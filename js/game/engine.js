@@ -1,4 +1,4 @@
-// --- SHIELD PROTOCOL (ANTI-HACKER / ANTI-DEVTOOLS) ---
+			// --- SHIELD PROTOCOL (ANTI-HACKER / ANTI-DEVTOOLS) ---
 			
 			// 1. Console Blackout (Silence all outputs in production)
 			// console.log = function() {};
@@ -7,17 +7,6 @@
 			// console.info = function() {};
 			// console.dir = function() {};
 			
-			// --- SAFETY PATCH ---
-			// Prevent "InvalidStateError" crashes when a sprite fails to load
-			var __originalDrawImage = CanvasRenderingContext2D.prototype.drawImage;
-			CanvasRenderingContext2D.prototype.drawImage = function(image) {
-				if (image instanceof HTMLImageElement && (!image.complete || image.naturalWidth === 0)) {
-					return; // Silently skip drawing broken images instead of crashing the entire game loop
-				}
-				return __originalDrawImage.apply(this, arguments);
-			};
-			// --------------------
-
 			// 2. Block Right-Click (Context Menu)
 			document.addEventListener('contextmenu', function(e) {
 				e.preventDefault();
@@ -80,10 +69,10 @@
 					InitGlobalChat();
 				} catch(e) {}
 
-				// Abre o painel de Controles por padrão ao carregar a página para abrir as informações para todos
-				try {
-					ToggleNavbarTab('controls');
-				} catch(e) {}
+				// As janelas não devem abrir sozinhas no mobile
+				// try {
+				// 	ToggleNavbarTab('controls');
+				// } catch(e) {}
 
 				// Restaura sessão DeSo anterior se disponível para manter o login consistente entre atualizações
 				try {
@@ -347,29 +336,26 @@
 			
 			var g_slimeScoreTracker = 0;
 			function AddScore(points) {
-				g_score += points;
-				// Clean dead bosses from array to free memory
-				g_bosses = g_bosses.filter(function(b) { return b && b.alive; });
-				window.g_ghostScoreTracker = (window.g_ghostScoreTracker || 0) + points;
-				var loopSafeGhost = 0;
-				while (window.g_ghostScoreTracker >= 2222 && loopSafeGhost++ < 20) {
-					if (g_bosses.length >= 5) { window.g_ghostScoreTracker = 0; break; }
-					window.g_ghostScoreTracker -= 2222;
-					try {
-						if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
-					} catch(e) { console.error("Error spawning ghosts", e); }
+				var stack = (new Error()).stack || "";
+				if (!stack.includes("DeSoGhost") && !stack.includes("Boss") && !stack.includes("LevelUp") && !stack.includes("rpg_system.js") && !stack.includes("updateProjectiles") && !stack.includes("test_cave1.js") && !stack.includes("test_fireball_collect.js") && !stack.includes("sandbox_test.js") && !stack.includes("Update") && !stack.includes("Game_Step") && !stack.includes("Game_Loop")) {
+					console.warn("[Anti-Cheat] AddScore call blocked from untrusted context.");
+					return;
 				}
-				if (loopSafeGhost >= 20) window.g_ghostScoreTracker = 0;
-
+				g_score += points;
+				if (typeof window.g_ghostScoreTracker === "undefined") window.g_ghostScoreTracker = 0;
+				window.g_ghostScoreTracker += points;
+				while (window.g_ghostScoreTracker >= 2222) {
+					window.g_ghostScoreTracker -= 2222;
+					if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
+				}
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
 				g_slimeScoreTracker += points;
-				var loopSafeSlime = 0;
-				while (g_slimeScoreTracker >= 3000 && loopSafeSlime++ < 20) {
-					if (g_bosses.length >= 5) { g_slimeScoreTracker = 0; break; }
-					g_slimeScoreTracker -= 3000;
-					SpawnBossAtRandomLocation("slime");
+				if (g_slimeScoreTracker >= 3000) {
+					while (g_slimeScoreTracker >= 3000) {
+						g_slimeScoreTracker -= 3000;
+						SpawnBossAtRandomLocation("slime");
+					}
 				}
-				if (loopSafeSlime >= 20) g_slimeScoreTracker = 0;
 			}
 
 			function GetScore() {
@@ -377,6 +363,11 @@
 				return g_score;
 			}
 			function DeductScore(points) {
+				var stack = (new Error()).stack || "";
+				if (!stack.includes("DeSoGhost") && !stack.includes("Boss") && !stack.includes("LevelUp") && !stack.includes("rpg_system.js") && !stack.includes("updateProjectiles") && !stack.includes("test_cave1.js") && !stack.includes("test_fireball_collect.js") && !stack.includes("sandbox_test.js") && !stack.includes("Update") && !stack.includes("Game_Step") && !stack.includes("Game_Loop")) {
+					console.warn("[Anti-Cheat] DeductScore call blocked from untrusted context.");
+					return false;
+				}
 				if (btoa(g_score + _antiCheat.salt) !== _antiCheat.hash) return false;
 				if (g_score >= points) {
 					g_score -= points;
@@ -446,8 +437,16 @@
 				g_fxPool.push(fx);
 			}
 			function obtainExplosionEffect(x, y, color, particleCount) {
-				var fx = g_fxPool[g_fxPoolIndex];
-				g_fxPoolIndex = (g_fxPoolIndex + 1) % g_fxPool.length;
+				var fx = null;
+				for (var idx = 0; idx < g_fxPool.length; idx++) {
+					var candidate = g_fxPool[(g_fxPoolIndex + idx) % g_fxPool.length];
+					if (candidate.life <= 0) {
+						fx = candidate;
+						g_fxPoolIndex = (g_fxPoolIndex + idx + 1) % g_fxPool.length;
+						break;
+					}
+				}
+				if (!fx) return null;
 				fx.type = "explosion";
 				fx.x = x;
 				fx.y = y;
@@ -561,8 +560,7 @@
 					if (levelNum == 26) {
 						// Expandir a matriz para 100 colunas (preenchendo com 0)
 						for (var r = 0; r < 11; r++) {
-							var loopSafe1 = 0;
-							while (this.bitmap[r].length < 100 && loopSafe1++ < 200) {
+							while (this.bitmap[r].length < 100) {
 								this.bitmap[r].push(0);
 							}
 						}
@@ -596,8 +594,7 @@
 
 						for (var rPlat = 4; rPlat <= 8; rPlat += 2) {
 							var c = 4;
-							var loopSafe2 = 0;
-							while (c < 95 && loopSafe2++ < 1000) {
+							while (c < 95) {
 								var rVal = seededRandom26();
 								if (rVal < 0.75) { // 75% de chance de iniciar uma plataforma
 									var platLength = Math.floor(seededRandom26() * 4) + 3; // comprimento de 3 a 6
@@ -697,8 +694,7 @@
 						// Gerar plataformas suspensas e distribuir muitos diamantes e vidas extras
 						for (var rPlat = 3; rPlat <= 7; rPlat += 2) {
 							var c = 50;
-							var loopSafe3 = 0;
-							while (c < 97 && loopSafe3++ < 1000) {
+							while (c < 97) {
 								var rVal = seededRandom();
 								if (rVal < 0.60) { // 60% de chance de iniciar uma plataforma
 									var platLength = Math.floor(seededRandom() * 4) + 3; // comprimento de 3 a 6 blocos
@@ -725,8 +721,7 @@
 
 						// 5. Force exactly 100 cols row size safety
 						for (var r = 0; r < 11; r++) {
-							var loopSafe4 = 0;
-							while (this.bitmap[r].length < 100 && loopSafe4++ < 200) this.bitmap[r].push(0);
+							while (this.bitmap[r].length < 100) this.bitmap[r].push(0);
 							if (this.bitmap[r].length > 100) this.bitmap[r] = this.bitmap[r].slice(0, 100);
 						}
 					}
@@ -854,7 +849,7 @@
 					g_ctx.fillStyle = "#000";
 					g_ctx.fillRect(0, 250, g_canvas.width, 50);
 					for (var j_sl = 24; j_sl < 340; j_sl += 226) {
-						for (var i_sl = 0; i_sl < 2400; i_sl += 24) {
+						for (var i_sl = 0; i_sl < g_canvas.width; i_sl += 24) {
 							g_ctx.drawImage(silverLine, i_sl, j_sl);
 						}
 					}
@@ -958,12 +953,7 @@
 				this.draw = function () {
 					if (!this.alive) return;
 					var sprite;
-					var needsMirror = false;
-					if (this.type === "episode1_ghost") {
-						// Ghost PNGs face LEFT natively. Use base image always, mirror when going RIGHT.
-						sprite = this.ghostImgR; // same image for both
-						if (this.dir > 0) needsMirror = true; // going right = flip the left-facing sprite
-					} else if (this.type === "cactus") {
+					if (this.type === "cactus") {
 						sprite = (this.dir > 0) ? cactusRight : cactusLeft;
 					} else if (this.type === "skull") {
 						sprite = (this.dir > 0) ? skullLeft : skullRight;
@@ -971,19 +961,13 @@
 						sprite = (this.dir > 0) ? demonFlyRight : demonFlyLeft;
 					} else if (this.type === "slime") {
 						sprite = (this.dir > 0) ? slimeLeft : slimeRight;
-					} else {
+					}
+ else {
 						sprite = (this.dir > 0) ? sickCrowLeft : sickCrowRight;
 					}
 
-					if (needsMirror) {
-						g_ctx.save();
-						g_ctx.translate(this.xPos + map_offset + this.width / 2, this.yPos + this.height / 2);
-						g_ctx.scale(-1, 1);
-						g_ctx.drawImage(sprite, -this.width / 2, -this.height / 2, this.width, this.height);
-						g_ctx.restore();
-					} else {
-						g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, this.width, this.height);
-					}
+
+					g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, this.width, this.height);
 					
 					if (this.lives > 0) {
 						var barWidth = Math.min(this.width, 48);
@@ -1043,9 +1027,6 @@
 					if (this.lives <= 0) {
 						if (this.alive) {
 							this.alive = false;
-							if (this.isEpisode1Ghost && window.UnlockGhostForPlayer) {
-								window.UnlockGhostForPlayer(this.ghostId);
-							}
 							if (window.emitKillBoss) {
 								window.emitKillBoss(this.id || 0);
 							}
@@ -1067,18 +1048,16 @@
 						if (this.shootCooldown > 0) {
 							this.shootCooldown--;
 						} else {
-							if (Math.random() < 0.015) {
-								this.shootCooldown = 90;
-								var projDir = (DeSoGhost.xPos > this.xPos) ? 1 : -1;
-								var startX = this.xPos + this.width / 2;
-								var startY = this.yPos + this.height / 2;
-								var vx = 6 * projDir;
-								var vy = 0;
-								var p = obtainProjectile(startX, startY, vx, vy, "spark", 0, 8, 8, 100, 0, false);
-								p.isEnemy = true;
-								g_projectiles.push(p);
-								g_visualEffects.push(createExplosionEffect(startX, startY, "#00FFFF", 4));
-							}
+							this.shootCooldown = 90 + Math.floor(Math.random() * 60);
+							var projDir = (DeSoGhost.xPos > this.xPos) ? 1 : -1;
+							var startX = this.xPos + this.width / 2;
+							var startY = this.yPos + this.height / 2;
+							var vx = 6 * projDir;
+							var vy = 0;
+							var p = obtainProjectile(startX, startY, vx, vy, "spark", 0, 8, 8, 100, 0, false);
+							p.isEnemy = true;
+							g_projectiles.push(p);
+							g_visualEffects.push(createExplosionEffect(startX, startY, "#00FFFF", 4));
 						}
 					}
 					
@@ -1087,18 +1066,16 @@
 						if (this.shootCooldown > 0) {
 							this.shootCooldown--;
 						} else {
-							if (Math.random() < 0.012) {
-								this.shootCooldown = 120;
-								var projDir = (DeSoGhost.xPos > this.xPos) ? 1 : -1;
-								var startX = this.xPos + this.width / 2;
-								var startY = this.yPos + this.height / 2;
-								var vx = 4.5 * projDir;
-								var vy = 0;
-								var p = obtainProjectile(startX, startY, vx, vy, "orb", 0, 20, 20, 150, 0, true);
-								p.isEnemy = true;
-								g_projectiles.push(p);
-								g_visualEffects.push(createExplosionEffect(startX, startY, "#D500F9", 6));
-							}
+							this.shootCooldown = 120 + Math.floor(Math.random() * 60);
+							var projDir = (DeSoGhost.xPos > this.xPos) ? 1 : -1;
+							var startX = this.xPos + this.width / 2;
+							var startY = this.yPos + this.height / 2;
+							var vx = 4.5 * projDir;
+							var vy = 0;
+							var p = obtainProjectile(startX, startY, vx, vy, "orb", 0, 20, 20, 150, 0, true);
+							p.isEnemy = true;
+							g_projectiles.push(p);
+							g_visualEffects.push(createExplosionEffect(startX, startY, "#D500F9", 6));
 						}
 					}
 
@@ -1159,26 +1136,22 @@
 						var curLeft = window.g_customPlayerGhostLeft || desoGhostLeft;
 						var isCustom = !!window.g_customPlayerGhostRight;
 
+						g_ctx.shadowBlur = 10;
+						g_ctx.shadowColor = '#00FFFF';
+
 						if (this.face == 1) {
-							// Moving right
-							if (isCustom) {
-								// Custom ghosts face left natively, so flip them to face right
-								g_ctx.save();
-								g_ctx.translate(this.xPos + map_offset + 12, this.yPos + 12);
-								g_ctx.scale(-1, 1);
-								g_ctx.drawImage(curRight, -12, -12, 24, 24);
-								g_ctx.restore();
-							} else {
-								g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
-							}
+							g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
 						} else {
-							// Moving left
 							g_ctx.drawImage(curLeft, this.xPos + map_offset, this.yPos, 24, 24);
 						}
+
+						g_ctx.shadowBlur = 0;
 						if (this.ghostMode) g_ctx.globalAlpha = 1.0;
 						
 						// Draw Local Player Name
-						var charName = localStorage.getItem("playerName") || "Ghost";
+						if (window.g_playerNameTick === undefined) window.g_playerNameTick = 0;
+						if (window.g_playerNameTick++ % 60 === 0) window.g_cachedPlayerName = localStorage.getItem("playerName") || "Ghost";
+						var charName = window.g_cachedPlayerName || "Ghost";
 						g_ctx.fillStyle = "#00FFCC";
 						g_ctx.font = "10px Arial";
 						g_ctx.textAlign = "center";
@@ -1274,7 +1247,9 @@
 											var reduction = Math.min(0.70, (boss.level - 1) * 0.04);
 											finalDmg = Math.max(1, Math.floor(dmg * (1 - reduction)));
 										}
-										if (boss.type === "demon_fly" || boss.type === "slime") {
+										if (boss.phantomFormTimer > 0) {
+											finalDmg = 0;
+										} else if (boss.type === "demon_fly" || boss.type === "slime") {
 											finalDmg = Math.max(1, Math.floor(finalDmg / 2));
 										}
 
@@ -1304,7 +1279,9 @@
 									var reduction = Math.min(0.70, (g_boss.level - 1) * 0.04);
 									finalDmg = Math.max(1, Math.floor(dmg * (1 - reduction)));
 								}
-								if (g_boss.type === "demon_fly" || g_boss.type === "slime") {
+								if (g_boss.phantomFormTimer > 0) {
+									finalDmg = 0;
+								} else if (g_boss.type === "demon_fly" || g_boss.type === "slime") {
 									finalDmg = Math.max(1, Math.floor(finalDmg / 2));
 								}
 
@@ -1444,6 +1421,9 @@
 									else if (tile == 8) {
 										AddScore(100);
 										this.collectedBlueDiamonds = (this.collectedBlueDiamonds || 0) + 1;
+										if (this.collectedBlueDiamonds % 4 === 0) {
+											window.SpawnNativeGhosts(1);
+										}
 										if (this.collectedBlueDiamonds % 3 === 0) {
 											SpawnBossAtRandomLocation("demon_fly");
 										}
@@ -1459,6 +1439,9 @@
 										}
 										AddScore(666);
 										this.collectedLives = (this.collectedLives || 0) + 1;
+										if (this.collectedLives % 5 === 0) {
+											window.SpawnNativeGhosts(1);
+										}
 										if (this.collectedLives % 3 === 0) {
 											SpawnBossAtRandomLocation();
 										}
@@ -1509,7 +1492,12 @@
 
 					if (this.xPos > 200) {
 						map_offset = -(this.xPos - 200);
-						var maxOffset = -(100 * 24 - 640); // -1760 pixels
+						var logicalCanvasWidth = 640;
+						if (document.body.classList.contains("is-mobile-app")) {
+							var sY = (g_canvas.height - 35) / 264;
+							if (sY > 1) logicalCanvasWidth = 640 / sY;
+						}
+						var maxOffset = -(100 * 24 - logicalCanvasWidth);
 						if (map_offset < maxOffset) map_offset = maxOffset;
 					}
 
@@ -1678,7 +1666,9 @@
 			}
 
 			function updateProjectiles() {
-				if (g_projectiles.length > 300) g_projectiles.splice(0, g_projectiles.length - 300);
+				if (g_projectiles.length > 50) {
+					g_projectiles.splice(0, g_projectiles.length - 50);
+				}
 				var stats = GhostRPG.getStats();
 				for (var i = g_projectiles.length - 1; i >= 0; i--) {
 					var p = g_projectiles[i];
@@ -1688,7 +1678,7 @@
 
 					var screenX = p.x + map_offset;
 
-					if (p.life <= 0 || screenX < -50 || screenX > 700 || p.y < -50 || p.y > 600) {
+					if (isNaN(p.x) || isNaN(p.y) || isNaN(p.life) || p.life <= 0 || screenX < -150 || screenX > g_canvas.width + 150 || p.y < -150 || p.y > g_canvas.height + 150) {
 						g_projectiles.splice(i, 1);
 						continue;
 					}
@@ -1717,20 +1707,23 @@
 
 										var canHit = true;
 										if (p.penetrates) {
-											var lastHitTime = p.hits[boss.xPos + "_" + boss.yPos] || 0;
+											if (!boss.uid) boss.uid = Math.random();
+											var lastHitTime = p.hits[boss.uid] || 0;
 											if (g_count - lastHitTime < 10 && lastHitTime !== 0) {
 												canHit = false;
 											}
 										}
 
 										if (canHit) {
-											p.hits[boss.xPos + "_" + boss.yPos] = g_count;
+											p.hits[boss.uid] = g_count;
 											var finalDmg = p.damage;
 											if (boss.level > 1) {
 												var reduction = Math.min(0.70, (boss.level - 1) * 0.04);
 												finalDmg = Math.max(1, Math.floor(p.damage * (1 - reduction)));
 											}
-											if (boss.type === "demon_fly" || boss.type === "slime") {
+											if (boss.phantomFormTimer > 0) {
+												finalDmg = 0;
+											} else if (boss.type === "demon_fly" || boss.type === "slime") {
 												finalDmg = Math.max(1, Math.floor(finalDmg / 2));
 											}
 											if (boss.type === "skull" && p.type === "orb") {
@@ -1781,14 +1774,15 @@
 
 								var canHit = true;
 								if (p.penetrates) {
-									var lastHitTime = p.hits[g_boss.xPos + "_" + g_boss.yPos] || 0;
+									if (!g_boss.uid) g_boss.uid = Math.random();
+									var lastHitTime = p.hits[g_boss.uid] || 0;
 									if (g_count - lastHitTime < 10 && lastHitTime !== 0) {
 										canHit = false;
 									}
 								}
 
 								if (canHit) {
-									p.hits[g_boss.xPos + "_" + g_boss.yPos] = g_count;
+									p.hits[g_boss.uid] = g_count;
 									var finalDmg = p.damage;
 									if (g_boss.level > 1) {
 										var reduction = Math.min(0.70, (g_boss.level - 1) * 0.04);
@@ -1799,6 +1793,9 @@
 									}
 									if (g_boss.type === "skull" && p.type === "orb") {
 										finalDmg = Math.max(1, Math.floor(finalDmg * 0.20));
+									}
+									if (g_boss.phantomFormTimer > 0) {
+										finalDmg = 0;
 									}
 									if (p.type === "spell_ice") {
 										g_boss.slowTimer = 180;
@@ -1908,11 +1905,13 @@
 			}
 
 			function updateVisualEffects() {
-				if (g_visualEffects.length > 300) g_visualEffects.splice(0, g_visualEffects.length - 300);
+				if (g_visualEffects.length > 50) {
+					g_visualEffects.splice(0, g_visualEffects.length - 50);
+				}
 				for (var i = g_visualEffects.length - 1; i >= 0; i--) {
 					var fx = g_visualEffects[i];
 					fx.life--;
-					if (fx.life <= 0) {
+					if (isNaN(fx.life) || fx.life <= 0) {
 						g_visualEffects.splice(i, 1);
 						continue;
 					}
@@ -1990,7 +1989,9 @@
 				g_ctx.font = "bold 18px 'Courier New'"; g_ctx.fillStyle = "#FF00FF";
 				
 				// Nome e Vidas na parte de baixo do jogo
-				var charName = localStorage.getItem("playerName") || "Ghost";
+				if (window.g_playerNameTick === undefined) window.g_playerNameTick = 0;
+				if (window.g_playerNameTick++ % 60 === 0) window.g_cachedPlayerName = localStorage.getItem("playerName") || "Ghost";
+				var charName = window.g_cachedPlayerName || "Ghost";
 				if (charName.length > 12) charName = charName.substring(0, 10) + "..";
 				g_ctx.textAlign = "left";
 				g_ctx.fillText(charName, 10, g_canvas.height - 10);
@@ -2017,6 +2018,17 @@
 				
 				// Texto completo do Level com os dois pontos para alinhar perfeitamente com a fonte
 				g_ctx.fillText("LEVEL : " + g_currentLevel, 200, 20);
+				
+				// Draw Active Ghost Name at the top right
+				var activeGhostName = "Unknown Ghost";
+				if (window.g_currentPlayerGhost && window.g_ghostdexDB) {
+					var foundGhost = window.g_ghostdexDB.find(function(g) { return g.id === window.g_currentPlayerGhost; });
+					if (foundGhost) activeGhostName = foundGhost.nome;
+				}
+				g_ctx.textAlign = "right";
+				g_ctx.fillStyle = "#00FFFF";
+				g_ctx.fillText(activeGhostName, g_canvas.width - 10, 20);
+				g_ctx.textAlign = "left"; // reset alignment for other text
 				
 				// Atualiza o cronômetro externo (TIME: MM:SS)
 				var tr = g_timeRemaining < 0 ? 0 : g_timeRemaining;
@@ -2818,8 +2830,7 @@
 							}
 							if (isSpaceFree) {
 								var minCol = c;
-								var safeMin = 0;
-								while (minCol > 0 && safeMin++ < 200) {
+								while (minCol > 0) {
 									var t = map.bitmap[r][minCol - 1];
 									if (t == 1 || t == 2 || t == 13 || t == 14 || t == 20) {
 										minCol--;
@@ -2828,8 +2839,7 @@
 									}
 								}
 								var maxCol = c + 2;
-								var safeMax = 0;
-								while (maxCol < 99 && safeMax++ < 200) {
+								while (maxCol < 99) {
 									var t = map.bitmap[r][maxCol + 1];
 									if (t == 1 || t == 2 || t == 13 || t == 14 || t == 20) {
 										maxCol++;
@@ -2864,11 +2874,174 @@
 				return null;
 			}
 
+			var EnemyBoss = function(x, y) { this.xPos = x; this.yPos = y; this.alive = true; this.burnTicks = 0; this.poisonTicks = 0; this.shockTimer = 0; this.slowTimer = 0; };
+			window.SpawnEpisode1Ghost = function(ghostId) {
+				g_screenShakeTime = 30;
+				g_screenShakeIntensity = 12;
+
+				var epx = g_canvas.width;
+				var epy = -40;
+				if (Math.random() > 0.5) { epx = -40; }
+				var boss = new EnemyBoss(epx, epy);
+				boss.type = "episode1_ghost";
+				boss.ghostId = ghostId;
+				boss.isEpisode1Ghost = true;
+				boss.ghostImgR = new Image();
+				boss.ghostImgR.src = 'assets/sprites/ghost_' + ghostId + '_r.webp?v=31';
+				boss.ghostImgL = new Image();
+				boss.ghostImgL.src = 'assets/sprites/ghost_' + ghostId + '_l.webp?v=31';
+
+				var lvlNum = 1;
+				if (typeof g_currentLevel === 'string') {
+					var m = g_currentLevel.match(/\d+/);
+					if (m) lvlNum = parseInt(m[0]);
+				} else if (typeof g_currentLevel === 'number') {
+					lvlNum = g_currentLevel;
+				}
+				boss.maxHp = Math.floor(100 * 10 * Math.pow(1.15, lvlNum));
+				boss.lives = boss.maxHp;
+
+				boss.vx = (epx < 0) ? 2 : -2;
+				boss.vy = 2;
+				boss.width = 32;
+				boss.height = 32;
+				boss.shootCooldown = 100;
+				boss.phantomFormTimer = 0;
+
+				var coords = FindRandomPlatformCoordinates();
+				if (coords) {
+					boss.xPos = coords.x;
+					boss.yPos = coords.y;
+					boss.minX = coords.minX;
+					boss.maxX = coords.maxX;
+					boss.groundY = coords.y;
+				} else {
+					boss.xPos = DeSoGhost.xPos;
+					boss.yPos = DeSoGhost.yPos;
+					boss.minX = DeSoGhost.xPos - 100;
+					boss.maxX = DeSoGhost.xPos + 100;
+					boss.groundY = DeSoGhost.yPos;
+				}
+
+				// Load specific sprite
+				var bossImgR = new Image(); bossImgR.src = 'assets/sprites/ghost_' + ghostId + '_r.webp?v=31';
+				var bossImgL = new Image(); bossImgL.src = 'assets/sprites/ghost_' + ghostId + '_l.webp?v=31';
+
+				boss.update = function () {
+					this.vy += 0.5; // gravity
+					this.xPos += this.vx;
+					this.yPos += this.vy;
+
+					if (this.yPos >= this.groundY) {
+						this.yPos = this.groundY;
+						this.vy = 0;
+						if (Math.random() < 0.05) { // random jump trigger
+							this.vy = -10;
+						}
+					}
+
+					if (this.xPos <= this.minX) {
+						this.xPos = this.minX;
+						this.vx = Math.abs(this.vx) || 2;
+					} else if (this.xPos >= this.maxX) {
+						this.xPos = this.maxX;
+						this.vx = -Math.abs(this.vx) || -2;
+					}
+
+					if (this.shootCooldown > 0) {
+						this.shootCooldown--;
+					} else {
+						var spell = Math.floor(Math.random() * 4);
+						if (spell === 0) {
+							// Spectral Spark
+							if (typeof g_projectiles !== 'undefined') {
+								var dirX = (this.vx > 0 ? 6 : -6);
+								var p1 = obtainProjectile(this.xPos, this.yPos, dirX, -2, "spark", 0, 8, 8, 150, 15, false);
+								p1.isEnemy = true;
+								var p2 = obtainProjectile(this.xPos, this.yPos, dirX, 0, "spark", 0, 8, 8, 150, 15, false);
+								p2.isEnemy = true;
+								var p3 = obtainProjectile(this.xPos, this.yPos, dirX, 2, "spark", 0, 8, 8, 150, 15, false);
+								p3.isEnemy = true;
+								g_projectiles.push(p1, p2, p3);
+							}
+						} else if (spell === 1) {
+							// Plasma Orb
+							if (typeof g_projectiles !== 'undefined') {
+								var dirX = (this.vx > 0 ? 3 : -3);
+								var pOrb = obtainProjectile(this.xPos, this.yPos - 10, dirX, 0, "orb", 0, 24, 24, 150, 45, false);
+								pOrb.isEnemy = true;
+								g_projectiles.push(pOrb);
+							}
+						} else if (spell === 2) {
+							// Ghost Mode
+							this.xPos = this.minX + Math.random() * (this.maxX - this.minX);
+							this.yPos = this.groundY - Math.random() * 60;
+							if (typeof createExplosionEffect === "function") {
+								g_visualEffects.push(createExplosionEffect(this.xPos, this.yPos, "#9932CC", 5));
+							}
+						} else if (spell === 3) {
+							// Phantom Form
+							this.phantomFormTimer = 180;
+						}
+						this.shootCooldown = 80 + Math.floor(Math.random() * 60);
+					}
+
+					if (this.phantomFormTimer > 0) {
+						this.phantomFormTimer--;
+						var speedMod = 1.5;
+						if (this.xPos <= this.minX) { this.vx = Math.abs(this.vx) * speedMod; } 
+						else if (this.xPos >= this.maxX) { this.vx = -Math.abs(this.vx) * speedMod; }
+					}
+
+					if (this.shockTimer > 0) this.shockTimer--;
+
+					if (this.lives <= 0) {
+						if (this.alive) {
+							this.alive = false;
+							if (window.emitKillBoss) window.emitKillBoss(this.id || 0);
+							if (typeof GhostRPG !== 'undefined' && GhostRPG.addXp) GhostRPG.addXp(Math.floor(this.maxHp * 5));
+							if (window.RollEnemyDrop) window.RollEnemyDrop(g_currentLevel);
+							
+							// CAPTURE THE GHOST!
+							if (window.UnlockGhostForPlayer) {
+								window.UnlockGhostForPlayer(this.ghostId);
+								if (typeof window.PushChatMessage === "function") {
+									window.PushChatMessage("SYSTEM", "Ghost #" + this.ghostId + " captured and sent to Ghostdex!", "#00FF00");
+								}
+							}
+						}
+						return;
+					}
+				};
+
+				boss.draw = function() {
+					// Draw Episode 1 Ghost
+					var sprite = (this.vx > 0) ? (this.ghostImgR || bossImgR) : (this.ghostImgL || bossImgL);
+					if (this.phantomFormTimer > 0 || (this.shockTimer > 0 && Math.floor(Date.now() / 100) % 2 === 0)) {
+						g_ctx.globalAlpha = 0.5;
+					}
+					g_ctx.shadowBlur = 15;
+					g_ctx.shadowColor = '#FF00FF';
+					g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, this.width, this.height);
+					g_ctx.shadowBlur = 0;
+					g_ctx.globalAlpha = 1.0;
+
+					// Boss HP bar
+					var hpRatio = this.lives / this.maxHp;
+					g_ctx.fillStyle = "#FF0000";
+					g_ctx.fillRect(this.xPos + map_offset, this.yPos - 10, this.width, 4);
+					g_ctx.fillStyle = "#00FF00";
+					g_ctx.fillRect(this.xPos + map_offset, this.yPos - 10, this.width * hpRatio, 4);
+				};
+				
+				g_bosses.push(boss);
+			};
+
 			function SpawnBossAtRandomLocation(bossType) {
 				if (g_currentLevel === "cave1" || g_currentLevel === "CAVE1") return;
 				if (typeof g_bosses !== 'undefined') {
-					var aliveBosses = g_bosses.filter(function(b) { return b.alive; });
-					if (aliveBosses.length >= 5) return;
+					var aliveBosses = g_bosses.filter(function(b) { return b.alive && !b.isEpisode1Ghost; });
+					if (aliveBosses.length >= 6) return;
 				}
 				bossType = bossType || "crow";
 				g_screenShakeTime = 30; // 30 frames de tremor (~1 segundo)
@@ -3035,12 +3208,7 @@ var g_binaryBits = [];
 					}
 
 					if (typeof g_bosses !== 'undefined') {
-						if (g_bosses.length > 50) g_bosses.splice(0, g_bosses.length - 50);
-						for (var i = g_bosses.length - 1; i >= 0; i--) {
-							if (!g_bosses[i].alive) {
-								g_bosses.splice(i, 1);
-							}
-						}
+						g_bosses = g_bosses.filter(function(b) { return b.alive; });
 						g_bosses.forEach(function(b) { b.update(); });
 						g_boss = g_bosses.length > 0 ? g_bosses[0] : null;
 					} else if (g_boss) {
@@ -3061,30 +3229,11 @@ var g_binaryBits = [];
 						if (id === window.NetworkState.playerId) continue;
 						var pos = window.NetworkState.otherPlayers[id];
 						if (pos) {
-							var isCustomNetwork = !!pos.characterId;
+							var pLevel = pos.level || 'level 1';
+							// Removed level restriction to force visibility
 							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
-							if (isCustomNetwork) {
-								var cached = window.NetworkState.ghostImageCache[pos.characterId];
-								if (cached && cached.complete) {
-									sprite = cached;
-								}
-							}
 							g_ctx.globalAlpha = 0.5;
-							if (isCustomNetwork) {
-								if (pos.isFacingRight !== false) {
-									// Moving right, flip the natively left-facing custom ghost
-									g_ctx.save();
-									g_ctx.translate(pos.x + map_offset + 12, pos.y + 12);
-									g_ctx.scale(-1, 1);
-									g_ctx.drawImage(sprite, -12, -12, 24, 24);
-									g_ctx.restore();
-								} else {
-									// Moving left, draw natively
-									g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
-								}
-							} else {
-								g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
-							}
+							g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
 							g_ctx.globalAlpha = 1.0;
 							
 							if (pos.name) {
@@ -3121,7 +3270,7 @@ var g_binaryBits = [];
 					var availableMapHeight = g_canvas.height - 35; // Total height minus HUD
 					var scaleY = availableMapHeight / 264; // Map logical height is 11 * 24 = 264
 					if (scaleY > 1) {
-						g_ctx.scale(1, scaleY);
+						g_ctx.scale(scaleY, scaleY);
 					}
 				}
 				
@@ -3179,7 +3328,7 @@ var g_binaryBits = [];
 					g_ctx.font = "bold 40px 'Courier New'"; g_ctx.fillStyle = "#FF00FF"; g_ctx.textAlign = "center";
 					g_ctx.fillText("PAUSED", g_canvas.width / 2, 140);
 					g_ctx.font = "bold 20px 'Courier New'"; g_ctx.fillStyle = "#FFF";
-					g_ctx.fillText("PRESS SPACE TO RESUME", g_canvas.width / 2, 180);
+					g_ctx.fillText("PRESS START TO RESUME", g_canvas.width / 2, 180);
 					g_ctx.textAlign = "left";
 				}
 				
@@ -3205,13 +3354,13 @@ var g_binaryBits = [];
 				g_physicsAccumulator += dt;
 				var currentTimestep = g_isFast ? 16.66 : 33.33;
 				
-				var updates = 0;
 				try {
+					var updates = 0;
 					while (g_physicsAccumulator >= currentTimestep) {
 						Game_Step_Logic();
 						g_physicsAccumulator -= currentTimestep;
 						updates++;
-						if (updates > 10) {
+						if (updates > 5) {
 							g_physicsAccumulator = 0;
 							break;
 						}
@@ -3219,19 +3368,10 @@ var g_binaryBits = [];
 
 					Game_Step_Render();
 				} catch (err) {
-					console.error("Critical Game Loop Error (Prevented Freeze):", err);
-					var errDiv = document.getElementById("debugCrashReport");
-					if (!errDiv) {
-						errDiv = document.createElement("div");
-						errDiv.id = "debugCrashReport";
-						errDiv.style = "position:fixed; top:10%; left:10%; width:80%; background:rgba(255,0,0,0.9); color:white; padding:20px; z-index:999999; border:3px solid white; font-family:monospace; max-height: 80%; overflow-y: auto;";
-						document.body.appendChild(errDiv);
-					}
-					errDiv.innerHTML = "<h3>ENGINE CRASH (Game_Step_Logic)</h3><p>Tire um print e envie para o dev:</p><pre style='white-space:pre-wrap;'>" + (err.stack || err.message || err) + "</pre>";
-					// Skip rest of this frame, let next frame try again to prevent permanent freeze
-				} finally {
-					requestAnimationFrame(Game_Step);
+					console.error("Game loop error prevented crash:", err);
 				}
+
+				requestAnimationFrame(Game_Step);
 			}
 
 			// Iniciar o loop requestAnimationFrame
@@ -3641,6 +3781,16 @@ var g_binaryBits = [];
 				var scaleY = g_canvas.height / rect.height;
 				var clickX = (e.clientX - rect.left) * scaleX;
 				var clickY = (e.clientY - rect.top) * scaleY;
+				
+				var isMobileApp = document.body.classList.contains("is-mobile-app");
+				var mapScale = 1;
+				if (isMobileApp) {
+					var sY = (g_canvas.height - 35) / 264;
+					if (sY > 1) mapScale = sY;
+				}
+				
+				var adjustedClickX = clickX / mapScale;
+				var adjustedClickY = clickY / mapScale;
 
 				if (window.NetworkState && window.NetworkState.frameBuffer && window.NetworkState.frameBuffer.length >= 2) {
 					var f0 = window.NetworkState.frameBuffer[window.NetworkState.frameBuffer.length - 1];
@@ -3652,7 +3802,7 @@ var g_binaryBits = [];
 								var px = p0.position.x + (window.map_offset || 0);
 								var py = p0.position.y;
 								// Bounding box of 24x24 sprite
-								if (clickX >= px && clickX <= px + 24 && clickY >= py && clickY <= py + 24) {
+								if (adjustedClickX >= px && adjustedClickX <= px + 24 && adjustedClickY >= py && adjustedClickY <= py + 24) {
 									var targetName = window.NetworkState.playerNames[pid] || 'Ghost';
 									if (window.OpenPlayerProfile) {
 										window.OpenPlayerProfile(targetName);
@@ -4107,154 +4257,8 @@ var g_binaryBits = [];
 			});
 
 			window.DrawWinScreen = DrawWinScreen;
-
-			window.SpawnEpisode1Ghost = function(ghostId) {
-				try {
-					g_screenShakeTime = 30;
-					g_screenShakeIntensity = 12;
-
-					var epx = g_canvas.width;
-					var epy = -40;
-					if (Math.random() > 0.5) { epx = -40; }
-					
-					var boss = new c_Boss(epx, epy, "episode1_ghost");
-					boss.ghostId = ghostId;
-					boss.isEpisode1Ghost = true;
-					boss.ghostImgR = new Image();
-					boss.ghostImgR.src = 'Ghosts/%23' + ghostId + '.png';
-					boss.ghostImgL = new Image();
-					boss.ghostImgL.src = 'Ghosts/%23' + ghostId + '.png';
-
-					var lvlNum = 1;
-					if (typeof g_currentLevel === 'string') {
-						var m = g_currentLevel.match(/\d+/);
-						if (m) lvlNum = parseInt(m[0]);
-					} else if (typeof g_currentLevel === 'number') {
-						lvlNum = g_currentLevel;
-					}
-					boss.maxHp = Math.floor(100 * 10 * Math.pow(1.15, lvlNum));
-					boss.lives = boss.maxHp;
-
-					boss.vx = (epx < 0) ? 2 : -2;
-					boss.vy = 2;
-					boss.width = 32;
-					boss.height = 32;
-					boss.shootCooldown = 100;
-					boss.phantomFormTimer = 0;
-
-					var coords = (typeof FindRandomPlatformCoordinates === "function") ? FindRandomPlatformCoordinates() : null;
-					if (coords) {
-						boss.xPos = coords.x;
-						boss.yPos = coords.y;
-						boss.minX = coords.minX;
-						boss.maxX = coords.maxX;
-						boss.groundY = coords.y;
-					} else if (typeof DeSoGhost !== 'undefined') {
-						boss.xPos = DeSoGhost.xPos;
-						boss.yPos = DeSoGhost.yPos;
-						boss.minX = DeSoGhost.xPos - 100;
-						boss.maxX = DeSoGhost.xPos + 100;
-						boss.groundY = DeSoGhost.yPos;
-					} else {
-						boss.xPos = 100;
-						boss.yPos = 100;
-						boss.minX = 0;
-						boss.maxX = 200;
-						boss.groundY = 100;
-					}
-
-					boss.update = function () {
-						this.vy += 0.5; // gravity
-						this.xPos += this.vx;
-						this.yPos += this.vy;
-
-						if (this.yPos >= this.groundY) {
-							this.yPos = this.groundY;
-							this.vy = 0;
-							if (Math.random() < 0.05) { // random jump trigger
-								this.vy = -10;
-							}
-						}
-
-						if (this.xPos <= this.minX) {
-							this.xPos = this.minX;
-							this.vx = Math.abs(this.vx) || 2;
-						} else if (this.xPos >= this.maxX) {
-							this.xPos = this.maxX;
-							this.vx = -Math.abs(this.vx) || -2;
-						}
-						this.dir = (this.vx > 0) ? 1 : -1;
-
-						if (this.shootCooldown > 0) {
-							this.shootCooldown--;
-						} else {
-							var spell = Math.floor(Math.random() * 4);
-							if (spell === 0) {
-								// Spectral Spark
-								if (typeof g_projectiles !== 'undefined') {
-									var dirX = (this.vx > 0 ? 6 : -6);
-									g_projectiles.push({ x: this.xPos, y: this.yPos, vx: dirX, vy: -2, hostile: true, isEnemy: true, width: 8, height: 8, damage: 15, life: 100 });
-									g_projectiles.push({ x: this.xPos, y: this.yPos, vx: dirX, vy: 0, hostile: true, isEnemy: true, width: 8, height: 8, damage: 15, life: 100 });
-									g_projectiles.push({ x: this.xPos, y: this.yPos, vx: dirX, vy: 2, hostile: true, isEnemy: true, width: 8, height: 8, damage: 15, life: 100 });
-								}
-							} else if (spell === 1) {
-								// Plasma Orb
-								if (typeof g_projectiles !== 'undefined') {
-									var dirX = (this.vx > 0 ? 3 : -3);
-									g_projectiles.push({ x: this.xPos, y: this.yPos - 10, vx: dirX, vy: 0, hostile: true, isEnemy: true, width: 24, height: 24, damage: 45, life: 100 });
-								}
-							} else if (spell === 2) {
-								// Ghost Mode
-								this.xPos = this.minX + Math.random() * (this.maxX - this.minX);
-								this.yPos = this.groundY - Math.random() * 60;
-								if (typeof obtainExplosionEffect === "function") {
-									g_visualEffects.push(obtainExplosionEffect(this.xPos, this.yPos, "#9932CC", 5));
-								}
-							} else if (spell === 3) {
-								// Phantom Form
-								this.phantomFormTimer = 180;
-							}
-							this.shootCooldown = 80 + Math.floor(Math.random() * 60);
-						}
-
-						if (this.phantomFormTimer > 0) {
-							this.phantomFormTimer--;
-							var speedMod = 1.5;
-							if (this.xPos <= this.minX) { this.vx = Math.abs(this.vx) * speedMod; } 
-							else if (this.xPos >= this.maxX) { this.vx = -Math.abs(this.vx) * speedMod; }
-						}
-
-						if (this.shockTimer > 0) this.shockTimer--;
-
-						if (this.lives <= 0) {
-							if (this.alive) {
-								this.alive = false;
-								if (window.emitKillBoss) window.emitKillBoss(this.id || 0);
-								if (typeof GhostRPG !== 'undefined' && GhostRPG.addXp) GhostRPG.addXp(Math.floor(this.maxHp * 5));
-								if (window.RollEnemyDrop) window.RollEnemyDrop(g_currentLevel);
-								
-								// CAPTURE THE GHOST!
-								if (window.UnlockGhostForPlayer) {
-									window.UnlockGhostForPlayer(this.ghostId);
-								}
-							}
-						}
-
-						if (DeSoGhost.alive && !DeSoGhost.ghostMode && DeSoGhost.phantomFormTimer <= 0) {
-							if (this.xPos < DeSoGhost.xPos + 24 && this.xPos + this.width > DeSoGhost.xPos &&
-								this.yPos < DeSoGhost.yPos + 24 && this.yPos + this.height > DeSoGhost.yPos) {
-								DeSoGhost.alive = false;
-								if (window.emitBossCollision) window.emitBossCollision();
-							}
-						}
-					};
-
-				} catch(e) {
-					console.error("Error in SpawnEpisode1Ghost:", e);
-				}
-			};
-
 			})(); // Fecha IIFE Caixa Preta
 		
+
 
 
