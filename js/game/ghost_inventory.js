@@ -109,6 +109,14 @@ window.AddXpToGhost = function(ghostId, xpAmount) {
 }
 
 window.SpawnNativeGhosts = function(count) {
+    if (typeof g_bosses !== 'undefined' && g_bosses.length >= 5) {
+        console.log("Maximum 5 ghosts active, skipping spawn.");
+        return;
+    }
+    var availableSlots = 5 - (typeof g_bosses !== 'undefined' ? g_bosses.length : 0);
+    count = Math.min(count, availableSlots);
+    if (count <= 0) return;
+
     console.log("Y' 2222 SCORE REACHED! Spawning " + count + " Ghosts!");
     
     var validIds = [];

@@ -60,7 +60,7 @@ function RenderGhostdexInNavbar(db) {
 
     // Build full HTML
     var html = '';
-    html += '<div style="text-align:center; margin-bottom:10px; position:relative;">';
+    html += '<div class="ghdx-header" style="text-align:center; margin-bottom:10px; position:relative;">';
     html += '<h3 style="margin:0 0 4px 0; color:#9932CC; font-family:Orbitron,sans-serif; font-size:16px; text-shadow:0 0 8px #9932CC;">👻 GHOSTDEX</h3>';
     html += '<div style="color:#AAA; font-size:12px; margin-bottom:8px;">Seen: ' + seen + ' / ' + db.length + ' | Caught: ' + caught + ' / ' + db.length + '</div>';
     html += '<div style="width:100%; text-align:center; margin-top:10px;">';
@@ -68,7 +68,7 @@ function RenderGhostdexInNavbar(db) {
     html += '</div>';
     html += '</div>';
 
-    html += '<div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; max-height:50vh; overflow-y:auto; padding:4px;">';
+    html += '<div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; max-height:220px; overflow-y:auto; padding:4px;">';
 
     db.forEach(function(ghost) {
         var st = progress[ghost.id] || 0;
@@ -80,16 +80,17 @@ function RenderGhostdexInNavbar(db) {
         }
 
         var isFav = favs.indexOf(ghost.id) !== -1;
-        html += '<div onclick="ShowGhostdexDetail(\'' + ghost.id + '\')" style="position:relative; cursor:pointer; background:' + bg + '; border:1px solid ' + border + '; border-radius:6px; padding:6px; text-align:center; opacity:' + opacity + ';">';
+        html += '<div class="ghdx-card" onclick="ShowGhostdexDetail(\'' + ghost.id + '\')" style="position:relative; cursor:pointer; background:' + bg + '; border:1px solid ' + border + '; border-radius:6px; padding:6px; text-align:center; opacity:' + opacity + ';">';
         if (isFav) {
-            html += '<div style="position:absolute; top:-4px; left:-4px; font-size:16px; text-shadow:0 0 6px #FFD700; color:#FFD700; z-index:5;">⭐</div>';
+            html += '<div class="fav-badge" style="position:absolute; top:-4px; left:-4px; font-size:16px; text-shadow:0 0 6px #FFD700; color:#FFD700; z-index:5;">⭐</div>';
         }
         html += '<div style="color:#666; font-size:10px;">#' + ghost.id + '</div>';
         if (st < 2) {
             html += '<div style="font-size:20px;">❓</div>';
             html += '<div style="color:#555; font-size:10px;">???</div>';
         } else {
-            html += '<div style="margin:4px 0;"><img src="assets/sprites/ghost_' + ghost.id + '_r.webp?v=31" style="width:24px; height:24px; image-rendering:pixelated; filter: drop-shadow(0 0 5px #00FFFF);" /></div>';
+            // Using Ghosts/#xxx.png
+            html += '<div style="margin:4px 0;"><img src="Ghosts/%23' + ghost.id + '.png" onerror="this.onerror=null;this.src=\'Ghosts/' + ghost.id + '.png\';this.onerror=function(){this.onerror=null;this.src=\'assets/sprites/ghost_' + ghost.id + '_r.webp\';};" style="width:24px; height:24px; image-rendering:pixelated; filter: drop-shadow(0 0 5px #00FFFF);" /></div>';
             html += '<div style="color:#00FF00; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + ghost.nome + '</div>';
         }
         html += '</div>';
@@ -98,12 +99,24 @@ function RenderGhostdexInNavbar(db) {
     html += '</div>';
 
     // Hidden detail modal
-    html += '<div id="ghdx-detail-overlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:100; overflow-y:auto; padding:15px; box-sizing:border-box;">';
-    html += '<div id="ghdx-detail-content"></div>';
-    html += '<button onclick="document.getElementById(\'ghdx-detail-overlay\').style.display=\'none\';" style="display:block; margin:15px auto 0; padding:8px 30px; background:#9932CC; border:none; color:#FFF; font-weight:bold; border-radius:5px; cursor:pointer;">CLOSE</button>';
-    html += '</div>';
+    if (!document.getElementById('ghdx-detail-overlay')) {
+        var detailDiv = document.createElement('div');
+        detailDiv.id = 'ghdx-detail-overlay';
+        detailDiv.style.cssText = 'display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:100; overflow-y:auto; padding:15px; box-sizing:border-box;';
+        detailDiv.innerHTML = '<div id="ghdx-detail-content"></div><button onclick="document.getElementById(\'ghdx-detail-overlay\').style.display=\'none\';" style="display:block; margin:15px auto 0; padding:8px 30px; background:#9932CC; border:none; color:#FFF; font-weight:bold; border-radius:5px; cursor:pointer;">CLOSE</button>';
+        container.appendChild(detailDiv);
+    }
 
+    // Since we just set innerHTML on container, we need to append the detail layer inside navbar panel content or body
     container.innerHTML = html;
+    
+    // Add detail overlay after innerHTML to not lose it
+    var overlayHtml = '<div id="ghdx-detail-overlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:100; overflow-y:auto; padding:15px; box-sizing:border-box;">';
+    overlayHtml += '<div id="ghdx-detail-content"></div>';
+    overlayHtml += '<button onclick="document.getElementById(\'ghdx-detail-overlay\').style.display=\'none\';" style="display:block; margin:15px auto 0; padding:8px 30px; background:#9932CC; border:none; color:#FFF; font-weight:bold; border-radius:5px; cursor:pointer;">CLOSE</button>';
+    overlayHtml += '</div>';
+    
+    container.innerHTML += overlayHtml;
 }
 
 window.ShowGlossary = function() {
@@ -163,9 +176,9 @@ window.ShowGhostdexDetail = function(ghostId) {
     // Header with image
     h += '<div style="text-align:center; margin-bottom:10px;">';
     if (st === 1) {
-        h += '<img src="assets/sprites/ghost_' + ghost.id + '_r.webp?v=31" style="width:48px; height:48px; image-rendering:pixelated; filter:brightness(0);" />';
+        h += '<img src="Ghosts/%23' + ghost.id + '.png" onerror="this.onerror=null;this.src=\'Ghosts/' + ghost.id + '.png\';this.onerror=function(){this.onerror=null;this.src=\'assets/sprites/ghost_' + ghost.id + '_r.webp\';};" style="width:48px; height:48px; image-rendering:pixelated; filter:brightness(0);" />';
     } else {
-        h += '<img src="assets/sprites/ghost_' + ghost.id + '_r.webp?v=31" style="width:48px; height:48px; image-rendering:pixelated; filter: drop-shadow(0 0 10px #FF00FF);" />';
+        h += '<img src="Ghosts/%23' + ghost.id + '.png" onerror="this.onerror=null;this.src=\'Ghosts/' + ghost.id + '.png\';this.onerror=function(){this.onerror=null;this.src=\'assets/sprites/ghost_' + ghost.id + '_r.webp\';};" style="width:48px; height:48px; image-rendering:pixelated; filter: drop-shadow(0 0 10px #FF00FF);" />';
     }
     h += '<h3 style="color:#9932CC; margin:5px 0 10px 0; font-family:Orbitron,sans-serif;">#' + ghost.id + ' - ' + ghost.nome + '</h3>';
     h += '</div>';
@@ -222,26 +235,38 @@ window.ShowGhostdexDetail = function(ghostId) {
 
     // HERO STATUS
     if (st === 2) {
-        var rawSave = localStorage.getItem("DangerGhost_RPG_Save_" + ghost.id);
-        var heroStats = { level: 1, xp: 0, vit: 1, agi: 1, pow: 1, mag: 1 };
-        if (rawSave) {
-            try {
-                var decrypted = (window.SafeAtob || atob)(rawSave);
-                var parts = decrypted.split("||");
-                heroStats = JSON.parse(parts[0]);
-            } catch(e) {}
-        }
-        var hp = 4 + heroStats.vit;
-        var atk = heroStats.pow;
-        var def = heroStats.agi;
+        // Read from dg_local_characters where ghost RPG profiles are stored
+        var heroStats = { level: 1, xp: 0, xpRequired: 100, vit: 1, agi: 1, int: 1, pow: 1, mag: 1 };
+        try {
+            var rawChars = localStorage.getItem("dg_local_characters");
+            if (rawChars) {
+                var localChars = JSON.parse(rawChars);
+                var charId = "ghost_" + ghost.id;
+                var foundChar = localChars.find(function(c) { return c.characterId === charId; });
+                if (foundChar) {
+                    heroStats.level = foundChar.level || 1;
+                    heroStats.xp = foundChar.xp || 0;
+                    heroStats.xpRequired = foundChar.xpRequired || 100;
+                    heroStats.vit = foundChar.vit || 1;
+                    heroStats.agi = foundChar.agi || 1;
+                    heroStats.int = foundChar.int || 1;
+                    heroStats.pow = foundChar.pow || 1;
+                    heroStats.mag = foundChar.mag || 1;
+                }
+            }
+        } catch(e) { console.error("Error reading ghost RPG profile", e); }
         h += '<div style="margin-top:10px; padding:10px; background:rgba(255, 215, 0, 0.1); border:1px solid #FFD700; border-radius:5px;">';
-        h += '<div style="color:#FFD700; font-weight:bold; font-size:14px; text-align:center; margin-bottom:5px;">🛡️ HERO STATUS</div>';
-        h += '<div style="display:flex; justify-content:space-around; color:#FFF; font-size:12px;">';
+        h += '<div style="color:#FFD700; font-weight:bold; font-size:14px; text-align:center; margin-bottom:8px;">🛡️ HERO STATUS</div>';
+        h += '<div style="display:flex; justify-content:space-between; color:#FFF; font-size:12px; margin-bottom:4px;">';
         h += '<span>Level: <b style="color:#00FF00">' + heroStats.level + '</b></span>';
-        h += '<span>XP: <b style="color:#00FFFF">' + heroStats.xp + '</b></span>';
-        h += '<span>HP: <b>' + hp + '</b></span>';
-        h += '<span>ATK: <b>' + atk + '</b></span>';
-        h += '<span>DEF: <b>' + def + '</b></span>';
+        h += '<span>XP: <b style="color:#00FFFF">' + heroStats.xp + '/' + heroStats.xpRequired + '</b></span>';
+        h += '</div>';
+        h += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:3px; font-size:11px; color:#FFF;">';
+        h += '<span>❤️ VIT: <b style="color:#FF6B6B">' + heroStats.vit + '</b></span>';
+        h += '<span>⚡ AGI: <b style="color:#FFFF00">' + heroStats.agi + '</b></span>';
+        h += '<span>🔮 INT: <b style="color:#BB86FC">' + heroStats.int + '</b></span>';
+        h += '<span>⚔️ POW: <b style="color:#FF4500">' + heroStats.pow + '</b></span>';
+        h += '<span>🌀 MAG: <b style="color:#00BFFF">' + heroStats.mag + '</b></span>';
         h += '</div></div>';
     } else {
         h += '<div style="margin-top:10px; padding:10px; background:rgba(50, 50, 50, 0.5); border:1px solid #555; border-radius:5px;">';
@@ -270,8 +295,55 @@ window.PlayAsGhost = function(ghostId) {
     window.g_currentPlayerGhost = ghostId;
     console.log("Player is now playing as Ghost ID:", ghostId);
     
+    // Retroactive RPG Profile Generation
+    let localChars = localStorage.getItem("dg_local_characters");
+    if (!localChars) localChars = "[]";
+    localChars = JSON.parse(localChars);
+    
+    let charId = "ghost_" + ghostId;
+    let existingChar = localChars.find(c => c.characterId === charId);
+    if (!existingChar) {
+        let ghostName = "Unknown Ghost";
+        let dbGhost = window.g_ghostdexDB ? window.g_ghostdexDB.find(g => g.id === ghostId) : null;
+        if (dbGhost) ghostName = dbGhost.nome;
+        
+        let hp = dbGhost && dbGhost.stats_base ? dbGhost.stats_base.hp : 50;
+        let atk = dbGhost && dbGhost.stats_base ? dbGhost.stats_base.ataque : 50;
+        let def = dbGhost && dbGhost.stats_base ? dbGhost.stats_base.defesa : 50;
+        let spAtk = dbGhost && dbGhost.stats_base ? dbGhost.stats_base.atq_especial : 50;
+        let spDef = dbGhost && dbGhost.stats_base ? dbGhost.stats_base.def_especial : 50;
+        let spd = dbGhost && dbGhost.stats_base ? dbGhost.stats_base.velocidade : 50;
+
+        localChars.push({
+            characterId: charId,
+            name: ghostName,
+            level: 1,
+            xp: 0,
+            vit: Math.ceil(hp / 10) || 1,
+            agi: Math.ceil(spd / 10) || 1,
+            int: Math.ceil(spAtk / 10) || 1,
+            pow: Math.ceil(atk / 10) || 1,
+            mag: Math.ceil(spDef / 10) || 1,
+            inventory: [],
+            equipment: { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null }
+        });
+        localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
+        console.log("👻 RPG Profile generated retroactively for ghost:", charId);
+    } else if (existingChar.level === 1 && existingChar.vit > 20) {
+        let dbGhost = window.g_ghostdexDB ? window.g_ghostdexDB.find(g => g.id === ghostId) : null;
+        if (dbGhost && dbGhost.stats_base) {
+            existingChar.vit = Math.ceil(dbGhost.stats_base.hp / 10) || 1;
+            existingChar.pow = Math.ceil(dbGhost.stats_base.ataque / 10) || 1;
+            existingChar.agi = Math.ceil(dbGhost.stats_base.velocidade / 10) || 1;
+            existingChar.int = Math.ceil(dbGhost.stats_base.atq_especial / 10) || 1;
+            existingChar.mag = Math.ceil(dbGhost.stats_base.def_especial / 10) || 1;
+            localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
+            console.log("👻 RPG Profile stats fixed retroactively for ghost:", charId);
+        }
+    }
+    
     if (typeof window.SelectCharacterToPlay === 'function') {
-        window.SelectCharacterToPlay("ghost_" + ghostId);
+        window.SelectCharacterToPlay(charId);
     }
     
     if (typeof GhostRPG !== 'undefined' && GhostRPG.SwitchActiveGhost) {
@@ -280,10 +352,10 @@ window.PlayAsGhost = function(ghostId) {
     
     // Cache the images so the engine can use them
     window.g_customPlayerGhostRight = new Image();
-    window.g_customPlayerGhostRight.src = 'assets/sprites/ghost_' + ghostId + '_r.webp?v=38';
+    window.g_customPlayerGhostRight.src = 'Ghosts/%23' + ghostId + '.png';
     
     window.g_customPlayerGhostLeft = new Image();
-    window.g_customPlayerGhostLeft.src = 'assets/sprites/ghost_' + ghostId + '_l.webp?v=38';
+    window.g_customPlayerGhostLeft.src = 'Ghosts/%23' + ghostId + '.png';
     
     var overlay = document.getElementById('ghdx-detail-overlay');
     if (overlay) overlay.style.display = 'none';
@@ -369,8 +441,8 @@ window.ToggleFavoriteGhost = function(ghostId) {
     if (idx !== -1) {
         favs.splice(idx, 1);
     } else {
-        if (favs.length >= 5) {
-            alert("You can only favorite up to 5 ghosts!");
+        if (favs.length >= 3) {
+            alert("You can only favorite up to 3 ghosts!");
             return;
         }
         favs.push(ghostId);
@@ -383,4 +455,3 @@ window.ToggleFavoriteGhost = function(ghostId) {
         ShowGhostdexDetail(ghostId);
     }
 };
-

@@ -1,4 +1,3 @@
-
 /* 
    GHOST INVENTORY & EVOLUTION SYSTEM
    Handles capturing ghosts and leveling them up.
@@ -62,11 +61,11 @@ window.UnlockGhostForPlayer = function(ghostId) {
                 name: ghostName,
                 level: 1,
                 xp: 0,
-                vit: baseStats.hp || 50,
-                agi: baseStats.velocidade || 50,
-                int: baseStats.atq_especial || 50,
-                pow: baseStats.ataque || 50,
-                mag: baseStats.def_especial || 50,
+                vit: Math.ceil((baseStats.hp || 50) / 10),
+                agi: Math.ceil((baseStats.velocidade || 50) / 10),
+                int: Math.ceil((baseStats.atq_especial || 50) / 10),
+                pow: Math.ceil((baseStats.ataque || 50) / 10),
+                mag: Math.ceil((baseStats.def_especial || 50) / 10),
                 inventory: [],
                 equipment: { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null }
             });
@@ -90,7 +89,9 @@ window.AddXpToGhost = function(ghostId, xpAmount) {
         console.log(`👻 Ghost ${idStr} gained ${xpAmount} XP. Total: ${inv[idStr].xp}/${inv[idStr].xpNext}`);
         
         // Level up logic
-        while (inv[idStr].xp >= inv[idStr].xpNext) {
+        let ghostSafeLoop = 0;
+        while (inv[idStr].xp >= inv[idStr].xpNext && ghostSafeLoop++ < 1000) {
+            if (!inv[idStr].xpNext || inv[idStr].xpNext <= 0) inv[idStr].xpNext = 1000;
             inv[idStr].xp -= inv[idStr].xpNext;
             inv[idStr].level++;
             inv[idStr].xpNext = Math.floor(inv[idStr].xpNext * 1.5);
@@ -108,6 +109,14 @@ window.AddXpToGhost = function(ghostId, xpAmount) {
 }
 
 window.SpawnNativeGhosts = function(count) {
+    if (typeof g_bosses !== 'undefined' && g_bosses.length >= 5) {
+        console.log("Maximum 5 ghosts active, skipping spawn.");
+        return;
+    }
+    var availableSlots = 5 - (typeof g_bosses !== 'undefined' ? g_bosses.length : 0);
+    count = Math.min(count, availableSlots);
+    if (count <= 0) return;
+
     console.log("Y' 2222 SCORE REACHED! Spawning " + count + " Ghosts!");
     
     var validIds = [];

@@ -90,7 +90,7 @@ function RenderGhostdexInNavbar(db) {
             html += '<div style="color:#555; font-size:10px;">???</div>';
         } else {
             // Using Ghosts/#xxx.png
-            html += '<div style="margin:4px 0;"><img src="Ghosts/%23' + ghost.id + '.png" style="width:24px; height:24px; image-rendering:pixelated; filter: drop-shadow(0 0 5px #00FFFF);" /></div>';
+            html += '<div style="margin:4px 0;"><img src="Ghosts/%23' + ghost.id + '.png" onerror="this.onerror=null;this.src=\'Ghosts/' + ghost.id + '.png\';this.onerror=function(){this.onerror=null;this.src=\'assets/sprites/ghost_' + ghost.id + '_r.webp\';};" style="width:24px; height:24px; image-rendering:pixelated; filter: drop-shadow(0 0 5px #00FFFF);" /></div>';
             html += '<div style="color:#00FF00; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + ghost.nome + '</div>';
         }
         html += '</div>';
@@ -176,9 +176,9 @@ window.ShowGhostdexDetail = function(ghostId) {
     // Header with image
     h += '<div style="text-align:center; margin-bottom:10px;">';
     if (st === 1) {
-        h += '<img src="Ghosts/%23' + ghost.id + '.png" style="width:48px; height:48px; image-rendering:pixelated; filter:brightness(0);" />';
+        h += '<img src="Ghosts/%23' + ghost.id + '.png" onerror="this.onerror=null;this.src=\'Ghosts/' + ghost.id + '.png\';this.onerror=function(){this.onerror=null;this.src=\'assets/sprites/ghost_' + ghost.id + '_r.webp\';};" style="width:48px; height:48px; image-rendering:pixelated; filter:brightness(0);" />';
     } else {
-        h += '<img src="Ghosts/%23' + ghost.id + '.png" style="width:48px; height:48px; image-rendering:pixelated; filter: drop-shadow(0 0 10px #FF00FF);" />';
+        h += '<img src="Ghosts/%23' + ghost.id + '.png" onerror="this.onerror=null;this.src=\'Ghosts/' + ghost.id + '.png\';this.onerror=function(){this.onerror=null;this.src=\'assets/sprites/ghost_' + ghost.id + '_r.webp\';};" style="width:48px; height:48px; image-rendering:pixelated; filter: drop-shadow(0 0 10px #FF00FF);" />';
     }
     h += '<h3 style="color:#9932CC; margin:5px 0 10px 0; font-family:Orbitron,sans-serif;">#' + ghost.id + ' - ' + ghost.nome + '</h3>';
     h += '</div>';
