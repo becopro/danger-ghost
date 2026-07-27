@@ -6,6 +6,17 @@
 			// console.error = function() {};
 			// console.info = function() {};
 			// console.dir = function() {};
+
+			// --- SAFETY PATCH ---
+			// Prevent "InvalidStateError" crashes when a sprite fails to load
+			var __originalDrawImage = CanvasRenderingContext2D.prototype.drawImage;
+			CanvasRenderingContext2D.prototype.drawImage = function(image) {
+				if (image instanceof HTMLImageElement && (!image.complete || image.naturalWidth === 0)) {
+					return; // Silently skip drawing broken images instead of crashing the entire game loop
+				}
+				return __originalDrawImage.apply(this, arguments);
+			};
+			// --------------------
 			
 			// 2. Block Right-Click (Context Menu)
 			document.addEventListener('contextmenu', function(e) {
@@ -3275,17 +3286,19 @@ var g_binaryBits = [];
 					g_ctx.fillStyle = "#000"; g_ctx.fillRect(0, 0, g_canvas.width, g_canvas.height);
 				}
 				else if (g_gameState == G_PLAY) {
-					drawBinaryBackground(false);
-					map.draw();
-					if (typeof g_bosses !== 'undefined') {
-						g_bosses.forEach(function(b) { b.draw(); });
-					} else if (g_boss) {
-						g_boss.draw();
-					}
-					drawProjectiles();
-					drawOtherPlayers();
-					DeSoGhost.draw();
-					drawVisualEffects();
+					try { drawBinaryBackground(false); } catch(e) {}
+					try { map.draw(); } catch(e) {}
+					try {
+						if (typeof g_bosses !== 'undefined') {
+							g_bosses.forEach(function(b) { if (b && typeof b.draw === 'function') b.draw(); });
+						} else if (g_boss && typeof g_boss.draw === 'function') {
+							g_boss.draw();
+						}
+					} catch(e) {}
+					try { drawProjectiles(); } catch(e) {}
+					try { drawOtherPlayers(); } catch(e) {}
+					try { DeSoGhost.draw(); } catch(e) {}
+					try { drawVisualEffects(); } catch(e) {}
 					
 					if (isMobileApp && (g_canvas.height - 35) / 264 > 1) {
 						g_ctx.restore();
@@ -3293,28 +3306,30 @@ var g_binaryBits = [];
 						// Re-apply screen shake for HUD if needed, but actually HUD is better without shake
 					}
 					
-					Print_HUD();
+					try { Print_HUD(); } catch(e) {}
 				}
 				else if (g_gameState == G_WIN) DrawWinScreen();
 				else if (g_gameState == G_GAMEOVER) DrawGameOverScreen();
 				else if (g_gameState == G_PAUSE) {
-					drawBinaryBackground(false);
-					map.draw();
-					if (typeof g_bosses !== 'undefined') {
-						g_bosses.forEach(function(b) { b.draw(); });
-					} else if (g_boss) {
-						g_boss.draw();
-					}
-					drawProjectiles();
-					drawVisualEffects();
-					DeSoGhost.draw();
+					try { drawBinaryBackground(false); } catch(e) {}
+					try { map.draw(); } catch(e) {}
+					try {
+						if (typeof g_bosses !== 'undefined') {
+							g_bosses.forEach(function(b) { if (b && typeof b.draw === 'function') b.draw(); });
+						} else if (g_boss && typeof g_boss.draw === 'function') {
+							g_boss.draw();
+						}
+					} catch(e) {}
+					try { drawProjectiles(); } catch(e) {}
+					try { drawVisualEffects(); } catch(e) {}
+					try { DeSoGhost.draw(); } catch(e) {}
 					
 					if (isMobileApp && (g_canvas.height - 35) / 264 > 1) {
 						g_ctx.restore();
 						g_ctx.save();
 					}
 					
-					Print_HUD();
+					try { Print_HUD(); } catch(e) {}
 					
 					g_ctx.fillStyle = "rgba(0,0,0,0.7)"; g_ctx.fillRect(0, 0, g_canvas.width, g_canvas.height);
 					g_ctx.font = "bold 40px 'Courier New'"; g_ctx.fillStyle = "#FF00FF"; g_ctx.textAlign = "center";
