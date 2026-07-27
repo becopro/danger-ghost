@@ -2884,6 +2884,7 @@
 
 			var EnemyBoss = function(x, y) { this.xPos = x; this.yPos = y; this.alive = true; this.burnTicks = 0; this.poisonTicks = 0; this.shockTimer = 0; this.slowTimer = 0; };
 			window.SpawnEpisode1Ghost = function(ghostId) {
+				if (typeof g_bosses !== 'undefined' && g_bosses.length >= 5) return null;
 				g_screenShakeTime = 30;
 				g_screenShakeIntensity = 12;
 
@@ -3048,8 +3049,8 @@
 			function SpawnBossAtRandomLocation(bossType) {
 				if (g_currentLevel === "cave1" || g_currentLevel === "CAVE1") return;
 				if (typeof g_bosses !== 'undefined') {
-					var aliveBosses = g_bosses.filter(function(b) { return b.alive && !b.isEpisode1Ghost; });
-					if (aliveBosses.length >= 6) return;
+					var aliveBosses = g_bosses.filter(function(b) { return b && b.alive; });
+					if (aliveBosses.length >= 5) return;
 				}
 				bossType = bossType || "crow";
 				g_screenShakeTime = 30; // 30 frames de tremor (~1 segundo)
@@ -3216,7 +3217,10 @@ var g_binaryBits = [];
 					}
 
 					if (typeof g_bosses !== 'undefined') {
-						g_bosses = g_bosses.filter(function(b) { return b.alive; });
+						g_bosses = g_bosses.filter(function(b) { return b && b.alive; });
+						if (g_bosses.length > 5) {
+							g_bosses.splice(5);
+						}
 						g_bosses.forEach(function(b) { b.update(); });
 						g_boss = g_bosses.length > 0 ? g_bosses[0] : null;
 					} else if (g_boss) {
@@ -3368,7 +3372,7 @@ var g_binaryBits = [];
 						Game_Step_Logic();
 						g_physicsAccumulator -= currentTimestep;
 						updates++;
-						if (updates > 5) {
+						if (updates >= 2) {
 							g_physicsAccumulator = 0;
 							break;
 						}
