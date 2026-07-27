@@ -18,7 +18,7 @@ window.ConnectToServer = function() {
 
     const hostname = window.location.hostname;
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname === '' || window.location.protocol === 'file:';
-    const BACKEND_URL = isLocal ? `http://${hostname || 'localhost'}:3000` : "https://danger-ghost.onrender.com";
+    const BACKEND_URL = isLocal ? `http://${hostname || 'localhost'}:3000` : "https://server.ghostgames.club";
     const socket = io(BACKEND_URL, {
         transports: ['websocket', 'polling'], // Fallback for unstable 4G/5G
         reconnection: true,
