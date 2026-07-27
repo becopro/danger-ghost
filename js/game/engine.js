@@ -795,6 +795,17 @@
 							}
 						}
 					}
+					if (levelNum !== "cave1" && levelNum !== "CAVE1") {
+						var targetLevel = levelNum;
+						setTimeout(function() {
+							if (typeof g_gameState !== 'undefined' && g_gameState === 1 && g_currentLevel === targetLevel) {
+								if (typeof g_bosses !== 'undefined' && g_bosses.length < 2) {
+									if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
+									if (typeof window.SpawnBossAtRandomLocation === "function") window.SpawnBossAtRandomLocation("demon_fly");
+								}
+							}
+						}, 1000);
+					}
 				};
 
 
@@ -1437,6 +1448,9 @@
 									if (tile == 7) { AddScore(50); }
 									else if (tile == 8) {
 										AddScore(100);
+										if (g_currentLevel !== "cave1" && g_currentLevel !== "CAVE1" && typeof g_bosses !== 'undefined' && g_bosses.length < 3) {
+											if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
+										}
 									}
 
 									else if (tile == 9) { AddScore(150); }
@@ -1448,6 +1462,9 @@
 											this.lives++;
 										}
 										AddScore(666);
+										if (g_currentLevel !== "cave1" && g_currentLevel !== "CAVE1" && typeof g_bosses !== 'undefined' && g_bosses.length < 3) {
+											if (typeof window.SpawnBossAtRandomLocation === "function") window.SpawnBossAtRandomLocation();
+										}
 									}
 									else if (tile == 23) {
 										if (window.AddInventoryItem) {
