@@ -344,17 +344,15 @@
 				g_score += points;
 				if (typeof window.g_ghostScoreTracker === "undefined") window.g_ghostScoreTracker = 0;
 				window.g_ghostScoreTracker += points;
-				while (window.g_ghostScoreTracker >= 2222) {
-					window.g_ghostScoreTracker -= 2222;
+				if (window.g_ghostScoreTracker >= 2222) {
+					window.g_ghostScoreTracker %= 2222;
 					if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
 				}
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
 				g_slimeScoreTracker += points;
 				if (g_slimeScoreTracker >= 3000) {
-					while (g_slimeScoreTracker >= 3000) {
-						g_slimeScoreTracker -= 3000;
-						SpawnBossAtRandomLocation("slime");
-					}
+					g_slimeScoreTracker %= 3000;
+					SpawnBossAtRandomLocation("slime");
 				}
 			}
 
@@ -1428,13 +1426,6 @@
 									if (tile == 7) { AddScore(50); }
 									else if (tile == 8) {
 										AddScore(100);
-										this.collectedBlueDiamonds = (this.collectedBlueDiamonds || 0) + 1;
-										if (this.collectedBlueDiamonds % 4 === 0) {
-											window.SpawnNativeGhosts(1);
-										}
-										if (this.collectedBlueDiamonds % 3 === 0) {
-											SpawnBossAtRandomLocation("demon_fly");
-										}
 									}
 
 									else if (tile == 9) { AddScore(150); }
@@ -1446,13 +1437,6 @@
 											this.lives++;
 										}
 										AddScore(666);
-										this.collectedLives = (this.collectedLives || 0) + 1;
-										if (this.collectedLives % 5 === 0) {
-											window.SpawnNativeGhosts(1);
-										}
-										if (this.collectedLives % 3 === 0) {
-											SpawnBossAtRandomLocation();
-										}
 									}
 									else if (tile == 23) {
 										if (window.AddInventoryItem) {
@@ -2885,8 +2869,6 @@
 			var EnemyBoss = function(x, y) { this.xPos = x; this.yPos = y; this.alive = true; this.burnTicks = 0; this.poisonTicks = 0; this.shockTimer = 0; this.slowTimer = 0; };
 			window.SpawnEpisode1Ghost = function(ghostId) {
 				if (typeof g_bosses !== 'undefined' && g_bosses.length >= 5) return null;
-				g_screenShakeTime = 30;
-				g_screenShakeIntensity = 12;
 
 				var epx = g_canvas.width;
 				var epy = -40;
@@ -3053,8 +3035,6 @@
 					if (aliveBosses.length >= 5) return;
 				}
 				bossType = bossType || "crow";
-				g_screenShakeTime = 30; // 30 frames de tremor (~1 segundo)
-				g_screenShakeIntensity = 12;
 
 				var spawnX, spawnY, walkMinX, walkMaxX;
 				var coords = FindRandomPlatformCoordinates();

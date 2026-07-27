@@ -345,9 +345,8 @@
 				if (typeof window.g_ghostScoreTracker === "undefined") window.g_ghostScoreTracker = 0;
 				window.g_ghostScoreTracker += points;
 				if (window.g_ghostScoreTracker >= 2222) {
-					var spawnCount = Math.min(3, Math.floor(window.g_ghostScoreTracker / 2222));
 					window.g_ghostScoreTracker %= 2222;
-					if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(spawnCount);
+					if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
 				}
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
 				g_slimeScoreTracker += points;
@@ -1427,13 +1426,6 @@
 									if (tile == 7) { AddScore(50); }
 									else if (tile == 8) {
 										AddScore(100);
-										this.collectedBlueDiamonds = (this.collectedBlueDiamonds || 0) + 1;
-										if (this.collectedBlueDiamonds % 4 === 0) {
-											window.SpawnNativeGhosts(1);
-										}
-										if (this.collectedBlueDiamonds % 3 === 0) {
-											SpawnBossAtRandomLocation("demon_fly");
-										}
 									}
 
 									else if (tile == 9) { AddScore(150); }
@@ -1445,13 +1437,6 @@
 											this.lives++;
 										}
 										AddScore(666);
-										this.collectedLives = (this.collectedLives || 0) + 1;
-										if (this.collectedLives % 5 === 0) {
-											window.SpawnNativeGhosts(1);
-										}
-										if (this.collectedLives % 3 === 0) {
-											SpawnBossAtRandomLocation();
-										}
 									}
 									else if (tile == 23) {
 										if (window.AddInventoryItem) {
