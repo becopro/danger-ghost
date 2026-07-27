@@ -85,25 +85,18 @@ window.emitPlayerMove = function(x, y, isFacingRight, state, level) {
     }
 };
 
-var g_lastEmitState = null;
-var g_lastEmitTime = 0;
 setInterval(function() {
     if (window.NetworkState && window.NetworkState.connected && typeof DeSoGhost !== 'undefined') {
-        var now = Date.now();
         var currentLevel = typeof g_currentLevel !== 'undefined' ? g_currentLevel : 'level 1';
-        var x = Math.round(DeSoGhost.xPos);
-        var y = Math.round(DeSoGhost.yPos);
-        var faceRight = (DeSoGhost.face == 1);
-        var hp = typeof DeSoGhost !== 'undefined' ? DeSoGhost.lives : 100;
-        var stateStr = x + "_" + y + "_" + faceRight + "_" + currentLevel + "_" + hp;
-        
-        if (stateStr !== g_lastEmitState || (now - g_lastEmitTime > 2000)) {
-            g_lastEmitState = stateStr;
-            g_lastEmitTime = now;
-            window.emitPlayerMove(x, y, faceRight, 'idle', currentLevel);
-        }
+        window.emitPlayerMove(
+            Math.round(DeSoGhost.xPos),
+            Math.round(DeSoGhost.yPos),
+            (DeSoGhost.face == 1),
+            'idle',
+            currentLevel
+        );
     }
-}, 100);
+}, 33);
 
 document.addEventListener("DOMContentLoaded", function() {
     window.ConnectToServer();

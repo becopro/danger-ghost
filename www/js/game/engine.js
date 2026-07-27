@@ -356,8 +356,9 @@
 				if (typeof window.g_ghostScoreTracker === "undefined") window.g_ghostScoreTracker = 0;
 				window.g_ghostScoreTracker += points;
 				if (window.g_ghostScoreTracker >= 2222) {
+					var spawnCount = Math.min(3, Math.floor(window.g_ghostScoreTracker / 2222));
 					window.g_ghostScoreTracker %= 2222;
-					if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
+					if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(spawnCount);
 				}
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
 				g_slimeScoreTracker += points;
@@ -794,17 +795,6 @@
 								this.bitmap[doorRow + 1][doorCol] = 24;
 							}
 						}
-					}
-					if (levelNum !== "cave1" && levelNum !== "CAVE1") {
-						var targetLevel = levelNum;
-						setTimeout(function() {
-							if (typeof g_gameState !== 'undefined' && g_gameState === 1 && g_currentLevel === targetLevel) {
-								if (typeof g_bosses !== 'undefined' && g_bosses.length < 2) {
-									if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
-									if (typeof window.SpawnBossAtRandomLocation === "function") window.SpawnBossAtRandomLocation("demon_fly");
-								}
-							}
-						}, 1000);
 					}
 				};
 
@@ -1448,8 +1438,12 @@
 									if (tile == 7) { AddScore(50); }
 									else if (tile == 8) {
 										AddScore(100);
-										if (g_currentLevel !== "cave1" && g_currentLevel !== "CAVE1" && typeof g_bosses !== 'undefined' && g_bosses.length < 3) {
-											if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
+										this.collectedBlueDiamonds = (this.collectedBlueDiamonds || 0) + 1;
+										if (this.collectedBlueDiamonds % 4 === 0) {
+											window.SpawnNativeGhosts(1);
+										}
+										if (this.collectedBlueDiamonds % 3 === 0) {
+											SpawnBossAtRandomLocation("demon_fly");
 										}
 									}
 
@@ -1462,8 +1456,12 @@
 											this.lives++;
 										}
 										AddScore(666);
-										if (g_currentLevel !== "cave1" && g_currentLevel !== "CAVE1" && typeof g_bosses !== 'undefined' && g_bosses.length < 3) {
-											if (typeof window.SpawnBossAtRandomLocation === "function") window.SpawnBossAtRandomLocation();
+										this.collectedLives = (this.collectedLives || 0) + 1;
+										if (this.collectedLives % 5 === 0) {
+											window.SpawnNativeGhosts(1);
+										}
+										if (this.collectedLives % 3 === 0) {
+											SpawnBossAtRandomLocation();
 										}
 									}
 									else if (tile == 23) {
@@ -3303,19 +3301,17 @@ var g_binaryBits = [];
 					g_ctx.fillStyle = "#000"; g_ctx.fillRect(0, 0, g_canvas.width, g_canvas.height);
 				}
 				else if (g_gameState == G_PLAY) {
-					try { drawBinaryBackground(false); } catch(e) {}
-					try { map.draw(); } catch(e) {}
-					try {
-						if (typeof g_bosses !== 'undefined') {
-							g_bosses.forEach(function(b) { if (b && typeof b.draw === 'function') b.draw(); });
-						} else if (g_boss && typeof g_boss.draw === 'function') {
-							g_boss.draw();
-						}
-					} catch(e) {}
-					try { drawProjectiles(); } catch(e) {}
-					try { drawOtherPlayers(); } catch(e) {}
-					try { DeSoGhost.draw(); } catch(e) {}
-					try { drawVisualEffects(); } catch(e) {}
+					drawBinaryBackground(false);
+					map.draw();
+					if (typeof g_bosses !== 'undefined') {
+						g_bosses.forEach(function(b) { b.draw(); });
+					} else if (g_boss) {
+						g_boss.draw();
+					}
+					drawProjectiles();
+					drawOtherPlayers();
+					DeSoGhost.draw();
+					drawVisualEffects();
 					
 					if (isMobileApp && (g_canvas.height - 35) / 264 > 1) {
 						g_ctx.restore();
@@ -3323,30 +3319,28 @@ var g_binaryBits = [];
 						// Re-apply screen shake for HUD if needed, but actually HUD is better without shake
 					}
 					
-					try { Print_HUD(); } catch(e) {}
+					Print_HUD();
 				}
 				else if (g_gameState == G_WIN) DrawWinScreen();
 				else if (g_gameState == G_GAMEOVER) DrawGameOverScreen();
 				else if (g_gameState == G_PAUSE) {
-					try { drawBinaryBackground(false); } catch(e) {}
-					try { map.draw(); } catch(e) {}
-					try {
-						if (typeof g_bosses !== 'undefined') {
-							g_bosses.forEach(function(b) { if (b && typeof b.draw === 'function') b.draw(); });
-						} else if (g_boss && typeof g_boss.draw === 'function') {
-							g_boss.draw();
-						}
-					} catch(e) {}
-					try { drawProjectiles(); } catch(e) {}
-					try { drawVisualEffects(); } catch(e) {}
-					try { DeSoGhost.draw(); } catch(e) {}
+					drawBinaryBackground(false);
+					map.draw();
+					if (typeof g_bosses !== 'undefined') {
+						g_bosses.forEach(function(b) { b.draw(); });
+					} else if (g_boss) {
+						g_boss.draw();
+					}
+					drawProjectiles();
+					drawVisualEffects();
+					DeSoGhost.draw();
 					
 					if (isMobileApp && (g_canvas.height - 35) / 264 > 1) {
 						g_ctx.restore();
 						g_ctx.save();
 					}
 					
-					try { Print_HUD(); } catch(e) {}
+					Print_HUD();
 					
 					g_ctx.fillStyle = "rgba(0,0,0,0.7)"; g_ctx.fillRect(0, 0, g_canvas.width, g_canvas.height);
 					g_ctx.font = "bold 40px 'Courier New'"; g_ctx.fillStyle = "#FF00FF"; g_ctx.textAlign = "center";
