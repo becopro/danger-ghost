@@ -2895,6 +2895,8 @@
 
 			var EnemyBoss = function(x, y) { this.xPos = x; this.yPos = y; this.alive = true; this.burnTicks = 0; this.poisonTicks = 0; this.shockTimer = 0; this.slowTimer = 0; };
 			window.SpawnEpisode1Ghost = function(ghostId) {
+				g_screenShakeTime = 30;
+				g_screenShakeIntensity = 12;
 
 				var epx = g_canvas.width;
 				var epy = -40;
@@ -3061,6 +3063,8 @@
 					if (aliveBosses.length >= 6) return;
 				}
 				bossType = bossType || "crow";
+				g_screenShakeTime = 30; // 30 frames de tremor (~1 segundo)
+				g_screenShakeIntensity = 12;
 
 				var spawnX, spawnY, walkMinX, walkMaxX;
 				var coords = FindRandomPlatformCoordinates();
