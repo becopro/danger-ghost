@@ -80,11 +80,21 @@ window.ConnectToServer = function() {
     });
 }
 
+window.normalizeLevelName = function(lvl) {
+    if (!lvl) return '1';
+    var s = String(lvl).toLowerCase();
+    if (s === '1' || s === 'fase 1' || s === 'level 1') return '1';
+    if (s === '2' || s === 'fase 2' || s === 'level 2' || s === 'cave1' || s === 'cave 1') return '2';
+    if (s === '3' || s === 'fase 3' || s === 'level 3' || s === 'cave2' || s === 'cave 2') return '3';
+    if (s === '4' || s === 'fase 4' || s === 'level 4' || s === 'cave3' || s === 'cave 3') return '4';
+    return '1';
+};
+
 window.emitPlayerMove = function(x, y, isFacingRight, state, level) {
     if (window.NetworkState.socket && window.NetworkState.connected) {
         var currentLevel = level || (typeof g_currentLevel !== 'undefined' ? g_currentLevel : 'level 1');
         var hp = typeof DeSoGhost !== 'undefined' ? DeSoGhost.lives : 100;
-        window.NetworkState.socket.emit('player_move', { x, y, isFacingRight, state, level: currentLevel, hp: hp });
+        window.NetworkState.socket.emit('player_move', { x, y, isFacingRight, state, level: window.normalizeLevelName(currentLevel), hp: hp });
     }
 };
 

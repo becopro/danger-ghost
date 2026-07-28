@@ -3249,8 +3249,7 @@ var g_binaryBits = [];
 						if (id === window.NetworkState.playerId) continue;
 						var pos = window.NetworkState.otherPlayers[id];
 						if (pos) {
-							var pLevel = pos.level || 'level 1';
-							// Removed level restriction to force visibility
+							if (window.normalizeLevelName(pos.level) !== window.normalizeLevelName(g_currentLevel)) continue;
 							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
 							g_ctx.globalAlpha = 0.85;
 							g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);

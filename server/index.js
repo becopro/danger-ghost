@@ -133,10 +133,11 @@ io.on('connection', (socket) => {
 
 setInterval(() => {
     if (Object.keys(players).length > 0) {
+        const totalVisitors = io.engine.clientsCount || Object.keys(players).length;
         io.emit('sync_state', {
             tick: Date.now(),
             players: players,
-            totalOnline: Object.keys(players).length
+            totalOnline: totalVisitors
         });
     }
 }, 1000 / TICK_RATE);
