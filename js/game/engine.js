@@ -2016,10 +2016,7 @@
 				g_ctx.fillText(charName, 10, g_canvas.height - 10);
 				
 				// Debug Multiplayer
-				var onlineCount = 1;
-				if (window.NetworkState && window.NetworkState.otherPlayers) {
-					onlineCount += Object.keys(window.NetworkState.otherPlayers).length;
-				}
+				var onlineCount = window.NetworkState.totalOnlineCount || (1 + Object.keys(window.NetworkState.otherPlayers || {}).length);
 				g_ctx.fillStyle = "#FF00FF";
 				g_ctx.font = "bold 14px Arial";
 				g_ctx.fillText("Online: " + onlineCount, 10, g_canvas.height - 35);
@@ -3255,7 +3252,7 @@ var g_binaryBits = [];
 							var pLevel = pos.level || 'level 1';
 							// Removed level restriction to force visibility
 							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
-							g_ctx.globalAlpha = 0.5;
+							g_ctx.globalAlpha = 0.85;
 							g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
 							g_ctx.globalAlpha = 1.0;
 							

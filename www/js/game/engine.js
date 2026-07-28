@@ -355,16 +355,17 @@
 				g_score += points;
 				if (typeof window.g_ghostScoreTracker === "undefined") window.g_ghostScoreTracker = 0;
 				window.g_ghostScoreTracker += points;
-				if (window.g_ghostScoreTracker >= 2222) {
-					var spawnCount = Math.min(3, Math.floor(window.g_ghostScoreTracker / 2222));
-					window.g_ghostScoreTracker %= 2222;
-					if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(spawnCount);
+				while (window.g_ghostScoreTracker >= 2222) {
+					window.g_ghostScoreTracker -= 2222;
+					if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
 				}
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
 				g_slimeScoreTracker += points;
 				if (g_slimeScoreTracker >= 3000) {
-					g_slimeScoreTracker %= 3000;
-					SpawnBossAtRandomLocation("slime");
+					while (g_slimeScoreTracker >= 3000) {
+						g_slimeScoreTracker -= 3000;
+						SpawnBossAtRandomLocation("slime");
+					}
 				}
 			}
 
@@ -2015,10 +2016,7 @@
 				g_ctx.fillText(charName, 10, g_canvas.height - 10);
 				
 				// Debug Multiplayer
-				var onlineCount = 1;
-				if (window.NetworkState && window.NetworkState.otherPlayers) {
-					onlineCount += Object.keys(window.NetworkState.otherPlayers).length;
-				}
+				var onlineCount = window.NetworkState.totalOnlineCount || (1 + Object.keys(window.NetworkState.otherPlayers || {}).length);
 				g_ctx.fillStyle = "#FF00FF";
 				g_ctx.font = "bold 14px Arial";
 				g_ctx.fillText("Online: " + onlineCount, 10, g_canvas.height - 35);
@@ -3254,7 +3252,7 @@ var g_binaryBits = [];
 							var pLevel = pos.level || 'level 1';
 							// Removed level restriction to force visibility
 							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
-							g_ctx.globalAlpha = 0.5;
+							g_ctx.globalAlpha = 0.85;
 							g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
 							g_ctx.globalAlpha = 1.0;
 							
@@ -3382,7 +3380,7 @@ var g_binaryBits = [];
 						Game_Step_Logic();
 						g_physicsAccumulator -= currentTimestep;
 						updates++;
-						if (updates >= 2) {
+						if (updates > 5) {
 							g_physicsAccumulator = 0;
 							break;
 						}

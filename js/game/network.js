@@ -18,7 +18,7 @@ window.ConnectToServer = function() {
 
     const hostname = window.location.hostname;
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname === '' || window.location.protocol === 'file:';
-    const BACKEND_URL = isLocal ? `http://${hostname || 'localhost'}:3000` : "https://server.ghostgames.club";
+    const BACKEND_URL = isLocal ? `http://${hostname || 'localhost'}:3000` : "http://68.122.49.144:3000";
     const socket = io(BACKEND_URL, {
         transports: ['websocket'],
         upgrade: false
@@ -49,6 +49,9 @@ window.ConnectToServer = function() {
 
     socket.on('sync_state', (data) => {
         window.NetworkState.serverTick = data.tick;
+        if (data.totalOnline !== undefined) {
+            window.NetworkState.totalOnlineCount = data.totalOnline;
+        }
         if (data.players) {
             for (let pid in data.players) {
                 if (pid !== window.NetworkState.playerId) {
