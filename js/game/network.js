@@ -90,6 +90,11 @@ window.normalizeLevelName = function(lvl) {
     if (s === '2' || s === 'fase 2' || s === 'level 2' || s === 'cave1' || s === 'cave 1') return '2';
     if (s === '3' || s === 'fase 3' || s === 'level 3' || s === 'cave2' || s === 'cave 2') return '3';
     if (s === '4' || s === 'fase 4' || s === 'level 4' || s === 'cave3' || s === 'cave 3') return '4';
+    
+    var match = s.match(/\d+/);
+    if (match) {
+        return match[0];
+    }
     return '1';
 };
 
