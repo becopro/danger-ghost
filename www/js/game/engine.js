@@ -3300,10 +3300,21 @@ var g_binaryBits = [];
 								g_ctx.textAlign = "center";
 								g_ctx.fillText(pos.name, pos.x + map_offset + 12, pos.y - 10);
 							}
+						} else {
+							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
+							g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
+						}
+						g_ctx.globalAlpha = 1.0;
+						
+						if (pos.name) {
+							g_ctx.fillStyle = "#00FFCC";
+							g_ctx.font = "10px Arial";
+							g_ctx.textAlign = "center";
+							g_ctx.fillText(pos.name, pos.x + map_offset + 12, pos.y - 10);
 						}
 					}
 				}
-				}
+			}
 
 				function Game_Step_Render() {
 				var extTimer = document.getElementById("externalTimer");
