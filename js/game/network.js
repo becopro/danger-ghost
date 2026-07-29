@@ -18,7 +18,7 @@ window.ConnectToServer = function() {
 
     const hostname = window.location.hostname;
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname === '' || window.location.protocol === 'file:';
-    const BACKEND_URL = isLocal ? `http://${hostname || 'localhost'}:3000` : "https://telescope-serial-supplied-miami.trycloudflare.com";
+    const BACKEND_URL = isLocal ? `http://${hostname || 'localhost'}:3000` : "https://representative-submitted-theoretical-occurs.trycloudflare.com";
     const socket = io(BACKEND_URL, {
         transports: ['polling', 'websocket'],
         upgrade: true,
