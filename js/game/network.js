@@ -17,11 +17,15 @@ window.ConnectToServer = function() {
     }
 
     const hostname = window.location.hostname;
-    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname === '' || window.location.protocol === 'file:';
-    const BACKEND_URL = isLocal ? `http://${hostname || 'localhost'}:3000` : "https://danger-ghost.onrender.com";
+    const isCapacitor = typeof window.Capacitor !== 'undefined' || window.location.protocol === 'capacitor:' || window.location.protocol === 'file:';
+    const isLocal = !isCapacitor && (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.'));
+    const BACKEND_URL = isLocal ? `http://${hostname || 'localhost'}:3000` : "https://representative-submitted-theoretical-occurs.trycloudflare.com";
     const socket = io(BACKEND_URL, {
-        transports: ['websocket'],
-        upgrade: false
+        transports: ['polling', 'websocket'],
+        upgrade: true,
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000
     });
     window.NetworkState.socket = socket;
 
@@ -29,8 +33,9 @@ window.ConnectToServer = function() {
         console.log("[Network] Socket connected:", socket.id);
         window.NetworkState.connected = true;
         
-        const playerName = localStorage.getItem('playerName') || 'Ghost';
-        socket.emit('join_game', { playerName: playerName });
+        var baseName = (localStorage.getItem('playerName') || 'Ghost').replace(/\s*\(#\w+\)\s*$/, '').trim();
+        var nameToSend = window.g_currentPlayerGhost ? (baseName + ' (#' + window.g_currentPlayerGhost + ')') : baseName;
+        socket.emit('join_game', { playerName: nameToSend });
         
         var btn = document.getElementById("btnNavLogin");
         if (btn) btn.innerText = "ONLINE";
@@ -77,11 +82,23 @@ window.ConnectToServer = function() {
     });
 }
 
+window.normalizeLevelName = function(lvl) {
+    if (!lvl) return '1';
+    var s = String(lvl).toLowerCase();
+    if (s === '1' || s === 'fase 1' || s === 'level 1') return '1';
+    if (s === '2' || s === 'fase 2' || s === 'level 2' || s === 'cave1' || s === 'cave 1') return '2';
+    if (s === '3' || s === 'fase 3' || s === 'level 3' || s === 'cave2' || s === 'cave 2') return '3';
+    if (s === '4' || s === 'fase 4' || s === 'level 4' || s === 'cave3' || s === 'cave 3') return '4';
+    var match = s.match(/\d+/);
+    if (match) return match[0];
+    return '1';
+};
+
 window.emitPlayerMove = function(x, y, isFacingRight, state, level) {
     if (window.NetworkState.socket && window.NetworkState.connected) {
         var currentLevel = level || (typeof g_currentLevel !== 'undefined' ? g_currentLevel : 'level 1');
         var hp = typeof DeSoGhost !== 'undefined' ? DeSoGhost.lives : 100;
-        window.NetworkState.socket.emit('player_move', { x, y, isFacingRight, state, level: currentLevel, hp: hp });
+        window.NetworkState.socket.emit('player_move', { x, y, isFacingRight, state, level: window.normalizeLevelName(currentLevel), hp: hp });
     }
 };
 
