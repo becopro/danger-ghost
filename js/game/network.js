@@ -32,8 +32,10 @@ window.ConnectToServer = function() {
         console.log("[Network] Socket connected:", socket.id);
         window.NetworkState.connected = true;
         
-        const playerName = localStorage.getItem('playerName') || 'Ghost';
-        socket.emit('join_game', { playerName: playerName });
+        var baseName = (localStorage.getItem('playerName') || 'Ghost').replace(/\s*\(#\w+\)\s*$/, '').trim();
+        var ghostId = window.g_currentPlayerGhost;
+        var nameToSend = ghostId ? (baseName + ' (#' + ghostId + ')') : baseName;
+        socket.emit('join_game', { playerName: nameToSend });
         
         var btn = document.getElementById("btnNavLogin");
         if (btn) btn.innerText = "ONLINE";

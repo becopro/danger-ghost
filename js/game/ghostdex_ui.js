@@ -351,11 +351,32 @@ window.PlayAsGhost = function(ghostId) {
     }
     
     // Cache the images so the engine can use them
-    window.g_customPlayerGhostRight = new Image();
-    window.g_customPlayerGhostRight.src = 'Ghosts/%23' + ghostId + '.png';
-    
-    window.g_customPlayerGhostLeft = new Image();
-    window.g_customPlayerGhostLeft.src = 'Ghosts/%23' + ghostId + '.png';
+    function safeLoadGhostSprite(ghostId, callback) {
+        var paths = [
+            'Ghosts/%23' + ghostId + '.png',
+            'Ghosts/' + ghostId + '.png',
+            'assets/sprites/ghost_' + ghostId + '_r.webp'
+        ];
+        var idx = 0;
+        function tryNext() {
+            if (idx >= paths.length) return;
+            var img = new Image();
+            img.onload = function() {
+                if (img.naturalWidth > 0) callback(img);
+            };
+            img.onerror = function() {
+                idx++;
+                tryNext();
+            };
+            img.src = paths[idx];
+        }
+        tryNext();
+    }
+
+    safeLoadGhostSprite(ghostId, function(loadedImg) {
+        window.g_customPlayerGhostRight = loadedImg;
+        window.g_customPlayerGhostLeft = loadedImg;
+    });
     
     var overlay = document.getElementById('ghdx-detail-overlay');
     if (overlay) overlay.style.display = 'none';
@@ -420,6 +441,13 @@ window.PlayAsGhost = function(ghostId) {
             window.g_gamePaused = false;
             if (typeof window.PlayBGM === "function") window.PlayBGM();
         }
+    }
+
+    var baseName = localStorage.getItem('playerName') || 'Ghost';
+    baseName = baseName.replace(/\s*\(#\w+\)\s*$/, '').trim();
+    var taggedName = baseName + ' (#' + ghostId + ')';
+    if (window.NetworkState && window.NetworkState.socket && window.NetworkState.connected) {
+        window.NetworkState.socket.emit('join_game', { playerName: taggedName });
     }
 };
 

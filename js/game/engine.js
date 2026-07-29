@@ -1143,25 +1143,27 @@
 							g_ctx.stroke();
 						}
 						
-						var curRight = window.g_customPlayerGhostRight || desoGhostRight;
-						var curLeft = window.g_customPlayerGhostLeft || desoGhostLeft;
+						var isRightReady = window.g_customPlayerGhostRight && window.g_customPlayerGhostRight.complete && window.g_customPlayerGhostRight.naturalWidth > 0;
+						var isLeftReady = window.g_customPlayerGhostLeft && window.g_customPlayerGhostLeft.complete && window.g_customPlayerGhostLeft.naturalWidth > 0;
+						var curRight = isRightReady ? window.g_customPlayerGhostRight : desoGhostRight;
+						var curLeft = isLeftReady ? window.g_customPlayerGhostLeft : desoGhostLeft;
 						var isCustom = !!window.g_customPlayerGhostRight;
 
 						g_ctx.shadowBlur = 10;
 						g_ctx.shadowColor = '#00FFFF';
 
 						if (this.face == 1) {
-							if (isCustom) {
+							g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
+						} else {
+							if (isRightReady) {
 								g_ctx.save();
-								g_ctx.translate(this.xPos + map_offset + 12, this.yPos + 12);
+								g_ctx.translate(this.xPos + map_offset + 24, this.yPos);
 								g_ctx.scale(-1, 1);
-								g_ctx.drawImage(curRight, -12, -12, 24, 24);
+								g_ctx.drawImage(curRight, 0, 0, 24, 24);
 								g_ctx.restore();
 							} else {
-								g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
+								g_ctx.drawImage(curLeft, this.xPos + map_offset, this.yPos, 24, 24);
 							}
-						} else {
-							g_ctx.drawImage(curLeft, this.xPos + map_offset, this.yPos, 24, 24);
 						}
 
 						g_ctx.shadowBlur = 0;
@@ -3243,6 +3245,29 @@ var g_binaryBits = [];
 				}
 			}
 
+			window.g_otherGhostImages = window.g_otherGhostImages || {};
+			function getOtherPlayerGhostSprite(ghostId) {
+				if (!ghostId) return null;
+				var cached = window.g_otherGhostImages[ghostId];
+				if (cached) {
+					return (cached.complete && cached.naturalWidth > 0) ? cached : null;
+				}
+				var img = new Image();
+				img.src = 'Ghosts/%23' + ghostId + '.png';
+				img.onerror = function() {
+					var fb1 = new Image();
+					fb1.src = 'Ghosts/' + ghostId + '.png';
+					fb1.onerror = function() {
+						var fb2 = new Image();
+						fb2.src = 'assets/sprites/ghost_' + ghostId + '_r.webp';
+						window.g_otherGhostImages[ghostId] = fb2;
+					};
+					window.g_otherGhostImages[ghostId] = fb1;
+				};
+				window.g_otherGhostImages[ghostId] = img;
+				return null;
+			}
+
 			function drawOtherPlayers() {
 				if (window.NetworkState && window.NetworkState.otherPlayers) {
 					for (var id in window.NetworkState.otherPlayers) {
@@ -3250,9 +3275,23 @@ var g_binaryBits = [];
 						var pos = window.NetworkState.otherPlayers[id];
 						if (pos) {
 							if (window.normalizeLevelName(pos.level) !== window.normalizeLevelName(g_currentLevel)) continue;
-							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
+							var match = pos.name && pos.name.match(/\(#(\w+)\)/);
+							var customSprite = match ? getOtherPlayerGhostSprite(match[1]) : null;
 							g_ctx.globalAlpha = 0.85;
-							g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
+							if (customSprite) {
+								if (pos.isFacingRight !== false) {
+									g_ctx.drawImage(customSprite, pos.x + map_offset, pos.y, 24, 24);
+								} else {
+									g_ctx.save();
+									g_ctx.translate(pos.x + map_offset + 24, pos.y);
+									g_ctx.scale(-1, 1);
+									g_ctx.drawImage(customSprite, 0, 0, 24, 24);
+									g_ctx.restore();
+								}
+							} else {
+								var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
+								g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
+							}
 							g_ctx.globalAlpha = 1.0;
 							
 							if (pos.name) {
