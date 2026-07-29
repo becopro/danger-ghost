@@ -1153,14 +1153,18 @@
 						g_ctx.shadowColor = '#00FFFF';
 
 						if (this.face == 1) {
-							g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
-						} else {
 							if (isRightReady) {
 								g_ctx.save();
 								g_ctx.translate(this.xPos + map_offset + 24, this.yPos);
 								g_ctx.scale(-1, 1);
 								g_ctx.drawImage(curRight, 0, 0, 24, 24);
 								g_ctx.restore();
+							} else {
+								g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
+							}
+						} else {
+							if (isRightReady) {
+								g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
 							} else {
 								g_ctx.drawImage(curLeft, this.xPos + map_offset, this.yPos, 24, 24);
 							}
@@ -3280,13 +3284,13 @@ var g_binaryBits = [];
 							g_ctx.globalAlpha = 0.85;
 							if (customSprite) {
 								if (pos.isFacingRight !== false) {
-									g_ctx.drawImage(customSprite, pos.x + map_offset, pos.y, 24, 24);
-								} else {
 									g_ctx.save();
 									g_ctx.translate(pos.x + map_offset + 24, pos.y);
 									g_ctx.scale(-1, 1);
 									g_ctx.drawImage(customSprite, 0, 0, 24, 24);
 									g_ctx.restore();
+								} else {
+									g_ctx.drawImage(customSprite, pos.x + map_offset, pos.y, 24, 24);
 								}
 							} else {
 								var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
