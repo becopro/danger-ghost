@@ -25,8 +25,8 @@ io.on('connection', (socket) => {
         players[socket.id] = {
             id: socket.id,
             name: playerName,
-            x: -1000, 
-            y: -1000,
+            x: 48, 
+            y: 150,
             isFacingRight: true,
             level: '1',
             hp: 100
@@ -38,6 +38,9 @@ io.on('connection', (socket) => {
     });
 
     socket.on('player_move', (data) => {
+        if (!players[socket.id]) {
+            players[socket.id] = { id: socket.id, name: 'Ghost', x: data.x, y: data.y, isFacingRight: data.isFacingRight, level: data.level, hp: data.hp || 100 };
+        }
         if (players[socket.id]) {
             players[socket.id].x = data.x;
             players[socket.id].y = data.y;
@@ -130,9 +133,11 @@ io.on('connection', (socket) => {
 
 setInterval(() => {
     if (Object.keys(players).length > 0) {
+        const totalVisitors = io.engine.clientsCount || Object.keys(players).length;
         io.emit('sync_state', {
             tick: Date.now(),
-            players: players
+            players: players,
+            totalOnline: totalVisitors
         });
     }
 }, 1000 / TICK_RATE);

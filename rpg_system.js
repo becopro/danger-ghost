@@ -341,7 +341,7 @@ var GhostRPG = (function() {
             state.xp += amount;
             var leveledUp = false;
             var loopSafeLevel = 0;
-            while (state.xp >= state.xpRequired && state.level < maxLevel && loopSafeLevel++ < 1000) {
+            while (state.xp >= state.xpRequired && state.level < maxLevel && loopSafeLevel++ < 50) {
                 if (!state.xpRequired || state.xpRequired <= 0) state.xpRequired = 100;
                 state.xp -= state.xpRequired;
                 state.level++;

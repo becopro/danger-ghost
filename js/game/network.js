@@ -17,8 +17,7 @@ window.ConnectToServer = function() {
     }
 
     const hostname = window.location.hostname;
-    const isCapacitor = typeof window.Capacitor !== 'undefined' || window.location.protocol === 'capacitor:' || window.location.protocol === 'file:';
-    const isLocal = !isCapacitor && (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.'));
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname === '' || window.location.protocol === 'file:';
     const BACKEND_URL = isLocal ? `http://${hostname || 'localhost'}:3000` : "https://representative-submitted-theoretical-occurs.trycloudflare.com";
     const socket = io(BACKEND_URL, {
         transports: ['polling', 'websocket'],
@@ -54,6 +53,9 @@ window.ConnectToServer = function() {
 
     socket.on('sync_state', (data) => {
         window.NetworkState.serverTick = data.tick;
+        if (data.totalOnline !== undefined) {
+            window.NetworkState.totalOnlineCount = data.totalOnline;
+        }
         if (data.players) {
             for (let pid in data.players) {
                 if (pid !== window.NetworkState.playerId) {
@@ -89,8 +91,11 @@ window.normalizeLevelName = function(lvl) {
     if (s === '2' || s === 'fase 2' || s === 'level 2' || s === 'cave1' || s === 'cave 1') return '2';
     if (s === '3' || s === 'fase 3' || s === 'level 3' || s === 'cave2' || s === 'cave 2') return '3';
     if (s === '4' || s === 'fase 4' || s === 'level 4' || s === 'cave3' || s === 'cave 3') return '4';
+    
     var match = s.match(/\d+/);
-    if (match) return match[0];
+    if (match) {
+        return match[0];
+    }
     return '1';
 };
 
@@ -102,18 +107,25 @@ window.emitPlayerMove = function(x, y, isFacingRight, state, level) {
     }
 };
 
+var g_lastEmitState = null;
+var g_lastEmitTime = 0;
 setInterval(function() {
     if (window.NetworkState && window.NetworkState.connected && typeof DeSoGhost !== 'undefined') {
+        var now = Date.now();
         var currentLevel = typeof g_currentLevel !== 'undefined' ? g_currentLevel : 'level 1';
-        window.emitPlayerMove(
-            Math.round(DeSoGhost.xPos),
-            Math.round(DeSoGhost.yPos),
-            (DeSoGhost.face == 1),
-            'idle',
-            currentLevel
-        );
+        var x = Math.round(DeSoGhost.xPos);
+        var y = Math.round(DeSoGhost.yPos);
+        var faceRight = (DeSoGhost.face == 1);
+        var hp = typeof DeSoGhost !== 'undefined' ? DeSoGhost.lives : 100;
+        var stateStr = x + "_" + y + "_" + faceRight + "_" + currentLevel + "_" + hp;
+        
+        if (stateStr !== g_lastEmitState || (now - g_lastEmitTime > 2000)) {
+            g_lastEmitState = stateStr;
+            g_lastEmitTime = now;
+            window.emitPlayerMove(x, y, faceRight, 'idle', currentLevel);
+        }
     }
-}, 33);
+}, 100);
 
 document.addEventListener("DOMContentLoaded", function() {
     window.ConnectToServer();

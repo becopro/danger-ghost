@@ -6,6 +6,17 @@
 			// console.error = function() {};
 			// console.info = function() {};
 			// console.dir = function() {};
+
+			// --- SAFETY PATCH ---
+			// Prevent "InvalidStateError" crashes when a sprite fails to load
+			var __originalDrawImage = CanvasRenderingContext2D.prototype.drawImage;
+			CanvasRenderingContext2D.prototype.drawImage = function(image) {
+				if (image instanceof HTMLImageElement && (!image.complete || image.naturalWidth === 0)) {
+					return; // Silently skip drawing broken images instead of crashing the entire game loop
+				}
+				return __originalDrawImage.apply(this, arguments);
+			};
+			// --------------------
 			
 			// 2. Block Right-Click (Context Menu)
 			document.addEventListener('contextmenu', function(e) {
@@ -1142,7 +1153,15 @@
 						g_ctx.shadowColor = '#00FFFF';
 
 						if (this.face == 1) {
-							g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
+							if (isCustom) {
+								g_ctx.save();
+								g_ctx.translate(this.xPos + map_offset + 12, this.yPos + 12);
+								g_ctx.scale(-1, 1);
+								g_ctx.drawImage(curRight, -12, -12, 24, 24);
+								g_ctx.restore();
+							} else {
+								g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
+							}
 						} else {
 							if (isRightReady) {
 								g_ctx.save();
@@ -2007,10 +2026,7 @@
 				g_ctx.fillText(charName, 10, g_canvas.height - 10);
 				
 				// Debug Multiplayer
-				var onlineCount = 1;
-				if (window.NetworkState && window.NetworkState.otherPlayers) {
-					onlineCount += Object.keys(window.NetworkState.otherPlayers).length;
-				}
+				var onlineCount = window.NetworkState.totalOnlineCount || (1 + Object.keys(window.NetworkState.otherPlayers || {}).length);
 				g_ctx.fillStyle = "#FF00FF";
 				g_ctx.font = "bold 14px Arial";
 				g_ctx.fillText("Online: " + onlineCount, 10, g_canvas.height - 35);
@@ -2886,6 +2902,7 @@
 
 			var EnemyBoss = function(x, y) { this.xPos = x; this.yPos = y; this.alive = true; this.burnTicks = 0; this.poisonTicks = 0; this.shockTimer = 0; this.slowTimer = 0; };
 			window.SpawnEpisode1Ghost = function(ghostId) {
+				if (typeof g_bosses !== 'undefined' && g_bosses.length >= 5) return null;
 				g_screenShakeTime = 30;
 				g_screenShakeIntensity = 12;
 
@@ -3050,8 +3067,8 @@
 			function SpawnBossAtRandomLocation(bossType) {
 				if (g_currentLevel === "cave1" || g_currentLevel === "CAVE1") return;
 				if (typeof g_bosses !== 'undefined') {
-					var aliveBosses = g_bosses.filter(function(b) { return b.alive && !b.isEpisode1Ghost; });
-					if (aliveBosses.length >= 6) return;
+					var aliveBosses = g_bosses.filter(function(b) { return b && b.alive; });
+					if (aliveBosses.length >= 5) return;
 				}
 				bossType = bossType || "crow";
 				g_screenShakeTime = 30; // 30 frames de tremor (~1 segundo)
@@ -3218,7 +3235,10 @@ var g_binaryBits = [];
 					}
 
 					if (typeof g_bosses !== 'undefined') {
-						g_bosses = g_bosses.filter(function(b) { return b.alive; });
+						g_bosses = g_bosses.filter(function(b) { return b && b.alive; });
+						if (g_bosses.length > 5) {
+							g_bosses.splice(5);
+						}
 						g_bosses.forEach(function(b) { b.update(); });
 						g_boss = g_bosses.length > 0 ? g_bosses[0] : null;
 					} else if (g_boss) {
@@ -3261,22 +3281,18 @@ var g_binaryBits = [];
 					for (var id in window.NetworkState.otherPlayers) {
 						if (id === window.NetworkState.playerId) continue;
 						var pos = window.NetworkState.otherPlayers[id];
-						if (!pos) continue;
-						var myLevel = window.normalizeLevelName ? window.normalizeLevelName(window.g_currentLevel || 1) : String(window.g_currentLevel || 1);
-						var pLevel = pos.level ? (window.normalizeLevelName ? window.normalizeLevelName(pos.level) : String(pos.level)) : '1';
-						if (pLevel !== myLevel) continue;
-						var match = pos.name && pos.name.match(/\(#(\w+)\)/);
-						var customSprite = match ? getOtherPlayerGhostSprite(match[1]) : null;
-						g_ctx.globalAlpha = 0.5;
-						if (customSprite) {
-							if (pos.isFacingRight !== false) {
-								g_ctx.drawImage(customSprite, pos.x + map_offset, pos.y, 24, 24);
-							} else {
-								g_ctx.save();
-								g_ctx.translate(pos.x + map_offset + 24, pos.y);
-								g_ctx.scale(-1, 1);
-								g_ctx.drawImage(customSprite, 0, 0, 24, 24);
-								g_ctx.restore();
+						if (pos) {
+							if (window.normalizeLevelName(pos.level) !== window.normalizeLevelName(g_currentLevel)) continue;
+							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
+							g_ctx.globalAlpha = 0.85;
+							g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
+							g_ctx.globalAlpha = 1.0;
+							
+							if (pos.name) {
+								g_ctx.fillStyle = "#00FFCC";
+								g_ctx.font = "10px Arial";
+								g_ctx.textAlign = "center";
+								g_ctx.fillText(pos.name, pos.x + map_offset + 12, pos.y - 10);
 							}
 						} else {
 							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;

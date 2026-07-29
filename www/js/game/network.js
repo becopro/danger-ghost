@@ -17,9 +17,8 @@ window.ConnectToServer = function() {
     }
 
     const hostname = window.location.hostname;
-    const isCapacitor = typeof window.Capacitor !== 'undefined' || window.location.protocol === 'capacitor:' || window.location.protocol === 'file:';
-    const isLocal = !isCapacitor && (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.'));
-    const BACKEND_URL = isLocal ? `http://${hostname || 'localhost'}:3000` : "https://representative-submitted-theoretical-occurs.trycloudflare.com";
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname === '' || window.location.protocol === 'file:';
+    const BACKEND_URL = isLocal ? `http://${hostname || 'localhost'}:3000` : "https://telescope-serial-supplied-miami.trycloudflare.com";
     const socket = io(BACKEND_URL, {
         transports: ['polling', 'websocket'],
         upgrade: true,
@@ -54,22 +53,13 @@ window.ConnectToServer = function() {
 
     socket.on('sync_state', (data) => {
         window.NetworkState.serverTick = data.tick;
+        if (data.totalOnline !== undefined) {
+            window.NetworkState.totalOnlineCount = data.totalOnline;
+        }
         if (data.players) {
             for (let pid in data.players) {
                 if (pid !== window.NetworkState.playerId) {
-                    let p = data.players[pid];
-                    if (!window.NetworkState.otherPlayers[pid]) {
-                        window.NetworkState.otherPlayers[pid] = {
-                            x: p.x, y: p.y, targetX: p.x, targetY: p.y,
-                            isFacingRight: p.isFacingRight, level: p.level, name: window.NetworkState.playerNames[pid] || 'Ghost'
-                        };
-                    } else {
-                        let op = window.NetworkState.otherPlayers[pid];
-                        op.targetX = p.x;
-                        op.targetY = p.y;
-                        op.isFacingRight = p.isFacingRight;
-                        op.level = p.level;
-                    }
+                    window.NetworkState.otherPlayers[pid] = data.players[pid];
                 }
             }
         }
@@ -86,16 +76,11 @@ window.ConnectToServer = function() {
         delete window.NetworkState.playerNames[id];
     });
 
-    socket.on('disconnect', (reason) => {
-        console.log("[Network] Disconnected:", reason);
+    socket.on('disconnect', () => {
+        console.log("[Network] Disconnected");
         window.NetworkState.connected = false;
         var btn = document.getElementById("btnNavLogin");
         if (btn) btn.innerText = "RECONNECTING...";
-        
-        // Manual reconnect fallback for severe drops
-        if (reason === 'io server disconnect') {
-            socket.connect();
-        }
     });
 }
 
@@ -106,8 +91,11 @@ window.normalizeLevelName = function(lvl) {
     if (s === '2' || s === 'fase 2' || s === 'level 2' || s === 'cave1' || s === 'cave 1') return '2';
     if (s === '3' || s === 'fase 3' || s === 'level 3' || s === 'cave2' || s === 'cave 2') return '3';
     if (s === '4' || s === 'fase 4' || s === 'level 4' || s === 'cave3' || s === 'cave 3') return '4';
+    
     var match = s.match(/\d+/);
-    if (match) return match[0];
+    if (match) {
+        return match[0];
+    }
     return '1';
 };
 
@@ -118,6 +106,7 @@ window.emitPlayerMove = function(x, y, isFacingRight, state, level) {
         window.NetworkState.socket.emit('player_move', { x, y, isFacingRight, state, level: window.normalizeLevelName(currentLevel), hp: hp });
     }
 };
+
 var g_lastEmitState = null;
 var g_lastEmitTime = 0;
 setInterval(function() {

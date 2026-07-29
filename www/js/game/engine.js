@@ -6,6 +6,17 @@
 			// console.error = function() {};
 			// console.info = function() {};
 			// console.dir = function() {};
+
+			// --- SAFETY PATCH ---
+			// Prevent "InvalidStateError" crashes when a sprite fails to load
+			var __originalDrawImage = CanvasRenderingContext2D.prototype.drawImage;
+			CanvasRenderingContext2D.prototype.drawImage = function(image) {
+				if (image instanceof HTMLImageElement && (!image.complete || image.naturalWidth === 0)) {
+					return; // Silently skip drawing broken images instead of crashing the entire game loop
+				}
+				return __originalDrawImage.apply(this, arguments);
+			};
+			// --------------------
 			
 			// 2. Block Right-Click (Context Menu)
 			document.addEventListener('contextmenu', function(e) {
@@ -344,16 +355,17 @@
 				g_score += points;
 				if (typeof window.g_ghostScoreTracker === "undefined") window.g_ghostScoreTracker = 0;
 				window.g_ghostScoreTracker += points;
-				if (window.g_ghostScoreTracker >= 2222) {
-					var spawnCount = Math.min(3, Math.floor(window.g_ghostScoreTracker / 2222));
-					window.g_ghostScoreTracker %= 2222;
-					if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(spawnCount);
+				while (window.g_ghostScoreTracker >= 2222) {
+					window.g_ghostScoreTracker -= 2222;
+					if (typeof window.SpawnNativeGhosts === "function") window.SpawnNativeGhosts(1);
 				}
 				_antiCheat.hash = btoa(g_score + _antiCheat.salt);
 				g_slimeScoreTracker += points;
 				if (g_slimeScoreTracker >= 3000) {
-					g_slimeScoreTracker %= 3000;
-					SpawnBossAtRandomLocation("slime");
+					while (g_slimeScoreTracker >= 3000) {
+						g_slimeScoreTracker -= 3000;
+						SpawnBossAtRandomLocation("slime");
+					}
 				}
 			}
 
@@ -1141,7 +1153,15 @@
 						g_ctx.shadowColor = '#00FFFF';
 
 						if (this.face == 1) {
-							g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
+							if (isCustom) {
+								g_ctx.save();
+								g_ctx.translate(this.xPos + map_offset + 12, this.yPos + 12);
+								g_ctx.scale(-1, 1);
+								g_ctx.drawImage(curRight, -12, -12, 24, 24);
+								g_ctx.restore();
+							} else {
+								g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
+							}
 						} else {
 							if (isRightReady) {
 								g_ctx.save();
@@ -2006,10 +2026,7 @@
 				g_ctx.fillText(charName, 10, g_canvas.height - 10);
 				
 				// Debug Multiplayer
-				var onlineCount = 1;
-				if (window.NetworkState && window.NetworkState.otherPlayers) {
-					onlineCount += Object.keys(window.NetworkState.otherPlayers).length;
-				}
+				var onlineCount = window.NetworkState.totalOnlineCount || (1 + Object.keys(window.NetworkState.otherPlayers || {}).length);
 				g_ctx.fillStyle = "#FF00FF";
 				g_ctx.font = "bold 14px Arial";
 				g_ctx.fillText("Online: " + onlineCount, 10, g_canvas.height - 35);
@@ -3264,22 +3281,18 @@ var g_binaryBits = [];
 					for (var id in window.NetworkState.otherPlayers) {
 						if (id === window.NetworkState.playerId) continue;
 						var pos = window.NetworkState.otherPlayers[id];
-						if (!pos) continue;
-						var myLevel = window.normalizeLevelName ? window.normalizeLevelName(window.g_currentLevel || 1) : String(window.g_currentLevel || 1);
-						var pLevel = pos.level ? (window.normalizeLevelName ? window.normalizeLevelName(pos.level) : String(pos.level)) : '1';
-						if (pLevel !== myLevel) continue;
-						var match = pos.name && pos.name.match(/\(#(\w+)\)/);
-						var customSprite = match ? getOtherPlayerGhostSprite(match[1]) : null;
-						g_ctx.globalAlpha = 0.5;
-						if (customSprite) {
-							if (pos.isFacingRight !== false) {
-								g_ctx.drawImage(customSprite, pos.x + map_offset, pos.y, 24, 24);
-							} else {
-								g_ctx.save();
-								g_ctx.translate(pos.x + map_offset + 24, pos.y);
-								g_ctx.scale(-1, 1);
-								g_ctx.drawImage(customSprite, 0, 0, 24, 24);
-								g_ctx.restore();
+						if (pos) {
+							if (window.normalizeLevelName(pos.level) !== window.normalizeLevelName(g_currentLevel)) continue;
+							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
+							g_ctx.globalAlpha = 0.85;
+							g_ctx.drawImage(sprite, pos.x + map_offset, pos.y, 24, 24);
+							g_ctx.globalAlpha = 1.0;
+							
+							if (pos.name) {
+								g_ctx.fillStyle = "#00FFCC";
+								g_ctx.font = "10px Arial";
+								g_ctx.textAlign = "center";
+								g_ctx.fillText(pos.name, pos.x + map_offset + 12, pos.y - 10);
 							}
 						} else {
 							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
@@ -3410,7 +3423,7 @@ var g_binaryBits = [];
 						Game_Step_Logic();
 						g_physicsAccumulator -= currentTimestep;
 						updates++;
-						if (updates >= 2) {
+						if (updates > 5) {
 							g_physicsAccumulator = 0;
 							break;
 						}
