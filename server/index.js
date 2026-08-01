@@ -14,7 +14,7 @@ const { OAuth2Client } = require('google-auth-library');
 const googleClient = new OAuth2Client();
 
 const players = {}; 
-const TICK_RATE = 10;
+const TICK_RATE = 30;
 
 io.on('connection', (socket) => {
     console.log('[Socket] Player connected: ' + socket.id);
