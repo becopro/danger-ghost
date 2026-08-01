@@ -14,6 +14,8 @@ window.ConnectToServer = function() {
     // Clear any existing connection
     if (window.NetworkState.socket) {
         window.NetworkState.socket.disconnect();
+        window.NetworkState.otherPlayers = {};
+        window.NetworkState.playerNames = {};
     }
 
     const hostname = window.location.hostname;
@@ -61,6 +63,13 @@ window.ConnectToServer = function() {
             for (let pid in data.players) {
                 if (pid !== window.NetworkState.playerId) {
                     window.NetworkState.otherPlayers[pid] = data.players[pid];
+                }
+            }
+            // Remove players no longer on server
+            for (let localId in window.NetworkState.otherPlayers) {
+                if (localId !== window.NetworkState.playerId && data.players && !data.players[localId]) {
+                    delete window.NetworkState.otherPlayers[localId];
+                    delete window.NetworkState.playerNames[localId];
                 }
             }
         }
