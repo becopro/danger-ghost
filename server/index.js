@@ -160,7 +160,32 @@ io.on('connection', (socket) => {
             }
         } catch (error) {
             console.error('[Auth] Error processing Google Token:', error);
-            socket.emit('auth_google_error', { message: error.message || 'Falha na autenticação com o Google.' });
+            socket.emit('auth_google_error', { message: error.message || 'Falha ao acessar o Cloud Save. Verifique sua senha e e-mail.' });
+        }
+    });
+
+    socket.on('cloud_save_login', async (data) => {
+        try {
+            if (!data || !data.email) {
+                socket.emit('cloud_save_error', { message: 'E-mail inválido para o Cloud Save.' });
+                return;
+            }
+            const email = String(data.email).trim();
+            const name = data.name || 'Ghost';
+            console.log(`[CloudSave] Login request for: ${email} (${name})`);
+            const result = await loadOrCreatePlayer(email, name, data.password);
+            console.log(`[DB] Player ${email} ${result.status}. Level: ${result.data.level}`);
+            if (players[socket.id]) {
+                players[socket.id].email = email;
+                players[socket.id].name = result.data.name;
+            }
+            socket.emit('cloud_save_success', {
+                email: email,
+                playerData: result.data
+            });
+        } catch (error) {
+            console.error('[CloudSave] Error processing login:', error);
+            socket.emit('cloud_save_error', { message: error.message || 'Falha ao acessar o Cloud Save.' });
         }
     });
 
