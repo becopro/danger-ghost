@@ -21,6 +21,42 @@ function handleGoogleLogin(response) {
 }
 window.handleGoogleLogin = handleGoogleLogin;
 
+function completeCloudLogin(email, name, playerData) {
+    console.log("[CloudSave] Completing login session for:", email, name);
+    var loadingModal = document.getElementById("loadingModal");
+    if (loadingModal) loadingModal.style.display = "none";
+    var loginModalUI = document.getElementById("loginModalUI");
+    if (loginModalUI) loginModalUI.style.display = "none";
+
+    var btnLogin = document.getElementById("btnNavLogin");
+    if (btnLogin) {
+        btnLogin.innerText = name || "Ghost";
+        btnLogin.onclick = null;
+        btnLogin.style.color = "#00FF00";
+        btnLogin.style.borderColor = "#00FF00";
+        btnLogin.style.textShadow = "0 0 5px #00FF00";
+    }
+
+    var safeData = playerData || {
+        email: email,
+        name: name || "Ghost",
+        level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0,0,0,0]
+    };
+
+    try {
+        localStorage.setItem("dg_cloud_email", email);
+        localStorage.setItem("playerName", safeData.name || name || "Ghost");
+        localStorage.setItem("dg_cloud_profile", JSON.stringify(safeData));
+    } catch(e) {}
+
+    if (window.GhostRPG && window.GhostRPG.applyCloudSave) {
+        try { window.GhostRPG.applyCloudSave(safeData); } catch(e) {}
+    } else {
+        window.cloudSave = safeData;
+    }
+}
+window.completeCloudLogin = completeCloudLogin;
+
 function OpenLoginModal() {
     var modal = document.getElementById('loginModalUI');
     if (modal) {
@@ -68,22 +104,11 @@ function LoginDeveloperFallback() {
         return;
     }
 
-    try {
-        localStorage.setItem('dg_cloud_email', email);
-        localStorage.setItem('playerName', name || 'Ghost');
-    } catch(e) {}
-
-    var loadingModal = document.getElementById("loadingModal");
-    if (loadingModal) {
-        loadingModal.style.display = "flex";
-    }
+    completeCloudLogin(email, name || 'Ghost', null);
 
     var socket = window.NetworkState && window.NetworkState.socket;
     if (socket) {
         socket.emit("auth_google_token", { email: email, name: name || 'Ghost', isFallback: true });
-    } else {
-        alert("Erro: Não foi possível conectar ao servidor para validar o login. O servidor pode estar offline (Render suspenso).");
-        if (loadingModal) loadingModal.style.display = "none";
     }
 }
 window.LoginDeveloperFallback = LoginDeveloperFallback;
@@ -132,45 +157,10 @@ window.addEventListener('DOMContentLoaded', () => {
         if (socket) {
             socket.on("auth_google_success", (data) => {
                 console.log("[Auth] Login Success! Loading profile for:", data && data.email);
-                
-                var loadingModal = document.getElementById("loadingModal");
-                if (loadingModal) loadingModal.style.display = "none";
+                if (!data) return;
 
-                var loginModalUI = document.getElementById("loginModalUI");
-                if (loginModalUI) loginModalUI.style.display = "none";
+                completeCloudLogin(data.email, data.playerData && data.playerData.name, data.playerData);
 
-                if (!data || !data.playerData) return;
-
-                // 1. Atualizar UI (Botão)
-                var btnLogin = document.getElementById("btnNavLogin");
-                if (btnLogin) {
-                    btnLogin.innerText = data.playerData.name; // Mostra o nome!
-                    btnLogin.onclick = null; // Remove a ação de login
-                    btnLogin.style.color = "#00FF00"; // Fica verdinho
-                    btnLogin.style.borderColor = "#00FF00";
-                    btnLogin.style.textShadow = "0 0 5px #00FF00";
-                }
-
-                // Store profile in localStorage
-                try {
-                    localStorage.setItem('dg_cloud_profile', JSON.stringify(data.playerData));
-                    if (data.playerData.name) {
-                        localStorage.setItem('playerName', data.playerData.name);
-                    }
-                    if (data.email) {
-                        localStorage.setItem('dg_cloud_email', data.email);
-                    }
-                } catch(e) {}
-
-                // 2. Load the stats into memory (assuming GhostRPG handles this)
-                if (window.GhostRPG && window.GhostRPG.applyCloudSave) {
-                    window.GhostRPG.applyCloudSave(data.playerData);
-                } else {
-                    // Fallback
-                    localStorage.setItem("playerName", data.playerData.name);
-                    window.cloudSave = data.playerData;
-                }
-                
                 // Muda o botão de "START" na start screen para "CONTINUE"
                 // No engine.js ele verifica se precisa ser 'START' mas vamos tentar sobrescrever
                 if (window.g_gameState === 0) { // Tela inicial
@@ -181,11 +171,16 @@ window.addEventListener('DOMContentLoaded', () => {
             });
 
             socket.on("auth_google_error", (data) => {
-                alert("Erro no Login: " + (data && data.message ? data.message : "Erro desconhecido"));
+                console.warn("[Auth] Server auth_google_error received:", data && data.message);
+                // Only alert if the user is NOT logged in via Direct Cloud Save
+                var currentEmail = localStorage.getItem("dg_cloud_email");
+                if (!currentEmail) {
+                    alert("Erro no Login: " + ((data && data.message) || "Falha na autenticação."));
+                }
                 var loadingModal = document.getElementById("loadingModal");
-                if(loadingModal) loadingModal.style.display = "none";
+                if (loadingModal) loadingModal.style.display = "none";
                 var loginModalUI = document.getElementById("loginModalUI");
-                if(loginModalUI) loginModalUI.style.display = "none";
+                if (loginModalUI) loginModalUI.style.display = "none";
             });
         }
     }, 1000);

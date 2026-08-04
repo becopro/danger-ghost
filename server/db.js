@@ -7,23 +7,40 @@ const db = new sqlite3.Database(dbPath, (err) => {
         console.error('[DB] Error opening database:', err.message);
     } else {
         console.log('[DB] Connected to SQLite database.');
-        db.run(`CREATE TABLE IF NOT EXISTS players (
-            email TEXT PRIMARY KEY,
-            name TEXT,
-            level INTEGER DEFAULT 1,
-            xp REAL DEFAULT 0,
-            mana REAL DEFAULT 100,
-            maxMana REAL DEFAULT 100,
-            lives INTEGER DEFAULT 3,
-            equippedSkills TEXT DEFAULT '[0,0,0,0]'
-        )`, (err) => {
-            if (err) console.error('[DB] Error creating table:', err.message);
-            else console.log('[DB] Players table ready.');
-        });
+        ensureTableReady();
     }
 });
 
-function loadOrCreatePlayer(email, profileName) {
+let tableReadyPromise = null;
+
+function ensureTableReady() {
+    if (!tableReadyPromise) {
+        tableReadyPromise = new Promise((resolve, reject) => {
+            db.run(`CREATE TABLE IF NOT EXISTS players (
+                email TEXT PRIMARY KEY,
+                name TEXT,
+                level INTEGER DEFAULT 1,
+                xp REAL DEFAULT 0,
+                mana REAL DEFAULT 100,
+                maxMana REAL DEFAULT 100,
+                lives INTEGER DEFAULT 3,
+                equippedSkills TEXT DEFAULT '[0,0,0,0]'
+            )`, (err) => {
+                if (err) {
+                    console.error('[DB] Error creating table:', err.message);
+                    reject(err);
+                } else {
+                    console.log('[DB] Players table ready.');
+                    resolve();
+                }
+            });
+        });
+    }
+    return tableReadyPromise;
+}
+
+async function loadOrCreatePlayer(email, profileName) {
+    await ensureTableReady();
     return new Promise((resolve, reject) => {
         db.get('SELECT * FROM players WHERE email = ?', [email], (err, row) => {
             if (err) return reject(err);
@@ -47,7 +64,8 @@ function loadOrCreatePlayer(email, profileName) {
     });
 }
 
-function savePlayerProgress(email, data) {
+async function savePlayerProgress(email, data) {
+    await ensureTableReady();
     return new Promise((resolve, reject) => {
         const skillsStr = JSON.stringify(data.equippedSkills || [0,0,0,0]);
         db.run(
