@@ -85,7 +85,7 @@ io.on('connection', (socket) => {
                     const email = String(data.email).trim();
                     const name = data.name || 'Ghost';
                     console.log(`[Auth] Direct/Fallback Login request for: ${email} (${name})`);
-                    const result = await loadOrCreatePlayer(email, name);
+                    const result = await loadOrCreatePlayer(email, name, data.password);
                     console.log(`[DB] Player ${email} ${result.status}. Level: ${result.data.level}`);
                     if (players[socket.id]) {
                         players[socket.id].email = email;
@@ -123,7 +123,7 @@ io.on('connection', (socket) => {
                 console.log(`[Auth] Google Login request for: ${email}`);
 
                 // 2. Load or Create Player in SQLite
-                const result = await loadOrCreatePlayer(email, name);
+                const result = await loadOrCreatePlayer(email, name, data.password);
                 console.log(`[DB] Player ${email} ${result.status}. Level: ${result.data.level}`);
 
                 // 3. Vincular email ao socket atual
@@ -144,7 +144,7 @@ io.on('connection', (socket) => {
                     const email = String(data.email).trim();
                     const name = data.name || 'Ghost';
                     console.log(`[Auth] Direct/Fallback Login request for: ${email} (${name})`);
-                    const result = await loadOrCreatePlayer(email, name);
+                    const result = await loadOrCreatePlayer(email, name, data.password);
                     console.log(`[DB] Player ${email} ${result.status}. Level: ${result.data.level}`);
                     if (players[socket.id]) {
                         players[socket.id].email = email;
@@ -160,7 +160,7 @@ io.on('connection', (socket) => {
             }
         } catch (error) {
             console.error('[Auth] Error processing Google Token:', error);
-            socket.emit('auth_google_error', { message: 'Falha na autenticação com o Google.' });
+            socket.emit('auth_google_error', { message: error.message || 'Falha na autenticação com o Google.' });
         }
     });
 

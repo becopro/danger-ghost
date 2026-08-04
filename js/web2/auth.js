@@ -94,21 +94,30 @@ function CloseLoginModal() {
 window.CloseLoginModal = CloseLoginModal;
 
 function LoginDeveloperFallback() {
-    var emailInput = document.getElementById('loginInputEmail');
-    var nameInput = document.getElementById('loginInputName');
-    var email = emailInput ? emailInput.value.trim() : "";
-    var name = nameInput ? nameInput.value.trim() : "";
+    var email = document.getElementById('loginInputEmail') ? document.getElementById('loginInputEmail').value.trim() : "";
+    var name = document.getElementById('loginInputName') ? document.getElementById('loginInputName').value.trim() : "";
+    var password = document.getElementById('loginInputPassword') ? document.getElementById('loginInputPassword').value.trim() : "";
 
     if (!email) {
         alert("Por favor, digite um e-mail válido para vincular seu Cloud Save.");
         return;
     }
 
-    completeCloudLogin(email, name || 'Ghost', null);
+    if (!password || password.length < 6 || password.length > 12) {
+        alert("A senha deve ter entre 6 e 12 caracteres para proteger o seu Cloud Save.");
+        return;
+    }
+
+    var loadingModal = document.getElementById("loadingModal");
+    if (loadingModal) {
+        var h2 = loadingModal.querySelector("h2");
+        if (h2) h2.innerText = "Verificando senha e progresso...";
+        loadingModal.style.display = "flex";
+    }
 
     var socket = window.NetworkState && window.NetworkState.socket;
     if (socket) {
-        socket.emit("auth_google_token", { email: email, name: name || 'Ghost', isFallback: true });
+        socket.emit("auth_google_token", { email: email, name: name || 'Ghost', password: password, isFallback: true });
     }
 }
 window.LoginDeveloperFallback = LoginDeveloperFallback;
@@ -172,15 +181,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
             socket.on("auth_google_error", (data) => {
                 console.warn("[Auth] Server auth_google_error received:", data && data.message);
-                // Only alert if the user is NOT logged in via Direct Cloud Save
                 var currentEmail = localStorage.getItem("dg_cloud_email");
-                if (!currentEmail) {
+                var hasErrorMsg = data && data.message;
+                if (hasErrorMsg || !currentEmail) {
                     alert("Erro no Login: " + ((data && data.message) || "Falha na autenticação."));
                 }
                 var loadingModal = document.getElementById("loadingModal");
                 if (loadingModal) loadingModal.style.display = "none";
-                var loginModalUI = document.getElementById("loginModalUI");
-                if (loginModalUI) loginModalUI.style.display = "none";
             });
         }
     }, 1000);
