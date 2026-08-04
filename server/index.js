@@ -75,37 +75,89 @@ io.on('connection', (socket) => {
     // --- Google Auth & Save System ---
     socket.on('auth_google_token', async (data) => {
         try {
-            const token = data.token;
-            // 1. Extrair payload do token JWT
-            // NOTA: Em produção, você deve usar googleClient.verifyIdToken() com seu CLIENT_ID real
-            const base64Url = token.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-            }).join(''));
-            
-            const payload = JSON.parse(jsonPayload);
-            const email = payload.email;
-            const name = payload.name || payload.given_name || 'Ghost';
-
-            console.log(`[Auth] Google Login request for: ${email}`);
-
-            // 2. Load or Create Player in SQLite
-            const result = await loadOrCreatePlayer(email, name);
-            console.log(`[DB] Player ${email} ${result.status}. Level: ${result.data.level}`);
-
-            // 3. Vincular email ao socket atual
-            if (players[socket.id]) {
-                players[socket.id].email = email;
-                players[socket.id].name = result.data.name; // Atualiza o nome para o do banco
+            if (!data) {
+                socket.emit('auth_google_error', { message: 'Dados de autenticação inválidos.' });
+                return;
             }
 
-            // 4. Enviar os dados carregados de volta para o cliente
-            socket.emit('auth_google_success', {
-                email: email,
-                playerData: result.data
-            });
+            if (data.isFallback === true || !data.token || typeof data.token !== 'string' || data.token.split('.').length !== 3) {
+                if (data.email) {
+                    const email = String(data.email).trim();
+                    const name = data.name || 'Ghost';
+                    console.log(`[Auth] Direct/Fallback Login request for: ${email} (${name})`);
+                    const result = await loadOrCreatePlayer(email, name);
+                    console.log(`[DB] Player ${email} ${result.status}. Level: ${result.data.level}`);
+                    if (players[socket.id]) {
+                        players[socket.id].email = email;
+                        players[socket.id].name = result.data.name;
+                    }
+                    socket.emit('auth_google_success', {
+                        email: email,
+                        playerData: result.data
+                    });
+                    return;
+                }
+            }
 
+            try {
+                const token = data.token;
+                // 1. Extrair payload do token JWT
+                // NOTA: Em produção, você deve usar googleClient.verifyIdToken() com seu CLIENT_ID real
+                const parts = token.split('.');
+                if (parts.length !== 3) {
+                    throw new Error('Invalid JWT format');
+                }
+                const base64Url = parts[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                
+                const payload = JSON.parse(jsonPayload);
+                const email = payload.email;
+                if (!email) {
+                    throw new Error('Email missing from JWT payload');
+                }
+                const name = payload.name || payload.given_name || 'Ghost';
+
+                console.log(`[Auth] Google Login request for: ${email}`);
+
+                // 2. Load or Create Player in SQLite
+                const result = await loadOrCreatePlayer(email, name);
+                console.log(`[DB] Player ${email} ${result.status}. Level: ${result.data.level}`);
+
+                // 3. Vincular email ao socket atual
+                if (players[socket.id]) {
+                    players[socket.id].email = email;
+                    players[socket.id].name = result.data.name; // Atualiza o nome para o do banco
+                }
+
+                // 4. Enviar os dados carregados de volta para o cliente
+                socket.emit('auth_google_success', {
+                    email: email,
+                    playerData: result.data
+                });
+                return;
+            } catch (jwtError) {
+                console.warn('[Auth] JWT verification failed, checking fallback email:', jwtError.message);
+                if (data.email) {
+                    const email = String(data.email).trim();
+                    const name = data.name || 'Ghost';
+                    console.log(`[Auth] Direct/Fallback Login request for: ${email} (${name})`);
+                    const result = await loadOrCreatePlayer(email, name);
+                    console.log(`[DB] Player ${email} ${result.status}. Level: ${result.data.level}`);
+                    if (players[socket.id]) {
+                        players[socket.id].email = email;
+                        players[socket.id].name = result.data.name;
+                    }
+                    socket.emit('auth_google_success', {
+                        email: email,
+                        playerData: result.data
+                    });
+                    return;
+                }
+                throw jwtError;
+            }
         } catch (error) {
             console.error('[Auth] Error processing Google Token:', error);
             socket.emit('auth_google_error', { message: 'Falha na autenticação com o Google.' });

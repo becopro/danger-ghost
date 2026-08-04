@@ -21,6 +21,73 @@ function handleGoogleLogin(response) {
 }
 window.handleGoogleLogin = handleGoogleLogin;
 
+function OpenLoginModal() {
+    var modal = document.getElementById('loginModalUI');
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+    var emailInput = document.getElementById('loginInputEmail');
+    var nameInput = document.getElementById('loginInputName');
+    var savedEmail = localStorage.getItem('dg_cloud_email');
+    var savedName = localStorage.getItem('playerName');
+    if (emailInput && savedEmail) {
+        emailInput.value = savedEmail;
+    }
+    if (nameInput && savedName) {
+        nameInput.value = savedName;
+    }
+    try {
+        if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+            var container = document.getElementById('googleSignInContainer');
+            if (container && container.innerHTML === "") {
+                google.accounts.id.renderButton(container, { theme: "outline", size: "large", type: "standard" });
+            }
+        }
+    } catch(e) {
+        console.warn("[Auth] Error rendering Google button:", e);
+    }
+}
+window.OpenLoginModal = OpenLoginModal;
+
+function CloseLoginModal() {
+    var modal = document.getElementById('loginModalUI');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+window.CloseLoginModal = CloseLoginModal;
+
+function LoginDeveloperFallback() {
+    var emailInput = document.getElementById('loginInputEmail');
+    var nameInput = document.getElementById('loginInputName');
+    var email = emailInput ? emailInput.value.trim() : "";
+    var name = nameInput ? nameInput.value.trim() : "";
+
+    if (!email) {
+        alert("Por favor, digite um e-mail válido para vincular seu Cloud Save.");
+        return;
+    }
+
+    try {
+        localStorage.setItem('dg_cloud_email', email);
+        localStorage.setItem('playerName', name || 'Ghost');
+    } catch(e) {}
+
+    var loadingModal = document.getElementById("loadingModal");
+    if (loadingModal) {
+        loadingModal.style.display = "flex";
+    }
+
+    var socket = window.NetworkState && window.NetworkState.socket;
+    if (socket) {
+        socket.emit("auth_google_token", { email: email, name: name || 'Ghost', isFallback: true });
+    } else {
+        alert("Erro: Não foi possível conectar ao servidor para validar o login. O servidor pode estar offline (Render suspenso).");
+        if (loadingModal) loadingModal.style.display = "none";
+    }
+}
+window.LoginDeveloperFallback = LoginDeveloperFallback;
+
 // O botão "LOGIN" do HTML chama esta função
 function LoginGoogle() {
     // Nós podemos forçar o prompt do Google One Tap ou renderizar o botão.
@@ -51,6 +118,12 @@ window.addEventListener('DOMContentLoaded', () => {
             callback: handleGoogleLogin,
             cancel_on_tap_outside: false
         });
+        try {
+            var container = document.getElementById('googleSignInContainer');
+            if (container && container.innerHTML === "") {
+                google.accounts.id.renderButton(container, { theme: "outline", size: "large", type: "standard" });
+            }
+        } catch(e) {}
     }
 
     // Atrasar um pouco o listener do socket para garantir que ele foi criado em outro script
@@ -58,8 +131,16 @@ window.addEventListener('DOMContentLoaded', () => {
         var socket = window.NetworkState && window.NetworkState.socket;
         if (socket) {
             socket.on("auth_google_success", (data) => {
-                console.log("[Auth] Login Success! Loading profile for:", data.email);
+                console.log("[Auth] Login Success! Loading profile for:", data && data.email);
                 
+                var loadingModal = document.getElementById("loadingModal");
+                if (loadingModal) loadingModal.style.display = "none";
+
+                var loginModalUI = document.getElementById("loginModalUI");
+                if (loginModalUI) loginModalUI.style.display = "none";
+
+                if (!data || !data.playerData) return;
+
                 // 1. Atualizar UI (Botão)
                 var btnLogin = document.getElementById("btnNavLogin");
                 if (btnLogin) {
@@ -70,6 +151,17 @@ window.addEventListener('DOMContentLoaded', () => {
                     btnLogin.style.textShadow = "0 0 5px #00FF00";
                 }
 
+                // Store profile in localStorage
+                try {
+                    localStorage.setItem('dg_cloud_profile', JSON.stringify(data.playerData));
+                    if (data.playerData.name) {
+                        localStorage.setItem('playerName', data.playerData.name);
+                    }
+                    if (data.email) {
+                        localStorage.setItem('dg_cloud_email', data.email);
+                    }
+                } catch(e) {}
+
                 // 2. Load the stats into memory (assuming GhostRPG handles this)
                 if (window.GhostRPG && window.GhostRPG.applyCloudSave) {
                     window.GhostRPG.applyCloudSave(data.playerData);
@@ -78,10 +170,6 @@ window.addEventListener('DOMContentLoaded', () => {
                     localStorage.setItem("playerName", data.playerData.name);
                     window.cloudSave = data.playerData;
                 }
-
-                // 3. Esconde modal de carregamento
-                var loadingModal = document.getElementById("loadingModal");
-                if(loadingModal) loadingModal.style.display = "none";
                 
                 // Muda o botão de "START" na start screen para "CONTINUE"
                 // No engine.js ele verifica se precisa ser 'START' mas vamos tentar sobrescrever
@@ -93,9 +181,11 @@ window.addEventListener('DOMContentLoaded', () => {
             });
 
             socket.on("auth_google_error", (data) => {
-                alert("Erro no Login: " + data.message);
+                alert("Erro no Login: " + (data && data.message ? data.message : "Erro desconhecido"));
                 var loadingModal = document.getElementById("loadingModal");
                 if(loadingModal) loadingModal.style.display = "none";
+                var loginModalUI = document.getElementById("loginModalUI");
+                if(loginModalUI) loginModalUI.style.display = "none";
             });
         }
     }, 1000);

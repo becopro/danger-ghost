@@ -52,7 +52,7 @@
             <h1 class="neon-title">GHOST GAMES</h1>
         </div>
         <div id="gameNavbar">
-            <button id="btnNavLogin" onclick="LoginGoogle()">LOGIN</button>
+            <button id="btnNavLogin" onclick="OpenLoginModal()">LOGIN</button>
             <button id="btnNavControls" onclick="ToggleNavbarTab('controls')">CONTROLS</button>
             <button id="btnNavRPG" onclick="ToggleNavbarTab('rpg')">STATS</button>
             <button id="btnNavSpells" onclick="ToggleNavbarTab('spells')">SPELLS</button>
@@ -1138,7 +1138,22 @@
 
             <button onclick="document.getElementById('playerProfileModal').style.display='none';" style="padding: 10px 20px; background: #00FFFF; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; text-transform: uppercase;">CLOSE</button>
         </div>
-    </div>    <!-- Google Auth & Cloud Save Modal -->
+    </div>
+
+    <!-- Google Auth & Cloud Save Modal -->
+    <div id="loginModalUI" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 9999; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif;">
+        <div style="background: rgba(0,0,0,0.9); border: 2px solid #00FFFF; box-shadow: 0 0 20px rgba(0,255,255,0.4); border-radius: 10px; padding: 30px; width: 90%; max-width: 450px; text-align: center; color: #FFF; display: flex; flex-direction: column; align-items: center;">
+            <h2 style="color: #00FFFF; font-family: 'Orbitron', sans-serif; margin-top: 0; margin-bottom: 10px; text-shadow: 0 0 10px #00FFFF;">SISTEMA DE CLOUD SAVE</h2>
+            <p style="color: #ccc; font-size: 14px; margin-bottom: 20px;">Autentique-se para salvar e sincronizar sua Ghostdex, atributos e evolução dos fantasmas em qualquer dispositivo!</p>
+            <input id="loginInputEmail" type="email" placeholder="seuemail@ghostgames.club" style="width: 100%; padding: 10px; margin-bottom: 12px; background: #111; border: 1px solid #00FFFF; color: #FFF; border-radius: 4px; font-family: 'Orbitron', sans-serif; box-sizing: border-box;" />
+            <input id="loginInputName" type="text" placeholder="Seu Nickname (ex: GhostHunter)" style="width: 100%; padding: 10px; margin-bottom: 20px; background: #111; border: 1px solid #00FFFF; color: #FFF; border-radius: 4px; font-family: 'Orbitron', sans-serif; box-sizing: border-box;" />
+            <button onclick="LoginDeveloperFallback()" style="background: #00FF00; color: #000; font-family: 'Orbitron', sans-serif; font-weight: bold; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; text-transform: uppercase; box-shadow: 0 0 10px #00FF00; width: 100%; margin-bottom: 10px;">ENTRAR & SALVAR NA NUVEM</button>
+            <p style="color: #777; margin: 15px 0;">--- OU ENTRAR COM GOOGLE ---</p>
+            <div id="googleSignInContainer" style="margin-bottom: 15px;"></div>
+            <button onclick="CloseLoginModal()" style="background: transparent; color: #FF0055; border: 1px solid #FF0055; padding: 8px 16px; border-radius: 4px; cursor: pointer;">FECHAR</button>
+        </div>
+    </div>
+
     <div id="loadingModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; align-items: center; justify-content: center; flex-direction: column;">
         <div style="width: 50px; height: 50px; border: 5px solid #00FFFF; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
         <h2 style="color: #00FFFF; font-family: 'Courier New', monospace; margin-top: 20px;">Buscando progresso...</h2>
