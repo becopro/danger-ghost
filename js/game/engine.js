@@ -900,8 +900,8 @@
 							activeMap.bitmap[5][col] = 8;
 							activeMap.bitmap[3][col] = 8;
 							if (typeof createExplosionEffect === "function") {
-								g_visualEffects.push(createExplosionEffect(col * 24 + 12, 5 * 24 + 12, "#00FFFF", 3));
-								g_visualEffects.push(createExplosionEffect(col * 24 + 12, 3 * 24 + 12, "#00FFFF", 3));
+								var _fx1 = createExplosionEffect(col * 24 + 12, 5 * 24 + 12, "#00FFFF", 3); if (_fx1) g_visualEffects.push(_fx1);
+								var _fx2 = createExplosionEffect(col * 24 + 12, 3 * 24 + 12, "#00FFFF", 3); if (_fx2) g_visualEffects.push(_fx2);
 							}
 						}
 					}
@@ -909,7 +909,7 @@
 						if (activeMap.bitmap[8][c] === 0) {
 							activeMap.bitmap[8][c] = 8;
 							if (typeof createExplosionEffect === "function") {
-								g_visualEffects.push(createExplosionEffect(c * 24 + 12, 8 * 24 + 12, "#00FFFF", 3));
+								var _fx = createExplosionEffect(c * 24 + 12, 8 * 24 + 12, "#00FFFF", 3); if (_fx) g_visualEffects.push(_fx);
 							}
 						}
 					}
@@ -1023,13 +1023,13 @@
 					if (this.burnTicks > 0) {
 						this.burnTicks--;
 						if (this.burnTicks % 15 === 0) {
-							g_visualEffects.push(createExplosionEffect(this.xPos + this.width/2, this.yPos + this.height/2, "#FF4500", 6));
+							var _fx = createExplosionEffect(this.xPos + this.width/2, this.yPos + this.height/2, "#FF4500", 6); if (_fx) g_visualEffects.push(_fx);
 						}
 					}
 					if (this.poisonTicks > 0) {
 						this.poisonTicks--;
 						if (this.poisonTicks % 20 === 0) {
-							g_visualEffects.push(createExplosionEffect(this.xPos + this.width/2, this.yPos + this.height/2, "#32CD32", 4));
+							var _fx = createExplosionEffect(this.xPos + this.width/2, this.yPos + this.height/2, "#32CD32", 4); if (_fx) g_visualEffects.push(_fx);
 						}
 					}
 					if (this.slowTimer > 0) this.slowTimer--;
@@ -1068,7 +1068,7 @@
 							var p = obtainProjectile(startX, startY, vx, vy, "spark", 0, 8, 8, 100, 0, false);
 							p.isEnemy = true;
 							g_projectiles.push(p);
-							g_visualEffects.push(createExplosionEffect(startX, startY, "#00FFFF", 4));
+							var _fx = createExplosionEffect(startX, startY, "#00FFFF", 4); if (_fx) g_visualEffects.push(_fx);
 						}
 					}
 					
@@ -1086,7 +1086,7 @@
 							var p = obtainProjectile(startX, startY, vx, vy, "orb", 0, 20, 20, 150, 0, true);
 							p.isEnemy = true;
 							g_projectiles.push(p);
-							g_visualEffects.push(createExplosionEffect(startX, startY, "#D500F9", 6));
+							var _fx = createExplosionEffect(startX, startY, "#D500F9", 6); if (_fx) g_visualEffects.push(_fx);
 						}
 					}
 
@@ -1716,7 +1716,7 @@
 									DeSoGhost.alive = false;
 									if (window.emitBossCollision) window.emitBossCollision();
 								}
-								g_visualEffects.push(createExplosionEffect(p.x, p.y, "#FF3366", 6));
+								var _fx = createExplosionEffect(p.x, p.y, "#FF3366", 6); if (_fx) g_visualEffects.push(_fx);
 								g_projectiles.splice(i, 1);
 								continue;
 							}
@@ -1779,7 +1779,7 @@
 											}
 
 											applyRuneEffectsToBoss(boss, p.runeId);
-											g_visualEffects.push(createExplosionEffect(p.x, p.y, color, (p.type === "spark" ? 5 : 10)));
+											var _fx = createExplosionEffect(p.x, p.y, color, (p.type === "spark" ? 5 : 10)); if (_fx) g_visualEffects.push(_fx);
 
 											if (!p.penetrates) {
 												hitSomething = true;
@@ -1847,7 +1847,7 @@
 									}
 
 									applyRuneEffectsToBoss(g_boss, p.runeId);
-									g_visualEffects.push(createExplosionEffect(p.x, p.y, color, (p.type === "spark" ? 5 : 10)));
+									var _fx = createExplosionEffect(p.x, p.y, color, (p.type === "spark" ? 5 : 10)); if (_fx) g_visualEffects.push(_fx);
 
 									if (!p.penetrates) {
 										g_projectiles.splice(i, 1);
@@ -1935,6 +1935,7 @@
 				}
 				for (var i = g_visualEffects.length - 1; i >= 0; i--) {
 					var fx = g_visualEffects[i];
+					if (!fx) { g_visualEffects.splice(i, 1); continue; }
 					fx.life--;
 					if (isNaN(fx.life) || fx.life <= 0) {
 						g_visualEffects.splice(i, 1);
@@ -3000,7 +3001,7 @@
 							this.xPos = this.minX + Math.random() * (this.maxX - this.minX);
 							this.yPos = this.groundY - Math.random() * 60;
 							if (typeof createExplosionEffect === "function") {
-								g_visualEffects.push(createExplosionEffect(this.xPos, this.yPos, "#9932CC", 5));
+								var _fx = createExplosionEffect(this.xPos, this.yPos, "#9932CC", 5); if (_fx) g_visualEffects.push(_fx);
 							}
 						} else if (spell === 3) {
 							// Phantom Form
@@ -3254,16 +3255,21 @@ var g_binaryBits = [];
 				if (!ghostId) return null;
 				var cached = window.g_otherGhostImages[ghostId];
 				if (cached) {
+					if (cached._failed) return null;
 					return (cached.complete && cached.naturalWidth > 0) ? cached : null;
 				}
 				var img = new Image();
+				img._failed = false;
 				img.src = 'Ghosts/%23' + ghostId + '.png';
 				img.onerror = function() {
 					var fb1 = new Image();
+					fb1._failed = false;
 					fb1.src = 'Ghosts/' + ghostId + '.png';
 					fb1.onerror = function() {
 						var fb2 = new Image();
+						fb2._failed = false;
 						fb2.src = 'assets/sprites/ghost_' + ghostId + '_r.webp';
+						fb2.onerror = function() { fb2._failed = true; };
 						window.g_otherGhostImages[ghostId] = fb2;
 					};
 					window.g_otherGhostImages[ghostId] = fb1;
@@ -3277,6 +3283,7 @@ var g_binaryBits = [];
 					for (var id in window.NetworkState.otherPlayers) {
 						if (id === window.NetworkState.playerId) continue;
 						var pos = window.NetworkState.otherPlayers[id];
+						if (!pos || typeof pos.x !== 'number' || typeof pos.y !== 'number') continue;
 						if (pos) {
 							if (window.normalizeLevelName(pos.level) !== window.normalizeLevelName(g_currentLevel)) continue;
 							var match = pos.name && pos.name.match(/\(#(\w+)\)/);
@@ -3496,7 +3503,7 @@ var g_binaryBits = [];
 							var p = obtainProjectile(px, py, vx, 0, "spell_fireball", 0, 20, 20, 120, spellDmg, true);
 							g_projectiles.push(p);
 							
-							g_visualEffects.push(obtainExplosionEffect(px, py, "#ffaa00", 8));
+							var _fx = obtainExplosionEffect(px, py, "#ffaa00", 8); if (_fx) g_visualEffects.push(_fx);
 							
 							if (window.ConsumeSpellUse) {
 								window.ConsumeSpellUse();
@@ -3523,7 +3530,7 @@ var g_binaryBits = [];
 								var p = obtainProjectile(px, py, vx, 0, "spell_ice", 0, 16, 16, 120, spellDmg, true);
 								g_projectiles.push(p);
 								
-								g_visualEffects.push(obtainExplosionEffect(px, py, "#00E5FF", 8));
+								var _fx = obtainExplosionEffect(px, py, "#00E5FF", 8); if (_fx) g_visualEffects.push(_fx);
 							}
 						}
 					}
@@ -3547,7 +3554,7 @@ var g_binaryBits = [];
 								var p = obtainProjectile(px, py, vx, 0, "spell_wood", 0, 16, 16, 120, spellDmg, true);
 								g_projectiles.push(p);
 								
-								g_visualEffects.push(obtainExplosionEffect(px, py, "#00E676", 8));
+								var _fx = obtainExplosionEffect(px, py, "#00E676", 8); if (_fx) g_visualEffects.push(_fx);
 							}
 						}
 					}
@@ -4049,15 +4056,17 @@ var g_binaryBits = [];
 				}
 
 				// Update Projectiles
-				tp.sparks.forEach(function(s, idx) {
+				for (var i = tp.sparks.length - 1; i >= 0; i--) {
+					var s = tp.sparks[i];
 					s.x += s.vx;
-					if (s.x < 0 || s.x > tutCanvas.width) tp.sparks.splice(idx, 1);
-				});
+					if (s.x < 0 || s.x > tutCanvas.width) tp.sparks.splice(i, 1);
+				}
 
-				tp.orbs.forEach(function(o, idx) {
+				for (var i = tp.orbs.length - 1; i >= 0; i--) {
+					var o = tp.orbs[i];
 					o.x += o.vx;
-					if (o.x < 0 || o.x > tutCanvas.width) tp.orbs.splice(idx, 1);
-				});
+					if (o.x < 0 || o.x > tutCanvas.width) tp.orbs.splice(i, 1);
+				}
 
 				// Phantom Form Timer
 				if (tp.phantomActive) {
