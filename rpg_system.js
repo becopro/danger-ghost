@@ -268,6 +268,21 @@ var GhostRPG = (function() {
         return Math.floor(BASE_XP * Math.pow(lvl, XP_EXPONENT));
     }
 
+    function getGhostBaseStats(charId) {
+        var res = { vit: 1, agi: 1, int: 1, pow: 1, mag: 1 };
+        if (!charId || charId === 0 || charId === "0") return res;
+        var ghostNum = charId.toString().replace("ghost_", "").padStart(3, "0");
+        var dbGhost = window.g_ghostdexDB ? window.g_ghostdexDB.find(function(g) { return g.id === ghostNum; }) : null;
+        if (dbGhost && dbGhost.stats_base) {
+            res.vit = Math.ceil(dbGhost.stats_base.hp / 10) || 1;
+            res.pow = Math.ceil(dbGhost.stats_base.ataque / 10) || 1;
+            res.agi = Math.ceil(dbGhost.stats_base.velocidade / 10) || 1;
+            res.int = Math.ceil(dbGhost.stats_base.atq_especial / 10) || 1;
+            res.mag = Math.ceil(dbGhost.stats_base.def_especial / 10) || 1;
+        }
+        return res;
+    }
+
     return {
         init: function() { 
             this.loadLocalStorage(); 
@@ -275,6 +290,19 @@ var GhostRPG = (function() {
         },
         getStats: function() {
             if (!verifyIntegrity()) { this.resetStats(); }
+            
+            var activeCharId = state.characterId || window.g_currentPlayerGhost;
+            if (state.level === 1 && activeCharId && activeCharId !== 0 && activeCharId !== "0") {
+                var base = getGhostBaseStats(activeCharId);
+                if (state.vit !== base.vit || state.agi !== base.agi || state.int !== base.int || state.pow !== base.pow || state.mag !== base.mag) {
+                    state.vit = base.vit;
+                    state.agi = base.agi;
+                    state.int = base.int;
+                    state.pow = base.pow;
+                    state.mag = base.mag;
+                    updateIntegrityHash();
+                }
+            }
             
             var statsCopy = JSON.parse(JSON.stringify(state));
             
@@ -312,13 +340,14 @@ var GhostRPG = (function() {
         },
         resetStats: function(newCharId) {
             var currCharId = newCharId || state.characterId || "";
+            var base = getGhostBaseStats(currCharId);
             var oldInventory = state.inventory || [];
             var oldEquipment = state.equipment || { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
             if (oldEquipment.helmet || oldEquipment.spell) {
                 oldEquipment = { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
             }
             state = { 
-                level: 1, xp: 0, xpRequired: 100, pointsToDistribute: 0, vit: 1, agi: 1, int: 1, pow: 1, mag: 1, characterId: currCharId,
+                level: 1, xp: 0, xpRequired: 100, pointsToDistribute: 0, vit: base.vit, agi: base.agi, int: base.int, pow: base.pow, mag: base.mag, characterId: currCharId,
                 equippedSkills: [0, 1, 2, 3], equippedRunes: [0, 0, 0, 0], equippedPassives: [-1, -1],
                 weapon: { name: 'Starter Dirk', damage: 10 },
                 inventory: oldInventory,
@@ -464,12 +493,12 @@ var GhostRPG = (function() {
         },
         loadLocalStorage: function(forceCharId) {
             try {
-                if (window.cloudSave) {
+                var charToLoad = forceCharId || state.characterId || window.g_currentPlayerGhost;
+                var isGhost = charToLoad && charToLoad !== 0 && charToLoad !== "0";
+                
+                if (window.cloudSave && !isGhost) {
                     return this.applyCloudSave(window.cloudSave);
                 }
-                
-                var charToLoad = forceCharId || state.characterId;
-                var isGhost = charToLoad && charToLoad !== 0 && charToLoad !== "0";
                 
                 if (isGhost) {
                     var targetCharId = "ghost_" + charToLoad.toString().padStart(3, '0');
@@ -490,18 +519,31 @@ var GhostRPG = (function() {
                             if (!state.equippedPassives) state.equippedPassives = [-1, -1];
                             if (!state.weapon) state.weapon = { name: 'Starter Dirk', damage: 10 };
                             if (!state.inventory) state.inventory = [];
-                            if (!state.equipment || typeof state.equipment.helmet !== 'undefined' || typeof state.equipment.spell !== 'undefined') {
+                            if (!state.equipment) {
                                 state.equipment = { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
                             } else {
-                                var slots = ['head', 'chest', 'mainhand', 'offhand', 'ring1', 'ring2', 'amulet'];
-                                slots.forEach(function(s) {
-                                    if (typeof state.equipment[s] === 'undefined') state.equipment[s] = null;
-                                });
+                                delete state.equipment.helmet;
+                                delete state.equipment.spell;
+                                if (!state.equipment.head) state.equipment.head = state.equipment.head || null;
+                                if (!state.equipment.chest) state.equipment.chest = state.equipment.chest || null;
+                                if (!state.equipment.mainhand) state.equipment.mainhand = state.equipment.mainhand || null;
+                                if (!state.equipment.offhand) state.equipment.offhand = state.equipment.offhand || null;
+                                if (!state.equipment.ring1) state.equipment.ring1 = state.equipment.ring1 || null;
+                                if (!state.equipment.ring2) state.equipment.ring2 = state.equipment.ring2 || null;
+                                if (!state.equipment.amulet) state.equipment.amulet = state.equipment.amulet || null;
                             }
                             if (typeof state.deaths === 'undefined') state.deaths = 0;
                             
+                            var base = getGhostBaseStats(charToLoad);
+                            if (state.level === 1) {
+                                state.vit = base.vit;
+                                state.agi = base.agi;
+                                state.int = base.int;
+                                state.pow = base.pow;
+                                state.mag = base.mag;
+                            }
                             var expectedPoints = (state.level - 1) * 5;
-                            var usedPoints = (state.vit - 1) + (state.agi - 1) + (state.int - 1) + (state.pow - 1) + (state.mag - 1);
+                            var usedPoints = Math.max(0, (state.vit - base.vit) + (state.agi - base.agi) + (state.int - base.int) + (state.pow - base.pow) + (state.mag - base.mag));
                             var rightfulPoints = Math.max(0, expectedPoints - usedPoints);
                             if (typeof state.pointsToDistribute === 'undefined' || state.pointsToDistribute < rightfulPoints) {
                                 state.pointsToDistribute = rightfulPoints;
@@ -535,13 +577,18 @@ var GhostRPG = (function() {
                     if (!state.weapon) state.weapon = { name: 'Starter Dirk', damage: 10 };
                     if (!state.inventory) state.inventory = [];
                     
-                    if (!state.equipment || typeof state.equipment.helmet !== 'undefined' || typeof state.equipment.spell !== 'undefined') {
+                    if (!state.equipment) {
                         state.equipment = { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
                     } else {
-                        var slots = ['head', 'chest', 'mainhand', 'offhand', 'ring1', 'ring2', 'amulet'];
-                        slots.forEach(function(s) {
-                            if (typeof state.equipment[s] === 'undefined') state.equipment[s] = null;
-                        });
+                        delete state.equipment.helmet;
+                        delete state.equipment.spell;
+                        if (!state.equipment.head) state.equipment.head = state.equipment.head || null;
+                        if (!state.equipment.chest) state.equipment.chest = state.equipment.chest || null;
+                        if (!state.equipment.mainhand) state.equipment.mainhand = state.equipment.mainhand || null;
+                        if (!state.equipment.offhand) state.equipment.offhand = state.equipment.offhand || null;
+                        if (!state.equipment.ring1) state.equipment.ring1 = state.equipment.ring1 || null;
+                        if (!state.equipment.ring2) state.equipment.ring2 = state.equipment.ring2 || null;
+                        if (!state.equipment.amulet) state.equipment.amulet = state.equipment.amulet || null;
                     }
                     
                     if (charToLoad) state.characterId = charToLoad;

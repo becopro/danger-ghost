@@ -116,7 +116,7 @@ function RenderGhostdexInNavbar(db) {
     overlayHtml += '<button onclick="document.getElementById(\'ghdx-detail-overlay\').style.display=\'none\';" style="display:block; margin:15px auto 0; padding:8px 30px; background:#9932CC; border:none; color:#FFF; font-weight:bold; border-radius:5px; cursor:pointer;">CLOSE</button>';
     overlayHtml += '</div>';
     
-    container.innerHTML += overlayHtml;
+    container.insertAdjacentHTML('beforeend', overlayHtml);
 }
 
 window.ShowGlossary = function() {
@@ -236,7 +236,12 @@ window.ShowGhostdexDetail = function(ghostId) {
     // HERO STATUS
     if (st === 2) {
         // Read from dg_local_characters where ghost RPG profiles are stored
-        var heroStats = { level: 1, xp: 0, xpRequired: 100, vit: 1, agi: 1, int: 1, pow: 1, mag: 1 };
+        var defaultVit = Math.ceil((ghost.stats_base ? ghost.stats_base.hp : 50) / 10) || 1;
+        var defaultAgi = Math.ceil((ghost.stats_base ? ghost.stats_base.velocidade : 50) / 10) || 1;
+        var defaultInt = Math.ceil((ghost.stats_base ? ghost.stats_base.atq_especial : 50) / 10) || 1;
+        var defaultPow = Math.ceil((ghost.stats_base ? ghost.stats_base.ataque : 50) / 10) || 1;
+        var defaultMag = Math.ceil((ghost.stats_base ? ghost.stats_base.def_especial : 50) / 10) || 1;
+        var heroStats = { level: 1, xp: 0, xpRequired: 100, vit: defaultVit, agi: defaultAgi, int: defaultInt, pow: defaultPow, mag: defaultMag };
         try {
             var rawChars = localStorage.getItem("dg_local_characters");
             if (rawChars) {
@@ -247,11 +252,13 @@ window.ShowGhostdexDetail = function(ghostId) {
                     heroStats.level = foundChar.level || 1;
                     heroStats.xp = foundChar.xp || 0;
                     heroStats.xpRequired = foundChar.xpRequired || 100;
-                    heroStats.vit = foundChar.vit || 1;
-                    heroStats.agi = foundChar.agi || 1;
-                    heroStats.int = foundChar.int || 1;
-                    heroStats.pow = foundChar.pow || 1;
-                    heroStats.mag = foundChar.mag || 1;
+                    if (foundChar.level > 1) {
+                        heroStats.vit = foundChar.vit || defaultVit;
+                        heroStats.agi = foundChar.agi || defaultAgi;
+                        heroStats.int = foundChar.int || defaultInt;
+                        heroStats.pow = foundChar.pow || defaultPow;
+                        heroStats.mag = foundChar.mag || defaultMag;
+                    }
                 }
             }
         } catch(e) { console.error("Error reading ghost RPG profile", e); }
@@ -329,7 +336,7 @@ window.PlayAsGhost = function(ghostId) {
         });
         localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
         console.log("👻 RPG Profile generated retroactively for ghost:", charId);
-    } else if (existingChar.level === 1 && existingChar.vit > 20) {
+    } else if (existingChar.level === 1) {
         let dbGhost = window.g_ghostdexDB ? window.g_ghostdexDB.find(g => g.id === ghostId) : null;
         if (dbGhost && dbGhost.stats_base) {
             existingChar.vit = Math.ceil(dbGhost.stats_base.hp / 10) || 1;

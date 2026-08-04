@@ -1,7 +1,6 @@
 var GhostRPG = (function() {
     var BASE_XP = 100;
     var XP_EXPONENT = 1.6;
-    var activeGhostId = '001';
 
     var state = {
         level: 1, xp: 0, xpRequired: 100, pointsToDistribute: 0,
@@ -269,6 +268,21 @@ var GhostRPG = (function() {
         return Math.floor(BASE_XP * Math.pow(lvl, XP_EXPONENT));
     }
 
+    function getGhostBaseStats(charId) {
+        var res = { vit: 1, agi: 1, int: 1, pow: 1, mag: 1 };
+        if (!charId || charId === 0 || charId === "0") return res;
+        var ghostNum = charId.toString().replace("ghost_", "").padStart(3, "0");
+        var dbGhost = window.g_ghostdexDB ? window.g_ghostdexDB.find(function(g) { return g.id === ghostNum; }) : null;
+        if (dbGhost && dbGhost.stats_base) {
+            res.vit = Math.ceil(dbGhost.stats_base.hp / 10) || 1;
+            res.pow = Math.ceil(dbGhost.stats_base.ataque / 10) || 1;
+            res.agi = Math.ceil(dbGhost.stats_base.velocidade / 10) || 1;
+            res.int = Math.ceil(dbGhost.stats_base.atq_especial / 10) || 1;
+            res.mag = Math.ceil(dbGhost.stats_base.def_especial / 10) || 1;
+        }
+        return res;
+    }
+
     return {
         init: function() { 
             this.loadLocalStorage(); 
@@ -276,6 +290,19 @@ var GhostRPG = (function() {
         },
         getStats: function() {
             if (!verifyIntegrity()) { this.resetStats(); }
+            
+            var activeCharId = state.characterId || window.g_currentPlayerGhost;
+            if (state.level === 1 && activeCharId && activeCharId !== 0 && activeCharId !== "0") {
+                var base = getGhostBaseStats(activeCharId);
+                if (state.vit !== base.vit || state.agi !== base.agi || state.int !== base.int || state.pow !== base.pow || state.mag !== base.mag) {
+                    state.vit = base.vit;
+                    state.agi = base.agi;
+                    state.int = base.int;
+                    state.pow = base.pow;
+                    state.mag = base.mag;
+                    updateIntegrityHash();
+                }
+            }
             
             var statsCopy = JSON.parse(JSON.stringify(state));
             
@@ -311,14 +338,16 @@ var GhostRPG = (function() {
             
             return statsCopy;
         },
-        resetStats: function() {
+        resetStats: function(newCharId) {
+            var currCharId = newCharId || state.characterId || "";
+            var base = getGhostBaseStats(currCharId);
             var oldInventory = state.inventory || [];
             var oldEquipment = state.equipment || { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
             if (oldEquipment.helmet || oldEquipment.spell) {
                 oldEquipment = { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
             }
             state = { 
-                level: 1, xp: 0, xpRequired: 100, pointsToDistribute: 0, vit: 1, agi: 1, int: 1, pow: 1, mag: 1, characterId: "",
+                level: 1, xp: 0, xpRequired: 100, pointsToDistribute: 0, vit: base.vit, agi: base.agi, int: base.int, pow: base.pow, mag: base.mag, characterId: currCharId,
                 equippedSkills: [0, 1, 2, 3], equippedRunes: [0, 0, 0, 0], equippedPassives: [-1, -1],
                 weapon: { name: 'Starter Dirk', damage: 10 },
                 inventory: oldInventory,
@@ -329,6 +358,7 @@ var GhostRPG = (function() {
 
         addXp: function(amount) {
             if (!verifyIntegrity()) return;
+            
             var maxLevel = 100000000000;
             if (state.level >= maxLevel) {
                 state.level = maxLevel;
@@ -339,8 +369,9 @@ var GhostRPG = (function() {
             }
             state.xp += amount;
             var leveledUp = false;
-            var loops = 0;
-            while (state.xp >= state.xpRequired && state.level < maxLevel && loops++ < 50) {
+            var loopSafeLevel = 0;
+            while (state.xp >= state.xpRequired && state.level < maxLevel && loopSafeLevel++ < 50) {
+                if (!state.xpRequired || state.xpRequired <= 0) state.xpRequired = 100;
                 state.xp -= state.xpRequired;
                 state.level++;
                 state.pointsToDistribute += 5;
@@ -434,20 +465,102 @@ var GhostRPG = (function() {
         },
         saveLocalStorage: function() {
             try {
-                var dataToSave = JSON.stringify(state);
-                var encrypted = (window.SafeBtoa || btoa)(dataToSave + "||" + rpgAntiCheat.hash);
-                localStorage.setItem("DangerGhost_RPG_Save_" + activeGhostId, encrypted);
+                if (window.g_socket && window.g_socket.connected && window.cloudSave) {
+                    window.g_socket.emit('save_game_state', state);
+                }
+
+                if (state.characterId && state.characterId !== 0 && state.characterId !== "0") {
+                    var targetCharId = "ghost_" + state.characterId.toString().padStart(3, '0');
+                    var rawChars = localStorage.getItem("dg_local_characters");
+                    var localChars = rawChars ? JSON.parse(rawChars) : [];
+                    
+                    var stateToSave = JSON.parse(JSON.stringify(state));
+                    stateToSave.characterId = targetCharId;
+                    
+                    var existingIndex = localChars.findIndex(function(c) { return c.characterId === targetCharId; });
+                    if (existingIndex >= 0) {
+                        localChars[existingIndex] = stateToSave;
+                    } else {
+                        localChars.push(stateToSave);
+                    }
+                    localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
+                } else {
+                    var dataToSave = JSON.stringify(state);
+                    var encrypted = (window.SafeBtoa || btoa)(dataToSave + "||" + rpgAntiCheat.hash);
+                    localStorage.setItem("DangerGhost_RPG_Save", encrypted);
+                }
             } catch (e) { console.error("Save falhou", e); }
         },
-        loadLocalStorage: function() {
+        loadLocalStorage: function(forceCharId) {
             try {
-                window.g_currentPlayerGhost = activeGhostId;
-                if (!window.g_customPlayerGhostRight) window.g_customPlayerGhostRight = new Image();
-                window.g_customPlayerGhostRight.src = 'assets/sprites/ghost_' + activeGhostId + '_r.webp?v=31';
-                window.g_customPlayerGhostLeft = new Image();
-                window.g_customPlayerGhostLeft.src = 'assets/sprites/ghost_' + activeGhostId + '_l.webp?v=31';
+                var charToLoad = forceCharId || state.characterId || window.g_currentPlayerGhost;
+                var isGhost = charToLoad && charToLoad !== 0 && charToLoad !== "0";
                 
-                var saved = localStorage.getItem("DangerGhost_RPG_Save_" + activeGhostId);
+                if (window.cloudSave && !isGhost) {
+                    return this.applyCloudSave(window.cloudSave);
+                }
+                
+                if (isGhost) {
+                    var targetCharId = "ghost_" + charToLoad.toString().padStart(3, '0');
+                    var rawChars = localStorage.getItem("dg_local_characters");
+                    if (rawChars) {
+                        var localChars = JSON.parse(rawChars);
+                        var foundChar = localChars.find(function(c) { return c.characterId === targetCharId; });
+                        if (foundChar) {
+                            state = foundChar;
+                            state.characterId = charToLoad; // Keep internal state ID as "001" etc
+                            var maxLevel = 100000000000;
+                            if (state.level > maxLevel) {
+                                state.level = maxLevel;
+                                state.xp = 0;
+                            }
+                            if (!state.equippedSkills) state.equippedSkills = [0, 1, 2, 3];
+                            if (!state.equippedRunes) state.equippedRunes = [0, 0, 0, 0];
+                            if (!state.equippedPassives) state.equippedPassives = [-1, -1];
+                            if (!state.weapon) state.weapon = { name: 'Starter Dirk', damage: 10 };
+                            if (!state.inventory) state.inventory = [];
+                            if (!state.equipment) {
+                                state.equipment = { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
+                            } else {
+                                delete state.equipment.helmet;
+                                delete state.equipment.spell;
+                                if (!state.equipment.head) state.equipment.head = state.equipment.head || null;
+                                if (!state.equipment.chest) state.equipment.chest = state.equipment.chest || null;
+                                if (!state.equipment.mainhand) state.equipment.mainhand = state.equipment.mainhand || null;
+                                if (!state.equipment.offhand) state.equipment.offhand = state.equipment.offhand || null;
+                                if (!state.equipment.ring1) state.equipment.ring1 = state.equipment.ring1 || null;
+                                if (!state.equipment.ring2) state.equipment.ring2 = state.equipment.ring2 || null;
+                                if (!state.equipment.amulet) state.equipment.amulet = state.equipment.amulet || null;
+                            }
+                            if (typeof state.deaths === 'undefined') state.deaths = 0;
+                            
+                            var base = getGhostBaseStats(charToLoad);
+                            if (state.level === 1) {
+                                state.vit = base.vit;
+                                state.agi = base.agi;
+                                state.int = base.int;
+                                state.pow = base.pow;
+                                state.mag = base.mag;
+                            }
+                            var expectedPoints = (state.level - 1) * 5;
+                            var usedPoints = Math.max(0, (state.vit - base.vit) + (state.agi - base.agi) + (state.int - base.int) + (state.pow - base.pow) + (state.mag - base.mag));
+                            var rightfulPoints = Math.max(0, expectedPoints - usedPoints);
+                            if (typeof state.pointsToDistribute === 'undefined' || state.pointsToDistribute < rightfulPoints) {
+                                state.pointsToDistribute = rightfulPoints;
+                            }
+                            
+                            state.xpRequired = calculateXpRequired(state.level);
+                            updateIntegrityHash();
+                            console.log("[RPG] Status carregado do dg_local_characters para ghost: " + state.characterId);
+                            return;
+                        }
+                    }
+                    console.log("[RPG] No save found for ghost " + charToLoad + " in dg_local_characters, starting fresh!");
+                    this.resetStats(charToLoad);
+                    return;
+                }
+                
+                var saved = localStorage.getItem("DangerGhost_RPG_Save");
                 if (saved) {
                     var decrypted = (window.SafeAtob || atob)(saved);
                     var parts = decrypted.split("||");
@@ -464,31 +577,160 @@ var GhostRPG = (function() {
                     if (!state.weapon) state.weapon = { name: 'Starter Dirk', damage: 10 };
                     if (!state.inventory) state.inventory = [];
                     
-                    if (!state.equipment || typeof state.equipment.helmet !== 'undefined' || typeof state.equipment.spell !== 'undefined') {
+                    if (!state.equipment) {
                         state.equipment = { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
                     } else {
-                        var slots = ['head', 'chest', 'mainhand', 'offhand', 'ring1', 'ring2', 'amulet'];
-                        slots.forEach(function(s) {
-                            if (typeof state.equipment[s] === 'undefined') state.equipment[s] = null;
-                        });
+                        delete state.equipment.helmet;
+                        delete state.equipment.spell;
+                        if (!state.equipment.head) state.equipment.head = state.equipment.head || null;
+                        if (!state.equipment.chest) state.equipment.chest = state.equipment.chest || null;
+                        if (!state.equipment.mainhand) state.equipment.mainhand = state.equipment.mainhand || null;
+                        if (!state.equipment.offhand) state.equipment.offhand = state.equipment.offhand || null;
+                        if (!state.equipment.ring1) state.equipment.ring1 = state.equipment.ring1 || null;
+                        if (!state.equipment.ring2) state.equipment.ring2 = state.equipment.ring2 || null;
+                        if (!state.equipment.amulet) state.equipment.amulet = state.equipment.amulet || null;
                     }
                     
+                    if (charToLoad) state.characterId = charToLoad;
                     if (typeof state.deaths === 'undefined') state.deaths = 0;
+
+                    var expectedPoints = (state.level - 1) * 5;
+                    var usedPoints = (state.vit - 1) + (state.agi - 1) + (state.int - 1) + (state.pow - 1) + (state.mag - 1);
+                    var rightfulPoints = Math.max(0, expectedPoints - usedPoints);
+                    if (typeof state.pointsToDistribute === 'undefined' || state.pointsToDistribute < rightfulPoints) {
+                        state.pointsToDistribute = rightfulPoints;
+                    }
+
                     state.xpRequired = calculateXpRequired(state.level);
                     updateIntegrityHash();
                 }
-                console.log("[RPG] Status carregado do LocalStorage.");
+                console.log("[RPG] Status carregado do LocalStorage para ghost: " + (state.characterId || "default"));
             } catch (e) {
                 console.warn("[RPG] Nenhum save encontrado ou corrompido, usando default.");
-                this.resetStats();
+                this.resetStats(forceCharId);
             }
         },
 
-        SwitchActiveGhost: function(ghostId) {
-            this.saveLocalStorage();
-            activeGhostId = ghostId;
-            this.loadLocalStorage();
+        applyCloudSave: function(cloudData) {
+            try {
+                state.name = cloudData.name || "Ghost";
+                state.level = parseInt(cloudData.level) || 1;
+                state.xp = parseFloat(cloudData.xp) || 0;
+                state.mana = parseFloat(cloudData.mana) || 100;
+                state.maxMana = parseFloat(cloudData.maxMana) || 100;
+                state.lives = parseInt(cloudData.lives) || 3;
+                state.equippedSkills = Array.isArray(cloudData.equippedSkills) ? cloudData.equippedSkills : [0,0,0,0];
+                
+                // Recalculates stats based on the new level
+                state.xpRequired = calculateXpRequired(state.level);
+                
+                updateIntegrityHash();
+                console.log("[RPG] Status carregado da Nuvem (Cloud Save)!");
+            } catch (e) {
+                console.error("[RPG] Erro ao aplicar Cloud Save", e);
+            }
+        },
+
+        loadBlockchainState: function(lvl, vit, agi, int, pow, characterId, xp, pointsToDistribute, mag, equippedSkills, equippedRunes, equippedPassives, weapon, inventory, equipment) {
+            var maxLevel = 100000000000;
+            
+            var parsedLvl = parseInt(lvl, 10);
+            state.level = (!isNaN(parsedLvl)) ? Math.min(parsedLvl, maxLevel) : 1;
+            
+            var parsedVit = parseInt(vit, 10);
+            state.vit = (!isNaN(parsedVit)) ? parsedVit : 1;
+            
+            var parsedAgi = parseInt(agi, 10);
+            state.agi = (!isNaN(parsedAgi)) ? parsedAgi : 1;
+            
+            var parsedInt = parseInt(int, 10);
+            state.int = (!isNaN(parsedInt)) ? parsedInt : 1;
+            
+            var parsedPow = parseInt(pow, 10);
+            state.pow = (!isNaN(parsedPow)) ? parsedPow : 1;
+            
+            var parsedMag = parseInt(mag, 10);
+            state.mag = (!isNaN(parsedMag)) ? parsedMag : 1;
+            
+            state.characterId = characterId || "";
+            
+            var parsedXp = parseInt(xp, 10);
+            state.xp = (!isNaN(parsedXp)) ? parsedXp : 0;
+            
+            if (state.level >= maxLevel) {
+                state.xp = 0;
+            }
+            
+            var parsedPoints = parseInt(pointsToDistribute, 10);
+            state.pointsToDistribute = (!isNaN(parsedPoints)) ? parsedPoints : 0;
+            
+            var expectedPoints = (state.level - 1) * 5;
+            var usedPoints = (state.vit - 1) + (state.agi - 1) + (state.int - 1) + (state.pow - 1) + (state.mag - 1);
+            var rightfulPoints = Math.max(0, expectedPoints - usedPoints);
+            if (state.pointsToDistribute < rightfulPoints) {
+                state.pointsToDistribute = rightfulPoints;
+            }
+            
+            state.xpRequired = calculateXpRequired(state.level);
+            state.equippedSkills = equippedSkills || [0, 1, 2, 3];
+            state.equippedRunes = equippedRunes || [0, 0, 0, 0];
+            state.equippedPassives = equippedPassives || [-1, -1];
+            state.weapon = weapon || { name: 'Starter Dirk', damage: 10 };
+            state.inventory = inventory || [];
+            
+            state.equipment = equipment || { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
+            if (state.equipment) {
+                var slots = ['head', 'chest', 'mainhand', 'offhand', 'ring1', 'ring2', 'amulet'];
+                slots.forEach(function(s) {
+                    if (typeof state.equipment[s] === 'undefined') state.equipment[s] = null;
+                });
+                delete state.equipment.helmet;
+                delete state.equipment.spell;
+            }
+            
+            updateIntegrityHash(); this.saveLocalStorage();
             if (typeof RenderRPGStatusDrawer === "function") { RenderRPGStatusDrawer(); }
+        },
+
+        loadServerState: function(serverState) {
+            if (!serverState || typeof serverState !== 'object') return;
+            
+            if (serverState.level) state.level = serverState.level;
+            if (serverState.xp) state.xp = serverState.xp;
+            if (serverState.xpRequired) state.xpRequired = serverState.xpRequired;
+            if (serverState.pointsToDistribute !== undefined) state.pointsToDistribute = serverState.pointsToDistribute;
+            
+            if (serverState.vit) state.vit = serverState.vit;
+            if (serverState.agi) state.agi = serverState.agi;
+            if (serverState.int) state.int = serverState.int;
+            if (serverState.pow) state.pow = serverState.pow;
+            if (serverState.mag) state.mag = serverState.mag;
+            if (serverState.characterId) state.characterId = serverState.characterId;
+            
+            if (Array.isArray(serverState.equippedSkills)) state.equippedSkills = serverState.equippedSkills;
+            if (Array.isArray(serverState.equippedRunes)) state.equippedRunes = serverState.equippedRunes;
+            if (Array.isArray(serverState.equippedPassives)) state.equippedPassives = serverState.equippedPassives;
+            
+            if (serverState.weapon) state.weapon = serverState.weapon;
+            if (serverState.inventory) state.inventory = serverState.inventory;
+            if (serverState.equipment) state.equipment = serverState.equipment;
+            if (serverState.deaths !== undefined) state.deaths = serverState.deaths;
+            
+            var expectedPoints = (state.level - 1) * 5;
+            var usedPoints = (state.vit - 1) + (state.agi - 1) + (state.int - 1) + (state.pow - 1) + (state.mag - 1);
+            var rightfulPoints = Math.max(0, expectedPoints - usedPoints);
+            if (typeof state.pointsToDistribute === 'undefined' || state.pointsToDistribute < rightfulPoints) {
+                state.pointsToDistribute = rightfulPoints;
+            }
+            
+            state.xpRequired = calculateXpRequired(state.level);
+            updateIntegrityHash();
+            this.saveLocalStorage();
+            if (typeof RenderRPGStatusDrawer === "function") { RenderRPGStatusDrawer(); }
+        },
+
+        getDeSoMetadataString: function() {
+            return " [RPG Level: " + state.level + " | VIT: " + state.vit + " | AGI: " + state.agi + " | INT: " + state.int + " | POW: " + state.pow + " | MAG: " + state.mag + " | CharID: " + state.characterId.substring(0,8) + "...]";
         },
         addItem: function(item) {
             if (!verifyIntegrity()) return;
@@ -706,6 +948,15 @@ var GhostRPG = (function() {
             if (!state.equipment) state.equipment = { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
             return state.equipment;
         },
+        SwitchActiveGhost: function(ghostId) {
+            this.saveLocalStorage();
+            state.characterId = ghostId;
+            this.loadLocalStorage(ghostId);
+            if (typeof RenderRPGStatusDrawer === "function") RenderRPGStatusDrawer();
+            if (typeof UpdateNavbarBag === "function" && window.g_activeTab === 'bag') UpdateNavbarBag();
+            if (typeof UpdateNavbarEquip === "function" && window.g_activeTab === 'equip') UpdateNavbarEquip();
+            if (typeof UpdateNavbarSpells === "function" && window.g_activeTab === 'spells') UpdateNavbarSpells();
+        },
         LootGenerator: LootGenerator
 
     };
@@ -740,4 +991,3 @@ window.ConsumeSpellUse = function() {
 window.GetEquipmentState = function() {
     return GhostRPG.getEquipment();
 };
-

@@ -14,11 +14,11 @@ window.ConnectToServer = function() {
     // Clear any existing connection
     if (window.NetworkState.socket) {
         window.NetworkState.socket.disconnect();
+        window.NetworkState.otherPlayers = {};
+        window.NetworkState.playerNames = {};
     }
 
-    const hostname = window.location.hostname;
-    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname === '' || window.location.protocol === 'file:';
-    const BACKEND_URL = isLocal ? `http://${hostname || 'localhost'}:3000` : "https://representative-submitted-theoretical-occurs.trycloudflare.com";
+    const BACKEND_URL = "https://representative-submitted-theoretical-occurs.trycloudflare.com";
     const socket = io(BACKEND_URL, {
         transports: ['polling', 'websocket'],
         upgrade: true,
@@ -60,6 +60,13 @@ window.ConnectToServer = function() {
             for (let pid in data.players) {
                 if (pid !== window.NetworkState.playerId) {
                     window.NetworkState.otherPlayers[pid] = data.players[pid];
+                }
+            }
+            // Remove players no longer on server
+            for (let localId in window.NetworkState.otherPlayers) {
+                if (localId !== window.NetworkState.playerId && !data.players[localId]) {
+                    delete window.NetworkState.otherPlayers[localId];
+                    delete window.NetworkState.playerNames[localId];
                 }
             }
         }
