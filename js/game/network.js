@@ -19,8 +19,14 @@ window.ConnectToServer = function() {
     }
 
     const hostname = window.location.hostname;
-    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname === '' || window.location.protocol === 'file:';
-    const BACKEND_URL = isLocal ? `http://${hostname || 'localhost'}:3000` : window.location.origin;
+    const isApp = typeof Capacitor !== 'undefined' || window.cordova || window.location.protocol === 'file:' || window.location.protocol === 'capacitor:';
+    let BACKEND_URL;
+    if (isApp) {
+        BACKEND_URL = 'https://ghostgames.club';
+    } else {
+        const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname === '';
+        BACKEND_URL = isLocal ? `http://${hostname || 'localhost'}:3000` : window.location.origin;
+    }
     const socket = io(BACKEND_URL, {
         transports: ['websocket'],
         upgrade: false,
