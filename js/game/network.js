@@ -22,8 +22,8 @@ window.ConnectToServer = function() {
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname === '' || window.location.protocol === 'file:';
     const BACKEND_URL = isLocal ? `http://${hostname || 'localhost'}:3000` : window.location.origin;
     const socket = io(BACKEND_URL, {
-        transports: ['polling', 'websocket'],
-        upgrade: true,
+        transports: ['websocket'],
+        upgrade: false,
         reconnection: true,
         reconnectionAttempts: 10,
         reconnectionDelay: 1000
