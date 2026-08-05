@@ -1,6 +1,7 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -219,7 +220,13 @@ setInterval(() => {
     }
 }, 1000 / TICK_RATE);
 
-app.get('/', (req, res) => { res.send('Danger Ghost Server Running!'); });
+// Serve os arquivos estáticos do jogo (Front-end)
+app.use(express.static(path.join(__dirname, '../')));
+
+// Fallback para garantir que qualquer rota devolva o index.html (SPA/Game)
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../index.html'));
+});
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
