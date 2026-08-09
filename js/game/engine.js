@@ -1182,6 +1182,17 @@
 						g_ctx.textAlign = "center";
 						g_ctx.fillText(charName, this.xPos + map_offset + 12, this.yPos - 10);
 
+						var ghostLvl = 1;
+						if (window.GhostRPG && window.GhostRPG.getStats) {
+							var stats = window.GhostRPG.getStats();
+							if (stats && stats.level) {
+								ghostLvl = stats.level;
+							}
+						}
+						g_ctx.fillStyle = "#FFFF00"; // Or any nice color
+						g_ctx.font = "bold 9px Arial";
+						g_ctx.fillText("Lv. " + ghostLvl, this.xPos + map_offset + 12, this.yPos - 22);
+
 						// Renderização da animação de Level Up
 						if (this.isLevelingUpAnim && this.isLevelingUpAnim > 0) {
 							g_ctx.fillStyle = (Math.floor(Date.now() / 100) % 2 === 0) ? "#FFFF00" : "#00FF00";
