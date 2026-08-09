@@ -10,12 +10,20 @@ const io = new Server(server, {
     cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-const { loadOrCreatePlayer, savePlayerProgress } = require('./db');
-const { OAuth2Client } = require('google-auth-library');
-const googleClient = new OAuth2Client();
+const { createAccount, authenticatePlayer, saveFullProfile, loadFullProfile, getLeaderboard, migratePasswords, loadOrCreatePlayer, savePlayerProgress } = require('./db');
 
 const players = {}; 
 const TICK_RATE = 30;
+const loginAttempts = {};
+
+function checkRateLimit(ip) {
+    const now = Date.now();
+    if (!loginAttempts[ip]) loginAttempts[ip] = [];
+    loginAttempts[ip] = loginAttempts[ip].filter(t => now - t < 60000);
+    if (loginAttempts[ip].length >= 5) return false;
+    loginAttempts[ip].push(now);
+    return true;
+}
 
 io.on('connection', (socket) => {
     console.log('[Socket] Player connected: ' + socket.id);
@@ -73,7 +81,73 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- Google Auth & Save System ---
+    // --- New Save Events ---
+    socket.on('register', async (data) => {
+        try {
+            if (!checkRateLimit(socket.handshake.address)) {
+                return socket.emit('register_error', { message: 'Muitas tentativas. Tente novamente mais tarde.' });
+            }
+            const nickname = (data.nickname || '').trim();
+            const email = (data.email || '').trim();
+            const password = (data.password || '').trim();
+            
+            const result = await createAccount(nickname, email, password);
+            if (!players[socket.id]) players[socket.id] = { id: socket.id };
+            players[socket.id].email = email;
+            players[socket.id].name = nickname;
+            
+            socket.emit('register_success', { email, playerData: result.data });
+        } catch (error) {
+            socket.emit('register_error', { message: error.message });
+        }
+    });
+
+    socket.on('login', async (data) => {
+        try {
+            if (!checkRateLimit(socket.handshake.address)) {
+                return socket.emit('login_error', { message: 'Muitas tentativas. Tente novamente mais tarde.' });
+            }
+            const email = (data.email || '').trim();
+            const password = (data.password || '').trim();
+            
+            const result = await authenticatePlayer(email, password);
+            if (!players[socket.id]) players[socket.id] = { id: socket.id };
+            players[socket.id].email = email;
+            players[socket.id].name = result.data.nickname || result.data.name;
+            
+            socket.emit('login_success', { email, playerData: result.data });
+        } catch (error) {
+            socket.emit('login_error', { message: error.message });
+        }
+    });
+
+    socket.on('save_progress', async (data) => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            return socket.emit('save_error', { message: 'Não autenticado' });
+        }
+        
+        try {
+            if (data.level < 1 || data.level > 100) data.level = 1;
+            if (data.xp < 0) data.xp = 0;
+            
+            await saveFullProfile(playerSession.email, data);
+            socket.emit('save_success');
+        } catch (error) {
+            socket.emit('save_error', { message: error.message });
+        }
+    });
+
+    socket.on('get_leaderboard', async () => {
+        try {
+            const entries = await getLeaderboard(10);
+            socket.emit('leaderboard_data', { entries });
+        } catch (error) {
+            console.error('Leaderboard error', error);
+        }
+    });
+
+    // --- Old Auth & Save Events ---
     socket.on('auth_google_token', async (data) => {
         try {
             if (!data) {
@@ -102,8 +176,6 @@ io.on('connection', (socket) => {
 
             try {
                 const token = data.token;
-                // 1. Extrair payload do token JWT
-                // NOTA: Em produção, você deve usar googleClient.verifyIdToken() com seu CLIENT_ID real
                 const parts = token.split('.');
                 if (parts.length !== 3) {
                     throw new Error('Invalid JWT format');
@@ -123,17 +195,14 @@ io.on('connection', (socket) => {
 
                 console.log(`[Auth] Google Login request for: ${email}`);
 
-                // 2. Load or Create Player in SQLite
                 const result = await loadOrCreatePlayer(email, name, data.password);
                 console.log(`[DB] Player ${email} ${result.status}. Level: ${result.data.level}`);
 
-                // 3. Vincular email ao socket atual
                 if (players[socket.id]) {
                     players[socket.id].email = email;
-                    players[socket.id].name = result.data.name; // Atualiza o nome para o do banco
+                    players[socket.id].name = result.data.name; 
                 }
 
-                // 4. Enviar os dados carregados de volta para o cliente
                 socket.emit('auth_google_success', {
                     email: email,
                     playerData: result.data
@@ -206,7 +275,6 @@ io.on('connection', (socket) => {
             socket.emit('save_error', { message: 'Erro ao salvar progresso.' });
         }
     });
-    // ---------------------------------
 });
 
 setInterval(() => {
@@ -220,10 +288,8 @@ setInterval(() => {
     }
 }, 1000 / TICK_RATE);
 
-// Serve os arquivos estáticos do jogo (Front-end)
 app.use(express.static(path.join(__dirname, '../')));
 
-// Fallback para garantir que qualquer rota devolva o index.html (SPA/Game)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../index.html'));
 });
@@ -231,4 +297,5 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log('[Server] Running on port ' + PORT);
+    migratePasswords().catch(err => console.error('[Migration]', err));
 });
