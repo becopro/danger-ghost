@@ -129,7 +129,7 @@
     }
     window.PostToDeSo = PostToDeSo;
 
-    // Cloud Save logic replacing Mock Save
+    // Mock Save
     function TriggerRPGSaveToDeSo() {
         var btn = document.getElementById("rpgSaveBtn") || document.getElementById("btnNavSave");
         if (btn) {
@@ -137,87 +137,39 @@
             btn.disabled = true;
         }
         
-        try {
-            var stats = window.GhostRPG && window.GhostRPG.getStats ? window.GhostRPG.getStats() : null;
-            var ghostInv = window.GetPlayerGhostInventory ? window.GetPlayerGhostInventory() : {};
-            var favorites = JSON.parse(localStorage.getItem('DangerGhost_Favorites') || '[]');
-            var characters = JSON.parse(localStorage.getItem('dg_local_characters') || '[]');
-            var soulEssence = parseInt(localStorage.getItem('dg_soul_essence') || '0');
-            var currentLevel = window.g_currentLevel;
-            var score = window.g_score;
-            
-            if (stats) {
-                stats.score = score;
-                stats.time = window.g_globalTotalTime;
-                
-                var charIdx = characters.findIndex(function(c) { return c.characterId === stats.characterId; });
-                if (charIdx !== -1) {
-                    characters[charIdx] = Object.assign({}, characters[charIdx], stats);
-                } else {
-                    characters.push(stats);
-                }
-                localStorage.setItem("dg_local_characters", JSON.stringify(characters));
-                window.g_ownedCharacters = characters;
-            }
-            
-            if (typeof currentLevel !== 'undefined') {
-                localStorage.setItem("dg_saved_level", currentLevel);
-            }
-            
-            var isLoggedIn = localStorage.getItem('dg_cloud_email');
-            
-            if (isLoggedIn) {
-                var socket = window.NetworkState && window.NetworkState.socket;
-                if (socket) {
-                    var saveData = {
-                        stats: stats,
-                        ghost_inventory: ghostInv,
-                        ghost_favorites: favorites,
-                        characters: characters,
-                        soul_essence: soulEssence,
-                        saved_level: currentLevel,
-                        score: score
-                    };
+        setTimeout(function() {
+            try {
+                if (window.GhostRPG && window.GhostRPG.getStats) {
+                    var stats = window.GhostRPG.getStats();
+                    stats.score = window.g_score;
+                    stats.time = window.g_globalTotalTime;
                     
-                    socket.emit('save_progress', saveData);
-                    
-                    socket.once('save_success', function() {
-                        alert("🎉 SUCCESS! Progresso salvo na nuvem!");
-                        if (btn) {
-                            btn.innerText = "SAVE GAME";
-                            btn.disabled = false;
-                        }
-                    });
-                    
-                    socket.once('save_error', function(data) {
-                        alert("Error saving to cloud: " + (data && data.message ? data.message : "Unknown error"));
-                        if (btn) {
-                            btn.innerText = "SAVE GAME";
-                            btn.disabled = false;
-                        }
-                    });
-                } else {
-                    alert("Socket not found! Progress saved locally.");
-                    if (btn) {
-                        btn.innerText = "SAVE GAME";
-                        btn.disabled = false;
+                    if (typeof window.g_currentLevel !== 'undefined') {
+                        localStorage.setItem("dg_saved_level", window.g_currentLevel);
                     }
+                    var localChars = [];
+                    var raw = localStorage.getItem("dg_local_characters");
+                    if (raw) localChars = JSON.parse(raw);
+                    
+                    var charIdx = localChars.findIndex(function(c) { return c.characterId === stats.characterId; });
+                    if (charIdx !== -1) {
+                        localChars[charIdx] = Object.assign({}, localChars[charIdx], stats);
+                    } else {
+                        localChars.push(stats);
+                    }
+                    localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
+                    window.g_ownedCharacters = localChars;
                 }
-            } else {
-                alert("Progress saved locally. Login to save to cloud!");
-                if (btn) {
-                    btn.innerText = "SAVE GAME";
-                    btn.disabled = false;
-                }
+                alert("🎉 SUCCESS! Progress saved locally.");
+            } catch(e) {
+                console.error(e);
+                alert("Error saving game: " + e.message);
             }
-        } catch(e) {
-            console.error(e);
-            alert("Error saving game: " + e.message);
             if (btn) {
                 btn.innerText = "SAVE GAME";
                 btn.disabled = false;
             }
-        }
+        }, 500);
     }
     window.TriggerRPGSaveToDeSo = TriggerRPGSaveToDeSo;
 

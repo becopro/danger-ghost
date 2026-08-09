@@ -1,4 +1,5 @@
 (function() {
+    // Save a score entry to local storage
     function SaveScore(characterId, score, level, name) {
         if (typeof score !== "number" || isNaN(score)) {
             score = parseInt(score, 10) || 0;
@@ -12,6 +13,7 @@
             console.warn("Failed to load leaderboard:", e);
         }
         
+        // Add new score entry
         leaderboard.push({
             characterId: characterId || "GUEST",
             score: score,
@@ -20,10 +22,12 @@
             timestamp: Date.now()
         });
         
+        // Sort descending by score, then ascending by time (if time is tracked)
         leaderboard.sort(function(a, b) {
             return b.score - a.score;
         });
         
+        // Keep top 10
         leaderboard = leaderboard.slice(0, 10);
         
         try {
@@ -32,10 +36,12 @@
             console.error("Failed to save leaderboard:", e);
         }
         
+        // Trigger stub for REST sync
         SyncScoreToServer(characterId, score, level, name);
     }
     window.SaveScore = SaveScore;
 
+    // Get current leaderboard entries
     function GetLeaderboard() {
         var leaderboard = [];
         try {
@@ -44,21 +50,18 @@
         } catch(e) {
             console.warn("Failed to retrieve leaderboard:", e);
         }
-        
-        var socket = window.NetworkState && window.NetworkState.socket;
-        if (socket) {
-            socket.emit("get_leaderboard");
-        }
-        
         return leaderboard;
     }
     window.GetLeaderboard = GetLeaderboard;
 
+    // Future backend REST API synchronization stub
     function SyncScoreToServer(characterId, score, level, name) {
-        var socket = window.NetworkState && window.NetworkState.socket;
-        if (socket) {
-            socket.emit("save_progress", { score: score });
-        }
+        console.log("[Web2 API Sync Stub] Syncing to server:", {
+            characterId: characterId,
+            score: score,
+            level: level,
+            name: name
+        });
     }
     window.SyncScoreToServer = SyncScoreToServer;
 
@@ -132,23 +135,4 @@
         if (modal) modal.style.display = "none";
     }
     window.CloseLeaderboardModal = CloseLeaderboardModal;
-
-    window.addEventListener('DOMContentLoaded', function() {
-        setTimeout(function() {
-            var socket = window.NetworkState && window.NetworkState.socket;
-            if (socket) {
-                socket.on("leaderboard_data", function(data) {
-                    if (data && data.leaderboard) {
-                        try {
-                            localStorage.setItem("dg_leaderboard", JSON.stringify(data.leaderboard));
-                            var modal = document.getElementById("leaderboardModal");
-                            if (modal && modal.style.display === "flex") {
-                                OpenLeaderboardModal();
-                            }
-                        } catch(e) {}
-                    }
-                });
-            }
-        }, 1000);
-    });
 })();

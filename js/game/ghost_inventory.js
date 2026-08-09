@@ -15,8 +15,6 @@ window.GetPlayerGhostInventory = function() {
     return JSON.parse(inv);
 }
 
-// NOTE: This saves to localStorage only (local cache).
-// Cloud sync happens when the player presses the SAVE button (see game_core.js TriggerRPGSaveToDeSo).
 window.SavePlayerGhostInventory = function(inv) {
     localStorage.setItem('player_ghosts_inventory', JSON.stringify(inv));
 }
