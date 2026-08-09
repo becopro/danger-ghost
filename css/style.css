@@ -1151,6 +1151,29 @@ body {
     transform: scale(0.97);
 }
 
+/* Standardize Top Navbar Buttons specifically for the website */
+@media (min-width: 768px) {
+    #gameNavbar {
+        display: flex;
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        width: 100%;
+        max-width: 100%;
+        gap: 4px;
+    }
+    #gameNavbar button {
+        flex: 1;
+        min-width: 0;
+        padding: 12px 5px !important;
+        font-size: 12px !important;
+        letter-spacing: 1px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin: 0;
+    }
+}
+
 /* Remove all individual button color overrides — image provides the visual */
 #btnNavControls, #btnNavRPG, #btnNavBag, #btnNavEquip,
 #btnNavSpells, #btnNavChat, #btnNavSave, #btnNavLogin, #btnNavGhostdex {
