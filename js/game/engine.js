@@ -3321,6 +3321,11 @@ var g_binaryBits = [];
 								g_ctx.font = "10px Arial";
 								g_ctx.textAlign = "center";
 								g_ctx.fillText(pos.name, pos.x + map_offset + 12, pos.y - 10);
+								if (pos.ghostLevel) {
+									g_ctx.fillStyle = "#FFFF00";
+									g_ctx.font = "bold 9px Arial";
+									g_ctx.fillText("Lv. " + pos.ghostLevel, pos.x + map_offset + 12, pos.y - 22);
+								}
 							}
 						} else {
 							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
@@ -3333,6 +3338,11 @@ var g_binaryBits = [];
 							g_ctx.font = "10px Arial";
 							g_ctx.textAlign = "center";
 							g_ctx.fillText(pos.name, pos.x + map_offset + 12, pos.y - 10);
+							if (pos.ghostLevel) {
+								g_ctx.fillStyle = "#FFFF00";
+								g_ctx.font = "bold 9px Arial";
+								g_ctx.fillText("Lv. " + pos.ghostLevel, pos.x + map_offset + 12, pos.y - 22);
+							}
 						}
 					}
 				}

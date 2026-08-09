@@ -40,7 +40,7 @@ io.on('connection', (socket) => {
 
     socket.on('player_move', (data) => {
         if (!players[socket.id]) {
-            players[socket.id] = { id: socket.id, name: 'Ghost', x: data.x, y: data.y, isFacingRight: data.isFacingRight, level: data.level, hp: data.hp || 100 };
+            players[socket.id] = { id: socket.id, name: 'Ghost', x: data.x, y: data.y, isFacingRight: data.isFacingRight, level: data.level, hp: data.hp || 100, ghostLevel: data.ghostLevel || 1 };
         }
         if (players[socket.id]) {
             players[socket.id].x = data.x;
@@ -48,6 +48,7 @@ io.on('connection', (socket) => {
             players[socket.id].isFacingRight = data.isFacingRight;
             players[socket.id].level = data.level;
             if (data.hp !== undefined) players[socket.id].hp = data.hp;
+            if (data.ghostLevel !== undefined) players[socket.id].ghostLevel = data.ghostLevel;
         }
     });
 

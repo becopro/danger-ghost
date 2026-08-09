@@ -119,7 +119,8 @@ window.emitPlayerMove = function(x, y, isFacingRight, state, level) {
     if (window.NetworkState.socket && window.NetworkState.connected) {
         var currentLevel = level || (typeof g_currentLevel !== 'undefined' ? g_currentLevel : 'level 1');
         var hp = typeof DeSoGhost !== 'undefined' ? DeSoGhost.lives : 100;
-        window.NetworkState.socket.emit('player_move', { x, y, isFacingRight, state, level: window.normalizeLevelName(currentLevel), hp: hp });
+        var ghostLvl = (window.GhostRPG && window.GhostRPG.getStats) ? (window.GhostRPG.getStats().level || 1) : 1;
+        window.NetworkState.socket.emit('player_move', { x, y, isFacingRight, state, level: window.normalizeLevelName(currentLevel), hp: hp, ghostLevel: ghostLvl });
     }
 };
 
@@ -133,7 +134,8 @@ setInterval(function() {
         var y = Math.round(DeSoGhost.yPos);
         var faceRight = (DeSoGhost.face == 1);
         var hp = typeof DeSoGhost !== 'undefined' ? DeSoGhost.lives : 100;
-        var stateStr = x + "_" + y + "_" + faceRight + "_" + currentLevel + "_" + hp;
+        var ghostLvl = (window.GhostRPG && window.GhostRPG.getStats) ? (window.GhostRPG.getStats().level || 1) : 1;
+        var stateStr = x + "_" + y + "_" + faceRight + "_" + currentLevel + "_" + hp + "_" + ghostLvl;
         
         if (stateStr !== g_lastEmitState || (now - g_lastEmitTime > 2000)) {
             g_lastEmitState = stateStr;
