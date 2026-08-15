@@ -299,6 +299,7 @@
             if (!forceShowOverlay && localChars.length > 0) {
                 try {
                     var savedCharId = localStorage.getItem('dg_deso_character_id');
+                    if (!savedCharId) savedCharId = localChars[0].characterId; // Auto-pick first if none selected
                     if (savedCharId) {
                         var savedChar = localChars.find(function(c) { return c.characterId === savedCharId; });
                         if (savedChar) {
@@ -394,6 +395,12 @@
 
             for (var i = 0; i < characters.length; i++) {
                 var char = characters[i];
+                
+                // Unlock every owned character in the Ghostdex
+                if (typeof window.UpdateGhostdex === 'function') {
+                    window.UpdateGhostdex(char.characterId, 2);
+                }
+
                 var card = document.createElement("div");
                 card.style.width = "230px";
                 card.style.background = "#181224";
