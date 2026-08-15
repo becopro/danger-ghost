@@ -382,15 +382,17 @@
                     weapon: { name: 'Starter Dirk', damage: 10 }
                 };
                 characters.push(defaultGhost);
+                window.g_ownedCharacters = characters;
                 try { localStorage.setItem("dg_local_characters", JSON.stringify(characters)); } catch(e) {}
                 
-                // Auto-select and unlock in Ghostdex
+                // Auto-select, hide overlay, and unlock in Ghostdex
                 if (typeof window.SelectCharacterToPlay === 'function') {
                     window.SelectCharacterToPlay("001");
                 }
                 if (typeof window.UpdateGhostdex === 'function') {
                     window.UpdateGhostdex("001", 2);
                 }
+                return; // Don't show the selection overlay, ghost was auto-assigned
             }
 
             for (var i = 0; i < characters.length; i++) {

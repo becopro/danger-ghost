@@ -33,6 +33,11 @@ function completeCloudLogin(email, name, playerData) {
     } else {
         window.cloudSave = safeData;
     }
+
+    // Auto-load characters after cloud login
+    if (typeof window.LoadRPGStateFromDeSo === 'function') {
+        window.LoadRPGStateFromDeSo(null, false);
+    }
 }
 window.completeCloudLogin = completeCloudLogin;
 
