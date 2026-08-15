@@ -382,6 +382,14 @@
                 };
                 characters.push(defaultGhost);
                 try { localStorage.setItem("dg_local_characters", JSON.stringify(characters)); } catch(e) {}
+                
+                // Auto-select and unlock in Ghostdex
+                if (typeof window.SelectCharacterToPlay === 'function') {
+                    window.SelectCharacterToPlay("001");
+                }
+                if (typeof window.UpdateGhostdex === 'function') {
+                    window.UpdateGhostdex("001", 2);
+                }
             }
 
             for (var i = 0; i < characters.length; i++) {
