@@ -77,7 +77,15 @@ async function loadOrCreatePlayer(email, profileName, password) {
                 stmt.run([email, defaultName, password], function(err) {
                     if (err) return reject(err);
                     resolve({ status: 'created', data: {
-                        email, name: defaultName, password, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0,0,0,0]
+                        email, name: defaultName, password, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0,0,0,0],
+                        characters: [{
+                            characterId: "001",
+                            displayName: "Ghost #001",
+                            level: 1, xp: 0, pointsToDistribute: 0,
+                            vit: 1, agi: 1, int: 1, pow: 1, mag: 1,
+                            equippedSkills: [0, 1, 2, 3], equippedRunes: [0, 0, 0, 0], equippedPassives: [-1, -1],
+                            weapon: { name: 'Starter Dirk', damage: 10 }
+                        }]
                     }});
                 });
                 stmt.finalize();

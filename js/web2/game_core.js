@@ -372,8 +372,16 @@
             }
 
             if (characters.length === 0) {
-                container.innerHTML = "<div style='color: #888; font-size: 15px; margin: 20px 0;'>You don't own any local Ghosts. Forge your first one below!</div>";
-                return;
+                var defaultGhost = {
+                    characterId: "001",
+                    displayName: "Ghost #001",
+                    level: 1, xp: 0, pointsToDistribute: 0,
+                    vit: 1, agi: 1, int: 1, pow: 1, mag: 1,
+                    equippedSkills: [0, 1, 2, 3], equippedRunes: [0, 0, 0, 0], equippedPassives: [-1, -1],
+                    weapon: { name: 'Starter Dirk', damage: 10 }
+                };
+                characters.push(defaultGhost);
+                try { localStorage.setItem("dg_local_characters", JSON.stringify(characters)); } catch(e) {}
             }
 
             for (var i = 0; i < characters.length; i++) {
