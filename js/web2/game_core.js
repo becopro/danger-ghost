@@ -385,12 +385,19 @@
                 window.g_ownedCharacters = characters;
                 try { localStorage.setItem("dg_local_characters", JSON.stringify(characters)); } catch(e) {}
                 
-                // Auto-select, hide overlay, and unlock in Ghostdex
-                if (typeof window.SelectCharacterToPlay === 'function') {
-                    window.SelectCharacterToPlay("001");
-                }
+                // Unlock in Ghostdex safely, even if script isn't loaded yet
+                try {
+                    var p = JSON.parse(localStorage.getItem('ghostdex_progress') || '{}');
+                    p["001"] = 2;
+                    localStorage.setItem('ghostdex_progress', JSON.stringify(p));
+                } catch(e) {}
+
                 if (typeof window.UpdateGhostdex === 'function') {
                     window.UpdateGhostdex("001", 2);
+                }
+                // Auto-select, hide overlay
+                if (typeof window.SelectCharacterToPlay === 'function') {
+                    window.SelectCharacterToPlay("001");
                 }
                 return; // Don't show the selection overlay, ghost was auto-assigned
             }
