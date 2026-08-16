@@ -405,6 +405,13 @@
             for (var i = 0; i < characters.length; i++) {
                 var char = characters[i];
                 
+                // Unlock in Ghostdex safely, even if script isn't loaded yet
+                try {
+                    var p = JSON.parse(localStorage.getItem('ghostdex_progress') || '{}');
+                    p[char.characterId] = 2;
+                    localStorage.setItem('ghostdex_progress', JSON.stringify(p));
+                } catch(e) {}
+
                 // Unlock every owned character in the Ghostdex
                 if (typeof window.UpdateGhostdex === 'function') {
                     window.UpdateGhostdex(char.characterId, 2);
