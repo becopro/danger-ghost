@@ -3609,10 +3609,9 @@ var g_binaryBits = [];
 					var stats = GhostRPG.getStats();
 					var isLogged = window.NetworkState && window.NetworkState.playerId;
 					if (isLogged && !window.g_isGuestRun && (!stats || !stats.characterId)) {
+						// Auto-start the game without blocking the user
 						var overlay = document.getElementById('characterSelectionOverlay');
-						if (overlay) overlay.style.display = 'block';
-						alert('Please select or create your Ghost character to start playing!');
-						return;
+						if (overlay) overlay.style.display = 'none';
 					}
 					if (document.activeElement && document.activeElement.tagName === "BUTTON") {
 						document.activeElement.blur();
