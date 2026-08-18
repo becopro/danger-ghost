@@ -158,6 +158,51 @@
             color: var(--yellow-neon);
             font-style: italic;
         }
+
+        /* Responsivo: em telas estreitas, empilha a barra lateral em cima do
+           texto em vez de espremer os dois lado a lado (a sidebar fixa de
+           300px + o padding de 80px do conteúdo não cabem em ~375px). */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
+                overflow: auto;
+            }
+
+            #reader-sidebar {
+                width: 100%;
+                box-sizing: border-box;
+                border-right: none;
+                border-bottom: 1px solid var(--border-light);
+                max-height: 60vh;
+                overflow-y: auto;
+            }
+
+            /* Sem isso, o flex-grow:1 original espreme a lista de capítulos
+               quase a zero de altura dentro da sidebar limitada acima —
+               achei esse bug testando no navegador antes de considerar
+               pronto. Dá uma altura garantida e visível, com scroll próprio
+               se a lista de capítulos crescer. */
+            .toc-list {
+                flex-grow: 0;
+                max-height: 140px;
+                overflow-y: auto;
+            }
+
+            #reader-content-area {
+                padding: 24px 20px 60px;
+            }
+
+            .content-container {
+                font-size: 17px;
+            }
+
+            .content-container h2 {
+                font-size: 26px;
+                margin-bottom: 24px;
+            }
+        }
     </style>
 </head>
 <body>

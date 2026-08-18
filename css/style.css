@@ -1439,6 +1439,7 @@ body {
     border: 1px solid var(--border-light);
     padding: 30px;
     box-sizing: border-box;
+    min-width: 0;
 }
 
 .rules-column h3 {
@@ -1455,12 +1456,14 @@ body {
     width: 100%;
     border-collapse: collapse;
     font-family: var(--font-title);
+    table-layout: fixed;
 }
 
 .controls-table th, .controls-table td {
     padding: 12px;
     text-align: left;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    word-break: break-word;
 }
 
 .controls-table th {
@@ -1981,6 +1984,7 @@ body {
     #gameNavbar button {
         padding: 4px 8px !important;
         font-size: 10px !important;
+        min-width: 0 !important;
     }
     /* Character name field responsiveness */
     #charNameInput {
@@ -2109,6 +2113,56 @@ body {
     box-shadow: 0 0 10px var(--yellow-neon);
 }
 
+/* ==========================================================================
+   RESPONSIVIDADE DA "VITRINE" (18/08/2026) — NÃO mexe em canvas/HUD/D-pad,
+   só nas seções de conteúdo abaixo do jogo (lore, regras, bestiário,
+   equipamentos, founder/team) e nos modais de tutorial/lore.
+   ========================================================================== */
+
+@media (max-width: 700px) {
+    /* Lore, Founder e Team usam .lore-wrap + .lore-image-container.
+       Sem isso, a imagem fixa (280-450px) não cabe e empurra o texto pra
+       uma coluna ilegível. Empilha: imagem em cima, texto embaixo. */
+    .lore-wrap {
+        flex-wrap: wrap;
+    }
+    .lore-image-container {
+        width: 100% !important;
+        max-width: 320px;
+        margin: 0 auto;
+    }
+
+    /* Regras & Atributos: 2 colunas fixas viram 1. (min-width:0 na coluna e
+       table-layout:fixed na tabela — que evitam o mesmo overflow também em
+       768px — já viraram regras globais, ver .rules-column/.controls-table
+       mais acima no arquivo.) */
+    .rules-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    /* Sidebar dos modais de Lore e Tutorial Interativo: 200px fixos não
+       cabem ao lado do conteúdo em telas pequenas — empilha em cima. */
+    .tutorial-modal-body {
+        flex-direction: column;
+    }
+    .tutorial-sidebar {
+        width: 100%;
+        box-sizing: border-box;
+        border-right: none;
+        border-bottom: 1px solid var(--border-light);
+        max-height: 35vh;
+        overflow-y: auto;
+    }
+
+    /* Espaçamento vertical das seções (lore, regras, bestiário, equipamentos,
+       founder/team) — 80px de padding em cima/baixo desperdiça muita tela
+       pequena. Reduz só o vertical, mantém o horizontal. */
+    .section-container {
+        padding-top: 40px;
+        padding-bottom: 40px;
+    }
+}
 
 
 
