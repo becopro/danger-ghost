@@ -1,3 +1,9 @@
+try {
+    require('dotenv').config();
+} catch (err) {
+    // dotenv é opcional se as variáveis de ambiente já vierem injetadas pelo PM2/OS
+}
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -12,7 +18,8 @@ const io = new Server(server, {
 
 const { loadOrCreatePlayer, savePlayerProgress } = require('./db');
 const { OAuth2Client } = require('google-auth-library');
-const googleClient = new OAuth2Client();
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 const players = {}; 
 const TICK_RATE = 30;
@@ -102,25 +109,19 @@ io.on('connection', (socket) => {
             }
 
             try {
-                const token = data.token;
-                // 1. Extrair payload do token JWT
-                // NOTA: Em produção, você deve usar googleClient.verifyIdToken() com seu CLIENT_ID real
-                const parts = token.split('.');
-                if (parts.length !== 3) {
-                    throw new Error('Invalid JWT format');
-                }
-                const base64Url = parts[1];
-                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                }).join(''));
-                
-                const payload = JSON.parse(jsonPayload);
-                const email = payload.email;
+                // 1. Verificar a assinatura do token junto ao Google — NUNCA confiar no payload
+                //    decodificado sem verificação (era exatamente essa a falha corrigida aqui:
+                //    antes o servidor só fazia atob() do payload e acreditava no e-mail).
+                const ticket = await googleClient.verifyIdToken({
+                    idToken: data.token,
+                    audience: GOOGLE_CLIENT_ID
+                });
+                const payload = ticket.getPayload();
+                const email = payload && payload.email;
                 if (!email) {
-                    throw new Error('Email missing from JWT payload');
+                    throw new Error('Email missing from verified Google token');
                 }
-                const name = payload.name || payload.given_name || 'Ghost';
+                const name = (payload.name || payload.given_name || 'Ghost');
 
                 console.log(`[Auth] Google Login request for: ${email}`);
 
@@ -141,7 +142,7 @@ io.on('connection', (socket) => {
                 });
                 return;
             } catch (jwtError) {
-                console.warn('[Auth] JWT verification failed, checking fallback email:', jwtError.message);
+                console.warn('[Auth] Google token verification failed, checking fallback email:', jwtError.message);
                 if (data.email) {
                     const email = String(data.email).trim();
                     const name = data.name || 'Ghost';

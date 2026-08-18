@@ -16,6 +16,7 @@ const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
 const jsonwebtoken = require('jsonwebtoken');
+const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
@@ -56,7 +57,16 @@ const pool = mysql.createPool(dbConfig);
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
-const JWT_SECRET = process.env.JWT_SECRET || 'danger_ghost_deso_hosting_super_secret_key_2026';
+// Nunca usar um segredo fixo aqui: esse valor ficaria público no histórico do repositório
+// e permitiria forjar tokens válidos para /api/load e /api/save de qualquer conta.
+// Se JWT_SECRET não estiver definido, gera um segredo aleatório só para esta execução —
+// os tokens emitidos ficam inválidos ao reiniciar o processo, o que é intencional: preferimos
+// deslogar todo mundo a rodar com um segredo previsível. Defina JWT_SECRET no .env em produção.
+let JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  JWT_SECRET = crypto.randomBytes(48).toString('hex');
+  console.warn('[SECURITY] JWT_SECRET não definido no ambiente — usando um segredo aleatório gerado nesta execução. Tokens emitidos agora serão invalidados no próximo restart. Defina JWT_SECRET em produção para sessões persistentes.');
+}
 
 const defaultGameData = {
   ghostdex: {},

@@ -1,5 +1,8 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const bcrypt = require('bcryptjs');
+
+const BCRYPT_HASH_RE = /^\$2[aby]\$/;
 
 const dbPath = path.resolve(__dirname, 'game_data.db');
 const db = new sqlite3.Database(dbPath, (err) => {
@@ -51,33 +54,59 @@ async function loadOrCreatePlayer(email, profileName, password) {
             if (err) return reject(err);
             if (row) {
                 if (row.password && row.password !== '') {
-                    if (row.password !== password) {
+                    const isBcryptHash = BCRYPT_HASH_RE.test(row.password);
+                    const matches = isBcryptHash
+                        ? bcrypt.compareSync(password, row.password)
+                        : row.password === password; // legado em texto puro, ver migração abaixo
+
+                    if (!matches) {
                         return reject(new Error("Senha incorreta para o e-mail " + email + "! Verifique sua senha."));
                     }
-                } else if (!row.password || row.password === '') {
+
+                    if (!isBcryptHash) {
+                        // Migração transparente: senha legada em texto puro confirmada, regrava já hasheada.
+                        const migratedHash = bcrypt.hashSync(password, 10);
+                        try {
+                            await new Promise((res, rej) => {
+                                db.run("UPDATE players SET password = ? WHERE email = ?", [migratedHash, email], (err) => {
+                                    if (err) return rej(err);
+                                    res();
+                                });
+                            });
+                            row.password = migratedHash;
+                        } catch (err) {
+                            return reject(err);
+                        }
+                    }
+                } else {
+                    // Conta existente nunca teve senha definida: define agora, já hasheada.
+                    const newHash = bcrypt.hashSync(password, 10);
                     try {
                         await new Promise((res, rej) => {
-                            db.run("UPDATE players SET password = ? WHERE email = ?", [password, email], (err) => {
+                            db.run("UPDATE players SET password = ? WHERE email = ?", [newHash, email], (err) => {
                                 if (err) return rej(err);
                                 res();
                             });
                         });
-                        row.password = password;
+                        row.password = newHash;
                     } catch (err) {
                         return reject(err);
                     }
                 }
+                // Nunca devolver o hash da senha para o cliente.
+                delete row.password;
                 // Parse JSON array for equippedSkills
                 try { row.equippedSkills = JSON.parse(row.equippedSkills); } catch(e) { row.equippedSkills = [0,0,0,0]; }
                 resolve({ status: 'loaded', data: row });
             } else {
                 // Create new player profile
                 const defaultName = profileName || 'Ghost';
+                const passwordHash = bcrypt.hashSync(password, 10);
                 const stmt = db.prepare('INSERT INTO players (email, name, password) VALUES (?, ?, ?)');
-                stmt.run([email, defaultName, password], function(err) {
+                stmt.run([email, defaultName, passwordHash], function(err) {
                     if (err) return reject(err);
                     resolve({ status: 'created', data: {
-                        email, name: defaultName, password, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0,0,0,0],
+                        email, name: defaultName, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0,0,0,0],
                         characters: [{
                             characterId: "001",
                             displayName: "Ghost #001",
