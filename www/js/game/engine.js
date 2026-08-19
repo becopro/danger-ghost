@@ -1173,10 +1173,13 @@
 						if (window.g_playerNameTick === undefined) window.g_playerNameTick = 0;
 						if (window.g_playerNameTick++ % 60 === 0) window.g_cachedPlayerName = localStorage.getItem("playerName") || "Ghost";
 						var charName = window.g_cachedPlayerName || "Ghost";
+						var ghostLvl = window.GhostRPG && window.GhostRPG.getStats() ? window.GhostRPG.getStats().level : (window.DeSoGhost && window.DeSoGhost.level ? window.DeSoGhost.level : 1);
 						g_ctx.fillStyle = "#00FFCC";
 						g_ctx.font = "10px Arial";
 						g_ctx.textAlign = "center";
 						g_ctx.fillText(charName, this.xPos + map_offset + 12, this.yPos - 10);
+						g_ctx.fillStyle = "#FFFF00";
+						g_ctx.fillText("Lv. " + ghostLvl, this.xPos + map_offset + 12, this.yPos - 22);
 
 						// Renderização da animação de Level Up
 						if (this.isLevelingUpAnim && this.isLevelingUpAnim > 0) {
@@ -3300,6 +3303,8 @@ var g_binaryBits = [];
 								g_ctx.font = "10px Arial";
 								g_ctx.textAlign = "center";
 								g_ctx.fillText(pos.name, pos.x + map_offset + 12, pos.y - 10);
+								g_ctx.fillStyle = "#FFFF00";
+								g_ctx.fillText("Lv. " + (pos.ghostLevel || 1), pos.x + map_offset + 12, pos.y - 22);
 							}
 						} else {
 							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
@@ -3312,6 +3317,8 @@ var g_binaryBits = [];
 							g_ctx.font = "10px Arial";
 							g_ctx.textAlign = "center";
 							g_ctx.fillText(pos.name, pos.x + map_offset + 12, pos.y - 10);
+							g_ctx.fillStyle = "#FFFF00";
+							g_ctx.fillText("Lv. " + (pos.ghostLevel || 1), pos.x + map_offset + 12, pos.y - 22);
 						}
 					}
 				}

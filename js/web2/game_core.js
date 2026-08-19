@@ -122,13 +122,6 @@
     }
     window.LoginGoogle = LoginGoogle;
 
-    // Mock Post
-    function PostToDeSo() {
-        console.log("[Web2 Mock] PostToDeSo called");
-        alert("[Web2 Mode] Social posting is disabled.");
-    }
-    window.PostToDeSo = PostToDeSo;
-
     // Mock Save
     function TriggerRPGSaveToDeSo() {
         var btn = document.getElementById("rpgSaveBtn") || document.getElementById("btnNavSave");

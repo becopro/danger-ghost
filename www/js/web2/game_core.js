@@ -122,13 +122,6 @@
     }
     window.LoginGoogle = LoginGoogle;
 
-    // Mock Post
-    function PostToDeSo() {
-        console.log("[Web2 Mock] PostToDeSo called");
-        alert("[Web2 Mode] Social posting is disabled.");
-    }
-    window.PostToDeSo = PostToDeSo;
-
     // Mock Save
     function TriggerRPGSaveToDeSo() {
         var btn = document.getElementById("rpgSaveBtn") || document.getElementById("btnNavSave");
@@ -138,19 +131,20 @@
         }
         
         setTimeout(function() {
+            var syncedToCloud = false;
             try {
                 if (window.GhostRPG && window.GhostRPG.getStats) {
                     var stats = window.GhostRPG.getStats();
                     stats.score = window.g_score;
                     stats.time = window.g_globalTotalTime;
-                    
+
                     if (typeof window.g_currentLevel !== 'undefined') {
                         localStorage.setItem("dg_saved_level", window.g_currentLevel);
                     }
                     var localChars = [];
                     var raw = localStorage.getItem("dg_local_characters");
                     if (raw) localChars = JSON.parse(raw);
-                    
+
                     var charIdx = localChars.findIndex(function(c) { return c.characterId === stats.characterId; });
                     if (charIdx !== -1) {
                         localChars[charIdx] = Object.assign({}, localChars[charIdx], stats);
@@ -159,8 +153,20 @@
                     }
                     localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
                     window.g_ownedCharacters = localChars;
+
+                    // Sincroniza com o banco de dados na nuvem também, se o jogador tiver
+                    // feito login via Cloud Save nesta sessão (mesmo fix aplicado no site
+                    // em 19/08/2026 — ver commit "feat: make the SAVE GAME button sync
+                    // progress to the database" no repositório danger-ghost).
+                    var activeSocket = window.NetworkState && window.NetworkState.socket;
+                    if (activeSocket && activeSocket.connected && localStorage.getItem("dg_cloud_email")) {
+                        activeSocket.emit('save_game_state', stats);
+                        syncedToCloud = true;
+                    }
                 }
-                alert("🎉 SUCCESS! Progress saved locally.");
+                alert(syncedToCloud
+                    ? "🎉 SUCCESS! Progress saved locally and synced to the cloud."
+                    : "🎉 SUCCESS! Progress saved locally.");
             } catch(e) {
                 console.error(e);
                 alert("Error saving game: " + e.message);

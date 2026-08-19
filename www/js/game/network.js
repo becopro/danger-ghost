@@ -18,10 +18,10 @@ window.ConnectToServer = function() {
         window.NetworkState.playerNames = {};
     }
 
-    const BACKEND_URL = "https://representative-submitted-theoretical-occurs.trycloudflare.com";
+    const BACKEND_URL = "https://ghostgames.club";
     const socket = io(BACKEND_URL, {
-        transports: ['polling', 'websocket'],
-        upgrade: true,
+        transports: ['websocket'],
+        upgrade: false,
         reconnection: true,
         reconnectionAttempts: 10,
         reconnectionDelay: 1000
