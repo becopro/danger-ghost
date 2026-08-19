@@ -18,10 +18,16 @@ const { Pool } = require('pg');
 
 const SQLITE_PATH = path.resolve(__dirname, 'game_data.db');
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-});
+const pool = process.env.DATABASE_URL
+    ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } })
+    : new Pool({
+        host: process.env.dbhost,
+        port: Number(process.env.dbport) || 5432,
+        user: process.env.dbuser,
+        password: process.env.dbpass,
+        database: process.env.dbname || 'postgres',
+        ssl: { rejectUnauthorized: false }
+    });
 
 function readAllPlayersFromSqlite() {
     return new Promise((resolve, reject) => {

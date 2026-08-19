@@ -3,10 +3,21 @@ const bcrypt = require('bcryptjs');
 
 const BCRYPT_HASH_RE = /^\$2[aby]\$/;
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false } // Supabase exige SSL; certificado gerenciado por eles.
-});
+// Usa variáveis separadas (dbhost/dbport/dbuser/dbpass/dbname) em vez de uma
+// única DATABASE_URL — a connection string tem `:`, `@` e maiúsculas, que
+// quebravam ao serem digitadas/coladas no console do servidor (teclado
+// remoto que derruba o Shift). Se DATABASE_URL estiver definida (ex: outro
+// ambiente sem esse problema), ela ainda tem prioridade.
+const pool = process.env.DATABASE_URL
+    ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } })
+    : new Pool({
+        host: process.env.dbhost,
+        port: Number(process.env.dbport) || 5432,
+        user: process.env.dbuser,
+        password: process.env.dbpass,
+        database: process.env.dbname || 'postgres',
+        ssl: { rejectUnauthorized: false } // Supabase exige SSL; certificado gerenciado por eles.
+    });
 
 pool.on('error', (err) => {
     console.error('[DB] Erro inesperado numa conexão ociosa do Postgres:', err.message);
