@@ -131,19 +131,20 @@
         }
         
         setTimeout(function() {
+            var syncedToCloud = false;
             try {
                 if (window.GhostRPG && window.GhostRPG.getStats) {
                     var stats = window.GhostRPG.getStats();
                     stats.score = window.g_score;
                     stats.time = window.g_globalTotalTime;
-                    
+
                     if (typeof window.g_currentLevel !== 'undefined') {
                         localStorage.setItem("dg_saved_level", window.g_currentLevel);
                     }
                     var localChars = [];
                     var raw = localStorage.getItem("dg_local_characters");
                     if (raw) localChars = JSON.parse(raw);
-                    
+
                     var charIdx = localChars.findIndex(function(c) { return c.characterId === stats.characterId; });
                     if (charIdx !== -1) {
                         localChars[charIdx] = Object.assign({}, localChars[charIdx], stats);
@@ -152,8 +153,28 @@
                     }
                     localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
                     window.g_ownedCharacters = localChars;
+
+                    // Além do save local (acima, sempre roda), sincroniza com o banco de
+                    // dados na nuvem também, se o jogador tiver feito login via Cloud Save
+                    // nesta sessão. Duas correções em relação ao padrão usado em outro lugar
+                    // do código (GhostRPG.saveLocalStorage, em rpg_system.js), confirmadas
+                    // testando ao vivo no navegador antes de considerar pronto:
+                    // 1) o socket real vive em window.NetworkState.socket — window.g_socket
+                    //    não existe em lugar nenhum da página.
+                    // 2) usamos "dg_cloud_email" (gravado por completeCloudLogin em auth.js
+                    //    em todo login bem-sucedido) em vez de window.cloudSave — essa variável
+                    //    só é setada quando GhostRPG.applyCloudSave NÃO existe, o que não é o
+                    //    caso aqui, então window.cloudSave nunca fica preenchida de verdade.
+                    var activeSocket = window.NetworkState && window.NetworkState.socket;
+                    if (activeSocket && activeSocket.connected && localStorage.getItem("dg_cloud_email")) {
+                        activeSocket.emit('save_game_state', stats);
+                        syncedToCloud = true;
+                    }
                 }
-                alert("🎉 SUCCESS! Progress saved locally.");
+
+                alert(syncedToCloud
+                    ? "🎉 SUCCESS! Progress saved locally and synced to the cloud."
+                    : "🎉 SUCCESS! Progress saved locally.");
             } catch(e) {
                 console.error(e);
                 alert("Error saving game: " + e.message);

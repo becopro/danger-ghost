@@ -121,11 +121,32 @@ async function loadOrCreatePlayer(email, profileName, password) {
 
 async function savePlayerProgress(email, data) {
     await ensureTableReady();
+    // COALESCE(novo, existente) em cada coluna: quem chama essa função nem sempre manda
+    // o estado completo (ex: um save disparado durante a jogatina só manda level/xp/skills,
+    // sem mana/vidas/nome) — sem o COALESCE, campos ausentes do payload eram gravados como
+    // NULL, apagando dado que já existia. Isso já acontecia mesmo antes de qualquer mudança
+    // de hoje, só nunca tinha sido percebido.
     const result = await pool.query(
         `UPDATE players SET
-            name = $1, level = $2, xp = $3, mana = $4, max_mana = $5, lives = $6, equipped_skills = $7, updated_at = now()
+            name = COALESCE($1, name),
+            level = COALESCE($2, level),
+            xp = COALESCE($3, xp),
+            mana = COALESCE($4, mana),
+            max_mana = COALESCE($5, max_mana),
+            lives = COALESCE($6, lives),
+            equipped_skills = COALESCE($7, equipped_skills),
+            updated_at = now()
          WHERE email = $8`,
-        [data.name, data.level, data.xp, data.mana, data.maxMana, data.lives, JSON.stringify(data.equippedSkills || [0, 0, 0, 0]), email]
+        [
+            data.name ?? null,
+            data.level ?? null,
+            data.xp ?? null,
+            data.mana ?? null,
+            data.maxMana ?? null,
+            data.lives ?? null,
+            data.equippedSkills ? JSON.stringify(data.equippedSkills) : null,
+            email
+        ]
     );
     return result.rowCount;
 }
