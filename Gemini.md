@@ -4,6 +4,8 @@ Bem-vindo(a) ao projeto **Danger Ghost**! Este documento serve como o principal 
 
 Por favor, **leia atentamente** as regras abaixo antes de propor ou implementar qualquer alteração neste repositório.
 
+> **Nota (18/08/2026):** existe também um `CLAUDE.md` nesta mesma pasta, escrito para o Claude Code, com as mesmas regras já corrigidas contra uma auditoria do código real (ex.: autenticação tem 3 fluxos, não 1; senha local não usa bcrypt). Em caso de divergência entre os dois arquivos, `CLAUDE.md` é a versão mais atual.
+
 ## 1. Regra de Ouro: Nada de Blockchain DeSo
 - **Aviso Crítico:** O projeto é estritamente **100% Web2** no estado atual.
 - A blockchain DeSo já foi utilizada no passado, mas **foi removida**. 

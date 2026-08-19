@@ -1,5 +1,7 @@
 # Danger Ghost - Project Briefing
 
+*Última revisão: 18 de Agosto de 2026. Documento de lore/visão — não requer validação linha a linha contra código, apenas contra `LORE.md` e `lore_books.md` na raiz do repo em caso de dúvida.*
+
 ## Visão Geral
 **Danger Ghost** é um jogo online multiplayer de plataforma RPG 2D. O jogo é acessível via navegador Web e também possui um aplicativo Android nativo. A experiência do jogador é focada em velocidade, exploração de masmorras (33 níveis) e evolução de atributos.
 

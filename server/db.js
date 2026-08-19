@@ -1,44 +1,45 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 
 const BCRYPT_HASH_RE = /^\$2[aby]\$/;
 
-const dbPath = path.resolve(__dirname, 'game_data.db');
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error('[DB] Error opening database:', err.message);
-    } else {
-        console.log('[DB] Connected to SQLite database.');
-        ensureTableReady();
-    }
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false } // Supabase exige SSL; certificado gerenciado por eles.
+});
+
+pool.on('error', (err) => {
+    console.error('[DB] Erro inesperado numa conexão ociosa do Postgres:', err.message);
+});
+
+pool.on('connect', () => {
+    console.log('[DB] Conectado ao Postgres (Supabase).');
 });
 
 let tableReadyPromise = null;
 
 function ensureTableReady() {
     if (!tableReadyPromise) {
-        tableReadyPromise = new Promise((resolve, reject) => {
-            db.run(`CREATE TABLE IF NOT EXISTS players (
+        tableReadyPromise = pool.query(`
+            CREATE TABLE IF NOT EXISTS players (
                 email TEXT PRIMARY KEY,
                 name TEXT,
                 password TEXT DEFAULT '',
                 level INTEGER DEFAULT 1,
-                xp REAL DEFAULT 0,
-                mana REAL DEFAULT 100,
-                maxMana REAL DEFAULT 100,
+                xp DOUBLE PRECISION DEFAULT 0,
+                mana DOUBLE PRECISION DEFAULT 100,
+                max_mana DOUBLE PRECISION DEFAULT 100,
                 lives INTEGER DEFAULT 3,
-                equippedSkills TEXT DEFAULT '[0,0,0,0]'
-            )`, (err) => {
-                if (err) {
-                    console.error('[DB] Error creating table:', err.message);
-                    reject(err);
-                } else {
-                    db.run("ALTER TABLE players ADD COLUMN password TEXT DEFAULT ''", (err) => {});
-                    console.log('[DB] Players table ready.');
-                    resolve();
-                }
-            });
+                equipped_skills JSONB DEFAULT '[0,0,0,0]',
+                created_at TIMESTAMPTZ DEFAULT now(),
+                updated_at TIMESTAMPTZ DEFAULT now()
+            )
+        `).then(() => {
+            console.log('[DB] Players table ready.');
+        }).catch((err) => {
+            console.error('[DB] Error creating table:', err.message);
+            tableReadyPromise = null; // permite tentar de novo na próxima chamada, em vez de travar pra sempre
+            throw err;
         });
     }
     return tableReadyPromise;
@@ -49,95 +50,73 @@ async function loadOrCreatePlayer(email, profileName, password) {
         throw new Error("A senha deve ter entre 6 e 12 caracteres.");
     }
     await ensureTableReady();
-    return new Promise((resolve, reject) => {
-        db.get('SELECT * FROM players WHERE email = ?', [email], async (err, row) => {
-            if (err) return reject(err);
-            if (row) {
-                if (row.password && row.password !== '') {
-                    const isBcryptHash = BCRYPT_HASH_RE.test(row.password);
-                    const matches = isBcryptHash
-                        ? bcrypt.compareSync(password, row.password)
-                        : row.password === password; // legado em texto puro, ver migração abaixo
 
-                    if (!matches) {
-                        return reject(new Error("Senha incorreta para o e-mail " + email + "! Verifique sua senha."));
-                    }
+    const { rows } = await pool.query(
+        `SELECT email, name, password, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills"
+         FROM players WHERE email = $1`,
+        [email]
+    );
+    const row = rows[0];
 
-                    if (!isBcryptHash) {
-                        // Migração transparente: senha legada em texto puro confirmada, regrava já hasheada.
-                        const migratedHash = bcrypt.hashSync(password, 10);
-                        try {
-                            await new Promise((res, rej) => {
-                                db.run("UPDATE players SET password = ? WHERE email = ?", [migratedHash, email], (err) => {
-                                    if (err) return rej(err);
-                                    res();
-                                });
-                            });
-                            row.password = migratedHash;
-                        } catch (err) {
-                            return reject(err);
-                        }
-                    }
-                } else {
-                    // Conta existente nunca teve senha definida: define agora, já hasheada.
-                    const newHash = bcrypt.hashSync(password, 10);
-                    try {
-                        await new Promise((res, rej) => {
-                            db.run("UPDATE players SET password = ? WHERE email = ?", [newHash, email], (err) => {
-                                if (err) return rej(err);
-                                res();
-                            });
-                        });
-                        row.password = newHash;
-                    } catch (err) {
-                        return reject(err);
-                    }
-                }
-                // Nunca devolver o hash da senha para o cliente.
-                delete row.password;
-                // Parse JSON array for equippedSkills
-                try { row.equippedSkills = JSON.parse(row.equippedSkills); } catch(e) { row.equippedSkills = [0,0,0,0]; }
-                resolve({ status: 'loaded', data: row });
-            } else {
-                // Create new player profile
-                const defaultName = profileName || 'Ghost';
-                const passwordHash = bcrypt.hashSync(password, 10);
-                const stmt = db.prepare('INSERT INTO players (email, name, password) VALUES (?, ?, ?)');
-                stmt.run([email, defaultName, passwordHash], function(err) {
-                    if (err) return reject(err);
-                    resolve({ status: 'created', data: {
-                        email, name: defaultName, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0,0,0,0],
-                        characters: [{
-                            characterId: "001",
-                            displayName: "Ghost #001",
-                            level: 1, xp: 0, pointsToDistribute: 0,
-                            vit: 1, agi: 1, int: 1, pow: 1, mag: 1,
-                            equippedSkills: [0, 1, 2, 3], equippedRunes: [0, 0, 0, 0], equippedPassives: [-1, -1],
-                            weapon: { name: 'Starter Dirk', damage: 10 }
-                        }]
-                    }});
-                });
-                stmt.finalize();
+    if (row) {
+        if (row.password && row.password !== '') {
+            const isBcryptHash = BCRYPT_HASH_RE.test(row.password);
+            const matches = isBcryptHash
+                ? bcrypt.compareSync(password, row.password)
+                : row.password === password; // legado em texto puro, ver migração abaixo
+
+            if (!matches) {
+                throw new Error("Senha incorreta para o e-mail " + email + "! Verifique sua senha.");
             }
-        });
-    });
+
+            if (!isBcryptHash) {
+                // Migração transparente: senha legada em texto puro confirmada, regrava já hasheada.
+                const migratedHash = bcrypt.hashSync(password, 10);
+                await pool.query('UPDATE players SET password = $1, updated_at = now() WHERE email = $2', [migratedHash, email]);
+                row.password = migratedHash;
+            }
+        } else {
+            // Conta existente nunca teve senha definida: define agora, já hasheada.
+            const newHash = bcrypt.hashSync(password, 10);
+            await pool.query('UPDATE players SET password = $1, updated_at = now() WHERE email = $2', [newHash, email]);
+            row.password = newHash;
+        }
+
+        // Nunca devolver o hash da senha para o cliente.
+        delete row.password;
+        // equipped_skills é JSONB — o driver do pg já devolve como array JS, sem precisar de JSON.parse.
+        return { status: 'loaded', data: row };
+    } else {
+        // Create new player profile
+        const defaultName = profileName || 'Ghost';
+        const passwordHash = bcrypt.hashSync(password, 10);
+        await pool.query(
+            'INSERT INTO players (email, name, password) VALUES ($1, $2, $3)',
+            [email, defaultName, passwordHash]
+        );
+        return { status: 'created', data: {
+            email, name: defaultName, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0, 0, 0, 0],
+            characters: [{
+                characterId: "001",
+                displayName: "Ghost #001",
+                level: 1, xp: 0, pointsToDistribute: 0,
+                vit: 1, agi: 1, int: 1, pow: 1, mag: 1,
+                equippedSkills: [0, 1, 2, 3], equippedRunes: [0, 0, 0, 0], equippedPassives: [-1, -1],
+                weapon: { name: 'Starter Dirk', damage: 10 }
+            }]
+        } };
+    }
 }
 
 async function savePlayerProgress(email, data) {
     await ensureTableReady();
-    return new Promise((resolve, reject) => {
-        const skillsStr = JSON.stringify(data.equippedSkills || [0,0,0,0]);
-        db.run(
-            `UPDATE players SET 
-                name = ?, level = ?, xp = ?, mana = ?, maxMana = ?, lives = ?, equippedSkills = ? 
-            WHERE email = ?`,
-            [data.name, data.level, data.xp, data.mana, data.maxMana, data.lives, skillsStr, email],
-            function(err) {
-                if (err) return reject(err);
-                resolve(this.changes);
-            }
-        );
-    });
+    const result = await pool.query(
+        `UPDATE players SET
+            name = $1, level = $2, xp = $3, mana = $4, max_mana = $5, lives = $6, equipped_skills = $7, updated_at = now()
+         WHERE email = $8`,
+        [data.name, data.level, data.xp, data.mana, data.maxMana, data.lives, JSON.stringify(data.equippedSkills || [0, 0, 0, 0]), email]
+    );
+    return result.rowCount;
 }
 
 module.exports = {
