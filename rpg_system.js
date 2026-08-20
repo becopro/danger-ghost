@@ -441,14 +441,25 @@ var GhostRPG = (function() {
                 }
 
                 if (state.characterId && state.characterId !== 0 && state.characterId !== "0") {
-                    var targetCharId = "ghost_" + state.characterId.toString().padStart(3, '0');
+                    // Usa o characterId cru, sem prefixar com "ghost_" — é o que TriggerCreateNewGhost,
+                    // TriggerRPGSaveToDeSo e SelectCharacterToPlay já fazem em game_core.js. Prefixar
+                    // aqui (como o código fazia antes de 20/08/2026) criava uma entrada duplicada
+                    // ("ghost_dg_local_xxxx" para fantasmas forjados, por exemplo) toda vez que essa
+                    // função rodava automaticamente durante o jogo, em vez de atualizar a entrada certa.
+                    var targetCharId = state.characterId.toString();
                     var rawChars = localStorage.getItem("dg_local_characters");
                     var localChars = rawChars ? JSON.parse(rawChars) : [];
-                    
+
                     var stateToSave = JSON.parse(JSON.stringify(state));
                     stateToSave.characterId = targetCharId;
-                    
-                    var existingIndex = localChars.findIndex(function(c) { return c.characterId === targetCharId; });
+
+                    // Compatibilidade com saves antigos: um personagem pode já estar gravado sob o
+                    // formato antigo ("ghost_" + preenchido com zeros) de antes dessa correção. Se achar
+                    // por esse formato, atualiza a entrada existente em vez de criar uma nova ao lado.
+                    var legacyCharId = "ghost_" + targetCharId.padStart(3, '0');
+                    var existingIndex = localChars.findIndex(function(c) {
+                        return c.characterId === targetCharId || c.characterId === legacyCharId;
+                    });
                     if (existingIndex >= 0) {
                         localChars[existingIndex] = stateToSave;
                     } else {
@@ -472,11 +483,15 @@ var GhostRPG = (function() {
                 var isGhost = charToLoad && charToLoad !== 0 && charToLoad !== "0";
                 
                 if (isGhost) {
-                    var targetCharId = "ghost_" + charToLoad.toString().padStart(3, '0');
+                    // Busca pelo ID cru primeiro (formato usado desde 20/08/2026); cai pro formato
+                    // antigo prefixado ("ghost_" + zeros) só pra não perder saves feitos antes dessa
+                    // correção — ver o mesmo comentário em saveLocalStorage().
+                    var rawCharId = charToLoad.toString();
+                    var legacyCharId = "ghost_" + rawCharId.padStart(3, '0');
                     var rawChars = localStorage.getItem("dg_local_characters");
                     if (rawChars) {
                         var localChars = JSON.parse(rawChars);
-                        var foundChar = localChars.find(function(c) { return c.characterId === targetCharId; });
+                        var foundChar = localChars.find(function(c) { return c.characterId === rawCharId || c.characterId === legacyCharId; });
                         if (foundChar) {
                             state = foundChar;
                             state.characterId = charToLoad; // Keep internal state ID as "001" etc
@@ -566,7 +581,12 @@ var GhostRPG = (function() {
 
         applyCloudSave: function(cloudData) {
             try {
-                state.name = cloudData.name || "Ghost";
+                // NÃO seta state.name aqui (20/08/2026) — cloudData.name é o nome da CONTA, não
+                // de um personagem específico. Setar isso no state ativo vazava o nome da conta
+                // pro campo "name" do personagem quando um save automático rodava logo depois
+                // (ex: ao auto-selecionar o último fantasma jogado no login), sobrescrevendo o
+                // nome real do fantasma. O nome de cada personagem vem de dg_local_characters,
+                // já sincronizado corretamente pelo completeCloudLogin em auth.js.
                 state.level = parseInt(cloudData.level) || 1;
                 state.xp = parseFloat(cloudData.xp) || 0;
                 state.mana = parseFloat(cloudData.mana) || 100;
@@ -584,6 +604,16 @@ var GhostRPG = (function() {
             }
         },
 
+        // loadBlockchainState nunca recebeu o nome do personagem (parâmetro nenhum pra isso) —
+        // setName existe à parte pra suprir isso sem mexer na lista de parâmetros dessa função,
+        // que já tem várias chamadas espalhadas por game_core.js. Chame logo depois de
+        // loadBlockchainState com o char.name de verdade — ver SelectCharacterToPlay. Sem isso,
+        // state.name ficava undefined (ou vazava o nome da conta via applyCloudSave, corrigido
+        // em 20/08/2026) e saveLocalStorage() gravava esse valor errado de volta na entrada do
+        // personagem.
+        setName: function(name) {
+            if (name) state.name = name;
+        },
         loadBlockchainState: function(lvl, vit, agi, int, pow, characterId, xp, pointsToDistribute, mag, equippedSkills, equippedRunes, equippedPassives, weapon, inventory, equipment) {
             var maxLevel = 100000000000;
             

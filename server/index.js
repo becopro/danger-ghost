@@ -16,7 +16,7 @@ const io = new Server(server, {
     cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-const { loadOrCreatePlayer, savePlayerProgress } = require('./db');
+const { loadOrCreatePlayer, savePlayerProgress, saveCharacters } = require('./db');
 const { OAuth2Client } = require('google-auth-library');
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -201,6 +201,12 @@ io.on('connection', (socket) => {
         
         try {
             await savePlayerProgress(playerSession.email, data);
+            // A lista completa de fantasmas (atributos, inventário, equipamento — tudo) vem
+            // junto nesse mesmo evento quando presente, em vez de precisar de um evento novo
+            // (ver docs/HANDOVER.md 20/08/2026: sync de personagens entre aparelhos).
+            if (Array.isArray(data.characters) && data.characters.length > 0) {
+                await saveCharacters(playerSession.email, data.characters);
+            }
             console.log(`[DB] Progress saved for ${playerSession.email}`);
             socket.emit('save_success', { message: 'Progresso salvo na nuvem!' });
         } catch (error) {

@@ -45,8 +45,37 @@ function ensureTableReady() {
                 created_at TIMESTAMPTZ DEFAULT now(),
                 updated_at TIMESTAMPTZ DEFAULT now()
             )
-        `).then(() => {
-            console.log('[DB] Players table ready.');
+        `).then(() => pool.query(`
+            CREATE TABLE IF NOT EXISTS characters (
+                email TEXT NOT NULL REFERENCES players(email) ON DELETE CASCADE,
+                character_id TEXT NOT NULL,
+                name TEXT,
+                level INTEGER DEFAULT 1,
+                xp DOUBLE PRECISION DEFAULT 0,
+                xp_required DOUBLE PRECISION DEFAULT 100,
+                points_to_distribute INTEGER DEFAULT 0,
+                vit INTEGER DEFAULT 1,
+                agi INTEGER DEFAULT 1,
+                "int" INTEGER DEFAULT 1,
+                pow INTEGER DEFAULT 1,
+                mag INTEGER DEFAULT 1,
+                equipped_skills JSONB DEFAULT '[0,1,2,3]',
+                equipped_runes JSONB DEFAULT '[0,0,0,0]',
+                equipped_passives JSONB DEFAULT '[-1,-1]',
+                weapon JSONB DEFAULT '{"name":"Starter Dirk","damage":10}',
+                inventory JSONB DEFAULT '[]',
+                equipment JSONB DEFAULT '{"head":null,"chest":null,"mainhand":null,"offhand":null,"ring1":null,"ring2":null,"amulet":null}',
+                score DOUBLE PRECISION DEFAULT 0,
+                "time" DOUBLE PRECISION DEFAULT 0,
+                world_level INTEGER DEFAULT 1,
+                deaths INTEGER DEFAULT 0,
+                image_url TEXT,
+                created_at TIMESTAMPTZ DEFAULT now(),
+                updated_at TIMESTAMPTZ DEFAULT now(),
+                PRIMARY KEY (email, character_id)
+            )
+        `)).then(() => {
+            console.log('[DB] Players/characters tables ready.');
         }).catch((err) => {
             console.error('[DB] Error creating table:', err.message);
             tableReadyPromise = null; // permite tentar de novo na próxima chamada, em vez de travar pra sempre
@@ -54,6 +83,95 @@ function ensureTableReady() {
         });
     }
     return tableReadyPromise;
+}
+
+// Coluna por coluna, sem depender de JS spread — assim um personagem com campos
+// faltando (schemas antigos divergentes, ver docs/HANDOVER.md 20/08/2026) sempre
+// grava algo válido em vez de estourar erro de "undefined column".
+const CHARACTER_COLUMNS = [
+    'character_id', 'name', 'level', 'xp', 'xp_required', 'points_to_distribute',
+    'vit', 'agi', 'int', 'pow', 'mag',
+    'equipped_skills', 'equipped_runes', 'equipped_passives', 'weapon', 'inventory', 'equipment',
+    'score', 'time', 'world_level', 'deaths', 'image_url'
+];
+
+function characterToRowValues(email, c) {
+    return [
+        email,
+        c.characterId != null ? String(c.characterId) : null,
+        c.name ?? c.displayName ?? null,
+        c.level ?? 1,
+        c.xp ?? 0,
+        c.xpRequired ?? 100,
+        c.pointsToDistribute ?? 0,
+        c.vit ?? 1,
+        c.agi ?? 1,
+        c.int ?? 1,
+        c.pow ?? 1,
+        c.mag ?? 1,
+        JSON.stringify(c.equippedSkills ?? [0, 1, 2, 3]),
+        JSON.stringify(c.equippedRunes ?? [0, 0, 0, 0]),
+        JSON.stringify(c.equippedPassives ?? [-1, -1]),
+        JSON.stringify(c.weapon ?? { name: 'Starter Dirk', damage: 10 }),
+        JSON.stringify(c.inventory ?? []),
+        JSON.stringify(c.equipment ?? { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null }),
+        c.score ?? 0,
+        c.time ?? 0,
+        c.worldLevel ?? 1,
+        c.deaths ?? 0,
+        c.imageUrl ?? null
+    ];
+}
+
+async function loadCharacters(email) {
+    await ensureTableReady();
+    const { rows } = await pool.query(
+        `SELECT
+            character_id AS "characterId", name, level, xp, xp_required AS "xpRequired",
+            points_to_distribute AS "pointsToDistribute", vit, agi, "int", pow, mag,
+            equipped_skills AS "equippedSkills", equipped_runes AS "equippedRunes",
+            equipped_passives AS "equippedPassives", weapon, inventory, equipment,
+            score, "time", world_level AS "worldLevel", deaths, image_url AS "imageUrl"
+         FROM characters WHERE email = $1 ORDER BY character_id`,
+        [email]
+    );
+    return rows;
+}
+
+async function saveCharacters(email, charactersArray) {
+    if (!Array.isArray(charactersArray) || charactersArray.length === 0) return 0;
+    await ensureTableReady();
+
+    // Personagens sem characterId não têm como ser identificados de forma estável —
+    // ignora em vez de gravar lixo com character_id NULL.
+    const validChars = charactersArray.filter((c) => c && c.characterId != null && String(c.characterId).length > 0);
+    if (validChars.length === 0) return 0;
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const setClause = CHARACTER_COLUMNS
+            .filter((col) => col !== 'character_id')
+            .map((col) => `${col} = EXCLUDED.${col}`)
+            .join(', ');
+        for (const c of validChars) {
+            const values = characterToRowValues(email, c);
+            const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+            await client.query(
+                `INSERT INTO characters (email, ${CHARACTER_COLUMNS.join(', ')}, updated_at)
+                 VALUES (${placeholders}, now())
+                 ON CONFLICT (email, character_id) DO UPDATE SET ${setClause}, updated_at = now()`,
+                values
+            );
+        }
+        await client.query('COMMIT');
+        return validChars.length;
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
 }
 
 async function loadOrCreatePlayer(email, profileName, password) {
@@ -96,25 +214,33 @@ async function loadOrCreatePlayer(email, profileName, password) {
         // Nunca devolver o hash da senha para o cliente.
         delete row.password;
         // equipped_skills é JSONB — o driver do pg já devolve como array JS, sem precisar de JSON.parse.
+        row.characters = await loadCharacters(email);
         return { status: 'loaded', data: row };
     } else {
         // Create new player profile
         const defaultName = profileName || 'Ghost';
         const passwordHash = bcrypt.hashSync(password, 10);
-        await pool.query(
-            'INSERT INTO players (email, name, password) VALUES ($1, $2, $3)',
-            [email, defaultName, passwordHash]
-        );
+        try {
+            await pool.query(
+                'INSERT INTO players (email, name, password) VALUES ($1, $2, $3)',
+                [email, defaultName, passwordHash]
+            );
+        } catch (err) {
+            if (err.code === '23505') {
+                // Condição de corrida: o cliente manda dois logins em paralelo no primeiro acesso
+                // (cloud_save_login e auth_google_token com isFallback, ver server/index.js) — se
+                // os dois chegarem quase juntos, os dois veem "conta não existe" e tentam criar,
+                // só um consegue. Em vez de estourar erro pro segundo, refaz a consulta agora que
+                // a conta já existe de verdade (cai no ramo "loaded" acima).
+                return loadOrCreatePlayer(email, profileName, password);
+            }
+            throw err;
+        }
         return { status: 'created', data: {
             email, name: defaultName, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0, 0, 0, 0],
-            characters: [{
-                characterId: "001",
-                displayName: "Ghost #001",
-                level: 1, xp: 0, pointsToDistribute: 0,
-                vit: 1, agi: 1, int: 1, pow: 1, mag: 1,
-                equippedSkills: [0, 1, 2, 3], equippedRunes: [0, 0, 0, 0], equippedPassives: [-1, -1],
-                weapon: { name: 'Starter Dirk', damage: 10 }
-            }]
+            characters: [] // conta nova de verdade: nenhum fantasma no banco ainda. O cliente decide o
+                            // que fazer com uma lista vazia (criar o Ghost #001 padrão ou adotar o que
+                            // já existir em localStorage — ver auth.js).
         } };
     }
 }
@@ -153,5 +279,7 @@ async function savePlayerProgress(email, data) {
 
 module.exports = {
     loadOrCreatePlayer,
-    savePlayerProgress
+    savePlayerProgress,
+    loadCharacters,
+    saveCharacters
 };

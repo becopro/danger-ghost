@@ -167,7 +167,11 @@
                     //    caso aqui, então window.cloudSave nunca fica preenchida de verdade.
                     var activeSocket = window.NetworkState && window.NetworkState.socket;
                     if (activeSocket && activeSocket.connected && localStorage.getItem("dg_cloud_email")) {
-                        activeSocket.emit('save_game_state', stats);
+                        // Manda a lista COMPLETA de personagens (localChars, já atualizada acima),
+                        // não só o personagem ativo — é isso que faz "jogar em qualquer aparelho"
+                        // funcionar de verdade (20/08/2026).
+                        var payloadWithCharacters = Object.assign({}, stats, { characters: localChars });
+                        activeSocket.emit('save_game_state', payloadWithCharacters);
                         syncedToCloud = true;
                     }
                 }
@@ -278,6 +282,14 @@
                 localChars.push(defaultStats);
                 localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
                 window.g_ownedCharacters = localChars;
+
+                // Manda o fantasma novo pra nuvem também, se estiver logado (20/08/2026) — sem
+                // isso, um fantasma forjado só apareceria no aparelho onde foi criado até o
+                // próximo clique em SAVE GAME.
+                var forgeSocket = window.NetworkState && window.NetworkState.socket;
+                if (forgeSocket && forgeSocket.connected && localStorage.getItem("dg_cloud_email")) {
+                    forgeSocket.emit('save_game_state', { characters: [defaultStats] });
+                }
 
                 if (status) status.innerText = "Ghost forged successfully!";
                 if (btn) btn.disabled = false;
@@ -534,8 +546,9 @@
                     char.inventory,
                     char.equipment
                 );
+                if (window.GhostRPG.setName) window.GhostRPG.setName(char.name); // char tem prioridade: nome do personagem, não da conta
             }
-            
+
             if (typeof char.score !== "undefined") {
                 window.g_score = parseInt(char.score, 10);
                 if (window._antiCheat) window._antiCheat.hash = btoa(window.g_score + window._antiCheat.salt);

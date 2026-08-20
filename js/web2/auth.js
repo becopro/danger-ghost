@@ -34,6 +34,33 @@ function completeCloudLogin(email, name, playerData) {
         window.cloudSave = safeData;
     }
 
+    // Sincroniza a lista completa de fantasmas com o que veio do banco (20/08/2026) — o banco
+    // manda. Se a conta já tem personagens salvos na nuvem, eles substituem o que estava só
+    // localmente (é assim que "jogar em qualquer aparelho" funciona: o mesmo login em outro
+    // PC/celular baixa a mesma lista). Se a nuvem ainda está vazia mas já existe progresso
+    // local (alguém que jogou como convidado antes de criar login), adota o que já existe local
+    // como ponto de partida e envia pro servidor uma vez, em vez de apagar.
+    try {
+        var cloudCharacters = Array.isArray(safeData.characters) ? safeData.characters : [];
+        if (cloudCharacters.length > 0) {
+            localStorage.setItem("dg_local_characters", JSON.stringify(cloudCharacters));
+            window.g_ownedCharacters = cloudCharacters;
+        } else {
+            var rawLocalChars = localStorage.getItem("dg_local_characters");
+            var localChars = rawLocalChars ? JSON.parse(rawLocalChars) : [];
+            if (localChars.length > 0) {
+                var socketForAdopt = window.NetworkState && window.NetworkState.socket;
+                if (socketForAdopt && socketForAdopt.connected) {
+                    socketForAdopt.emit('save_game_state', {
+                        name: safeData.name, level: safeData.level, xp: safeData.xp,
+                        mana: safeData.mana, maxMana: safeData.maxMana, lives: safeData.lives,
+                        equippedSkills: safeData.equippedSkills, characters: localChars
+                    });
+                }
+            }
+        }
+    } catch (e) { console.error("[CloudSave] Falha ao reconciliar lista de personagens:", e); }
+
     // Auto-load characters after cloud login
     if (typeof window.LoadRPGStateFromDeSo === 'function') {
         window.LoadRPGStateFromDeSo(null, false);
