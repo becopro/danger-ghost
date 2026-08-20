@@ -436,9 +436,7 @@ var GhostRPG = (function() {
         },
         saveLocalStorage: function() {
             try {
-                if (window.g_socket && window.g_socket.connected && window.cloudSave) {
-                    window.g_socket.emit('save_game_state', state);
-                }
+                var socketPayload = state;
 
                 if (state.characterId && state.characterId !== 0 && state.characterId !== "0") {
                     // Usa o characterId cru, sem prefixar com "ghost_" — é o que TriggerCreateNewGhost,
@@ -466,10 +464,29 @@ var GhostRPG = (function() {
                         localChars.push(stateToSave);
                     }
                     localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
+
+                    // Manda só o personagem que mudou pro banco (não a lista inteira, que pode ter
+                    // dezenas de fantasmas) — assim toda ação automática de jogo (subir de nível,
+                    // equipar item, distribuir ponto, etc.) já vai pro banco na hora, e não só nos
+                    // pontos de checkpoint (login, forja, botão SAVE). Adicionado em 20/08/2026: o
+                    // banco é a única fonte de verdade, então progresso feito sem apertar SAVE não
+                    // pode ficar preso só no localStorage de um aparelho.
+                    socketPayload = Object.assign({}, state, { characters: [stateToSave] });
                 } else {
                     var dataToSave = JSON.stringify(state);
                     var encrypted = (window.SafeBtoa || btoa)(dataToSave + "||" + rpgAntiCheat.hash);
                     localStorage.setItem("DangerGhost_RPG_Save", encrypted);
+                }
+
+                // window.g_socket nunca existiu em lugar nenhum da página (bug achado hoje em
+                // TriggerRPGSaveToDeSo, game_core.js) — o socket real vive em
+                // window.NetworkState.socket. window.cloudSave também não é confiável (só é
+                // setada quando GhostRPG.applyCloudSave não existe, que não é o caso aqui);
+                // "dg_cloud_email" é gravado por completeCloudLogin em todo login bem-sucedido e
+                // é o que o resto do código já usa pra saber se o jogador está logado.
+                var activeSocket = window.NetworkState && window.NetworkState.socket;
+                if (activeSocket && activeSocket.connected && localStorage.getItem("dg_cloud_email")) {
+                    activeSocket.emit('save_game_state', socketPayload);
                 }
             } catch (e) { console.error("Save falhou", e); }
         },
