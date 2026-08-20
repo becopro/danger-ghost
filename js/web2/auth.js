@@ -117,43 +117,64 @@ function CloudSaveLogin() {
     }
 
     var socket = window.NetworkState && window.NetworkState.socket;
-    if (socket) {
-        socket.emit("cloud_save_login", { email: email, name: name || 'Ghost', password: password });
-        socket.emit("auth_google_token", { email: email, name: name || 'Ghost', password: password, isFallback: true });
-    } else {
+    if (!socket) {
         alert("Erro: Não foi possível conectar ao servidor para validar o login.");
         if (loadingModal) loadingModal.style.display = "none";
+        return;
     }
+
+    // Os listeners de resposta são amarrados a ESTE clique específico (não mais a um
+    // setTimeout(1000) disparado uma vez no carregamento da página) — antes disso, se o socket
+    // demorasse mais que 1s pra existir/conectar (comum em rede de celular), os listeners nunca
+    // eram registrados e a tela de "Verificando senha..." travava pra sempre mesmo quando o
+    // servidor respondia certinho. Também adiciona um timeout de 15s: se nada voltar do servidor
+    // nesse prazo (rede caiu, WebSocket bloqueado pela operadora, etc.), avisa o jogador em vez de
+    // deixar a tela girando pra sempre sem explicação. Corrigido em 20/08/2026.
+    var finished = false;
+    function cleanup() {
+        finished = true;
+        clearTimeout(timeoutId);
+        socket.off("cloud_save_success", handleSuccess);
+        socket.off("auth_google_success", handleSuccess);
+        socket.off("cloud_save_error", handleError);
+        socket.off("auth_google_error", handleError);
+    }
+
+    var timeoutId = setTimeout(function() {
+        if (finished) return;
+        cleanup();
+        if (loadingModal) loadingModal.style.display = "none";
+        alert("O servidor demorou demais para responder. Verifique sua internet e tente novamente.");
+    }, 15000);
+
+    function handleSuccess(data) {
+        if (finished) return;
+        cleanup();
+        console.log("[CloudSave] Login Success! Loading profile for:", data && data.email);
+        if (!data) return;
+
+        completeCloudLogin(data.email, data.playerData && data.playerData.name, data.playerData);
+
+        if (window.g_gameState === 0) { // Tela inicial
+            window.isCloudLoaded = true;
+        }
+    }
+
+    function handleError(data) {
+        if (finished) return;
+        cleanup();
+        console.warn("[CloudSave] Server error received:", data && data.message);
+        alert("Erro no Login: " + ((data && data.message) || "Falha ao resgatar progresso."));
+        if (loadingModal) loadingModal.style.display = "none";
+    }
+
+    socket.on("cloud_save_success", handleSuccess);
+    socket.on("auth_google_success", handleSuccess);
+    socket.on("cloud_save_error", handleError);
+    socket.on("auth_google_error", handleError);
+
+    socket.emit("cloud_save_login", { email: email, name: name || 'Ghost', password: password });
+    socket.emit("auth_google_token", { email: email, name: name || 'Ghost', password: password, isFallback: true });
 }
 window.CloudSaveLogin = CloudSaveLogin;
 window.LoginDeveloperFallback = CloudSaveLogin;
-
-window.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-        var socket = window.NetworkState && window.NetworkState.socket;
-        if (socket) {
-            var handleSuccess = (data) => {
-                console.log("[CloudSave] Login Success! Loading profile for:", data && data.email);
-                if (!data) return;
-
-                completeCloudLogin(data.email, data.playerData && data.playerData.name, data.playerData);
-
-                if (window.g_gameState === 0) { // Tela inicial
-                    window.isCloudLoaded = true;
-                }
-            };
-
-            var handleError = (data) => {
-                console.warn("[CloudSave] Server error received:", data && data.message);
-                alert("Erro no Login: " + ((data && data.message) || "Falha ao resgatar progresso."));
-                var loadingModal = document.getElementById("loadingModal");
-                if (loadingModal) loadingModal.style.display = "none";
-            };
-
-            socket.on("cloud_save_success", handleSuccess);
-            socket.on("auth_google_success", handleSuccess);
-            socket.on("cloud_save_error", handleError);
-            socket.on("auth_google_error", handleError);
-        }
-    }, 1000);
-});

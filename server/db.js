@@ -95,6 +95,24 @@ const CHARACTER_COLUMNS = [
     'score', 'time', 'world_level', 'deaths', 'image_url'
 ];
 
+// Blindagem no servidor contra bugs de formato de characterId em qualquer cliente (site ou app),
+// presente ou futuro: o site e o mobile já tiveram bugs independentes (recursão, prefixo duplicado)
+// que geravam IDs tipo "ghost_ghost_001" ou um ID cru ("001") ao lado do formato prefixado
+// ("ghost_001") pro mesmo fantasma — cada um corrigido na origem em 20/08/2026, mas sem isso aqui
+// qualquer bug parecido no futuro voltaria a duplicar linhas no banco. Colapsa prefixos "ghost_"
+// repetidos e força IDs puramente numéricos a usar o formato "ghost_NNN", que é o único que o
+// catálogo de fantasmas usa de verdade.
+function normalizeCharacterId(rawId) {
+    let id = String(rawId);
+    while (id.startsWith('ghost_ghost_')) {
+        id = id.slice(6);
+    }
+    if (/^\d+$/.test(id)) {
+        id = 'ghost_' + id;
+    }
+    return id;
+}
+
 function characterToRowValues(email, c) {
     return [
         email,
@@ -147,6 +165,20 @@ async function saveCharacters(email, charactersArray) {
     const validChars = charactersArray.filter((c) => c && c.characterId != null && String(c.characterId).length > 0);
     if (validChars.length === 0) return 0;
 
+    // Normaliza e deduplica pelo ID normalizado: se o mesmo payload trouxer duas entradas que
+    // colapsam pro mesmo ID (ex: "ghost_001" e "ghost_ghost_001" enviadas juntas por um cliente
+    // com o bug antigo), mantém só a de maior nível em vez de gravar as duas ou deixar a ordem
+    // do array decidir por acaso qual sobrescreve qual.
+    const byNormalizedId = new Map();
+    for (const c of validChars) {
+        const normalizedId = normalizeCharacterId(c.characterId);
+        const existing = byNormalizedId.get(normalizedId);
+        if (!existing || (Number(c.level) || 0) >= (Number(existing.level) || 0)) {
+            byNormalizedId.set(normalizedId, Object.assign({}, c, { characterId: normalizedId }));
+        }
+    }
+    const dedupedChars = Array.from(byNormalizedId.values());
+
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -154,7 +186,7 @@ async function saveCharacters(email, charactersArray) {
             .filter((col) => col !== 'character_id')
             .map((col) => `${col} = EXCLUDED.${col}`)
             .join(', ');
-        for (const c of validChars) {
+        for (const c of dedupedChars) {
             const values = characterToRowValues(email, c);
             const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
             await client.query(
@@ -165,7 +197,7 @@ async function saveCharacters(email, charactersArray) {
             );
         }
         await client.query('COMMIT');
-        return validChars.length;
+        return dedupedChars.length;
     } catch (err) {
         await client.query('ROLLBACK');
         throw err;

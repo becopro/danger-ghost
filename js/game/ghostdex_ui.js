@@ -300,8 +300,14 @@ window.PlayAsGhost = function(ghostId) {
     if (!localChars) localChars = "[]";
     localChars = JSON.parse(localChars);
     
-    let charId = "ghost_" + ghostId;
-    let existingChar = localChars.find(c => c.characterId === charId);
+    // Checa o ID cru primeiro (pode já existir assim se veio de um fantasma forjado, ou de um save
+    // feito por saveLocalStorage/TriggerRPGSaveToDeSo, que gravam sem prefixo "ghost_") antes de
+    // assumir que precisa gerar um perfil novo — sem isso, criava uma entrada duplicada
+    // "ghost_<id>" ao lado da já existente sem prefixo. Corrigido em 20/08/2026, mesmo bug já
+    // corrigido no app mobile (www/js/game/ghostdex_ui.js) no mesmo dia.
+    let legacyCharId = "ghost_" + ghostId;
+    let existingChar = localChars.find(c => c.characterId === String(ghostId) || c.characterId === legacyCharId);
+    let charId = existingChar ? existingChar.characterId : legacyCharId;
     if (!existingChar) {
         let ghostName = "Unknown Ghost";
         let dbGhost = window.g_ghostdexDB ? window.g_ghostdexDB.find(g => g.id === ghostId) : null;
