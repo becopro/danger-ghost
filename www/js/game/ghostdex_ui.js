@@ -299,16 +299,30 @@ window.ShowGhostdexDetail = function(ghostId) {
 };
 
 window.PlayAsGhost = function(ghostId) {
+    // Trava contra reentrância: PlayAsGhost chama SelectCharacterToPlay (game_core.js), que por
+    // sua vez tentava chamar PlayAsGhost de volta — um ciclo que gravava characterId com prefixo
+    // duplicado a cada clique repetido em PLAY. window.__inPlayAsGhost (checada em
+    // SelectCharacterToPlay) quebra o ciclo sem tirar nada da lógica de cada função. Corrigido em
+    // 20/08/2026, junto da sincronização de personagens com o banco de dados.
+    if (window.__inPlayAsGhost) return;
+    window.__inPlayAsGhost = true;
+    try {
     window.g_currentPlayerGhost = ghostId;
     console.log("Player is now playing as Ghost ID:", ghostId);
-    
+
     // Retroactive RPG Profile Generation
     let localChars = localStorage.getItem("dg_local_characters");
     if (!localChars) localChars = "[]";
     localChars = JSON.parse(localChars);
     
-    let charId = "ghost_" + ghostId;
-    let existingChar = localChars.find(c => c.characterId === charId);
+    // Checa o ID cru primeiro (pode já existir assim se veio de um fantasma forjado, cujo
+    // characterId nunca teve prefixo "ghost_") antes de assumir que precisa gerar um perfil
+    // novo — sem isso, chamar PlayAsGhost com um characterId que já não era um número curto de
+    // Ghostdex (ex: via SelectCharacterToPlay repassando um ID já completo) criava uma entrada
+    // duplicada "ghost_<characterId original>" do lado do original. Corrigido em 20/08/2026.
+    let legacyCharId = "ghost_" + ghostId;
+    let existingChar = localChars.find(c => c.characterId === String(ghostId) || c.characterId === legacyCharId);
+    let charId = existingChar ? existingChar.characterId : legacyCharId;
     if (!existingChar) {
         let ghostName = "Unknown Ghost";
         let dbGhost = window.g_ghostdexDB ? window.g_ghostdexDB.find(g => g.id === ghostId) : null;
@@ -455,6 +469,9 @@ window.PlayAsGhost = function(ghostId) {
     var taggedName = baseName + ' (#' + ghostId + ')';
     if (window.NetworkState && window.NetworkState.socket && window.NetworkState.connected) {
         window.NetworkState.socket.emit('join_game', { playerName: taggedName });
+    }
+    } finally {
+        window.__inPlayAsGhost = false;
     }
 };
 

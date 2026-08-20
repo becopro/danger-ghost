@@ -160,7 +160,10 @@
                     // progress to the database" no repositório danger-ghost).
                     var activeSocket = window.NetworkState && window.NetworkState.socket;
                     if (activeSocket && activeSocket.connected && localStorage.getItem("dg_cloud_email")) {
-                        activeSocket.emit('save_game_state', stats);
+                        // Manda a lista COMPLETA de personagens (localChars, já atualizada acima),
+                        // não só o personagem ativo (20/08/2026, mesmo fix do site).
+                        var payloadWithCharacters = Object.assign({}, stats, { characters: localChars });
+                        activeSocket.emit('save_game_state', payloadWithCharacters);
                         syncedToCloud = true;
                     }
                 }
@@ -270,6 +273,13 @@
                 localChars.push(defaultStats);
                 localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
                 window.g_ownedCharacters = localChars;
+
+                // Manda o fantasma novo pra nuvem também, se estiver logado (20/08/2026) — mesmo
+                // fix aplicado no site.
+                var forgeSocket = window.NetworkState && window.NetworkState.socket;
+                if (forgeSocket && forgeSocket.connected && localStorage.getItem("dg_cloud_email")) {
+                    forgeSocket.emit('save_game_state', { characters: [defaultStats] });
+                }
 
                 if (status) status.innerText = "Ghost forged successfully!";
                 if (btn) btn.disabled = false;
@@ -487,6 +497,7 @@
                     char.inventory,
                     char.equipment
                 );
+                if (window.GhostRPG.setName) window.GhostRPG.setName(char.name); // char tem prioridade: nome do personagem, não da conta
             }
             
             if (typeof char.score !== "undefined") {
@@ -503,8 +514,14 @@
                 window.g_globalTotalTime = 0;
             }
 
-            // Visual and UI transition via PlayAsGhost
-            if (typeof window.PlayAsGhost === "function") {
+            // Visual and UI transition via PlayAsGhost — MAS não chama de volta se já estamos
+            // rodando dentro de um PlayAsGhost (ele que chamou SelectCharacterToPlay pra começo
+            // de conversa). Sem essa trava (window.__inPlayAsGhost, setada por PlayAsGhost em
+            // ghostdex_ui.js), as duas funções ficavam se chamando em ciclo — cada clique em PLAY
+            // num fantasma já visitado gravava um characterId com prefixo duplicado
+            // ("ghost_ghost_001", depois "ghost_ghost_ghost_001"...) no dg_local_characters.
+            // Corrigido em 20/08/2026, junto da sincronização de personagens com o banco de dados.
+            if (!window.__inPlayAsGhost && typeof window.PlayAsGhost === "function") {
                 window.PlayAsGhost(charId);
             }
         }

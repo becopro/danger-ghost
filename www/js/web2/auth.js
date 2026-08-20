@@ -77,6 +77,37 @@ function completeCloudLogin(email, name, playerData) {
         window.cloudSave = safeData;
     }
 
+    // Sincroniza a lista completa de fantasmas com o banco (20/08/2026, mesmo padrão do site em
+    // js/web2/auth.js): o banco manda se já tiver personagens; se estiver vazio mas já existir
+    // progresso local (jogou como convidado antes de logar), adota o local e manda pro servidor.
+    try {
+        var cloudCharacters = Array.isArray(safeData.characters) ? safeData.characters : [];
+        if (cloudCharacters.length > 0) {
+            localStorage.setItem("dg_local_characters", JSON.stringify(cloudCharacters));
+            window.g_ownedCharacters = cloudCharacters;
+        } else {
+            var rawLocalChars = localStorage.getItem("dg_local_characters");
+            var localChars = rawLocalChars ? JSON.parse(rawLocalChars) : [];
+            if (localChars.length > 0) {
+                var socketForAdopt = window.NetworkState && window.NetworkState.socket;
+                if (socketForAdopt && socketForAdopt.connected) {
+                    socketForAdopt.emit('save_game_state', {
+                        name: safeData.name, level: safeData.level, xp: safeData.xp,
+                        mana: safeData.mana, maxMana: safeData.maxMana, lives: safeData.lives,
+                        equippedSkills: safeData.equippedSkills, characters: localChars
+                    });
+                }
+            }
+        }
+    } catch (e) { console.error("[CloudSave] Falha ao reconciliar lista de personagens:", e); }
+
+    // Recarrega a tela de seleção de personagem com a lista atualizada — esse chamada faltava
+    // no mobile (só o site tinha, achado ao investigar hoje), então depois de logar no app
+    // nada atualizava window.g_ownedCharacters automaticamente até esse fix.
+    if (typeof window.LoadRPGStateFromDeSo === 'function') {
+        window.LoadRPGStateFromDeSo(null, false);
+    }
+
     if (window.g_gameState === 0) {
         window.isCloudLoaded = true;
     }
