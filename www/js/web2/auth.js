@@ -3,7 +3,7 @@
 // Google Auth Callback
 function handleGoogleLogin(response) {
     console.log("[Auth] Google Token Received!");
-    
+
     // Mostra o Modal "Buscando progresso..."
     var loadingModal = document.getElementById("loadingModal");
     if (loadingModal) {
@@ -12,12 +12,44 @@ function handleGoogleLogin(response) {
 
     // Envia o token para o backend via socket
     var socket = window.NetworkState && window.NetworkState.socket;
-    if (socket && socket.connected) {
-        socket.emit("auth_google_token", { token: response.credential });
-    } else {
+    if (!socket || !socket.connected) {
         alert("Erro: Não foi possível conectar ao servidor para validar o login. O servidor pode estar offline (Render suspenso).");
-        if(loadingModal) loadingModal.style.display = "none";
+        if (loadingModal) loadingModal.style.display = "none";
+        return;
     }
+
+    // Listener amarrado a esta chamada específica (não mais um listener global registrado uma
+    // vez no carregamento da página) — mesma correção aplicada em CloudSaveLogin() logo abaixo,
+    // ver o comentário lá para o motivo completo. Corrigido em 20/08/2026.
+    var finished = false;
+    function cleanup() {
+        finished = true;
+        clearTimeout(timeoutId);
+        socket.off("auth_google_success", handleSuccess);
+        socket.off("auth_google_error", handleError);
+    }
+    var timeoutId = setTimeout(function() {
+        if (finished) return;
+        cleanup();
+        if (loadingModal) loadingModal.style.display = "none";
+        alert("O servidor demorou demais para responder. Verifique sua internet e tente novamente.");
+    }, 15000);
+    function handleSuccess(data) {
+        if (finished) return;
+        cleanup();
+        if (!data) return;
+        completeCloudLogin(data.email, data.playerData && data.playerData.name, data.playerData);
+        if (window.g_gameState === 0) window.isCloudLoaded = true;
+    }
+    function handleError(data) {
+        if (finished) return;
+        cleanup();
+        alert("Erro no Login: " + ((data && data.message) || "Falha ao acessar o Cloud Save."));
+        if (loadingModal) loadingModal.style.display = "none";
+    }
+    socket.on("auth_google_success", handleSuccess);
+    socket.on("auth_google_error", handleError);
+    socket.emit("auth_google_token", { token: response.credential });
 }
 window.handleGoogleLogin = handleGoogleLogin;
 
@@ -156,13 +188,61 @@ function CloudSaveLogin() {
     }
 
     var socket = window.NetworkState && window.NetworkState.socket;
-    if (socket) {
-        socket.emit("cloud_save_login", { email: email, name: name || 'Ghost', password: password });
-        socket.emit("auth_google_token", { email: email, name: name || 'Ghost', password: password, isFallback: true });
-    } else {
+    if (!socket) {
         alert("Erro: Não foi possível conectar ao servidor para validar o login.");
         if (loadingModal) loadingModal.style.display = "none";
+        return;
     }
+
+    // Os listeners de resposta são amarrados a ESTE clique específico (não mais um listener
+    // global registrado uma vez, num setTimeout(1000), no carregamento da página) — antes disso,
+    // se o socket demorasse mais que 1s pra existir/conectar (comum em rede de celular), o
+    // listener nunca era registrado e a tela de "Verificando senha..." travava pra sempre mesmo
+    // quando o servidor respondia certinho (foi exatamente isso que aconteceu no teste de hoje,
+    // 20/08/2026 — o servidor autenticou e salvou duas vezes, confirmado no log do banco, mas o
+    // navegador nunca soube porque não estava mais escutando). Também consolida o sucesso do
+    // fallback de e-mail/senha (evento auth_google_success, disparado pelo servidor quando o
+    // cliente manda isFallback:true) para passar pelo completeCloudLogin() como o cloud_save_success
+    // normal — antes esse caminho tinha um handler à parte que pulava a sincronização de
+    // personagens. Um timeout de 15s avisa o jogador em vez de deixar a tela girando pra sempre se
+    // o servidor não responder (rede caiu, WebSocket bloqueado pela operadora, etc.).
+    var finished = false;
+    function cleanup() {
+        finished = true;
+        clearTimeout(timeoutId);
+        socket.off("cloud_save_success", handleSuccess);
+        socket.off("auth_google_success", handleSuccess);
+        socket.off("cloud_save_error", handleError);
+        socket.off("auth_google_error", handleError);
+    }
+    var timeoutId = setTimeout(function() {
+        if (finished) return;
+        cleanup();
+        if (loadingModal) loadingModal.style.display = "none";
+        alert("O servidor demorou demais para responder. Verifique sua internet e tente novamente.");
+    }, 15000);
+    function handleSuccess(data) {
+        if (finished) return;
+        cleanup();
+        console.log("[CloudSave] Login Success! Loading profile for:", data && data.email);
+        if (!data) return;
+        completeCloudLogin(data.email, data.playerData && data.playerData.name, data.playerData);
+        if (window.g_gameState === 0) window.isCloudLoaded = true;
+    }
+    function handleError(data) {
+        if (finished) return;
+        cleanup();
+        console.warn("[CloudSave] Server error received:", data && data.message);
+        alert("Erro no Login: " + ((data && data.message) || "Falha ao resgatar progresso."));
+        if (loadingModal) loadingModal.style.display = "none";
+    }
+    socket.on("cloud_save_success", handleSuccess);
+    socket.on("auth_google_success", handleSuccess);
+    socket.on("cloud_save_error", handleError);
+    socket.on("auth_google_error", handleError);
+
+    socket.emit("cloud_save_login", { email: email, name: name || 'Ghost', password: password });
+    socket.emit("auth_google_token", { email: email, name: name || 'Ghost', password: password, isFallback: true });
 }
 window.CloudSaveLogin = CloudSaveLogin;
 window.LoginDeveloperFallback = CloudSaveLogin;
@@ -177,60 +257,4 @@ window.addEventListener('DOMContentLoaded', () => {
             cancel_on_tap_outside: false
         });
     }
-
-    // Atrasar um pouco o listener do socket para garantir que ele foi criado em outro script
-    setTimeout(() => {
-        var socket = window.NetworkState && window.NetworkState.socket;
-        if (socket) {
-            socket.on("auth_google_success", (data) => {
-                console.log("[Auth] Login Success! Loading profile for:", data.email);
-                
-                // 1. Atualizar UI (todos os botões de login, não só um)
-                updateAllLoginButtons(data.playerData.name);
-
-                // 2. Load the stats into memory (assuming GhostRPG handles this)
-                if (window.GhostRPG && window.GhostRPG.applyCloudSave) {
-                    window.GhostRPG.applyCloudSave(data.playerData);
-                } else {
-                    // Fallback
-                    localStorage.setItem("playerName", data.playerData.name);
-                    window.cloudSave = data.playerData;
-                }
-
-                // 3. Esconde modal de carregamento
-                var loadingModal = document.getElementById("loadingModal");
-                if(loadingModal) loadingModal.style.display = "none";
-                
-                // Muda o botão de "START" na start screen para "CONTINUE"
-                // No engine.js ele verifica se precisa ser 'START' mas vamos tentar sobrescrever
-                if (window.g_gameState === 0) { // Tela inicial
-                    var ctx = window.g_ctx;
-                    // Só sinaliza para desenhar diferente no próximo frame
-                    window.isCloudLoaded = true;
-                }
-            });
-
-            socket.on("auth_google_error", (data) => {
-                alert("Erro no Login: " + data.message);
-                var loadingModal = document.getElementById("loadingModal");
-                if(loadingModal) loadingModal.style.display = "none";
-            });
-
-            // Login por e-mail/senha (CloudSaveLogin) — mesmos eventos que o site escuta.
-            var handleCloudSaveSuccess = (data) => {
-                console.log("[CloudSave] Login Success! Loading profile for:", data && data.email);
-                if (!data) return;
-                completeCloudLogin(data.email, data.playerData && data.playerData.name, data.playerData);
-                if (window.g_gameState === 0) window.isCloudLoaded = true;
-            };
-            var handleCloudSaveError = (data) => {
-                console.warn("[CloudSave] Server error received:", data && data.message);
-                alert("Erro no Login: " + ((data && data.message) || "Falha ao resgatar progresso."));
-                var loadingModal = document.getElementById("loadingModal");
-                if (loadingModal) loadingModal.style.display = "none";
-            };
-            socket.on("cloud_save_success", handleCloudSaveSuccess);
-            socket.on("cloud_save_error", handleCloudSaveError);
-        }
-    }, 1000);
 });
