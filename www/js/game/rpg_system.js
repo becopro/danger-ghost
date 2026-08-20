@@ -465,9 +465,7 @@ var GhostRPG = (function() {
         },
         saveLocalStorage: function() {
             try {
-                if (window.g_socket && window.g_socket.connected && window.cloudSave) {
-                    window.g_socket.emit('save_game_state', state);
-                }
+                var socketPayload = state;
 
                 if (state.characterId && state.characterId !== 0 && state.characterId !== "0") {
                     // Usa o characterId cru (sem prefixar "ghost_") — mesmo fix aplicado no site em
@@ -492,10 +490,25 @@ var GhostRPG = (function() {
                         localChars.push(stateToSave);
                     }
                     localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
+
+                    // Manda só o personagem que mudou pro banco (não a lista inteira) — assim toda
+                    // ação automática de jogo já vai pro banco na hora, não só nos checkpoints
+                    // (login, forja, botão SAVE). Mesmo fix aplicado no site em 20/08/2026: o banco é
+                    // a única fonte de verdade, progresso não pode ficar preso só no aparelho.
+                    socketPayload = Object.assign({}, state, { characters: [stateToSave] });
                 } else {
                     var dataToSave = JSON.stringify(state);
                     var encrypted = (window.SafeBtoa || btoa)(dataToSave + "||" + rpgAntiCheat.hash);
                     localStorage.setItem("DangerGhost_RPG_Save", encrypted);
+                }
+
+                // window.g_socket nunca existiu em lugar nenhum da página (mesmo bug achado hoje
+                // no site) — o socket real vive em window.NetworkState.socket, e "dg_cloud_email"
+                // (gravado por completeCloudLogin em todo login bem-sucedido) é o jeito confiável
+                // de saber se o jogador está logado, não window.cloudSave.
+                var activeSocket = window.NetworkState && window.NetworkState.socket;
+                if (activeSocket && activeSocket.connected && localStorage.getItem("dg_cloud_email")) {
+                    activeSocket.emit('save_game_state', socketPayload);
                 }
             } catch (e) { console.error("Save falhou", e); }
         },
