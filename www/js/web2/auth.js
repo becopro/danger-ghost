@@ -21,30 +21,33 @@ function handleGoogleLogin(response) {
 }
 window.handleGoogleLogin = handleGoogleLogin;
 
-// O botão "LOGIN" do HTML chama esta função
+// O botão "LOGIN" do HTML chama esta função.
+// NOTA (20/08/2026): o fluxo do Google (abaixo, ainda no código pra quando um client_id de
+// verdade for configurado) fica pulado por enquanto — o client_id em DOMContentLoaded é
+// literalmente o texto "SEU_CLIENT_ID_DO_GOOGLE...", nunca preenchido, então esse caminho
+// nunca funcionou. Tentar mesmo assim causava o jogador tocar em LOGIN, nada acontecer na
+// hora, e a tela de e-mail/senha só aparecer alguns segundos depois (quando o Google falhava
+// de forma assíncrona) — parecendo, pra quem estava jogando, que a tela abria sozinha ao
+// selecionar um fantasma na Ghostdex. Ir direto pro e-mail/senha evita essa confusão.
 function LoginGoogle() {
-    // Nós podemos forçar o prompt do Google One Tap ou renderizar o botão.
-    // Como queremos manter o design do seu botão original, usamos a API do Google para abrir o popup se possível.
-
-    // NOTA: Para rodar localmente sem erros, você precisa colocar o 'localhost' nas origens autorizadas no painel do Google.
-    // O client_id abaixo (em DOMContentLoaded) ainda é um placeholder nunca preenchido, então esse
-    // caminho não funciona de verdade hoje — por isso caímos direto no login por e-mail/senha, que
-    // é o mesmo usado no site e comprovadamente funciona (20/08/2026).
-    if (typeof google === 'undefined') {
-        OpenLoginModal();
-        return;
-    }
-
-    google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            // Se o OneTap não abrir (bloqueador de popups, client_id inválido, etc.), cai pro
-            // login por e-mail/senha em vez de deixar o jogador sem nenhum jeito de entrar.
-            console.warn("[Auth] OneTap bloqueado ou não exibido, caindo para login por e-mail/senha.");
-            OpenLoginModal();
-        }
-    });
+    OpenLoginModal();
 }
 window.LoginGoogle = LoginGoogle;
+
+// Existem vários botões de "LOGIN" espalhados pela página (menu principal mobile, navbar
+// in-game, etc. — nenhum deles tinha um id em comum). Atualiza todos de uma vez em vez de só
+// um, pra nenhum ficar escrito "LOGIN" depois de logar de verdade.
+function updateAllLoginButtons(name) {
+    var buttons = document.querySelectorAll('[onclick*="LoginGoogle"]');
+    buttons.forEach(function(btn) {
+        btn.innerText = name || "Ghost";
+        btn.onclick = null;
+        btn.removeAttribute('onclick');
+        btn.style.color = "#00FF00";
+        btn.style.borderColor = "#00FF00";
+        btn.style.textShadow = "0 0 5px #00FF00";
+    });
+}
 
 // --- Login por e-mail/senha (Cloud Save) — adicionado 20/08/2026, mesmo padrão do site ---
 function completeCloudLogin(email, name, playerData) {
@@ -54,14 +57,7 @@ function completeCloudLogin(email, name, playerData) {
     var loginModalUI = document.getElementById("loginModalUI");
     if (loginModalUI) loginModalUI.style.display = "none";
 
-    var btnLogin = document.getElementById("btnNavLogin");
-    if (btnLogin) {
-        btnLogin.innerText = name || "Ghost";
-        btnLogin.onclick = null;
-        btnLogin.style.color = "#00FF00";
-        btnLogin.style.borderColor = "#00FF00";
-        btnLogin.style.textShadow = "0 0 5px #00FF00";
-    }
+    updateAllLoginButtons(name);
 
     var safeData = playerData || {
         email: email,
@@ -158,15 +154,8 @@ window.addEventListener('DOMContentLoaded', () => {
             socket.on("auth_google_success", (data) => {
                 console.log("[Auth] Login Success! Loading profile for:", data.email);
                 
-                // 1. Atualizar UI (Botão)
-                var btnLogin = document.getElementById("btnNavLogin");
-                if (btnLogin) {
-                    btnLogin.innerText = data.playerData.name; // Mostra o nome!
-                    btnLogin.onclick = null; // Remove a ação de login
-                    btnLogin.style.color = "#00FF00"; // Fica verdinho
-                    btnLogin.style.borderColor = "#00FF00";
-                    btnLogin.style.textShadow = "0 0 5px #00FF00";
-                }
+                // 1. Atualizar UI (todos os botões de login, não só um)
+                updateAllLoginButtons(data.playerData.name);
 
                 // 2. Load the stats into memory (assuming GhostRPG handles this)
                 if (window.GhostRPG && window.GhostRPG.applyCloudSave) {
