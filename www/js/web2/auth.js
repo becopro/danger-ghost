@@ -143,6 +143,45 @@ function completeCloudLogin(email, name, playerData, token) {
         window.LoadRPGStateFromDeSo(null, false);
     }
 
+    // Carrega os dados do fantasma com a atualização mais recente no banco (30/08/2026, mesmo
+    // fix do site — ver o comentário lá para a explicação completa do bug: sem isso, o
+    // nível/xp que ficava ativo logo após o login vinha só do resumo agregado da conta, que
+    // qualquer aparelho sobrescrevia com o que quer que tivesse jogado por último, sem relação
+    // com nenhum fantasma específico — daí "o progresso parecer diferente" entre aparelhos).
+    // NÃO chama SelectCharacterToPlay/PlayAsGhost aqui de propósito — essas funções também
+    // disparam StartCutscene()/ResetGame(), e login sozinho não deve começar a jogar sozinho.
+    try {
+        if (cloudCharacters.length > 0 && window.GhostRPG && window.GhostRPG.loadBlockchainState) {
+            var mostRecentChar = cloudCharacters.reduce(function(latest, c) {
+                var cTime = c.updatedAt ? new Date(c.updatedAt).getTime() : 0;
+                var latestTime = latest ? new Date(latest.updatedAt || 0).getTime() : -1;
+                return cTime > latestTime ? c : latest;
+            }, null);
+            if (mostRecentChar) {
+                window.GhostRPG.loadBlockchainState(
+                    parseInt(mostRecentChar.level, 10),
+                    parseInt(mostRecentChar.vit, 10),
+                    parseInt(mostRecentChar.agi, 10),
+                    parseInt(mostRecentChar.int, 10),
+                    parseInt(mostRecentChar.pow, 10),
+                    mostRecentChar.characterId,
+                    parseInt(mostRecentChar.xp, 10) || 0,
+                    parseInt(mostRecentChar.pointsToDistribute, 10) || 0,
+                    parseInt(mostRecentChar.mag, 10) || 1,
+                    mostRecentChar.equippedSkills,
+                    mostRecentChar.equippedRunes,
+                    mostRecentChar.equippedPassives,
+                    mostRecentChar.weapon,
+                    mostRecentChar.inventory,
+                    mostRecentChar.equipment
+                );
+                if (window.GhostRPG.setName) window.GhostRPG.setName(mostRecentChar.name);
+                try { localStorage.setItem('dg_deso_character_id', mostRecentChar.characterId); } catch(e) {}
+                window.g_currentPlayerGhost = mostRecentChar.characterId;
+            }
+        }
+    } catch (e) { console.error("[CloudSave] Falha ao carregar o personagem mais recente:", e); }
+
     if (window.g_gameState === 0) {
         window.isCloudLoaded = true;
     }
