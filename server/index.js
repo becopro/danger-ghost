@@ -16,7 +16,7 @@ const io = new Server(server, {
     cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-const { loginPlayer, createPlayer, loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveCharacters } = require('./db');
+const { loginPlayer, createPlayer, loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveCharacters, deleteCharacter } = require('./db');
 const { OAuth2Client } = require('google-auth-library');
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -247,6 +247,28 @@ io.on('connection', (socket) => {
         } catch (error) {
             console.error('[DB] Save error:', error);
             socket.emit('save_error', { message: 'Erro ao salvar progresso.' });
+        }
+    });
+
+    // Apaga um fantasma forjado (30/08/2026) — antes disso, descartar um fantasma só tirava do
+    // localStorage do aparelho; sem isso ele reaparecia no banco no próximo login.
+    socket.on('delete_character', async (data) => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            console.log('[Delete] Rejected: Player not authenticated.');
+            return;
+        }
+        if (!data || !data.characterId) {
+            socket.emit('delete_character_error', { message: 'ID do personagem ausente.' });
+            return;
+        }
+        try {
+            await deleteCharacter(playerSession.email, data.characterId);
+            console.log(`[DB] Character ${data.characterId} deleted for ${playerSession.email}`);
+            socket.emit('delete_character_success', { characterId: data.characterId });
+        } catch (error) {
+            console.error('[DB] Delete character error:', error);
+            socket.emit('delete_character_error', { message: 'Erro ao apagar personagem.' });
         }
     });
     // ---------------------------------

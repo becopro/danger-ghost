@@ -3608,7 +3608,7 @@ var g_binaryBits = [];
 					}
 					var stats = GhostRPG.getStats();
 					var isLogged = window.NetworkState && window.NetworkState.playerId;
-					if (isLogged && !window.g_isGuestRun && (!stats || !stats.characterId)) {
+					if (isLogged && (!stats || !stats.characterId)) {
 						// Auto-start the game without blocking the user
 						var overlay = document.getElementById('characterSelectionOverlay');
 						if (overlay) overlay.style.display = 'none';
@@ -3618,18 +3618,14 @@ var g_binaryBits = [];
 					}
 					e.preventDefault();
 					if (g_gameState == G_START) {
-						if (!window.NetworkState || !window.NetworkState.connected) {
-							console.log('Playing locally or offline (Guest Mode).');
-							window.g_isGuestRun = true;
-						}
-						// Resgata o save de sessão em segundo plano, sem travar o início do jogo:
-						// se o jogador já tinha logado nesse aparelho antes, o progresso reaparece
-						// sozinho assim que a Ghostdex carregar; se não, ele já está jogando como
-						// convidado normalmente. Pedido explícito do usuário: SPACE é uma das duas
-						// ações que "levam ao login" — mas continua sem modal, sem travar o fluxo
-						// de "aperte espaço pra começar". Adicionado 30/08/2026.
-						if (typeof window.TryAutoLoginFromSession === 'function') {
-							window.TryAutoLoginFromSession();
+						// Login obrigatório pra jogar (30/08/2026, pedido explícito do usuário: sem
+						// modo convidado — SPACE tem que levar ao login/criar conta se não tiver
+						// sessão, nunca começar o jogo direto). OpenLoginModal() já tenta o token
+						// de sessão salvo primeiro (loga sozinho se ainda for válido); se não,
+						// mostra o formulário com a opção de LOGIN ou CRIAR CONTA NOVA.
+						if (!localStorage.getItem('dg_cloud_email')) {
+							if (typeof window.OpenLoginModal === 'function') window.OpenLoginModal();
+							return;
 						}
 						var menu = document.getElementById("loginButtonsContainer");
 						if (menu) menu.style.display = "none";

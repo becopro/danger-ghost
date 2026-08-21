@@ -214,10 +214,19 @@
 
     // Mock Character Creation (Local Generation)
     async function TriggerCreateNewGhost() {
+        // Login obrigatório pra forjar (30/08/2026, pedido do usuário: sem save local, só se
+        // pode jogar/criar personagem estando logado — nunca mais existe um fantasma que só
+        // vive no localStorage esperando um login futuro pra sincronizar).
+        if (!localStorage.getItem("dg_cloud_email")) {
+            CloseNewGhostModal();
+            if (typeof window.OpenLoginModal === "function") window.OpenLoginModal();
+            return;
+        }
+
         var btn = document.getElementById("confirmForgeBtn");
         var status = document.getElementById("selectionStatusText");
         var nameInput = document.getElementById("newGhostNameInput");
-        
+
         var ghostName = nameInput && nameInput.value.trim() !== "" ? nameInput.value.trim() : "Ghost";
 
         if (btn) btn.disabled = true;
@@ -283,11 +292,10 @@
                 localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
                 window.g_ownedCharacters = localChars;
 
-                // Manda o fantasma novo pra nuvem também, se estiver logado (20/08/2026) — sem
-                // isso, um fantasma forjado só apareceria no aparelho onde foi criado até o
-                // próximo clique em SAVE GAME.
+                // Manda o fantasma novo pra nuvem — login já é garantido pelo guard no início
+                // desta função (30/08/2026), então isso não é mais condicional.
                 var forgeSocket = window.NetworkState && window.NetworkState.socket;
-                if (forgeSocket && forgeSocket.connected && localStorage.getItem("dg_cloud_email")) {
+                if (forgeSocket && forgeSocket.connected) {
                     forgeSocket.emit('save_game_state', { characters: [defaultStats] });
                 }
 
@@ -365,18 +373,26 @@
     }
     window.ExecuteDeSoRPGSaveWithImage = ExecuteDeSoRPGSaveWithImage;
 
-    // Mock Character deletion
+    // Descarta um fantasma forjado — nome antigo "BurnGhostNFT" é da era DeSo, mantido só pra
+    // não quebrar o onclick já existente nos cartões da Ghostdex.
     function BurnGhostNFT(postHashHex) {
-        var res = confirm("[Web2 Mode] Are you sure you want to delete this Ghost locally?");
+        var res = confirm("Are you sure you want to delete this Ghost?");
         if (res) {
             var localChars = [];
             var raw = localStorage.getItem("dg_local_characters");
             if (raw) localChars = JSON.parse(raw);
-            
+
             localChars = localChars.filter(function(c) { return c.characterId !== postHashHex; });
             localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
             window.g_ownedCharacters = localChars;
-            
+
+            // Manda apagar do banco também (30/08/2026) — antes disso, um fantasma "apagado"
+            // reaparecia no próximo login porque nunca saía do servidor.
+            var socket = window.NetworkState && window.NetworkState.socket;
+            if (socket && socket.connected) {
+                socket.emit('delete_character', { characterId: postHashHex });
+            }
+
             alert("Ghost deleted.");
             window.location.reload();
         }
@@ -398,35 +414,11 @@
                 priceText.innerHTML = "Forge a new unique Ghost card for free using local generator.";
             }
 
-            if (characters.length === 0) {
-                var defaultGhost = {
-                    characterId: "001",
-                    displayName: "Ghost #001",
-                    level: 1, xp: 0, pointsToDistribute: 0,
-                    vit: 1, agi: 1, int: 1, pow: 1, mag: 1,
-                    equippedSkills: [0, 1, 2, 3], equippedRunes: [0, 0, 0, 0], equippedPassives: [-1, -1],
-                    weapon: { name: 'Starter Dirk', damage: 10 }
-                };
-                characters.push(defaultGhost);
-                window.g_ownedCharacters = characters;
-                try { localStorage.setItem("dg_local_characters", JSON.stringify(characters)); } catch(e) {}
-                
-                // Unlock in Ghostdex safely, even if script isn't loaded yet
-                try {
-                    var p = JSON.parse(localStorage.getItem('ghostdex_progress') || '{}');
-                    p["001"] = 2;
-                    localStorage.setItem('ghostdex_progress', JSON.stringify(p));
-                } catch(e) {}
-
-                if (typeof window.UpdateGhostdex === 'function') {
-                    window.UpdateGhostdex("001", 2);
-                }
-                // Auto-select, hide overlay
-                if (typeof window.SelectCharacterToPlay === 'function') {
-                    window.SelectCharacterToPlay("001");
-                }
-                return; // Don't show the selection overlay, ghost was auto-assigned
-            }
+            // Sem criação automática de um "Ghost #001" padrão (30/08/2026, pedido do usuário:
+            // sem save local — o primeiro fantasma é sempre forjado pelo jogador via TriggerCreateNewGhost,
+            // nunca inventado pelo cliente). Lista vazia = tela de seleção mostra zero cartas, com
+            // o botão de forjar disponível pro jogador criar o primeiro. Isso também elimina uma
+            // chamada a SelectCharacterToPlay() que disparava StartCutscene()/ResetGame() sozinha.
 
             for (var i = 0; i < characters.length; i++) {
                 var char = characters[i];

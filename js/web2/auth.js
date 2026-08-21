@@ -37,36 +37,27 @@ function completeCloudLogin(email, name, playerData, token) {
         window.cloudSave = safeData;
     }
 
-    // Sincroniza a lista completa de fantasmas com o que veio do banco (20/08/2026) — o banco
-    // manda. Se a conta já tem personagens salvos na nuvem, eles substituem o que estava só
-    // localmente (é assim que "jogar em qualquer aparelho" funciona: o mesmo login em outro
-    // PC/celular baixa a mesma lista). Se a nuvem ainda está vazia mas já existe progresso
-    // local (alguém que jogou como convidado antes de criar login), adota o que já existe local
-    // como ponto de partida e envia pro servidor uma vez, em vez de apagar.
+    // O banco manda, sempre (30/08/2026: sem "adotar" progresso local — login virou obrigatório
+    // pra jogar, não existe mais um cenário legítimo de progresso real só no localStorage antes
+    // de logar, então não tem o que adotar). A lista de personagens, o progresso da Ghostdex e
+    // os favoritos vindos do servidor sempre substituem o que estava local, ponto.
+    var cloudCharacters = Array.isArray(safeData.characters) ? safeData.characters : [];
     try {
-        var cloudCharacters = Array.isArray(safeData.characters) ? safeData.characters : [];
-        if (cloudCharacters.length > 0) {
-            localStorage.setItem("dg_local_characters", JSON.stringify(cloudCharacters));
-            window.g_ownedCharacters = cloudCharacters;
-        } else {
-            var rawLocalChars = localStorage.getItem("dg_local_characters");
-            var localChars = rawLocalChars ? JSON.parse(rawLocalChars) : [];
-            if (localChars.length > 0) {
-                var socketForAdopt = window.NetworkState && window.NetworkState.socket;
-                if (socketForAdopt && socketForAdopt.connected) {
-                    socketForAdopt.emit('save_game_state', {
-                        name: safeData.name, level: safeData.level, xp: safeData.xp,
-                        mana: safeData.mana, maxMana: safeData.maxMana, lives: safeData.lives,
-                        equippedSkills: safeData.equippedSkills, characters: localChars
-                    });
-                }
-            }
-        }
-    } catch (e) { console.error("[CloudSave] Falha ao reconciliar lista de personagens:", e); }
+        localStorage.setItem("dg_local_characters", JSON.stringify(cloudCharacters));
+        window.g_ownedCharacters = cloudCharacters;
+        localStorage.setItem("ghostdex_progress", JSON.stringify(safeData.ghostdexProgress || {}));
+        localStorage.setItem("DangerGhost_Favorites", JSON.stringify(safeData.favorites || []));
+    } catch (e) { console.error("[CloudSave] Falha ao aplicar dados do banco:", e); }
 
-    // Auto-load characters after cloud login
+    // Mostra a lista de personagens depois do login. forceShowOverlay = true (30/08/2026) —
+    // antes disso, LoadRPGStateFromDeSo(null, false) auto-selecionava o "último personagem" E
+    // chamava SelectCharacterToPlay(), que por sua vez dispara StartCutscene()/ResetGame() se o
+    // jogo estiver na tela inicial — ou seja, o login sozinho podia começar a partida sem o
+    // jogador apertar nada, contradizendo a regra desta sessão. Com true, só mostra a tela de
+    // seleção (sem começar a jogar); os dados do personagem mais recente já foram carregados em
+    // memória pelo bloco logo abaixo, sem esse efeito colateral.
     if (typeof window.LoadRPGStateFromDeSo === 'function') {
-        window.LoadRPGStateFromDeSo(null, false);
+        window.LoadRPGStateFromDeSo(null, true);
     }
 
     // Carrega os dados do fantasma com a atualização mais recente no banco (30/08/2026, pedido

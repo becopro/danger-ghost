@@ -42,10 +42,16 @@ function ensureTableReady() {
                 max_mana DOUBLE PRECISION DEFAULT 100,
                 lives INTEGER DEFAULT 3,
                 equipped_skills JSONB DEFAULT '[0,0,0,0]',
+                ghostdex_progress JSONB DEFAULT '{}',
+                favorites JSONB DEFAULT '[]',
                 created_at TIMESTAMPTZ DEFAULT now(),
                 updated_at TIMESTAMPTZ DEFAULT now()
             )
         `).then(() => pool.query(`
+            ALTER TABLE players ADD COLUMN IF NOT EXISTS ghostdex_progress JSONB DEFAULT '{}'
+        `)).then(() => pool.query(`
+            ALTER TABLE players ADD COLUMN IF NOT EXISTS favorites JSONB DEFAULT '[]'
+        `)).then(() => pool.query(`
             CREATE TABLE IF NOT EXISTS characters (
                 email TEXT NOT NULL REFERENCES players(email) ON DELETE CASCADE,
                 character_id TEXT NOT NULL,
@@ -207,6 +213,20 @@ async function saveCharacters(email, charactersArray) {
     }
 }
 
+// Apaga um fantasma forjado do banco (30/08/2026) — antes disso, "descartar fantasma"
+// (BurnGhostNFT, nome antigo da era DeSo) só tirava do localStorage; o fantasma reaparecia no
+// próximo login porque nunca saía do banco. Normaliza o ID pelo mesmo motivo de saveCharacters:
+// um cliente com bug de formato não pode deixar uma cópia "presa" sob um ID diferente.
+async function deleteCharacter(email, characterId) {
+    await ensureTableReady();
+    const normalizedId = normalizeCharacterId(characterId);
+    const result = await pool.query(
+        'DELETE FROM characters WHERE email = $1 AND character_id = $2',
+        [email, normalizedId]
+    );
+    return result.rowCount;
+}
+
 // Carrega um jogador só pelo e-mail, sem checar senha — usado pelo login por token de sessão
 // (30/08/2026): quem chama aqui já provou a identidade validando a assinatura do JWT antes,
 // então repetir a senha seria redundante. Nunca seleciona a coluna password (nem pra apagar
@@ -214,7 +234,8 @@ async function saveCharacters(email, charactersArray) {
 async function loadPlayerByEmail(email) {
     await ensureTableReady();
     const { rows } = await pool.query(
-        `SELECT email, name, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills"
+        `SELECT email, name, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills",
+            ghostdex_progress AS "ghostdexProgress", favorites
          FROM players WHERE email = $1`,
         [email]
     );
@@ -259,7 +280,8 @@ async function loginPlayer(email, password) {
     await ensureTableReady();
 
     const { rows } = await pool.query(
-        `SELECT email, name, password, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills"
+        `SELECT email, name, password, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills",
+            ghostdex_progress AS "ghostdexProgress", favorites
          FROM players WHERE email = $1`,
         [email]
     );
@@ -297,9 +319,10 @@ async function createPlayer(email, profileName, password) {
     }
     return {
         email, name: defaultName, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0, 0, 0, 0],
-        characters: [] // conta nova de verdade: nenhum fantasma no banco ainda. O cliente decide o
-                        // que fazer com uma lista vazia (criar o Ghost #001 padrão ou adotar o que
-                        // já existir em localStorage — ver auth.js).
+        ghostdexProgress: {}, favorites: [],
+        characters: [] // conta nova de verdade: nenhum fantasma no banco ainda — o jogador forja o
+                        // primeiro (30/08/2026: não existe mais criação automática de um "Ghost
+                        // #001" nem adoção de personagens que só existiam no localStorage).
     };
 }
 
@@ -374,8 +397,10 @@ async function savePlayerProgress(email, data) {
             max_mana = COALESCE($4, max_mana),
             lives = COALESCE($5, lives),
             equipped_skills = COALESCE($6, equipped_skills),
+            ghostdex_progress = COALESCE($7, ghostdex_progress),
+            favorites = COALESCE($8, favorites),
             updated_at = now()
-         WHERE email = $7`,
+         WHERE email = $9`,
         [
             data.level ?? null,
             data.xp ?? null,
@@ -383,6 +408,8 @@ async function savePlayerProgress(email, data) {
             data.maxMana ?? null,
             data.lives ?? null,
             data.equippedSkills ? JSON.stringify(data.equippedSkills) : null,
+            data.ghostdexProgress ? JSON.stringify(data.ghostdexProgress) : null,
+            data.favorites ? JSON.stringify(data.favorites) : null,
             email
         ]
     );
@@ -396,5 +423,6 @@ module.exports = {
     loadPlayerByEmail,
     savePlayerProgress,
     loadCharacters,
-    saveCharacters
+    saveCharacters,
+    deleteCharacter
 };
