@@ -205,10 +205,18 @@
 
     // Mock Character Creation (Local Generation)
     async function TriggerCreateNewGhost() {
+        // Login obrigatório pra forjar (30/08/2026, mesmo padrão do site — ver o comentário lá
+        // para a explicação completa).
+        if (!localStorage.getItem("dg_cloud_email")) {
+            CloseNewGhostModal();
+            if (typeof window.OpenLoginModal === "function") window.OpenLoginModal();
+            return;
+        }
+
         var btn = document.getElementById("confirmForgeBtn");
         var status = document.getElementById("selectionStatusText");
         var nameInput = document.getElementById("newGhostNameInput");
-        
+
         var ghostName = nameInput && nameInput.value.trim() !== "" ? nameInput.value.trim() : "Ghost";
 
         if (btn) btn.disabled = true;
@@ -274,10 +282,10 @@
                 localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
                 window.g_ownedCharacters = localChars;
 
-                // Manda o fantasma novo pra nuvem também, se estiver logado (20/08/2026) — mesmo
-                // fix aplicado no site.
+                // Manda o fantasma novo pra nuvem — login já é garantido pelo guard no início
+                // desta função (30/08/2026), então isso não é mais condicional.
                 var forgeSocket = window.NetworkState && window.NetworkState.socket;
-                if (forgeSocket && forgeSocket.connected && localStorage.getItem("dg_cloud_email")) {
+                if (forgeSocket && forgeSocket.connected) {
                     forgeSocket.emit('save_game_state', { characters: [defaultStats] });
                 }
 
@@ -354,18 +362,25 @@
     }
     window.ExecuteDeSoRPGSaveWithImage = ExecuteDeSoRPGSaveWithImage;
 
-    // Mock Character deletion
+    // Descarta um fantasma forjado — nome antigo "BurnGhostNFT" é da era DeSo, mantido só pra
+    // não quebrar o onclick já existente nos cartões da Ghostdex.
     function BurnGhostNFT(postHashHex) {
-        var res = confirm("[Web2 Mode] Are you sure you want to delete this Ghost locally?");
+        var res = confirm("Are you sure you want to delete this Ghost?");
         if (res) {
             var localChars = [];
             var raw = localStorage.getItem("dg_local_characters");
             if (raw) localChars = JSON.parse(raw);
-            
+
             localChars = localChars.filter(function(c) { return c.characterId !== postHashHex; });
             localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
             window.g_ownedCharacters = localChars;
-            
+
+            // Manda apagar do banco também (30/08/2026) — mesmo fix aplicado no site.
+            var socket = window.NetworkState && window.NetworkState.socket;
+            if (socket && socket.connected) {
+                socket.emit('delete_character', { characterId: postHashHex });
+            }
+
             alert("Ghost deleted.");
             window.location.reload();
         }

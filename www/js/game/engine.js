@@ -3583,8 +3583,15 @@ var g_binaryBits = [];
 						return;
 					}
 					var stats = GhostRPG.getStats();
+					// isLogged aqui só confirma que o socket conectou ao servidor multiplayer
+					// (join_game roda pra qualquer conexão, logada ou não) — não confirma que o
+					// jogador tem uma CONTA autenticada. Adicionado o segundo checkpoint
+					// (dg_cloud_email) em 30/08/2026: sem ele, um jogador sem conta que apertasse
+					// SPACE caía nesse alerta de "selecione seu fantasma" em vez de ver o login,
+					// porque tecnicamente "isLogged" (socket) já era verdadeiro mesmo sem conta.
 					var isLogged = window.NetworkState && window.NetworkState.playerId;
-					if (isLogged && !window.g_isGuestRun && (!stats || !stats.characterId)) {
+					var hasAccountSession = !!localStorage.getItem('dg_cloud_email');
+					if (isLogged && hasAccountSession && (!stats || !stats.characterId)) {
 						var overlay = document.getElementById('characterSelectionOverlay');
 						if (overlay) overlay.style.display = 'block';
 						alert('Please select or create your Ghost character to start playing!');
@@ -3595,15 +3602,14 @@ var g_binaryBits = [];
 					}
 					e.preventDefault();
 					if (g_gameState == G_START) {
-						if (!window.NetworkState || !window.NetworkState.connected) {
-							console.log('Playing locally or offline (Guest Mode).');
-							window.g_isGuestRun = true;
-						}
-						// Resgata o save de sessão em segundo plano, sem travar o início do jogo
-						// — mesmo comportamento do site, adicionado 30/08/2026 por pedido do
-						// usuário (SPACE é uma das duas ações que "levam ao login", sem modal).
-						if (typeof window.TryAutoLoginFromSession === 'function') {
-							window.TryAutoLoginFromSession();
+						// Login obrigatório pra jogar (30/08/2026, pedido explícito do usuário: sem
+						// modo convidado — SPACE tem que levar ao login/criar conta se não tiver
+						// sessão, nunca começar o jogo direto). OpenLoginModal() já tenta o token
+						// de sessão salvo primeiro (loga sozinho se ainda for válido); se não,
+						// mostra o formulário com a opção de LOGIN ou CRIAR CONTA NOVA.
+						if (!localStorage.getItem('dg_cloud_email')) {
+							if (typeof window.OpenLoginModal === 'function') window.OpenLoginModal();
+							return;
 						}
 						var menu = document.getElementById("loginButtonsContainer");
 						if (menu) menu.style.display = "none";

@@ -685,42 +685,8 @@ window.ToggleFullscreen = function() {
     }
 };
 
-window.g_isGuestRun = false;
-
-function StartDeSoPlayFlow() {
-    window.g_isGuestRun = false;
-    if (typeof window.LoginDeSo === "function") {
-        window.LoginDeSo();
-    }
-}
-
-function StartGuestPlayFlow() {
-    window.g_isGuestRun = true;
-    var menu = document.getElementById("loginButtonsContainer");
-    if (menu) menu.style.display = "none";
-    
-    window.g_score = 0;
-    if (window.GhostRPG && window.GhostRPG.resetStats) {
-        window.GhostRPG.resetStats();
-    }
-    
-    if (window.g_gameState === window.G_START) {
-        if (typeof window.StartCutscene === "function") {
-            window.StartCutscene();
-        }
-    } else {
-        window.g_gamePaused = false;
-        if (typeof window.PlayBGM === "function") {
-            window.PlayBGM();
-        }
-    }
-    
-    if (typeof window.RequestGameFullscreen === "function") {
-        window.RequestGameFullscreen();
-    }
-    var btn = document.getElementById("gameScreenModeBtn");
-    if (btn) btn.style.display = "block";
-}
+// Modo convidado removido por completo (30/08/2026, mesmo padrão do site — ver o comentário lá
+// para a explicação completa). Nenhum botão do HTML chamava essas duas funções.
 
 function ToggleGameFullscreen() {
     var container = document.getElementById("fullscreenGameArea");
@@ -757,8 +723,6 @@ function RequestGameFullscreen() {
     }
 }
 
-window.StartDeSoPlayFlow = StartDeSoPlayFlow;
-window.StartGuestPlayFlow = StartGuestPlayFlow;
 window.ToggleGameFullscreen = ToggleGameFullscreen;
 window.RequestGameFullscreen = RequestGameFullscreen;
 

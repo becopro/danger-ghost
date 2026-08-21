@@ -20,6 +20,20 @@ function GetPlayerGhostdexProgress() {
     try { return JSON.parse(raw); } catch(e) { return {}; }
 }
 
+// Manda o progresso da Ghostdex e a lista de favoritos pro banco (30/08/2026, mesmo padrão do
+// site — ver o comentário lá pra explicação completa).
+function SyncGhostdexExtrasToCloud() {
+    try {
+        var socket = window.NetworkState && window.NetworkState.socket;
+        if (socket && socket.connected && localStorage.getItem('dg_cloud_email')) {
+            socket.emit('save_game_state', {
+                ghostdexProgress: GetPlayerGhostdexProgress(),
+                favorites: window.GetFavoriteGhosts ? window.GetFavoriteGhosts() : []
+            });
+        }
+    } catch (e) { console.error('[Ghostdex] Falha ao sincronizar com o banco:', e); }
+}
+
 // Called by game engine: UpdateGhostdex("001", 1) = seen, UpdateGhostdex("001", 2) = captured
 window.UpdateGhostdex = function(id, state) {
     var progress = GetPlayerGhostdexProgress();
@@ -27,6 +41,7 @@ window.UpdateGhostdex = function(id, state) {
     if (state > currentState) {
         progress[id] = state;
         localStorage.setItem('ghostdex_progress', JSON.stringify(progress));
+        SyncGhostdexExtrasToCloud();
     }
 };
 
@@ -500,7 +515,8 @@ window.ToggleFavoriteGhost = function(ghostId) {
         favs.push(ghostId);
     }
     localStorage.setItem("DangerGhost_Favorites", JSON.stringify(favs));
-    
+    SyncGhostdexExtrasToCloud();
+
     // Re-render
     if (window.g_ghostdexDB) {
         RenderGhostdexInNavbar(window.g_ghostdexDB);
