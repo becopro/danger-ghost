@@ -149,7 +149,8 @@ async function loadCharacters(email) {
             points_to_distribute AS "pointsToDistribute", vit, agi, "int", pow, mag,
             equipped_skills AS "equippedSkills", equipped_runes AS "equippedRunes",
             equipped_passives AS "equippedPassives", weapon, inventory, equipment,
-            score, "time", world_level AS "worldLevel", deaths, image_url AS "imageUrl"
+            score, "time", world_level AS "worldLevel", deaths, image_url AS "imageUrl",
+            updated_at AS "updatedAt"
          FROM characters WHERE email = $1 ORDER BY character_id`,
         [email]
     );
@@ -353,22 +354,29 @@ async function savePlayerProgress(email, data) {
     await ensureTableReady();
     // COALESCE(novo, existente) em cada coluna: quem chama essa função nem sempre manda
     // o estado completo (ex: um save disparado durante a jogatina só manda level/xp/skills,
-    // sem mana/vidas/nome) — sem o COALESCE, campos ausentes do payload eram gravados como
+    // sem mana/vidas) — sem o COALESCE, campos ausentes do payload eram gravados como
     // NULL, apagando dado que já existia. Isso já acontecia mesmo antes de qualquer mudança
     // de hoje, só nunca tinha sido percebido.
+    //
+    // "name" NUNCA é atualizado aqui (30/08/2026) — antes disso, todo save automático de
+    // gameplay mandava data.name = o nome do PERSONAGEM ativo no momento (state.name em
+    // rpg_system.js, que existe por personagem), e isso sobrescrevia o nome da CONTA
+    // (players.name, mostrado no botão de login, chat, etc.) com o nome de qualquer fantasma
+    // que o jogador estivesse jogando. Achado ao investigar por que o nome da conta real do
+    // usuário tinha virado "Sombroloom" (o nome de um fantasma nível 1) depois de testar o
+    // jogo hoje. O nome da conta só é definido no CRIAR CONTA (server/db.js/createPlayer) e
+    // não muda mais sozinho durante o jogo.
     const result = await pool.query(
         `UPDATE players SET
-            name = COALESCE($1, name),
-            level = COALESCE($2, level),
-            xp = COALESCE($3, xp),
-            mana = COALESCE($4, mana),
-            max_mana = COALESCE($5, max_mana),
-            lives = COALESCE($6, lives),
-            equipped_skills = COALESCE($7, equipped_skills),
+            level = COALESCE($1, level),
+            xp = COALESCE($2, xp),
+            mana = COALESCE($3, mana),
+            max_mana = COALESCE($4, max_mana),
+            lives = COALESCE($5, lives),
+            equipped_skills = COALESCE($6, equipped_skills),
             updated_at = now()
-         WHERE email = $8`,
+         WHERE email = $7`,
         [
-            data.name ?? null,
             data.level ?? null,
             data.xp ?? null,
             data.mana ?? null,

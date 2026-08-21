@@ -68,6 +68,53 @@ function completeCloudLogin(email, name, playerData, token) {
     if (typeof window.LoadRPGStateFromDeSo === 'function') {
         window.LoadRPGStateFromDeSo(null, false);
     }
+
+    // Carrega os dados do fantasma com a atualização mais recente no banco (30/08/2026, pedido
+    // do usuário: "o login deve resgatar o último save feito"). Antes disso, o nível/xp que
+    // ficava ativo logo após o login vinha só do resumo agregado da conta (players.level/xp,
+    // setado por applyCloudSave acima) — um campo único que qualquer aparelho sobrescrevia com o
+    // que quer que tivesse jogado por último, sem relação com nenhum fantasma específico. Isso
+    // fazia "o progresso parecer diferente" dependendo de qual aparelho tinha salvo por último.
+    // Carregando explicitamente os dados do fantasma de updatedAt mais recente, os dois
+    // aparelhos — consultando o mesmo banco — sempre chegam no mesmo resultado.
+    //
+    // Importante: NÃO chama SelectCharacterToPlay() aqui — essa função também dispara
+    // StartCutscene()/ResetGame() quando chamada (é o que acontece quando o jogador clica num
+    // fantasma da Ghostdex), e login sozinho não deve começar a jogar sozinho, só carregar o
+    // dado certo em memória pra quando o jogador apertar PLAY ou SPACE (pedido do usuário: nada
+    // acontece sem ação direta dele). Por isso chama GhostRPG.loadBlockchainState() direto, que
+    // só atualiza os dados, sem nenhum efeito de UI/estado de jogo.
+    try {
+        if (cloudCharacters.length > 0 && window.GhostRPG && window.GhostRPG.loadBlockchainState) {
+            var mostRecentChar = cloudCharacters.reduce(function(latest, c) {
+                var cTime = c.updatedAt ? new Date(c.updatedAt).getTime() : 0;
+                var latestTime = latest ? new Date(latest.updatedAt || 0).getTime() : -1;
+                return cTime > latestTime ? c : latest;
+            }, null);
+            if (mostRecentChar) {
+                window.GhostRPG.loadBlockchainState(
+                    parseInt(mostRecentChar.level, 10),
+                    parseInt(mostRecentChar.vit, 10),
+                    parseInt(mostRecentChar.agi, 10),
+                    parseInt(mostRecentChar.int, 10),
+                    parseInt(mostRecentChar.pow, 10),
+                    mostRecentChar.characterId,
+                    parseInt(mostRecentChar.xp, 10) || 0,
+                    parseInt(mostRecentChar.pointsToDistribute, 10) || 0,
+                    parseInt(mostRecentChar.mag, 10) || 1,
+                    mostRecentChar.equippedSkills,
+                    mostRecentChar.equippedRunes,
+                    mostRecentChar.equippedPassives,
+                    mostRecentChar.weapon,
+                    mostRecentChar.inventory,
+                    mostRecentChar.equipment
+                );
+                if (window.GhostRPG.setName) window.GhostRPG.setName(mostRecentChar.name);
+                try { localStorage.setItem('dg_deso_character_id', mostRecentChar.characterId); } catch(e) {}
+                window.g_currentPlayerGhost = mostRecentChar.characterId;
+            }
+        }
+    } catch (e) { console.error("[CloudSave] Falha ao carregar o personagem mais recente:", e); }
 }
 window.completeCloudLogin = completeCloudLogin;
 
