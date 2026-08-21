@@ -3599,6 +3599,12 @@ var g_binaryBits = [];
 							console.log('Playing locally or offline (Guest Mode).');
 							window.g_isGuestRun = true;
 						}
+						// Resgata o save de sessão em segundo plano, sem travar o início do jogo
+						// — mesmo comportamento do site, adicionado 30/08/2026 por pedido do
+						// usuário (SPACE é uma das duas ações que "levam ao login", sem modal).
+						if (typeof window.TryAutoLoginFromSession === 'function') {
+							window.TryAutoLoginFromSession();
+						}
 						var menu = document.getElementById("loginButtonsContainer");
 						if (menu) menu.style.display = "none";
 						StartCutscene();
