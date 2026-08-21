@@ -72,6 +72,21 @@ function completeCloudLogin(email, name, playerData, token) {
 window.completeCloudLogin = completeCloudLogin;
 
 function OpenLoginModal() {
+    // Antes de mostrar o formulário, tenta o token de sessão salvo (se existir e ainda for
+    // válido, o jogador já está logado e resgata o save sem digitar senha de novo; se não, cai
+    // pro formulário normal). Continua sendo o clique no botão LOGIN que dispara isso — nunca
+    // roda sozinho.
+    if (typeof TryAutoLoginFromSession === 'function') {
+        TryAutoLoginFromSession(function(loggedIn) {
+            if (!loggedIn) showLoginForm();
+        });
+    } else {
+        showLoginForm();
+    }
+}
+window.OpenLoginModal = OpenLoginModal;
+
+function showLoginForm() {
     var modal = document.getElementById('loginModalUI');
     if (modal) {
         modal.style.display = 'flex';
@@ -87,7 +102,6 @@ function OpenLoginModal() {
         nameInput.value = savedName;
     }
 }
-window.OpenLoginModal = OpenLoginModal;
 
 function CloseLoginModal() {
     var modal = document.getElementById('loginModalUI');
@@ -182,16 +196,17 @@ function CloudSaveLogin() {
 window.CloudSaveLogin = CloudSaveLogin;
 window.LoginDeveloperFallback = CloudSaveLogin;
 
-// Login automático por token de sessão (30/08/2026): se o jogador já logou antes nesse
-// aparelho/navegador, evita pedir e-mail/senha de novo toda vez que abre o jogo — troca por um
-// token assinado pelo servidor (JWT), guardado em "dg_session_token" desde o último login bem
-// sucedido (ver completeCloudLogin acima). Silencioso por natureza: se o token não existir,
-// expirou, ou o servidor rejeitar, simplesmente não faz nada e o jogador vê a tela de login
-// manual normal — não é um login que o jogador pediu, não faz sentido incomodar com alerta.
-function TryAutoLoginFromSession() {
+// Login por token de sessão (30/08/2026; ajustado no mesmo dia por pedido explícito do usuário:
+// SEM disparar sozinho no carregamento da página — o jogo não deve logar ninguém sem uma ação
+// direta dele). Só roda quando alguém chama de propósito: OpenLoginModal() (botão LOGIN) e o
+// SPACE da tela inicial (js/game/engine.js) chamam isso ANTES de decidir se mostram o formulário
+// de e-mail/senha ou se já entram direto — se o token salvo ainda for válido, o jogador nem vê a
+// tela de login; se não for (ou não existir), cai pro fluxo manual normal, sem alerta.
+// onDone(true|false) avisa quem chamou se conseguiu logar ou não.
+function TryAutoLoginFromSession(onDone) {
     var token = null;
     try { token = localStorage.getItem("dg_session_token"); } catch (e) {}
-    if (!token) return;
+    if (!token) { if (onDone) onDone(false); return; }
 
     var attempts = 0;
     function waitForSocket() {
@@ -201,12 +216,18 @@ function TryAutoLoginFromSession() {
             return;
         }
         attempts++;
-        if (attempts > 40) return; // ~8s tentando; desiste em silêncio
+        if (attempts > 15) { if (onDone) onDone(false); return; } // ~3s tentando; desiste
         setTimeout(waitForSocket, 200);
     }
 
     function attemptLogin(socket) {
-        var timeoutId = setTimeout(cleanup, 15000);
+        var finished = false;
+        var timeoutId = setTimeout(function() {
+            if (finished) return;
+            finished = true;
+            cleanup();
+            if (onDone) onDone(false);
+        }, 8000);
 
         function cleanup() {
             clearTimeout(timeoutId);
@@ -214,16 +235,22 @@ function TryAutoLoginFromSession() {
             socket.off("session_login_error", onError);
         }
         function onSuccess(data) {
+            if (finished) return;
+            finished = true;
             cleanup();
-            if (!data) return;
-            console.log("[CloudSave] Login automático por sessão OK para:", data.email);
+            if (!data) { if (onDone) onDone(false); return; }
+            console.log("[CloudSave] Login por sessão OK para:", data.email);
             completeCloudLogin(data.email, data.playerData && data.playerData.name, data.playerData, data.token);
             if (window.g_gameState === 0) window.isCloudLoaded = true;
+            if (onDone) onDone(true);
         }
         function onError(data) {
+            if (finished) return;
+            finished = true;
             cleanup();
             console.log("[CloudSave] Sessão salva não é mais válida:", data && data.message);
             try { localStorage.removeItem("dg_session_token"); } catch (e) {}
+            if (onDone) onDone(false);
         }
 
         socket.on("session_login_success", onSuccess);
@@ -233,4 +260,4 @@ function TryAutoLoginFromSession() {
 
     waitForSocket();
 }
-window.addEventListener('DOMContentLoaded', TryAutoLoginFromSession);
+window.TryAutoLoginFromSession = TryAutoLoginFromSession;

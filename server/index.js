@@ -115,7 +115,7 @@ io.on('connection', (socket) => {
 
             if (data.isFallback === true || !data.token || typeof data.token !== 'string' || data.token.split('.').length !== 3) {
                 if (data.email) {
-                    const email = String(data.email).trim();
+                    const email = String(data.email).trim().toLowerCase();
                     const name = data.name || 'Ghost';
                     console.log(`[Auth] Direct/Fallback Login request for: ${email} (${name})`);
                     const result = await loadOrCreatePlayer(email, name, data.password);
@@ -138,7 +138,7 @@ io.on('connection', (socket) => {
                     audience: GOOGLE_CLIENT_ID
                 });
                 const payload = ticket.getPayload();
-                const email = payload && payload.email;
+                const email = payload && payload.email ? String(payload.email).trim().toLowerCase() : null;
                 if (!email) {
                     throw new Error('Email missing from verified Google token');
                 }
@@ -162,7 +162,7 @@ io.on('connection', (socket) => {
             } catch (jwtError) {
                 console.warn('[Auth] Google token verification failed, checking fallback email:', jwtError.message);
                 if (data.email) {
-                    const email = String(data.email).trim();
+                    const email = String(data.email).trim().toLowerCase();
                     const name = data.name || 'Ghost';
                     console.log(`[Auth] Direct/Fallback Login request for: ${email} (${name})`);
                     const result = await loadOrCreatePlayer(email, name, data.password);
@@ -188,7 +188,7 @@ io.on('connection', (socket) => {
                 socket.emit('cloud_save_error', { message: 'E-mail inválido para o Cloud Save.' });
                 return;
             }
-            const email = String(data.email).trim();
+            const email = String(data.email).trim().toLowerCase();
             const name = data.name || 'Ghost';
             console.log(`[CloudSave] Login request for: ${email} (${name})`);
             const result = await loadOrCreatePlayer(email, name, data.password);

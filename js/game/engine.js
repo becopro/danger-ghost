@@ -3622,6 +3622,15 @@ var g_binaryBits = [];
 							console.log('Playing locally or offline (Guest Mode).');
 							window.g_isGuestRun = true;
 						}
+						// Resgata o save de sessão em segundo plano, sem travar o início do jogo:
+						// se o jogador já tinha logado nesse aparelho antes, o progresso reaparece
+						// sozinho assim que a Ghostdex carregar; se não, ele já está jogando como
+						// convidado normalmente. Pedido explícito do usuário: SPACE é uma das duas
+						// ações que "levam ao login" — mas continua sem modal, sem travar o fluxo
+						// de "aperte espaço pra começar". Adicionado 30/08/2026.
+						if (typeof window.TryAutoLoginFromSession === 'function') {
+							window.TryAutoLoginFromSession();
+						}
 						var menu = document.getElementById("loginButtonsContainer");
 						if (menu) menu.style.display = "none";
 						StartCutscene();
