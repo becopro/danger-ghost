@@ -111,50 +111,32 @@ function CloseLoginModal() {
 }
 window.CloseLoginModal = CloseLoginModal;
 
-function CloudSaveLogin() {
-    var email = document.getElementById('loginInputEmail') ? document.getElementById('loginInputEmail').value.trim() : "";
-    var name = document.getElementById('loginInputName') ? document.getElementById('loginInputName').value.trim() : "";
-    var password = document.getElementById('loginInputPassword') ? document.getElementById('loginInputPassword').value.trim() : "";
-
-    if (!email) {
-        alert("Por favor, digite um e-mail válido para vincular seu Cloud Save.");
-        return;
-    }
-
-    if (!password || password.length < 6 || password.length > 12) {
-        alert("A senha deve ter entre 6 e 12 caracteres para proteger o seu Cloud Save.");
-        return;
-    }
-
+// Base compartilhada por LOGIN e CRIAR CONTA (30/08/2026: separados por pedido explícito do
+// usuário — cada e-mail só pode ter uma conta; login recupera uma conta existente, criar conta
+// cadastra uma nova, e usar o botão errado pro que já existe/não existe dá um erro claro em vez
+// de ambiguidade). Os listeners de resposta são amarrados a ESTA chamada específica (não um
+// setTimeout(1000) global — ver histórico de bug no commit de 20/08/2026), com timeout de 15s.
+function submitCloudSaveAuth(eventName, payload, loadingText) {
     var loadingModal = document.getElementById("loadingModal");
     if (loadingModal) {
         var h2 = loadingModal.querySelector("h2");
-        if (h2) h2.innerText = "Verificando senha e resgatando progresso...";
+        if (h2) h2.innerText = loadingText;
         loadingModal.style.display = "flex";
     }
 
     var socket = window.NetworkState && window.NetworkState.socket;
     if (!socket) {
-        alert("Erro: Não foi possível conectar ao servidor para validar o login.");
+        alert("Erro: Não foi possível conectar ao servidor.");
         if (loadingModal) loadingModal.style.display = "none";
         return;
     }
 
-    // Os listeners de resposta são amarrados a ESTE clique específico (não mais a um
-    // setTimeout(1000) disparado uma vez no carregamento da página) — antes disso, se o socket
-    // demorasse mais que 1s pra existir/conectar (comum em rede de celular), os listeners nunca
-    // eram registrados e a tela de "Verificando senha..." travava pra sempre mesmo quando o
-    // servidor respondia certinho. Também adiciona um timeout de 15s: se nada voltar do servidor
-    // nesse prazo (rede caiu, WebSocket bloqueado pela operadora, etc.), avisa o jogador em vez de
-    // deixar a tela girando pra sempre sem explicação. Corrigido em 20/08/2026.
     var finished = false;
     function cleanup() {
         finished = true;
         clearTimeout(timeoutId);
         socket.off("cloud_save_success", handleSuccess);
-        socket.off("auth_google_success", handleSuccess);
         socket.off("cloud_save_error", handleError);
-        socket.off("auth_google_error", handleError);
     }
 
     var timeoutId = setTimeout(function() {
@@ -167,11 +149,9 @@ function CloudSaveLogin() {
     function handleSuccess(data) {
         if (finished) return;
         cleanup();
-        console.log("[CloudSave] Login Success! Loading profile for:", data && data.email);
+        console.log("[CloudSave] Sucesso! Carregando perfil para:", data && data.email);
         if (!data) return;
-
         completeCloudLogin(data.email, data.playerData && data.playerData.name, data.playerData, data.token);
-
         if (window.g_gameState === 0) { // Tela inicial
             window.isCloudLoaded = true;
         }
@@ -180,21 +160,51 @@ function CloudSaveLogin() {
     function handleError(data) {
         if (finished) return;
         cleanup();
-        console.warn("[CloudSave] Server error received:", data && data.message);
-        alert("Erro no Login: " + ((data && data.message) || "Falha ao resgatar progresso."));
+        console.warn("[CloudSave] Erro recebido do servidor:", data && data.message);
+        alert((data && data.message) || "Falha ao acessar o Cloud Save.");
         if (loadingModal) loadingModal.style.display = "none";
     }
 
     socket.on("cloud_save_success", handleSuccess);
-    socket.on("auth_google_success", handleSuccess);
     socket.on("cloud_save_error", handleError);
-    socket.on("auth_google_error", handleError);
+    socket.emit(eventName, payload);
+}
 
-    socket.emit("cloud_save_login", { email: email, name: name || 'Ghost', password: password });
-    socket.emit("auth_google_token", { email: email, name: name || 'Ghost', password: password, isFallback: true });
+function CloudSaveLogin() {
+    var email = document.getElementById('loginInputEmail') ? document.getElementById('loginInputEmail').value.trim() : "";
+    var password = document.getElementById('loginInputPassword') ? document.getElementById('loginInputPassword').value.trim() : "";
+
+    if (!email) {
+        alert("Por favor, digite o e-mail da sua conta.");
+        return;
+    }
+    if (!password || password.length < 6 || password.length > 12) {
+        alert("A senha deve ter entre 6 e 12 caracteres.");
+        return;
+    }
+
+    submitCloudSaveAuth("cloud_save_login", { email: email, password: password }, "Verificando senha e resgatando progresso...");
 }
 window.CloudSaveLogin = CloudSaveLogin;
 window.LoginDeveloperFallback = CloudSaveLogin;
+
+function CloudSaveSignup() {
+    var email = document.getElementById('loginInputEmail') ? document.getElementById('loginInputEmail').value.trim() : "";
+    var name = document.getElementById('loginInputName') ? document.getElementById('loginInputName').value.trim() : "";
+    var password = document.getElementById('loginInputPassword') ? document.getElementById('loginInputPassword').value.trim() : "";
+
+    if (!email) {
+        alert("Por favor, digite um e-mail para a sua conta nova.");
+        return;
+    }
+    if (!password || password.length < 6 || password.length > 12) {
+        alert("A senha deve ter entre 6 e 12 caracteres para proteger o seu Cloud Save.");
+        return;
+    }
+
+    submitCloudSaveAuth("cloud_save_signup", { email: email, name: name || 'Ghost', password: password }, "Criando sua conta...");
+}
+window.CloudSaveSignup = CloudSaveSignup;
 
 // Login por token de sessão (30/08/2026; ajustado no mesmo dia por pedido explícito do usuário:
 // SEM disparar sozinho no carregamento da página — o jogo não deve logar ninguém sem uma ação

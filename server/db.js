@@ -223,6 +223,90 @@ async function loadPlayerByEmail(email) {
     return row;
 }
 
+// Confere a senha contra o hash salvo, migrando transparentemente senhas antigas em texto puro
+// pra bcrypt na primeira vez que confirmam certo. Lança erro se a senha não bater. Só chamar
+// depois de confirmar que a linha (row) existe.
+async function verifyAndMigratePassword(email, row, password) {
+    if (row.password && row.password !== '') {
+        const isBcryptHash = BCRYPT_HASH_RE.test(row.password);
+        const matches = isBcryptHash
+            ? bcrypt.compareSync(password, row.password)
+            : row.password === password; // legado em texto puro, ver migração abaixo
+
+        if (!matches) {
+            throw new Error("Senha incorreta para o e-mail " + email + "! Verifique sua senha.");
+        }
+
+        if (!isBcryptHash) {
+            const migratedHash = bcrypt.hashSync(password, 10);
+            await pool.query('UPDATE players SET password = $1, updated_at = now() WHERE email = $2', [migratedHash, email]);
+        }
+    } else {
+        // Conta existente nunca teve senha definida: define agora, já hasheada.
+        const newHash = bcrypt.hashSync(password, 10);
+        await pool.query('UPDATE players SET password = $1, updated_at = now() WHERE email = $2', [newHash, email]);
+    }
+}
+
+// LOGIN (30/08/2026, pedido do usuário: login e criação de conta são ações separadas agora).
+// Recupera uma conta que já existe — NUNCA cria uma nova. Se o e-mail não estiver cadastrado,
+// erro claro pedindo pra criar uma conta primeiro, em vez de criar silenciosamente.
+async function loginPlayer(email, password) {
+    if (!password || typeof password !== 'string' || password.length < 6 || password.length > 12) {
+        throw new Error("A senha deve ter entre 6 e 12 caracteres.");
+    }
+    await ensureTableReady();
+
+    const { rows } = await pool.query(
+        `SELECT email, name, password, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills"
+         FROM players WHERE email = $1`,
+        [email]
+    );
+    const row = rows[0];
+    if (!row) {
+        throw new Error("Não existe conta cadastrada com esse e-mail. Crie uma conta primeiro.");
+    }
+
+    await verifyAndMigratePassword(email, row, password);
+    delete row.password; // nunca devolver o hash pro cliente
+    row.characters = await loadCharacters(email);
+    return row;
+}
+
+// CRIAR CONTA (30/08/2026). Cadastra um e-mail novo — NUNCA "loga" em cima de um e-mail que já
+// existe. Se o e-mail já tiver conta, erro claro pedindo pra usar LOGIN em vez de criar de novo.
+async function createPlayer(email, profileName, password) {
+    if (!password || typeof password !== 'string' || password.length < 6 || password.length > 12) {
+        throw new Error("A senha deve ter entre 6 e 12 caracteres.");
+    }
+    await ensureTableReady();
+
+    const defaultName = profileName || 'Ghost';
+    const passwordHash = bcrypt.hashSync(password, 10);
+    try {
+        await pool.query(
+            'INSERT INTO players (email, name, password) VALUES ($1, $2, $3)',
+            [email, defaultName, passwordHash]
+        );
+    } catch (err) {
+        if (err.code === '23505') {
+            throw new Error("Esse e-mail já está cadastrado. Use LOGIN para recuperar sua conta.");
+        }
+        throw err;
+    }
+    return {
+        email, name: defaultName, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0, 0, 0, 0],
+        characters: [] // conta nova de verdade: nenhum fantasma no banco ainda. O cliente decide o
+                        // que fazer com uma lista vazia (criar o Ghost #001 padrão ou adotar o que
+                        // já existir em localStorage — ver auth.js).
+    };
+}
+
+// Mantida só para o login real do Google (auth_google_token com token verificado) — nesse fluxo
+// faz sentido criar a conta automaticamente no primeiro acesso, igual qualquer login OAuth
+// padrão (diferente do login por e-mail/senha manual, que agora exige um CRIAR CONTA explícito).
+// Esse caminho está desativado no cliente hoje (nenhuma das duas plataformas tem um client_id do
+// Google configurado de verdade — ver CLAUDE.md), mas a função continua pronta pra quando for.
 async function loadOrCreatePlayer(email, profileName, password) {
     if (!password || typeof password !== 'string' || password.length < 6 || password.length > 12) {
         throw new Error("A senha deve ter entre 6 e 12 caracteres.");
@@ -237,36 +321,11 @@ async function loadOrCreatePlayer(email, profileName, password) {
     const row = rows[0];
 
     if (row) {
-        if (row.password && row.password !== '') {
-            const isBcryptHash = BCRYPT_HASH_RE.test(row.password);
-            const matches = isBcryptHash
-                ? bcrypt.compareSync(password, row.password)
-                : row.password === password; // legado em texto puro, ver migração abaixo
-
-            if (!matches) {
-                throw new Error("Senha incorreta para o e-mail " + email + "! Verifique sua senha.");
-            }
-
-            if (!isBcryptHash) {
-                // Migração transparente: senha legada em texto puro confirmada, regrava já hasheada.
-                const migratedHash = bcrypt.hashSync(password, 10);
-                await pool.query('UPDATE players SET password = $1, updated_at = now() WHERE email = $2', [migratedHash, email]);
-                row.password = migratedHash;
-            }
-        } else {
-            // Conta existente nunca teve senha definida: define agora, já hasheada.
-            const newHash = bcrypt.hashSync(password, 10);
-            await pool.query('UPDATE players SET password = $1, updated_at = now() WHERE email = $2', [newHash, email]);
-            row.password = newHash;
-        }
-
-        // Nunca devolver o hash da senha para o cliente.
+        await verifyAndMigratePassword(email, row, password);
         delete row.password;
-        // equipped_skills é JSONB — o driver do pg já devolve como array JS, sem precisar de JSON.parse.
         row.characters = await loadCharacters(email);
         return { status: 'loaded', data: row };
     } else {
-        // Create new player profile
         const defaultName = profileName || 'Ghost';
         const passwordHash = bcrypt.hashSync(password, 10);
         try {
@@ -276,20 +335,16 @@ async function loadOrCreatePlayer(email, profileName, password) {
             );
         } catch (err) {
             if (err.code === '23505') {
-                // Condição de corrida: o cliente manda dois logins em paralelo no primeiro acesso
-                // (cloud_save_login e auth_google_token com isFallback, ver server/index.js) — se
-                // os dois chegarem quase juntos, os dois veem "conta não existe" e tentam criar,
-                // só um consegue. Em vez de estourar erro pro segundo, refaz a consulta agora que
-                // a conta já existe de verdade (cai no ramo "loaded" acima).
+                // Condição de corrida: dois logins Google em paralelo no primeiro acesso, os dois
+                // veem "conta não existe" e tentam criar, só um consegue. Refaz a consulta agora
+                // que a conta já existe de verdade (cai no ramo "loaded" acima).
                 return loadOrCreatePlayer(email, profileName, password);
             }
             throw err;
         }
         return { status: 'created', data: {
             email, name: defaultName, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0, 0, 0, 0],
-            characters: [] // conta nova de verdade: nenhum fantasma no banco ainda. O cliente decide o
-                            // que fazer com uma lista vazia (criar o Ghost #001 padrão ou adotar o que
-                            // já existir em localStorage — ver auth.js).
+            characters: []
         } };
     }
 }
@@ -327,6 +382,8 @@ async function savePlayerProgress(email, data) {
 }
 
 module.exports = {
+    loginPlayer,
+    createPlayer,
     loadOrCreatePlayer,
     loadPlayerByEmail,
     savePlayerProgress,
