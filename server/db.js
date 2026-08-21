@@ -206,6 +206,23 @@ async function saveCharacters(email, charactersArray) {
     }
 }
 
+// Carrega um jogador só pelo e-mail, sem checar senha — usado pelo login por token de sessão
+// (30/08/2026): quem chama aqui já provou a identidade validando a assinatura do JWT antes,
+// então repetir a senha seria redundante. Nunca seleciona a coluna password (nem pra apagar
+// depois, como loadOrCreatePlayer faz) — assim não existe risco de vazar o hash por engano.
+async function loadPlayerByEmail(email) {
+    await ensureTableReady();
+    const { rows } = await pool.query(
+        `SELECT email, name, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills"
+         FROM players WHERE email = $1`,
+        [email]
+    );
+    const row = rows[0];
+    if (!row) return null;
+    row.characters = await loadCharacters(email);
+    return row;
+}
+
 async function loadOrCreatePlayer(email, profileName, password) {
     if (!password || typeof password !== 'string' || password.length < 6 || password.length > 12) {
         throw new Error("A senha deve ter entre 6 e 12 caracteres.");
@@ -311,6 +328,7 @@ async function savePlayerProgress(email, data) {
 
 module.exports = {
     loadOrCreatePlayer,
+    loadPlayerByEmail,
     savePlayerProgress,
     loadCharacters,
     saveCharacters

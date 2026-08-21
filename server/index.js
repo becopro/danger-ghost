@@ -16,10 +16,34 @@ const io = new Server(server, {
     cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-const { loadOrCreatePlayer, savePlayerProgress, saveCharacters } = require('./db');
+const { loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveCharacters } = require('./db');
 const { OAuth2Client } = require('google-auth-library');
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+
+// Token de sessão (30/08/2026): permite o jogo logar sozinho na próxima vez que abrir, sem pedir
+// e-mail/senha de novo — ver socket.on('session_login') mais abaixo. Mesmo padrão de segredo já
+// usado neste projeto (docs/SECURITY_AUDIT.md, achado #2, 18/08/2026): se "jwtsecret" não estiver
+// definido no ambiente, gera um aleatório nesta execução em vez de usar um valor fixo no código —
+// sessões emitidas antes de um restart do servidor deixam de validar, mas nunca existe um segredo
+// previsível. Nome da env var em minúsculo e sem "_" de propósito, mesmo padrão de dbhost/dbpass/
+// etc (server/db.js) — o console remoto usado pra configurar produção tem um teclado que derruba
+// o Shift, então maiúsculas e "_" viram fonte de erro de digitação.
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const JWT_SECRET = process.env.jwtsecret || (() => {
+    console.warn('[SECURITY] jwtsecret não definido no ambiente — usando um segredo aleatório gerado nesta execução. Sessões salvas vão pedir login de novo a cada restart do servidor até isso ser definido.');
+    return crypto.randomBytes(48).toString('hex');
+})();
+const SESSION_TOKEN_TTL = '30d';
+
+function signSessionToken(email) {
+    return jwt.sign({ email: email }, JWT_SECRET, { expiresIn: SESSION_TOKEN_TTL });
+}
+
+function buildAuthSuccessPayload(email, playerData) {
+    return { email: email, playerData: playerData, token: signSessionToken(email) };
+}
 
 const players = {}; 
 const TICK_RATE = 30;
@@ -100,10 +124,7 @@ io.on('connection', (socket) => {
                         players[socket.id].email = email;
                         players[socket.id].name = result.data.name;
                     }
-                    socket.emit('auth_google_success', {
-                        email: email,
-                        playerData: result.data
-                    });
+                    socket.emit('auth_google_success', buildAuthSuccessPayload(email, result.data));
                     return;
                 }
             }
@@ -136,10 +157,7 @@ io.on('connection', (socket) => {
                 }
 
                 // 4. Enviar os dados carregados de volta para o cliente
-                socket.emit('auth_google_success', {
-                    email: email,
-                    playerData: result.data
-                });
+                socket.emit('auth_google_success', buildAuthSuccessPayload(email, result.data));
                 return;
             } catch (jwtError) {
                 console.warn('[Auth] Google token verification failed, checking fallback email:', jwtError.message);
@@ -153,10 +171,7 @@ io.on('connection', (socket) => {
                         players[socket.id].email = email;
                         players[socket.id].name = result.data.name;
                     }
-                    socket.emit('auth_google_success', {
-                        email: email,
-                        playerData: result.data
-                    });
+                    socket.emit('auth_google_success', buildAuthSuccessPayload(email, result.data));
                     return;
                 }
                 throw jwtError;
@@ -182,13 +197,44 @@ io.on('connection', (socket) => {
                 players[socket.id].email = email;
                 players[socket.id].name = result.data.name;
             }
-            socket.emit('cloud_save_success', {
-                email: email,
-                playerData: result.data
-            });
+            socket.emit('cloud_save_success', buildAuthSuccessPayload(email, result.data));
         } catch (error) {
             console.error('[CloudSave] Error processing login:', error);
             socket.emit('cloud_save_error', { message: error.message || 'Falha ao acessar o Cloud Save.' });
+        }
+    });
+
+    // Login automático por token de sessão (30/08/2026) — permite o cliente reentrar sem pedir
+    // e-mail/senha de novo a cada abertura do jogo. loadPlayerByEmail() não valida senha porque a
+    // assinatura do JWT já prova a identidade; só recusa se a conta não existir mais (ex: apagada).
+    socket.on('session_login', async (data) => {
+        try {
+            if (!data || !data.token) {
+                socket.emit('session_login_error', { message: 'Token ausente.' });
+                return;
+            }
+            let payload;
+            try {
+                payload = jwt.verify(data.token, JWT_SECRET);
+            } catch (jwtErr) {
+                socket.emit('session_login_error', { message: 'Sessão expirada, faça login novamente.' });
+                return;
+            }
+            const email = payload.email;
+            const playerData = await loadPlayerByEmail(email);
+            if (!playerData) {
+                socket.emit('session_login_error', { message: 'Conta não encontrada.' });
+                return;
+            }
+            console.log(`[Auth] Login automático por sessão para: ${email}`);
+            if (players[socket.id]) {
+                players[socket.id].email = email;
+                players[socket.id].name = playerData.name;
+            }
+            socket.emit('session_login_success', buildAuthSuccessPayload(email, playerData));
+        } catch (error) {
+            console.error('[Auth] Erro no login por sessão:', error);
+            socket.emit('session_login_error', { message: 'Falha ao validar sessão.' });
         }
     });
 
