@@ -629,6 +629,16 @@ window.GhostRPG = window.GhostRPG || {};
 window.RenderRPGStatusDrawer = RenderRPGStatusDrawer;
 
 function StartGameFromMenu() {
+    // Login obrigatório pra jogar (22/08/2026, achado numa auditoria pedida pelo usuário —
+    // mesmo padrão já aplicado em SPACE/P/PlayAsGhost/TriggerCreateNewGhost): essa função não
+    // está amarrada a nenhum botão visível hoje, mas escondia loginButtonsContainer e abria a
+    // seleção de personagem incondicionalmente, sem checar sessão — um caminho pronto pra
+    // pular o login inteiro se algum botão futuro for amarrado a ela sem lembrar desse check.
+    if (!localStorage.getItem('dg_cloud_email')) {
+        if (typeof window.OpenLoginModal === 'function') window.OpenLoginModal();
+        return;
+    }
+
     var overlay = document.getElementById('loginButtonsContainer');
     if (overlay) overlay.style.display = 'none';
 
