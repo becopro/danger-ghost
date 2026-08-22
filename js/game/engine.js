@@ -3631,7 +3631,12 @@ var g_binaryBits = [];
 						// sessão, nunca começar o jogo direto). OpenLoginModal() já tenta o token
 						// de sessão salvo primeiro (loga sozinho se ainda for válido); se não,
 						// mostra o formulário com a opção de LOGIN ou CRIAR CONTA NOVA.
-						if (!localStorage.getItem('dg_cloud_email')) {
+						// 22/08/2026: checa g_hasAuthenticatedThisPageLoad (js/web2/auth.js), não
+						// dg_cloud_email — dg_cloud_email persiste no localStorage entre reloads,
+						// então SPACE pularia o login sozinho num navegador que já logou antes.
+						// g_hasAuthenticatedThisPageLoad reseta a cada carregamento de página e só
+						// vira true de verdade dentro de completeCloudLogin().
+						if (!window.g_hasAuthenticatedThisPageLoad) {
 							if (typeof window.OpenLoginModal === 'function') window.OpenLoginModal();
 							return;
 						}
@@ -3660,7 +3665,10 @@ var g_binaryBits = [];
 					// direto, ignorando completamente a tela inicial e o gate de login do SPACE.
 					// Achado numa auditoria pedida pelo usuário. Mantém o easter egg, só exige
 					// sessão antes, igual toda outra forma de começar a jogar.
-					if (!localStorage.getItem('dg_cloud_email')) {
+					// 22/08/2026: mesma troca de dg_cloud_email (localStorage, persiste entre
+					// reloads) pra g_hasAuthenticatedThisPageLoad (memória, reseta a cada
+					// carregamento) — ver comentário completo no gate do SPACE, acima.
+					if (!window.g_hasAuthenticatedThisPageLoad) {
 						if (typeof window.OpenLoginModal === 'function') window.OpenLoginModal();
 						return;
 					}

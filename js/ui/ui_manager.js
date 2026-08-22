@@ -634,7 +634,9 @@ function StartGameFromMenu() {
     // está amarrada a nenhum botão visível hoje, mas escondia loginButtonsContainer e abria a
     // seleção de personagem incondicionalmente, sem checar sessão — um caminho pronto pra
     // pular o login inteiro se algum botão futuro for amarrado a ela sem lembrar desse check.
-    if (!localStorage.getItem('dg_cloud_email')) {
+    // Mesmo dia: checa g_hasAuthenticatedThisPageLoad (memória, js/web2/auth.js), não
+    // dg_cloud_email (localStorage, persiste entre reloads e pularia o login sozinho).
+    if (!window.g_hasAuthenticatedThisPageLoad) {
         if (typeof window.OpenLoginModal === 'function') window.OpenLoginModal();
         return;
     }

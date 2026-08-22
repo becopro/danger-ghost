@@ -1,26 +1,39 @@
 // web2/auth.js
 
 // Visibilidade de #loginButtonsContainer ("RESGATAR PROGRESSO" / "CRIAR CONTA NOVA")
-// (22/08/2026, pedido do usuário: os botões só podem sumir quando o login/cadastro é
-// REALMENTE confirmado pelo servidor, não como efeito colateral de mudança de estado do
-// jogo). Fonte de verdade única: existe uma sessão autenticada? (dg_cloud_email no
-// localStorage, gravado só depois de sucesso real em completeCloudLogin()). SetGameState()
-// (js/game/engine.js) e completeCloudLogin() chamam essa função em vez de decidir a
-// visibilidade cada um à sua maneira.
+// (22/08/2026, pedido do usuário: NUNCA auto-login — mesmo que o navegador já tenha uma sessão
+// salva de uma visita anterior, os botões têm que aparecer TODA VEZ que a página carrega, e o
+// jogo só pode começar depois que o jogador clicar de verdade em um dos dois e completar o
+// fluxo). Fonte de verdade: g_hasAuthenticatedThisPageLoad, um estado EM MEMÓRIA (não
+// localStorage) que começa false a cada carregamento real de página e só vira true dentro de
+// completeCloudLogin(), no exato momento em que um login/cadastro é confirmado pelo servidor
+// NESTA visita. Importante: isso é diferente de dg_cloud_email no localStorage, que persiste
+// indefinidamente entre recarregamentos — dg_cloud_email continua existindo e sendo usado por
+// todo o resto do jogo pra decidir se sincroniza com o banco, mas não decide mais se o jogo
+// pode começar (esse foi o bug: PERSISTÊNCIA no localStorage estava sendo tratada como
+// "autenticado nesta visita"). SetGameState() (js/game/engine.js) e completeCloudLogin()
+// chamam esta função em vez de decidir a visibilidade cada um à sua maneira.
+window.g_hasAuthenticatedThisPageLoad = false;
+
 function UpdateLoginButtonsVisibility() {
     var container = document.getElementById("loginButtonsContainer");
     if (!container) return;
-    var isAuthenticated = !!localStorage.getItem('dg_cloud_email');
+    var isAuthenticated = !!window.g_hasAuthenticatedThisPageLoad;
     container.style.display = isAuthenticated ? "none" : "flex";
 }
 window.UpdateLoginButtonsVisibility = UpdateLoginButtonsVisibility;
-// Roda uma vez já ao carregar o script: cobre o jogador que recarrega a página já com uma
-// sessão salva de uma visita anterior (sem isso, o default inline do HTML é "flex" até
-// SetGameState() rodar de novo).
+// Roda uma vez já ao carregar o script: g_hasAuthenticatedThisPageLoad é sempre false aqui (foi
+// declarado duas linhas acima), então isso só confirma explicitamente o default "flex" já usado
+// inline no HTML — mantido por clareza e como rede de segurança caso o default do HTML mude.
 UpdateLoginButtonsVisibility();
 
 function completeCloudLogin(email, name, playerData, token) {
     console.log("[CloudSave] Completing login session for:", email, name);
+    // Marca que o login/cadastro foi REALMENTE completado nesta visita à página — esse é o
+    // único jeito de g_hasAuthenticatedThisPageLoad virar true (ver declaração no topo deste
+    // arquivo). Precisa vir cedo aqui porque UpdateLoginButtonsVisibility(), chamada logo
+    // abaixo, depende dele.
+    window.g_hasAuthenticatedThisPageLoad = true;
     var loadingModal = document.getElementById("loadingModal");
     if (loadingModal) loadingModal.style.display = "none";
     var loginModalUI = document.getElementById("loginModalUI");

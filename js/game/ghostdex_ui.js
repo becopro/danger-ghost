@@ -312,7 +312,9 @@ window.PlayAsGhost = function(ghostId) {
     // Login obrigatório pra jogar (30/08/2026, achado numa auditoria pedida pelo usuário):
     // clicar PLAY num fantasma da Ghostdex que o jogador nunca pegou gerava um personagem novo
     // e começava a jogar sem checar sessão nenhuma — um jeito real de pular o login inteiro.
-    if (!localStorage.getItem("dg_cloud_email")) {
+    // 22/08/2026: checa g_hasAuthenticatedThisPageLoad (memória, js/web2/auth.js), não
+    // dg_cloud_email (localStorage, persiste entre reloads e pularia o login sozinho).
+    if (!window.g_hasAuthenticatedThisPageLoad) {
         if (typeof window.OpenLoginModal === "function") window.OpenLoginModal();
         return;
     }

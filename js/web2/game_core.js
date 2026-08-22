@@ -217,7 +217,9 @@
         // Login obrigatório pra forjar (30/08/2026, pedido do usuário: sem save local, só se
         // pode jogar/criar personagem estando logado — nunca mais existe um fantasma que só
         // vive no localStorage esperando um login futuro pra sincronizar).
-        if (!localStorage.getItem("dg_cloud_email")) {
+        // 22/08/2026: checa g_hasAuthenticatedThisPageLoad (memória, js/web2/auth.js), não
+        // dg_cloud_email (localStorage, persiste entre reloads e pularia o login sozinho).
+        if (!window.g_hasAuthenticatedThisPageLoad) {
             CloseNewGhostModal();
             if (typeof window.OpenLoginModal === "function") window.OpenLoginModal();
             return;
@@ -525,7 +527,9 @@
         // essa função é o ponto por onde TODO "começar a jogar com um personagem" passa (clique
         // direto no card da tela de seleção, ou via PlayAsGhost na Ghostdex) — blindar aqui
         // cobre os dois de uma vez, em vez de confiar que cada chamador individual já checou.
-        if (!localStorage.getItem("dg_cloud_email")) {
+        // 22/08/2026: checa g_hasAuthenticatedThisPageLoad (memória, js/web2/auth.js), não
+        // dg_cloud_email (localStorage, persiste entre reloads e pularia o login sozinho).
+        if (!window.g_hasAuthenticatedThisPageLoad) {
             if (typeof window.OpenLoginModal === "function") window.OpenLoginModal();
             return;
         }
