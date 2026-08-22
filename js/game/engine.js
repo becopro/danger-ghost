@@ -298,12 +298,13 @@
 				var gBtn = document.getElementById("guestBtn");
 				if (gBtn) gBtn.style.display = (g_gameState == G_START) ? "inline-block" : "none";
 
-				// Botões "RESGATAR PROGRESSO" / "CRIAR CONTA NOVA" (30/08/2026): só aparecem
-				// antes do jogo começar. Reforça os pontos que já escondiam/mostravam
-				// #loginButtonsContainer (SPACE, StartGameFromMenu, login Google, game over)
-				// pra qualquer transição de estado que não passe por eles.
-				var loginBtnsContainer = document.getElementById("loginButtonsContainer");
-				if (loginBtnsContainer) loginBtnsContainer.style.display = (g_gameState == G_START) ? "flex" : "none";
+				// Botões "RESGATAR PROGRESSO" / "CRIAR CONTA NOVA" (22/08/2026): a visibilidade
+				// não depende mais do estado do jogo, e sim exclusivamente de existir uma sessão
+				// autenticada (dg_cloud_email) — ver UpdateLoginButtonsVisibility() em
+				// js/web2/auth.js, a única fonte de verdade agora. Chamado aqui como rede de
+				// segurança pra qualquer transição de estado (SPACE, StartGameFromMenu, login
+				// Google, game over etc.) que não passe explicitamente por ela.
+				if (typeof window.UpdateLoginButtonsVisibility === 'function') window.UpdateLoginButtonsVisibility();
 
 				var winPanel = document.getElementById("winPanel");
 				if (winPanel) winPanel.style.display = (g_gameState == G_WIN) ? "block" : "none";
@@ -3634,8 +3635,9 @@ var g_binaryBits = [];
 							if (typeof window.OpenLoginModal === 'function') window.OpenLoginModal();
 							return;
 						}
-						var menu = document.getElementById("loginButtonsContainer");
-						if (menu) menu.style.display = "none";
+						// Visibilidade de loginButtonsContainer não é mais decidida aqui manualmente
+						// (22/08/2026) — StartCutscene() -> SetGameState() já chama
+						// UpdateLoginButtonsVisibility() (js/web2/auth.js), única fonte de verdade.
 						StartCutscene();
 					} else if (g_gameState == G_CUTSCENE) {
 						EndCutscene();

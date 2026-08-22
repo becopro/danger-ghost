@@ -1,5 +1,24 @@
 // web2/auth.js
 
+// Visibilidade de #loginButtonsContainer ("RESGATAR PROGRESSO" / "CRIAR CONTA NOVA")
+// (22/08/2026, pedido do usuário: os botões só podem sumir quando o login/cadastro é
+// REALMENTE confirmado pelo servidor, não como efeito colateral de mudança de estado do
+// jogo). Fonte de verdade única: existe uma sessão autenticada? (dg_cloud_email no
+// localStorage, gravado só depois de sucesso real em completeCloudLogin()). SetGameState()
+// (js/game/engine.js) e completeCloudLogin() chamam essa função em vez de decidir a
+// visibilidade cada um à sua maneira.
+function UpdateLoginButtonsVisibility() {
+    var container = document.getElementById("loginButtonsContainer");
+    if (!container) return;
+    var isAuthenticated = !!localStorage.getItem('dg_cloud_email');
+    container.style.display = isAuthenticated ? "none" : "flex";
+}
+window.UpdateLoginButtonsVisibility = UpdateLoginButtonsVisibility;
+// Roda uma vez já ao carregar o script: cobre o jogador que recarrega a página já com uma
+// sessão salva de uma visita anterior (sem isso, o default inline do HTML é "flex" até
+// SetGameState() rodar de novo).
+UpdateLoginButtonsVisibility();
+
 function completeCloudLogin(email, name, playerData, token) {
     console.log("[CloudSave] Completing login session for:", email, name);
     var loadingModal = document.getElementById("loadingModal");
@@ -30,6 +49,10 @@ function completeCloudLogin(email, name, playerData, token) {
         // sozinho, sem pedir a senha de novo — ver TryAutoLoginFromSession() logo abaixo.
         if (token) localStorage.setItem("dg_session_token", token);
     } catch(e) {}
+
+    // dg_cloud_email já está gravado agora: esse é o exato momento em que o login/cadastro
+    // é confirmado, então é aqui que os botões "RESGATAR PROGRESSO" / "CRIAR CONTA NOVA" somem.
+    UpdateLoginButtonsVisibility();
 
     if (window.GhostRPG && window.GhostRPG.applyCloudSave) {
         try { window.GhostRPG.applyCloudSave(safeData); } catch(e) {}
