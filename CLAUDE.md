@@ -64,3 +64,21 @@ Este projeto tem repositórios grandes (`engine.js` sozinho tem ~220KB, duplicad
 - Toda implementação técnica relevante deve ser precedida por alinhamento com o usuário (Plan Mode) — especialmente mudanças de autenticação, banco de dados, ou qualquer coisa que toque as duas plataformas (web + mobile) ao mesmo tempo.
 - Documentação (`docs/*.md`, este `CLAUDE.md`, `Gemini.md`) deve ser atualizada **no mesmo commit/sessão** que muda a arquitetura que ela descreve — docs desatualizados neste projeto já causaram confusão real (ex.: a suposição incorreta de "bcrypt" chegou a 4 documentos antes de ser corrigida em 18/08/2026).
 - O foco é manter o jogo rápido, a conexão fluida, respeitar o isolamento web/mobile e preservar o cross-play.
+
+## 8. Equipe de Agentes Especialistas
+
+Criada em 30/08/2026, a pedido do usuário: um time de subagentes com escopo de responsabilidade claro, cada um carregando o histórico real de bugs/decisões deste projeto (não conhecimento genérico) em `danger ghost/.claude/agents/*.md`. Invoque via `Agent` com `subagent_type` = o nome do arquivo:
+
+| Agente | Escopo |
+|---|---|
+| `game-director` | Escopo de feature, decisões de design, revisão do resultado final contra o pedido original. Não escreve código. |
+| `gameplay-engineer` | Mecânicas, sistema de RPG, `engine.js`/`rpg_system.js`, Ghostdex (jogabilidade). |
+| `backend-architect` | `server/db.js`, `server/index.js`, schema Postgres/Supabase, eventos Socket.io, auth. |
+| `mobile-platform-engineer` | Paridade site↔mobile, build Capacitor/Android, as duas pastas-armadilha já documentadas na §3. |
+| `security-engineer` | Revisão de auth/validação/integridade — não implementa, revisa e aponta cenário concreto de abuso. |
+| `qa-lead` | Verificação ponta a ponta antes de qualquer deploy que toque save/auth/sync — método real, não "parece que funciona". |
+| `ui-ux-designer` | HUD, modais, responsividade mobile, identidade visual neon/vaporwave. |
+| `narrative-designer` | Lore da Ghostdex, nomenclatura de espécies, tom do texto voltado ao jogador. |
+| `skills-curator` | Pesquisa e mantém as Skills compartilhadas em `danger ghost/.claude/skills/` — não escreve código de jogo. |
+
+Skills já criadas (carregadas pelos agentes acima quando relevante): `e2e-db-verification` (metodologia de teste contra o Supabase real, com conta descartável, simulando "outro aparelho") e `crossplatform-deploy` (checklist de espelhar pro mobile, recompilar o APK, cache-busting, e o deploy na VPS com as pegadinhas do teclado remoto). Peça ao `skills-curator` pra criar novas conforme o time encontrar mais processos repetíveis.
