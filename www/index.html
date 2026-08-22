@@ -1232,6 +1232,11 @@
 
         <div id="mobileActionBtns" style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 0px; margin-top: auto; padding-bottom: 0; width: 100%;">
             <button onclick="window.TriggerRPGSaveToDeSo();" id="mobileSaveBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FF00; width: 250px; height: 55px; margin: -2px 0; font-size: 20px; font-weight: bold; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: none; align-items: center; justify-content: center;">SAVE</button>
+            <!-- Entrada de conta antes do jogo começar: mesmo par do site, chamando o mesmo
+                 OpenLoginModal()/#loginModalUI já existente (js/web2/auth.js). Somem junto com
+                 o resto de #mobileMainMenu assim que StartMobileGame() esconde o menu. -->
+            <button onclick="OpenLoginModal()" id="mobileRescueProgressBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FF00; width: 250px; height: 55px; margin: -2px 0; font-size: 14px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Resgatar Progresso</button>
+            <button onclick="OpenLoginModal()" id="mobileCreateAccountBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FFFF; width: 250px; height: 55px; margin: -2px 0; font-size: 14px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Criar Conta Nova</button>
             <button onclick="ShowMobileNameInput()" id="mobileEpisode1Btn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FFFF; width: 250px; height: 55px; margin: -2px 0; font-size: 16px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Episode 1</button>
             <button onclick="ResumeMobileGame()" id="mobileResumeBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #FFFF00; width: 250px; height: 55px; margin: -2px 0; font-size: 15px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: none; align-items: center; justify-content: center;">RESUME GAME</button>
             <button onclick="document.getElementById('founderBioModal').style.display='flex'" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FF00; width: 250px; height: 55px; margin: -2px 0; font-size: 16px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Bio</button>
@@ -1280,6 +1285,16 @@
     <script>
         // Funções do Menu Mobile
         function ShowMobileNameInput() {
+            // Login obrigatório pra jogar (mesma regra já auditada e aplicada em todos os
+            // outros pontos de entrada do jogo hoje: SPACE no web, PLAY na Ghostdex, cheat de
+            // senha VIP, forjar fantasma). "Episode 1" no mobile era o único fluxo que ainda
+            // pulava direto pro jogo sem checar sessão nenhuma — corrigido aqui. Só bloqueia
+            // quem nunca logou; dg_cloud_email fica salvo assim que loga uma vez, então voltar
+            // do jogo pausado pro menu e apertar "Episode 1"/"Resume" de novo continua liberado.
+            if (!localStorage.getItem('dg_cloud_email')) {
+                if (typeof window.OpenLoginModal === 'function') window.OpenLoginModal();
+                return;
+            }
             document.getElementById('mobileNameInputScreen').style.display = 'flex';
             // Pre-fill name if already exists
             if (window.g_playerName && window.g_playerName !== "GHOST") {
