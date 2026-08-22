@@ -1172,7 +1172,11 @@
             <button onclick="document.getElementById('playerProfileModal').style.display='none';" style="padding: 10px 20px; background: #00FFFF; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; text-transform: uppercase;">CLOSE</button>
         </div>
     </div>    <!-- Google Auth & Cloud Save Modal -->
-    <div id="loadingModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; align-items: center; justify-content: center; flex-direction: column;">
+    <!-- z-index 10200 (22/08/2026, bumpado de 10000): precisa continuar acima da nova
+         #mobileAuthGateScreen (z-index 10050, ver abaixo) — esse spinner aparece durante
+         submitCloudSaveAuth() e também durante o auto-login silencioso no boot do app,
+         nos dois casos por cima da tela de auth. -->
+    <div id="loadingModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10200; align-items: center; justify-content: center; flex-direction: column;">
         <div style="width: 50px; height: 50px; border: 5px solid #00FFFF; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
         <h2 style="color: #00FFFF; font-family: 'Courier New', monospace; margin-top: 20px;">Buscando progresso...</h2>
         <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
@@ -1181,8 +1185,11 @@
     <!-- Cloud Save Modal (e-mail/senha) — adicionado em 20/08/2026 porque o login via
          Google (LoginGoogle) depende de um script externo que nem sempre carrega dentro
          do app empacotado; isso dá ao jogador um jeito de logar que sempre funciona,
-         igual ao que já existe no site. Mesma marcação do danger ghost/index.html. -->
-    <div id="loginModalUI" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 9999; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif;">
+         igual ao que já existe no site. Mesma marcação do danger ghost/index.html.
+         z-index 10100 (22/08/2026, bumpado de 9999): precisa continuar acima da nova
+         #mobileAuthGateScreen (z-index 10050, ver abaixo) — os dois botões dessa tela nova
+         abrem esse modal, e ele precisa aparecer por cima dela, não atrás. -->
+    <div id="loginModalUI" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 10100; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif;">
         <div style="background: rgba(0,0,0,0.9); border: 2px solid #00FFFF; box-shadow: 0 0 20px rgba(0,255,255,0.4); border-radius: 10px; padding: 30px; width: 90%; max-width: 450px; text-align: center; color: #FFF; display: flex; flex-direction: column; align-items: center;">
             <h2 style="color: #00FFFF; font-family: 'Orbitron', sans-serif; margin-top: 0; margin-bottom: 10px; text-shadow: 0 0 10px #00FFFF;">SISTEMA DE CLOUD SAVE</h2>
             <p style="color: #ccc; font-size: 14px; margin-bottom: 20px;">Já tem conta? Faça LOGIN para resgatar seu progresso. Primeira vez aqui? CRIE UMA CONTA NOVA.</p>
@@ -1197,7 +1204,24 @@
 
     <!-- Scripts de Autenticação -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="js/web2/auth.js?v=38"></script>
+    <script src="js/web2/auth.js?v=39"></script>
+
+    <!-- MOBILE APP AUTH GATE SCREEN (22/08/2026, pedido explícito do usuário) — tela exclusiva,
+         primeira coisa que aparece ao abrir o app sem uma sessão válida salva. Só tem os dois
+         botões de entrada; nada de Episode 1/Bio/Exit aqui (isso continua só em
+         #mobileMainMenu, que só aparece depois de um login/cadastro confirmado — ver
+         completeCloudLogin() em js/web2/auth.js e o DOMContentLoaded logo abaixo neste arquivo).
+         z-index 10050: maior que #mobileMainMenu (9999) pra ficar por cima dele se algum dia os
+         dois coexistirem por um instante; loginModalUI (10100) e loadingModal (10200) foram
+         bumpados pra continuarem aparecendo por cima DESTA tela, já que os dois botões abrem
+         o loginModalUI. Reaproveita o mesmo background art e paleta de #mobileMainMenu. -->
+    <div id="mobileAuthGateScreen" style="position: fixed; top:0; left:0; width:100vw; height:100vh; background: url('assets/menu_bg.png') center/cover no-repeat #000; z-index: 10050; display: none; flex-direction: column; justify-content: center; align-items: center; gap: 40px; box-sizing: border-box; padding: 20px;">
+        <h1 style="color: #00FFFF; font-family: 'Orbitron', sans-serif; font-size: 30px; font-weight: bold; text-transform: uppercase; letter-spacing: 3px; text-shadow: 0 0 10px #00FFFF, 0 0 25px #00FFFF; margin: 0; text-align: center;">DANGER GHOST</h1>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 20px;">
+            <button onclick="OpenLoginModal()" id="mobileAuthGateRescueBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FF00; width: 260px; height: 58px; font-size: 15px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Resgatar Progresso</button>
+            <button onclick="OpenLoginModal()" id="mobileAuthGateCreateBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FFFF; width: 260px; height: 58px; font-size: 15px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Criar Conta Nova</button>
+        </div>
+    </div>
 
     <!-- MOBILE APP MAIN MENU -->
     <div id="mobileMainMenu" style="position: fixed; top:0; left:0; width:100vw; height:100vh; background: url('assets/menu_bg.png') center/cover no-repeat #000; z-index: 9999; display: none; flex-direction: column; justify-content: flex-start; align-items: center; gap: 15px; padding-top: 13vh; padding-bottom: 5vh; box-sizing: border-box;">
@@ -1232,11 +1256,10 @@
 
         <div id="mobileActionBtns" style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 0px; margin-top: auto; padding-bottom: 0; width: 100%;">
             <button onclick="window.TriggerRPGSaveToDeSo();" id="mobileSaveBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FF00; width: 250px; height: 55px; margin: -2px 0; font-size: 20px; font-weight: bold; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: none; align-items: center; justify-content: center;">SAVE</button>
-            <!-- Entrada de conta antes do jogo começar: mesmo par do site, chamando o mesmo
-                 OpenLoginModal()/#loginModalUI já existente (js/web2/auth.js). Somem junto com
-                 o resto de #mobileMainMenu assim que StartMobileGame() esconde o menu. -->
-            <button onclick="OpenLoginModal()" id="mobileRescueProgressBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FF00; width: 250px; height: 55px; margin: -2px 0; font-size: 14px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Resgatar Progresso</button>
-            <button onclick="OpenLoginModal()" id="mobileCreateAccountBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FFFF; width: 250px; height: 55px; margin: -2px 0; font-size: 14px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Criar Conta Nova</button>
+            <!-- "Resgatar Progresso"/"Criar Conta Nova" foram movidos daqui pra
+                 #mobileAuthGateScreen em 22/08/2026 (pedido do usuário: tela exclusiva, separada
+                 do menu principal) — quem chega em #mobileMainMenu já está logado, não faz
+                 sentido mostrar "criar conta nova" de novo aqui. -->
             <button onclick="ShowMobileNameInput()" id="mobileEpisode1Btn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FFFF; width: 250px; height: 55px; margin: -2px 0; font-size: 16px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Episode 1</button>
             <button onclick="ResumeMobileGame()" id="mobileResumeBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #FFFF00; width: 250px; height: 55px; margin: -2px 0; font-size: 15px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: none; align-items: center; justify-content: center;">RESUME GAME</button>
             <button onclick="document.getElementById('founderBioModal').style.display='flex'" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FF00; width: 250px; height: 55px; margin: -2px 0; font-size: 16px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Bio</button>
@@ -1385,17 +1408,41 @@
                     window.Capacitor.Plugins.NavigationBar.hide().catch(e => console.error("Error hiding nav bar:", e));
                 }
                 var menu = document.getElementById('mobileMainMenu');
+                var authGate = document.getElementById('mobileAuthGateScreen');
                 var controls = document.getElementById('mobileControlsContainer');
                 var startBtn = document.getElementById('touchStartBtn');
                 var video = document.getElementById('openingCutsceneVideo');
-                
+
                 // Esconde controles virtuais e botão de start inicialmente
                 if (controls) controls.style.visibility = 'hidden';
                 if (startBtn) startBtn.style.visibility = 'hidden';
                 if (video) video.style.display = 'none'; // Esconde a cutscene de glitch
-                
-                // Mostra o Novo Menu Principal
-                menu.style.display = 'flex';
+
+                // Login obrigatório pra jogar (22/08/2026, pedido explícito do usuário): a
+                // PRIMEIRA coisa que aparece ao abrir o app é a tela exclusiva de auth
+                // (#mobileAuthGateScreen), nunca #mobileMainMenu direto — a não ser que já
+                // exista uma sessão salva ainda válida (TryAutoLoginFromSession tenta o token
+                // guardado; resolve true/false). Isso evita forçar quem já tem conta a clicar
+                // de novo toda vez que reabre o app. O gatilho real pra sair da tela de auth
+                // pro menu principal, no caso de quem NÃO tinha sessão, é o sucesso de
+                // login/cadastro dentro de completeCloudLogin() (js/web2/auth.js) — não um
+                // clique de botão específico.
+                if (typeof window.TryAutoLoginFromSession === 'function') {
+                    window.TryAutoLoginFromSession(function(loggedIn) {
+                        if (loggedIn) {
+                            if (authGate) authGate.style.display = 'none';
+                            if (menu) menu.style.display = 'flex';
+                        } else {
+                            if (menu) menu.style.display = 'none';
+                            if (authGate) authGate.style.display = 'flex';
+                        }
+                    });
+                } else {
+                    // Sem TryAutoLoginFromSession disponível (não deveria acontecer — auth.js
+                    // carrega antes deste script), cai pro caminho seguro: exige login manual.
+                    if (menu) menu.style.display = 'none';
+                    if (authGate) authGate.style.display = 'flex';
+                }
             }
         });
     </script>

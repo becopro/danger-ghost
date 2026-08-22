@@ -106,6 +106,18 @@ function completeCloudLogin(email, name, playerData, token) {
         if (token) localStorage.setItem("dg_session_token", token);
     } catch (e) {}
 
+    // Transição da tela exclusiva de auth pro menu principal (22/08/2026, pedido do usuário) —
+    // esse é o gatilho real: sucesso de login/cadastro confirmado pelo servidor, não um clique
+    // de botão específico. Só mexe se #mobileAuthGateScreen estiver de fato visível agora (ex.:
+    // não faz nada se completeCloudLogin() for chamado de novo com o jogador já dentro do menu
+    // principal, como um re-login manual pelo botão LOGIN do Google).
+    var mobileAuthGate = document.getElementById("mobileAuthGateScreen");
+    if (mobileAuthGate && mobileAuthGate.style.display !== "none") {
+        mobileAuthGate.style.display = "none";
+        var mobileMainMenu = document.getElementById("mobileMainMenu");
+        if (mobileMainMenu) mobileMainMenu.style.display = "flex";
+    }
+
     if (window.GhostRPG && window.GhostRPG.applyCloudSave) {
         try { window.GhostRPG.applyCloudSave(safeData); } catch (e) {}
     } else {
