@@ -1418,31 +1418,20 @@
                 if (startBtn) startBtn.style.visibility = 'hidden';
                 if (video) video.style.display = 'none'; // Esconde a cutscene de glitch
 
-                // Login obrigatório pra jogar (22/08/2026, pedido explícito do usuário): a
-                // PRIMEIRA coisa que aparece ao abrir o app é a tela exclusiva de auth
-                // (#mobileAuthGateScreen), nunca #mobileMainMenu direto — a não ser que já
-                // exista uma sessão salva ainda válida (TryAutoLoginFromSession tenta o token
-                // guardado; resolve true/false). Isso evita forçar quem já tem conta a clicar
-                // de novo toda vez que reabre o app. O gatilho real pra sair da tela de auth
-                // pro menu principal, no caso de quem NÃO tinha sessão, é o sucesso de
-                // login/cadastro dentro de completeCloudLogin() (js/web2/auth.js) — não um
-                // clique de botão específico.
-                if (typeof window.TryAutoLoginFromSession === 'function') {
-                    window.TryAutoLoginFromSession(function(loggedIn) {
-                        if (loggedIn) {
-                            if (authGate) authGate.style.display = 'none';
-                            if (menu) menu.style.display = 'flex';
-                        } else {
-                            if (menu) menu.style.display = 'none';
-                            if (authGate) authGate.style.display = 'flex';
-                        }
-                    });
-                } else {
-                    // Sem TryAutoLoginFromSession disponível (não deveria acontecer — auth.js
-                    // carrega antes deste script), cai pro caminho seguro: exige login manual.
-                    if (menu) menu.style.display = 'none';
-                    if (authGate) authGate.style.display = 'flex';
-                }
+                // Login obrigatório pra jogar (22/08/2026, pedido explícito do usuário; corrigido
+                // no mesmo dia porque a versão anterior chamava TryAutoLoginFromSession() aqui
+                // dentro e pulava a tela sozinha quando havia sessão salva — reintroduzia
+                // exatamente o auto-login que o usuário já tinha proibido antes, só que
+                // disfarçado dentro do boot da tela nova). A PRIMEIRA coisa que aparece ao abrir
+                // o app é SEMPRE a tela exclusiva de auth (#mobileAuthGateScreen),
+                // incondicionalmente — nunca #mobileMainMenu direto, mesmo com sessão salva
+                // válida. TryAutoLoginFromSession só pode rodar em resposta a um clique real do
+                // jogador em "Resgatar Progresso"/"Criar Conta Nova" (dentro de OpenLoginModal(),
+                // js/web2/auth.js — intocado), nunca sozinha aqui no carregamento da página. O
+                // gatilho pra sair da tela de auth pro menu principal é sempre o sucesso de
+                // login/cadastro dentro de completeCloudLogin() (js/web2/auth.js).
+                if (menu) menu.style.display = 'none';
+                if (authGate) authGate.style.display = 'flex';
             }
         });
     </script>
