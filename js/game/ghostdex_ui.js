@@ -389,10 +389,24 @@ window.PlayAsGhost = function(ghostId) {
         }
     }
     
+    // window.g_ownedCharacters é um cache em memória que só é atualizado em pontos específicos
+    // (login, forja, tela de seleção) — capturar um fantasma em combate (UnlockGhostForPlayer)
+    // ou a geração retroativa logo acima gravam em localStorage mas nunca atualizam esse cache.
+    // Sem isso, SelectCharacterToPlay (que só busca em window.g_ownedCharacters, não em
+    // localStorage) não encontrava o fantasma recém-capturado e não fazia nada — incluindo não
+    // atualizar 'dg_deso_character_id' — enquanto GhostRPG.SwitchActiveGhost logo abaixo troca o
+    // estado em memória mesmo assim, criando um estado dividido: a sessão atual mostra o
+    // fantasma certo, mas o próximo login/recarregamento resumia o fantasma ERRADO porque o
+    // ponteiro de "último personagem ativo" nunca foi atualizado (achado 22/08/2026, auditoria
+    // "tudo na Ghostdex deve ser salvo no banco" — reproduzido de verdade capturando um fantasma
+    // e clicando PLAY nele em seguida, ver e2e-db-verification). localChars já é a leitura fresca
+    // de localStorage feita acima (com o retroativo/fix de stats já aplicado quando for o caso).
+    window.g_ownedCharacters = localChars;
+
     if (typeof window.SelectCharacterToPlay === 'function') {
         window.SelectCharacterToPlay(charId);
     }
-    
+
     if (typeof GhostRPG !== 'undefined' && GhostRPG.SwitchActiveGhost) {
         GhostRPG.SwitchActiveGhost(ghostId);
     }

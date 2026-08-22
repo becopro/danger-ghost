@@ -45,8 +45,22 @@ function buildAuthSuccessPayload(email, playerData) {
     return { email: email, playerData: playerData, token: signSessionToken(email) };
 }
 
-const players = {}; 
+const players = {};
 const TICK_RATE = 30;
+
+// Fila de save por socket (achado 22/08/2026, auditoria "tudo na Ghostdex deve ser salvo no
+// banco"): save_game_state é async e cada emit disparava sua própria pool.query() independente,
+// sem nenhuma ordem garantida de CONCLUSÃO — só de recebimento. A Ghostdex dispara vários emits
+// em sequência rápida sem esperar o anterior responder (um save só de personagem, seguido de um
+// save só de ghostdexProgress, repetido a cada captura), e ghostdex_progress/favorites são
+// gravados como substituição total da coluna JSONB (não merge). Resultado: se o emit MAIS ANTIGO
+// (com snapshot desatualizado) terminasse sua query DEPOIS do emit mais recente, ele sobrescrevia
+// silenciosamente o progresso completo com um estado velho — reproduzido de verdade capturando 2
+// fantasmas em sequência (ver e2e-db-verification): o banco ficava só com o primeiro. Serializar
+// o processamento por socket (encadear numa Promise por conexão) garante que os saves terminam na
+// mesma ordem em que foram emitidos, já que o socket.io entrega na ordem de envio — elimina a
+// corrida sem mudar o formato de nenhum payload.
+const saveQueues = {};
 
 io.on('connection', (socket) => {
     console.log('[Socket] Player connected: ' + socket.id);
@@ -111,6 +125,7 @@ io.on('connection', (socket) => {
             delete players[socket.id];
             io.emit('player_left', socket.id);
         }
+        delete saveQueues[socket.id];
     });
 
     // --- Google Auth (login OAuth real — desativado no cliente hoje, ver comentário em
@@ -235,27 +250,36 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('save_game_state', async (data) => {
+    socket.on('save_game_state', (data) => {
         const playerSession = players[socket.id];
         if (!playerSession || !playerSession.email) {
             console.log('[Save] Rejected: Player not authenticated.');
-            return; 
+            return;
         }
-        
-        try {
-            await savePlayerProgress(playerSession.email, data);
-            // A lista completa de fantasmas (atributos, inventário, equipamento — tudo) vem
-            // junto nesse mesmo evento quando presente, em vez de precisar de um evento novo
-            // (ver docs/HANDOVER.md 20/08/2026: sync de personagens entre aparelhos).
-            if (Array.isArray(data.characters) && data.characters.length > 0) {
-                await saveCharacters(playerSession.email, data.characters);
+
+        // Encadeia na fila desse socket em vez de disparar direto (ver comentário na declaração
+        // de saveQueues acima) — cada save só começa depois que o anterior terminou de verdade,
+        // preservando a ordem de emissão em vez de deixar a ordem de CONCLUSÃO da query decidir.
+        const previous = saveQueues[socket.id] || Promise.resolve();
+        const current = previous.then(async () => {
+            try {
+                await savePlayerProgress(playerSession.email, data);
+                // A lista completa de fantasmas (atributos, inventário, equipamento — tudo) vem
+                // junto nesse mesmo evento quando presente, em vez de precisar de um evento novo
+                // (ver docs/HANDOVER.md 20/08/2026: sync de personagens entre aparelhos).
+                if (Array.isArray(data.characters) && data.characters.length > 0) {
+                    await saveCharacters(playerSession.email, data.characters);
+                }
+                console.log(`[DB] Progress saved for ${playerSession.email}`);
+                socket.emit('save_success', { message: 'Progresso salvo na nuvem!' });
+            } catch (error) {
+                console.error('[DB] Save error:', error);
+                socket.emit('save_error', { message: 'Erro ao salvar progresso.' });
             }
-            console.log(`[DB] Progress saved for ${playerSession.email}`);
-            socket.emit('save_success', { message: 'Progresso salvo na nuvem!' });
-        } catch (error) {
-            console.error('[DB] Save error:', error);
-            socket.emit('save_error', { message: 'Erro ao salvar progresso.' });
-        }
+        });
+        // Nunca deixa uma rejeição não tratada quebrar a fila pra sempre — o catch acima já
+        // resolve o erro, isso aqui é só rede de segurança caso algo escape dele.
+        saveQueues[socket.id] = current.catch(() => {});
     });
 
     // Apaga um fantasma forjado (30/08/2026) — antes disso, descartar um fantasma só tirava do
