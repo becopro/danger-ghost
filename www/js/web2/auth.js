@@ -125,13 +125,17 @@ function completeCloudLogin(email, name, playerData, token) {
 
     // Recarrega a tela de seleção de personagem com a lista atualizada — esse chamada faltava
     // no mobile (só o site tinha, achado ao investigar hoje), então depois de logar no app
-    // nada atualizava window.g_ownedCharacters automaticamente até esse fix. forceShowOverlay =
-    // true (30/08/2026) — antes disso, com false, essa chamada podia auto-selecionar e chamar
-    // SelectCharacterToPlay(), que dispara StartCutscene() sozinha se o jogo estiver na tela
-    // inicial — login sozinho não deve começar a jogar. Os dados do personagem mais recente já
-    // são carregados em memória pelo bloco logo abaixo, sem esse efeito colateral.
+    // nada atualizava window.g_ownedCharacters automaticamente até esse fix.
+    // forceShowOverlay = false (22/08/2026, mesmo fix do site — pedido do usuário: login/
+    // cadastro deve ir DIRETO pro jogo, sem tela intermediária). Antes era true (30/08/2026);
+    // revertido a pedido explícito de hoje. Com false, LoadRPGStateFromDeSo auto-seleciona
+    // (dentro do seu setTimeout de 400ms) o personagem salvo em 'dg_deso_character_id' e chama
+    // SelectCharacterToPlay(), que dispara StartCutscene()/ResetGame() — começa a jogar de
+    // verdade. O bloco síncrono logo abaixo já grava o personagem de updatedAt mais recente
+    // nesse localStorage ANTES do setTimeout disparar, então o auto-select pega o certo (ver
+    // comentário equivalente e mais detalhado em js/web2/auth.js do site).
     if (typeof window.LoadRPGStateFromDeSo === 'function') {
-        window.LoadRPGStateFromDeSo(null, true);
+        window.LoadRPGStateFromDeSo(null, false);
     }
 
     // Carrega os dados do fantasma com a atualização mais recente no banco (30/08/2026, mesmo
@@ -164,9 +168,9 @@ function completeCloudLogin(email, name, playerData, token) {
                     mostRecentChar.equippedPassives,
                     mostRecentChar.weapon,
                     mostRecentChar.inventory,
-                    mostRecentChar.equipment
+                    mostRecentChar.equipment,
+                    mostRecentChar.name
                 );
-                if (window.GhostRPG.setName) window.GhostRPG.setName(mostRecentChar.name);
                 try { localStorage.setItem('dg_deso_character_id', mostRecentChar.characterId); } catch(e) {}
                 window.g_currentPlayerGhost = mostRecentChar.characterId;
             }
