@@ -53,15 +53,23 @@ io.on('connection', (socket) => {
 
     socket.on('join_game', (data) => {
         const playerName = data.playerName || 'Ghost';
-        
+
+        // Preserva a sessão autenticada (email) e a posição/vida atuais em vez de recriar o
+        // objeto do zero — o Ghostdex reemite join_game toda vez que o jogador troca de
+        // fantasma (PlayAsGhost, pra atualizar o nome exibido "(#XXX)"), e um overwrite total
+        // aqui apagava silenciosamente o login: todo save_game_state seguinte era rejeitado
+        // com "Player not authenticated" sem nenhum aviso pro jogador (achado 22/08/2026,
+        // auditoria "salvar tudo no banco de dados").
+        const existing = players[socket.id] || {};
         players[socket.id] = {
+            ...existing,
             id: socket.id,
             name: playerName,
-            x: 48, 
-            y: 150,
-            isFacingRight: true,
-            level: '1',
-            hp: 100
+            x: existing.x !== undefined ? existing.x : 48,
+            y: existing.y !== undefined ? existing.y : 150,
+            isFacingRight: existing.isFacingRight !== undefined ? existing.isFacingRight : true,
+            level: existing.level || '1',
+            hp: existing.hp !== undefined ? existing.hp : 100
         };
 
         console.log('[Socket] Player joined: ' + playerName + ' (' + socket.id + ')');

@@ -345,7 +345,7 @@ window.PlayAsGhost = function(ghostId) {
         let spDef = dbGhost && dbGhost.stats_base ? dbGhost.stats_base.def_especial : 50;
         let spd = dbGhost && dbGhost.stats_base ? dbGhost.stats_base.velocidade : 50;
 
-        localChars.push({
+        let retroChar = {
             characterId: charId,
             name: ghostName,
             level: 1,
@@ -357,9 +357,18 @@ window.PlayAsGhost = function(ghostId) {
             mag: Math.ceil(spDef / 10) || 1,
             inventory: [],
             equipment: { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null }
-        });
+        };
+        localChars.push(retroChar);
         localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
         console.log("👻 RPG Profile generated retroactively for ghost:", charId);
+
+        // Sincroniza com o banco (auditoria 22/08/2026): este personagem gerado retroativamente
+        // (jogador clicou PLAY numa espécie já capturada que nunca ganhou perfil de RPG) só
+        // ficava salvo em dg_local_characters — nunca chegava no servidor.
+        var playAsGhostSocket = window.NetworkState && window.NetworkState.socket;
+        if (playAsGhostSocket && playAsGhostSocket.connected && localStorage.getItem('dg_cloud_email')) {
+            playAsGhostSocket.emit('save_game_state', { characters: [retroChar] });
+        }
     } else if (existingChar.level === 1 && existingChar.vit > 20) {
         let dbGhost = window.g_ghostdexDB ? window.g_ghostdexDB.find(g => g.id === ghostId) : null;
         if (dbGhost && dbGhost.stats_base) {
@@ -370,6 +379,13 @@ window.PlayAsGhost = function(ghostId) {
             existingChar.mag = Math.ceil(dbGhost.stats_base.def_especial / 10) || 1;
             localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
             console.log("👻 RPG Profile stats fixed retroactively for ghost:", charId);
+
+            // Sincroniza com o banco (auditoria 22/08/2026): mesmo problema, a correção
+            // retroativa de stats nunca chegava no servidor.
+            var statsFixSocket = window.NetworkState && window.NetworkState.socket;
+            if (statsFixSocket && statsFixSocket.connected && localStorage.getItem('dg_cloud_email')) {
+                statsFixSocket.emit('save_game_state', { characters: [existingChar] });
+            }
         }
     }
     

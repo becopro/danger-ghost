@@ -5,106 +5,68 @@
 
 window.g_episode1SpawnTriggered = false;
 
-window.GetPlayerGhostInventory = function() {
-    let inv = localStorage.getItem('player_ghosts_inventory');
-    if (!inv) {
-        inv = {};
-        localStorage.setItem('player_ghosts_inventory', JSON.stringify(inv));
-        return inv;
-    }
-    return JSON.parse(inv);
-}
-
-window.SavePlayerGhostInventory = function(inv) {
-    localStorage.setItem('player_ghosts_inventory', JSON.stringify(inv));
-}
-
 window.UnlockGhostForPlayer = function(ghostId) {
     if (!ghostId) return;
-    
+
     // GhostId might be passed as int or string, ensure it's a 3-digit string for the DB
     let idStr = ghostId.toString().padStart(3, '0');
-    
-    let inv = GetPlayerGhostInventory();
-    if (!inv[idStr]) {
+    let charId = "ghost_" + idStr;
+
+    // "Já capturado antes?" agora é respondido por dg_local_characters (populado a partir
+    // do banco no login / save_game_state), não por uma store local separada. O save é
+    // exclusivamente no banco de dados — não existe mais uma segunda fonte de verdade local
+    // pra "já capturei essa espécie" (ex-player_ghosts_inventory, removida).
+    let localChars = localStorage.getItem("dg_local_characters");
+    if (!localChars) localChars = "[]";
+    localChars = JSON.parse(localChars);
+    let existingChar = localChars.find(c => c.characterId === charId);
+
+    if (!existingChar) {
         // First time capture! Load base stats from DB if available
         let baseStats = { hp: 50, ataque: 50, defesa: 50, atq_especial: 50, def_especial: 50, velocidade: 50 };
+        let ghostName = "Unknown Ghost";
         if (window.g_ghostdexDB) {
             let dbGhost = window.g_ghostdexDB.find(g => g.id === idStr);
-            if (dbGhost) baseStats = Object.assign({}, dbGhost.stats_base);
+            if (dbGhost) {
+                baseStats = Object.assign({}, dbGhost.stats_base);
+                ghostName = dbGhost.nome;
+            }
         }
-        
-        inv[idStr] = {
-            level: 1,
-            xp: 0,
-            xpNext: 1000,
-            currentStats: baseStats
-        };
-        SavePlayerGhostInventory(inv);
+
         console.log("👻 GHOST CAPTURED! Added to inventory:", idStr);
 
         // Generate RPG Profile with UNIQUE BAG
-        let localChars = localStorage.getItem("dg_local_characters");
-        if (!localChars) localChars = "[]";
-        localChars = JSON.parse(localChars);
-        
-        let charId = "ghost_" + idStr;
-        let existingChar = localChars.find(c => c.characterId === charId);
-        if (!existingChar) {
-            let ghostName = "Unknown Ghost";
-            if (window.g_ghostdexDB) {
-                let dbGhost = window.g_ghostdexDB.find(g => g.id === idStr);
-                if (dbGhost) ghostName = dbGhost.nome;
-            }
-            localChars.push({
-                characterId: charId,
-                name: ghostName,
-                level: 1,
-                xp: 0,
-                vit: Math.ceil((baseStats.hp || 50) / 10),
-                agi: Math.ceil((baseStats.velocidade || 50) / 10),
-                int: Math.ceil((baseStats.atq_especial || 50) / 10),
-                pow: Math.ceil((baseStats.ataque || 50) / 10),
-                mag: Math.ceil((baseStats.def_especial || 50) / 10),
-                inventory: [],
-                equipment: { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null }
-            });
-            localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
-            console.log("👻 RPG Profile generated for ghost:", charId);
+        var newChar = {
+            characterId: charId,
+            name: ghostName,
+            level: 1,
+            xp: 0,
+            vit: Math.ceil((baseStats.hp || 50) / 10),
+            agi: Math.ceil((baseStats.velocidade || 50) / 10),
+            int: Math.ceil((baseStats.atq_especial || 50) / 10),
+            pow: Math.ceil((baseStats.ataque || 50) / 10),
+            mag: Math.ceil((baseStats.def_especial || 50) / 10),
+            inventory: [],
+            equipment: { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null }
+        };
+        localChars.push(newChar);
+        localStorage.setItem("dg_local_characters", JSON.stringify(localChars));
+        console.log("👻 RPG Profile generated for ghost:", charId);
+
+        // Manda o fantasma capturado em combate pro banco (30/08/2026) — antes só ficava
+        // no localStorage e sumia ao trocar de aparelho, ou era apagado no login seguinte
+        // (banco manda), igual o bug já corrigido em TriggerCreateNewGhost (forja). Login
+        // já é garantido aqui: captura só acontece durante gameplay ativo, e todo ponto de
+        // entrada de gameplay hoje exige login antes de começar (SPACE, cheat VIP, etc).
+        var captureSocket = window.NetworkState && window.NetworkState.socket;
+        if (captureSocket && captureSocket.connected && localStorage.getItem('dg_cloud_email')) {
+            captureSocket.emit('save_game_state', { characters: [newChar] });
         }
-        
+
         // Update the Ghostdex UI visually
         if (typeof window.UpdateGhostdex === 'function') {
             window.UpdateGhostdex(idStr, 2);
         }
-    }
-}
-
-window.AddXpToGhost = function(ghostId, xpAmount) {
-    let idStr = ghostId.toString().padStart(3, '0');
-    let inv = GetPlayerGhostInventory();
-    
-    if (inv[idStr]) {
-        inv[idStr].xp += xpAmount;
-        console.log(`👻 Ghost ${idStr} gained ${xpAmount} XP. Total: ${inv[idStr].xp}/${inv[idStr].xpNext}`);
-        
-        // Level up logic
-        let ghostSafeLoop = 0;
-        while (inv[idStr].xp >= inv[idStr].xpNext && ghostSafeLoop++ < 1000) {
-            if (!inv[idStr].xpNext || inv[idStr].xpNext <= 0) inv[idStr].xpNext = 1000;
-            inv[idStr].xp -= inv[idStr].xpNext;
-            inv[idStr].level++;
-            inv[idStr].xpNext = Math.floor(inv[idStr].xpNext * 1.5);
-            
-            // Stat Growth
-            for (let stat in inv[idStr].currentStats) {
-                if (stat !== 'total') {
-                    inv[idStr].currentStats[stat] = Math.floor(inv[idStr].currentStats[stat] * 1.1); // 10% increase per level
-                }
-            }
-            console.log(`⭐ Ghost ${idStr} leveled up to ${inv[idStr].level}!`);
-        }
-        SavePlayerGhostInventory(inv);
     }
 }
 

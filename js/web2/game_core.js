@@ -423,16 +423,21 @@
             for (var i = 0; i < characters.length; i++) {
                 var char = characters[i];
                 
-                // Unlock in Ghostdex safely, even if script isn't loaded yet
-                try {
-                    var p = JSON.parse(localStorage.getItem('ghostdex_progress') || '{}');
-                    p[char.characterId] = 2;
-                    localStorage.setItem('ghostdex_progress', JSON.stringify(p));
-                } catch(e) {}
-
-                // Unlock every owned character in the Ghostdex
+                // Unlock every owned character in the Ghostdex. Preferimos UpdateGhostdex porque ele
+                // já persiste em localStorage E sincroniza com o banco (save_game_state) — o write
+                // direto abaixo é só um fallback de segurança pro caso ghostdex_ui.js ainda não ter
+                // carregado. Antes, o write direto rodava sempre primeiro e "vencia" a checagem de
+                // novidade dentro de UpdateGhostdex (state > currentState), fazendo o emit de
+                // save_game_state nunca disparar pra personagens já possuídos (achado na auditoria de
+                // 22/08/2026 — "salvar tudo da Ghostdex no banco").
                 if (typeof window.UpdateGhostdex === 'function') {
                     window.UpdateGhostdex(char.characterId, 2);
+                } else {
+                    try {
+                        var p = JSON.parse(localStorage.getItem('ghostdex_progress') || '{}');
+                        p[char.characterId] = 2;
+                        localStorage.setItem('ghostdex_progress', JSON.stringify(p));
+                    } catch(e) {}
                 }
 
                 var card = document.createElement("div");
