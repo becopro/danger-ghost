@@ -641,7 +641,7 @@ var GhostRPG = (function() {
         setName: function(name) {
             if (name) state.name = name;
         },
-        loadBlockchainState: function(lvl, vit, agi, int, pow, characterId, xp, pointsToDistribute, mag, equippedSkills, equippedRunes, equippedPassives, weapon, inventory, equipment) {
+        loadBlockchainState: function(lvl, vit, agi, int, pow, characterId, xp, pointsToDistribute, mag, equippedSkills, equippedRunes, equippedPassives, weapon, inventory, equipment, name) {
             var maxLevel = 100000000000;
             
             var parsedLvl = parseInt(lvl, 10);
@@ -663,7 +663,15 @@ var GhostRPG = (function() {
             state.mag = (!isNaN(parsedMag)) ? parsedMag : 1;
             
             state.characterId = characterId || "";
-            
+
+            // Nome tem que ser aplicado ANTES do saveLocalStorage() no fim desta função, não
+            // depois por um setName() separado do chamador — essa função salva pro banco
+            // incondicionalmente, e um setName() posterior chegava tarde demais: o save já tinha
+            // ido pro Postgres com o nome do personagem ANTERIOR ainda em state.name, corrompendo
+            // o nome do personagem recém-selecionado (achado 22/08/2026, auditoria de evolução —
+            // trocar de fantasma via PLAY na Ghostdex vazava o nome de quem jogava antes).
+            if (name) state.name = name;
+
             var parsedXp = parseInt(xp, 10);
             state.xp = (!isNaN(parsedXp)) ? parsedXp : 0;
             

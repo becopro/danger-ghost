@@ -49,15 +49,19 @@ function completeCloudLogin(email, name, playerData, token) {
         localStorage.setItem("DangerGhost_Favorites", JSON.stringify(safeData.favorites || []));
     } catch (e) { console.error("[CloudSave] Falha ao aplicar dados do banco:", e); }
 
-    // Mostra a lista de personagens depois do login. forceShowOverlay = true (30/08/2026) —
-    // antes disso, LoadRPGStateFromDeSo(null, false) auto-selecionava o "último personagem" E
-    // chamava SelectCharacterToPlay(), que por sua vez dispara StartCutscene()/ResetGame() se o
-    // jogo estiver na tela inicial — ou seja, o login sozinho podia começar a partida sem o
-    // jogador apertar nada, contradizendo a regra desta sessão. Com true, só mostra a tela de
-    // seleção (sem começar a jogar); os dados do personagem mais recente já foram carregados em
-    // memória pelo bloco logo abaixo, sem esse efeito colateral.
+    // forceShowOverlay = false (22/08/2026, pedido do usuário: login/cadastro deve ir DIRETO
+    // pro jogo, sem tela intermediária). Antes era true (30/08/2026) por uma regra de outra
+    // sessão ("nada acontece sem ação direta do jogador") — revertido a pedido explícito de
+    // hoje. Com false, LoadRPGStateFromDeSo (dentro do seu setTimeout de 400ms) lê
+    // 'dg_deso_character_id' do localStorage e, se houver personagem local, chama
+    // SelectCharacterToPlay() automaticamente, que dispara StartCutscene()/ResetGame() — ou
+    // seja, começa a jogar de verdade. O bloco síncrono logo abaixo já grava em
+    // 'dg_deso_character_id' o personagem de updatedAt mais recente ANTES desse setTimeout
+    // disparar, então o auto-select pega o personagem certo (testado em 22/08/2026 com 2+
+    // personagens e updatedAt genuinamente diferentes — ver e2e-db-verification). Conta nova
+    // (zero personagens) cai na tela de seleção/forja vazia, que é o esperado.
     if (typeof window.LoadRPGStateFromDeSo === 'function') {
-        window.LoadRPGStateFromDeSo(null, true);
+        window.LoadRPGStateFromDeSo(null, false);
     }
 
     // Carrega os dados do fantasma com a atualização mais recente no banco (30/08/2026, pedido
@@ -98,9 +102,9 @@ function completeCloudLogin(email, name, playerData, token) {
                     mostRecentChar.equippedPassives,
                     mostRecentChar.weapon,
                     mostRecentChar.inventory,
-                    mostRecentChar.equipment
+                    mostRecentChar.equipment,
+                    mostRecentChar.name
                 );
-                if (window.GhostRPG.setName) window.GhostRPG.setName(mostRecentChar.name);
                 try { localStorage.setItem('dg_deso_character_id', mostRecentChar.characterId); } catch(e) {}
                 window.g_currentPlayerGhost = mostRecentChar.characterId;
             }

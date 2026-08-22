@@ -549,9 +549,9 @@
                     char.equippedPassives,
                     char.weapon,
                     char.inventory,
-                    char.equipment
+                    char.equipment,
+                    char.name
                 );
-                if (window.GhostRPG.setName) window.GhostRPG.setName(char.name); // char tem prioridade: nome do personagem, não da conta
             }
 
             if (typeof char.score !== "undefined") {
