@@ -298,6 +298,13 @@
 				var gBtn = document.getElementById("guestBtn");
 				if (gBtn) gBtn.style.display = (g_gameState == G_START) ? "inline-block" : "none";
 
+				// Botões "RESGATAR PROGRESSO" / "CRIAR CONTA NOVA" (30/08/2026): só aparecem
+				// antes do jogo começar. Reforça os pontos que já escondiam/mostravam
+				// #loginButtonsContainer (SPACE, StartGameFromMenu, login Google, game over)
+				// pra qualquer transição de estado que não passe por eles.
+				var loginBtnsContainer = document.getElementById("loginButtonsContainer");
+				if (loginBtnsContainer) loginBtnsContainer.style.display = (g_gameState == G_START) ? "flex" : "none";
+
 				var winPanel = document.getElementById("winPanel");
 				if (winPanel) winPanel.style.display = (g_gameState == G_WIN) ? "block" : "none";
 
