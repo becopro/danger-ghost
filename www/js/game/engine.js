@@ -3631,6 +3631,12 @@ var g_binaryBits = [];
 					}
 				}
 				if (e.keyCode == 80) { // P (Passwords)
+					// Login obrigatório pra jogar (30/08/2026, mesmo fix do site) — esse atalho
+					// chamava ResetGame() direto, ignorando o gate de login do SPACE.
+					if (!localStorage.getItem('dg_cloud_email')) {
+						if (typeof window.OpenLoginModal === 'function') window.OpenLoginModal();
+						return;
+					}
 					var pw = prompt("ENTER VIP PASSWORD");
 					if (pw) {
 						var pwLower = pw.toLowerCase();

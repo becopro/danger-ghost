@@ -465,6 +465,12 @@ var GhostRPG = (function() {
         },
         saveLocalStorage: function() {
             try {
+                // Sincroniza a fase atual antes de salvar (30/08/2026, mesmo fix do site — ver o
+                // comentário lá para a explicação completa).
+                if (typeof window.g_currentLevel !== 'undefined') {
+                    state.worldLevel = window.g_currentLevel;
+                }
+
                 var socketPayload = state;
 
                 if (state.characterId && state.characterId !== 0 && state.characterId !== "0") {
