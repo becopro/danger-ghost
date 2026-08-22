@@ -3647,6 +3647,14 @@ var g_binaryBits = [];
 					}
 				}
 				if (e.keyCode == 80) { // P (Passwords)
+					// Login obrigatório pra jogar (30/08/2026) — esse atalho chamava ResetGame()
+					// direto, ignorando completamente a tela inicial e o gate de login do SPACE.
+					// Achado numa auditoria pedida pelo usuário. Mantém o easter egg, só exige
+					// sessão antes, igual toda outra forma de começar a jogar.
+					if (!localStorage.getItem('dg_cloud_email')) {
+						if (typeof window.OpenLoginModal === 'function') window.OpenLoginModal();
+						return;
+					}
 					var pw = prompt("ENTER VIP PASSWORD");
 					if (pw) {
 						var pwLower = pw.toLowerCase();

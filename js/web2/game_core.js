@@ -516,6 +516,14 @@
 
     // Load stats and state on game start
     function SelectCharacterToPlay(charId) {
+        // Login obrigatório pra jogar (30/08/2026, achado numa auditoria pedida pelo usuário):
+        // essa função é o ponto por onde TODO "começar a jogar com um personagem" passa (clique
+        // direto no card da tela de seleção, ou via PlayAsGhost na Ghostdex) — blindar aqui
+        // cobre os dois de uma vez, em vez de confiar que cada chamador individual já checou.
+        if (!localStorage.getItem("dg_cloud_email")) {
+            if (typeof window.OpenLoginModal === "function") window.OpenLoginModal();
+            return;
+        }
         var char = window.g_ownedCharacters.find(function(c) { return c.characterId === charId; });
         if (char) {
             try { localStorage.setItem('dg_deso_character_id', charId); } catch(e) {}

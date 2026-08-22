@@ -309,9 +309,17 @@ window.ShowGhostdexDetail = function(ghostId) {
 };
 
 window.PlayAsGhost = function(ghostId) {
+    // Login obrigatório pra jogar (30/08/2026, achado numa auditoria pedida pelo usuário):
+    // clicar PLAY num fantasma da Ghostdex que o jogador nunca pegou gerava um personagem novo
+    // e começava a jogar sem checar sessão nenhuma — um jeito real de pular o login inteiro.
+    if (!localStorage.getItem("dg_cloud_email")) {
+        if (typeof window.OpenLoginModal === "function") window.OpenLoginModal();
+        return;
+    }
+
     window.g_currentPlayerGhost = ghostId;
     console.log("Player is now playing as Ghost ID:", ghostId);
-    
+
     // Retroactive RPG Profile Generation
     let localChars = localStorage.getItem("dg_local_characters");
     if (!localChars) localChars = "[]";

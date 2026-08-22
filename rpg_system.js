@@ -436,6 +436,16 @@ var GhostRPG = (function() {
         },
         saveLocalStorage: function() {
             try {
+                // Sincroniza a fase atual antes de salvar (30/08/2026, achado numa auditoria
+                // pedida pelo usuário: "salvar a fase também"). window.g_currentLevel é a fase
+                // que o engine está rodando agora, mas nada nunca gravava esse valor de volta em
+                // state.worldLevel — getStats() já lia window.g_currentLevel pra mostrar na UI,
+                // só nunca persistia. Sem isso, todo save mandava worldLevel undefined, e o banco
+                // sempre gravava o valor padrão (1), não importa em qual fase o jogador estivesse.
+                if (typeof window.g_currentLevel !== 'undefined') {
+                    state.worldLevel = window.g_currentLevel;
+                }
+
                 var socketPayload = state;
 
                 if (state.characterId && state.characterId !== 0 && state.characterId !== "0") {
