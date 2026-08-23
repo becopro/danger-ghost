@@ -48,6 +48,25 @@ function buildAuthSuccessPayload(email, playerData) {
 const players = {};
 const TICK_RATE = 30;
 
+// Garante que players[socketId] existe antes de gravar a identidade autenticada nele (achado
+// 23/08/2026, análise profunda do login pedida pelo usuário, reproduzido de verdade): os quatro
+// handlers de login (cloud_save_login, cloud_save_signup, session_login, auth_google_token) só
+// gravavam email/name em players[socket.id] SE esse registro já existisse — criado por join_game,
+// um evento completamente independente que o cliente emite por conta própria assim que conecta.
+// Nada garante que join_game termina de processar antes de um login chegar no servidor (só o
+// tempo de reação humana torna isso raro na prática — testei forçando a ordem inversa com um
+// socket bruto, sem nunca emitir join_game: o login "funcionava" do lado do cliente, token e
+// tudo, mas o save seguinte era rejeitado em silêncio, "Player not authenticated", porque o email
+// nunca tinha sido gravado em lugar nenhum). Mesma mitigação que player_move já usa pra esse
+// mesmo tipo de corrida: cria o registro com valores padrão se ainda não existir, em vez de
+// assumir que outro evento já rodou primeiro.
+function ensurePlayerRecord(socketId) {
+    if (!players[socketId]) {
+        players[socketId] = { id: socketId, name: 'Ghost', x: 48, y: 150, isFacingRight: true, level: '1', hp: 100 };
+    }
+    return players[socketId];
+}
+
 // Fila de save por socket (achado 22/08/2026, auditoria "tudo na Ghostdex deve ser salvo no
 // banco"): save_game_state é async e cada emit disparava sua própria pool.query() independente,
 // sem nenhuma ordem garantida de CONCLUSÃO — só de recebimento. A Ghostdex dispara vários emits
@@ -155,10 +174,8 @@ io.on('connection', (socket) => {
             const result = await loadOrCreatePlayer(email, name, data.password);
             console.log(`[DB] Player ${email} ${result.status}. Level: ${result.data.level}`);
 
-            if (players[socket.id]) {
-                players[socket.id].email = email;
-                players[socket.id].name = result.data.name;
-            }
+            ensurePlayerRecord(socket.id).email = email;
+            players[socket.id].name = result.data.name;
             socket.emit('auth_google_success', buildAuthSuccessPayload(email, result.data));
         } catch (error) {
             console.error('[Auth] Error processing Google Token:', error);
@@ -180,10 +197,8 @@ io.on('connection', (socket) => {
             console.log(`[CloudSave] Login request for: ${email}`);
             const playerData = await loginPlayer(email, data.password);
             console.log(`[DB] Player ${email} loaded. Level: ${playerData.level}`);
-            if (players[socket.id]) {
-                players[socket.id].email = email;
-                players[socket.id].name = playerData.name;
-            }
+            ensurePlayerRecord(socket.id).email = email;
+            players[socket.id].name = playerData.name;
             socket.emit('cloud_save_success', buildAuthSuccessPayload(email, playerData));
         } catch (error) {
             console.error('[CloudSave] Error processing login:', error);
@@ -205,10 +220,8 @@ io.on('connection', (socket) => {
             console.log(`[CloudSave] Signup request for: ${email} (${name})`);
             const playerData = await createPlayer(email, name, data.password);
             console.log(`[DB] Player ${email} created. Level: ${playerData.level}`);
-            if (players[socket.id]) {
-                players[socket.id].email = email;
-                players[socket.id].name = playerData.name;
-            }
+            ensurePlayerRecord(socket.id).email = email;
+            players[socket.id].name = playerData.name;
             socket.emit('cloud_save_success', buildAuthSuccessPayload(email, playerData));
         } catch (error) {
             console.error('[CloudSave] Error processing signup:', error);
@@ -239,10 +252,8 @@ io.on('connection', (socket) => {
                 return;
             }
             console.log(`[Auth] Login automático por sessão para: ${email}`);
-            if (players[socket.id]) {
-                players[socket.id].email = email;
-                players[socket.id].name = playerData.name;
-            }
+            ensurePlayerRecord(socket.id).email = email;
+            players[socket.id].name = playerData.name;
             socket.emit('session_login_success', buildAuthSuccessPayload(email, playerData));
         } catch (error) {
             console.error('[Auth] Erro no login por sessão:', error);

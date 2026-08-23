@@ -18,6 +18,7 @@ Cada item abaixo foi reproduzido falhando *antes* da correção e reproduzido fu
 7. **O schema real do Postgres bate exatamente com o que o código lê/escreve** (13 colunas de `players`, 25 de `characters`, conferido direto no banco de produção).
 8. **Uma query que falha não corrompe a fila nem trava saves seguintes**, e agora o cliente registra o erro no console em vez de silêncio total (achado nesta rodada, corrigido).
 9. **Não existe mais nenhum caminho de "login" que não seja validado pelo servidor** — o mock de login Google/Firebase (que gerava sessão falsa sem servidor nenhum verificar) foi removido dos dois lados; no mobile ele ainda estava conectado a três botões reais, não só código morto como no site.
+10. **Um login bem-sucedido sempre resulta numa sessão que consegue salvar de verdade**, mesmo que `join_game` ainda não tenha sido processado pelo servidor no momento do login. Reproduzido de propósito (socket bruto que nunca emite `join_game`) e corrigido: os quatro handlers de login (`cloud_save_login`, `cloud_save_signup`, `session_login`, `auth_google_token`) agora garantem que o registro do jogador existe antes de gravar a identidade autenticada nele, em vez de assumir que outro evento independente já rodou primeiro.
 
 ## 2. Invariantes que sustentam essas garantias
 
@@ -29,6 +30,7 @@ Se uma mudança futura violar qualquer um destes, as garantias acima deixam de v
 - **Todo caminho que adiciona um personagem à conta do jogador (captura, forja, restauração) deve chamar `UpdateGhostdex(id, 2)`**, não gravar `ghostdex_progress` diretamente — é essa função que garante o sync com o banco.
 - **`GhostRPG.loadBlockchainState()` recebe o nome do personagem como parâmetro**, nunca via uma chamada separada de `setName()` depois — a função salva no banco internamente, e uma chamada separada posterior chega tarde demais.
 - **Site e mobile são cópias separadas do mesmo comportamento pretendido, não do mesmo arquivo.** Uma correção em `danger ghost/js/...` não existe no jogo mobile até ser espelhada manualmente em `danger_ghost_mobile/www/js/...` — confirmado repetidas vezes hoje como a origem de divergências reais (não hipotéticas).
+- **Um handler de login nunca assume que `players[socket.id]` já existe** — sempre usa `ensurePlayerRecord(socket.id)` (`server/index.js`) antes de gravar `email`/`name`, porque `join_game` é um evento independente emitido pelo cliente por conta própria, sem ordem garantida em relação a um login.
 
 ## 3. Riscos conhecidos, não corrigidos nesta rodada (decisão consciente, com o porquê)
 
@@ -38,6 +40,10 @@ Se uma mudança futura violar qualquer um destes, as garantias acima deixam de v
 | **Pool de conexões Postgres sem timeout** (`max: 10`, sem `connectionTimeoutMillis`). Sob rajada acima do limite, o pedido espera indefinidamente em vez de falhar com erro claro — testado com 15 jogadores simultâneos: funcionou, mas a latência subiu de poucos ms pra ~5s. | Ajuste de operação/infraestrutura, não uma correção de bug — recomendado para quando o jogo tiver mais jogadores simultâneos reais. |
 | **Falha de save agora aparece no console do navegador, não numa notificação visível ao jogador.** | Uma notificação visual criteriosa (sem interromper o jogo com um alerta a cada falha isolada, já que a maioria dos saves é automática em segundo plano) é uma decisão de design de UI que não estava no pedido original — registrado aqui para decisão futura. |
 | **`www/index.html` (mobile) carrega `ghost_inventory.js`, `ghostdex_data.js` e `ghostdex_ui.js` duas vezes.** Parece inofensivo (nada entre as duas cargas depende do estado da primeira), mas não foi confirmado com certeza total — sinalizado como tarefa separada em vez de arriscar quebrar o jogo por um palpite. | Investigação incompleta reportada honestamente em vez de uma correção não verificada. |
+| **Não existe "esqueci minha senha".** Um jogador que esquece a senha perde acesso à conta pra sempre, sem um administrador mexer direto no banco. | Exige infraestrutura de envio de e-mail (verificação, token de reset) — é uma funcionalidade nova, não uma correção de bug. |
+| **Não existe verificação de e-mail no cadastro.** Nada impede criar uma conta com um e-mail que a pessoa não é dona. | Mesma dependência de infraestrutura de e-mail do item acima; risco baixo hoje (sem recuperação de senha por e-mail, não há o que "sequestrar"). |
+| **Sem limite de tentativas de login** (força bruta). Nada impede tentar senhas repetidamente contra a mesma conta. | Fora do escopo desta auditoria (focada em save/sync); recomendado para uma rodada de segurança dedicada. |
+| **Botões de login/cadastro não desabilitam durante o envio.** Um duplo-clique rápido pode disparar duas tentativas simultâneas — o servidor rejeita a segunda com erro claro (e-mail já cadastrado, etc.), então não corrompe dado, só pode mostrar uma mensagem de erro confusa por um instante. | Achado nesta análise de login; robustez de UI, não um bug de dados — registrado para uma rodada de polimento futura. |
 
 ## 4. O que mudou nesta rodada (resumo técnico)
 
@@ -48,3 +54,7 @@ Se uma mudança futura violar qualquer um destes, as garantias acima deixam de v
   - Adotado `window.g_hasAuthenticatedThisPageLoad` (mesmo padrão do site) em 7 pontos de entrada de gameplay, substituindo a checagem fraca de `dg_cloud_email` persistido.
   - `DisplayCharacterSelectionScreen` agora marca cada personagem possuído como capturado na Ghostdex (mesmo fix que o site já tinha) — fecha o gap onde fantasmas forjados no mobile nunca apareciam na Ghostdex.
 - Novo agente especialista permanente `forensic-analyst` (`danger ghost/.claude/agents/forensic-analyst.md`, 40 anos de experiência, investigação de causa raiz) e nova skill `forensic-root-cause-analysis`, ambos disponíveis para auditorias futuras deste tipo.
+
+### Rodada seguinte — análise dedicada de login (23/08/2026)
+
+- `server/index.js`: novo `ensurePlayerRecord(socketId)`, usado pelos 4 handlers de login (`cloud_save_login`, `cloud_save_signup`, `session_login`, `auth_google_token`) em vez de um `if (players[socket.id])` que assumia (sem garantia) que `join_game` já tinha rodado antes. Reproduzido com um socket bruto que nunca emite `join_game`: login "funcionava" do lado do cliente, mas todo save seguinte era rejeitado em silêncio. Corrigido e reverificado — o mesmo teste agora persiste corretamente.
