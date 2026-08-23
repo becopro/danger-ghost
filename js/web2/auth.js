@@ -163,6 +163,16 @@ function OpenLoginModal() {
     }
 }
 window.OpenLoginModal = OpenLoginModal;
+// Alias de segurança (23/08/2026, auditoria de login pedida pelo usuário): js/web2/game_core.js
+// tinha uma função LoginGoogle() com Firebase Auth direto + fallback de MOCK LOGIN que fingia um
+// login sem servidor nenhum validando (token falso "mock_<nome>", escondia
+// #loginButtonsContainer sem g_hasAuthenticatedThisPageLoad) — removida por completo por ser
+// código morto perigoso (nunca chamada por nenhum botão do site ao vivo, Firebase nunca
+// configurado, window.JoinGameServer nem existe). Esse alias é só uma rede de segurança: se
+// algum código futuro ainda chamar LoginGoogle() por hábito (ex: um botão copiado da cópia
+// mobile morta www/index.html, que tinha onclick="LoginGoogle()"), cai no fluxo de login real
+// em vez de lançar ReferenceError ou, pior, reintroduzir um fake login.
+window.LoginGoogle = OpenLoginModal;
 
 function showLoginForm() {
     var modal = document.getElementById('loginModalUI');

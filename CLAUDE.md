@@ -1,6 +1,6 @@
 # CLAUDE.md — Memória e Regras do Projeto Danger Ghost
 
-Este é o documento de referência principal para o Claude Code (e qualquer agente compatível) trabalhando neste repositório. Ele consolida e substitui, em termos de precisão, o `Gemini.md` deste mesmo diretório — os dois devem contar a mesma história; se divergirem, este arquivo é a fonte da verdade porque é o mais recentemente auditado contra o código real (18/08/2026).
+Este é o documento de referência principal para o Claude Code (e qualquer agente compatível) trabalhando neste repositório. Ele consolida e substitui, em termos de precisão, o `Gemini.md` deste mesmo diretório — os dois devem contar a mesma história; se divergirem, este arquivo é a fonte da verdade porque é o mais recentemente auditado contra o código real (23/08/2026).
 
 Antes de propor ou implementar qualquer mudança, leia também `docs/PRD.md`, `docs/SPEC.md`, `docs/ARCHITECTURE.md`, `docs/BRIEFING.md` e `docs/HANDOVER.md` — não redescubra a arquitetura do zero a cada sessão.
 
@@ -25,11 +25,12 @@ No roadmap, uma blockchain de propósito específico (não DeSo) para salvar pro
    - **`danger ghost/` também tem seu próprio `www/` + `android/`** (Capacitor, mesmo `appId: danger.ghost.mobile`) — sobra de quando o app mobile ainda não tinha virado o repositório `danger_ghost_mobile/` separado. Sem commit desde ~04/08/2026 (`android/` desde 15/07/2026), enquanto todo o trabalho mobile real deste projeto acontece em `danger_ghost_mobile/`. **O site real carrega os arquivos da raiz de `danger ghost/` (`js/web2/`, `js/game/`, `rpg_system.js`) — o `www/` daqui é morto, não confunda os dois ao editar.**
    - Nenhuma das duas cópias foi apagada ainda (não tinha sido pedido) — só documentado aqui pra não perder tempo de novo tentando descobrir "por que meu fix não pegou".
 
-## 4. Autenticação — 3 caminhos de login, 1 banco de dados só (atualizado 19/08/2026)
-Existem três fluxos de entrada no jogo, detalhados em `docs/ARCHITECTURE.md` §3, mas **os dois primeiros gravam na mesma tabela Postgres** (`players`, via `server/db.js`) — não são sistemas de dados separados:
-1. Google OAuth via Firebase (principal), token verificado de verdade com `googleClient.verifyIdToken()`.
-2. E-mail + senha local. **Senha com hash bcrypt** desde 18/08/2026 (antes era texto puro — corrigido; contas antigas migram o hash automaticamente no próximo login).
-3. Save local via `TriggerRPGSaveToDeSo()` → `localStorage`, sem rede — continua paralelo aos outros dois, não afetado pela migração de banco.
+## 4. Autenticação — 2 caminhos de login, 1 banco de dados só (atualizado 23/08/2026)
+Existem dois fluxos de entrada no jogo, detalhados em `docs/ARCHITECTURE.md` §3:
+1. E-mail + senha local (`OpenLoginModal()`, `js/web2/auth.js`), **único login real do cliente hoje**. **Senha com hash bcrypt** desde 18/08/2026 (antes era texto puro — corrigido; contas antigas migram o hash automaticamente no próximo login).
+2. Save local via `TriggerRPGSaveToDeSo()` → `localStorage`, sem rede — paralelo ao login, não afetado pela migração de banco.
+
+**Google OAuth via Firebase foi removido em 23/08/2026** (auditoria de login pedida pelo usuário): a função `LoginGoogle()` em `game_core.js` nunca teve o Firebase configurado de verdade (config só com placeholders) e caía sempre num fallback de MOCK LOGIN — token falso, sem nenhum servidor validando — que só existia porque nenhum botão do site ao vivo chamava essa função (todos chamam `OpenLoginModal()`), tornando-a código morto perigoso em vez de um caminho de auth de fato. Removida por completo; `window.LoginGoogle` agora é um alias de segurança pra `OpenLoginModal()`. O handler server-side `auth_google_token`/`googleClient.verifyIdToken()` (`server/index.js`) **continua existindo** (infra válida, verificação real de token), mas hoje não tem nenhum chamador no cliente. Detalhes completos em `docs/ARCHITECTURE.md` §3.
 
 ## 5. Stack Tecnológico e Regras de Código
 - **Frontend/Engine:** HTML5 Canvas, **Vanilla JS**. Sem frameworks reativos (React/Vue) no gameplay.

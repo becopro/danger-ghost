@@ -48,79 +48,29 @@
     }
     window.SavePlayerName = SavePlayerName;
 
-    // TODO: Replace with your actual Firebase config
-    const firebaseConfig = {
-        apiKey: "YOUR_API_KEY",
-        authDomain: "YOUR_AUTH_DOMAIN",
-        projectId: "YOUR_PROJECT_ID",
-        storageBucket: "YOUR_STORAGE_BUCKET",
-        messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-        appId: "YOUR_APP_ID"
-    };
-
-    try {
-        if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
-            firebase.initializeApp(firebaseConfig);
-        } else {
-            console.warn("[Firebase] Config is missing, running in MOCK mode.");
-        }
-    } catch (e) {
-        console.warn("[Firebase] Initialization skipped.");
-    }
-
-    function LoginGoogle() {
-        var btn = document.getElementById("btnNavLogin");
-        var nameInput = document.getElementById("startNameInput");
-        
-        if (nameInput) {
-            var chosenName = nameInput.value.trim();
-            if (chosenName !== "") {
-                localStorage.setItem("playerName", chosenName);
-            }
-        }
-        
-        if (btn) {
-            btn.innerText = "CONNECTING...";
-            btn.disabled = true;
-        }
-
-        if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            firebase.auth().signInWithPopup(provider).then((result) => {
-                return result.user.getIdToken();
-            }).then((idToken) => {
-                var menu = document.getElementById("loginButtonsContainer");
-                if (menu) menu.style.display = "none";
-                
-                localStorage.setItem("google_token", idToken);
-                
-                if (window.JoinGameServer) {
-                    window.JoinGameServer(idToken);
-                }
-            }).catch((error) => {
-                console.error("Firebase Login Error", error);
-                if (btn) {
-                    btn.innerText = "🔑 LOGIN";
-                    btn.disabled = false;
-                }
-                alert("Erro no login: " + error.message);
-            });
-        } else {
-            console.warn("Using Mock Login fallback (Firebase disabled/unconfigured)!");
-            setTimeout(function() {
-                var menu = document.getElementById("loginButtonsContainer");
-                if (menu) menu.style.display = "none";
-                
-                var mockToken = "mock_" + (localStorage.getItem("playerName") || "user");
-                localStorage.setItem("google_token", mockToken);
-                
-                if (window.JoinGameServer) {
-                    window.JoinGameServer(mockToken);
-                }
-            }, 800);
-        }
-    }
-    window.LoginGoogle = LoginGoogle;
+    // REMOVIDO (23/08/2026, auditoria de login pedida pelo usuário): existia aqui uma função
+    // LoginGoogle() com Firebase Auth direto (firebase.auth().signInWithPopup(...)) e um
+    // fallback de MOCK LOGIN — um setTimeout que gerava um token falso "mock_<nome>", escondia
+    // #loginButtonsContainer e chamava window.JoinGameServer(token) diretamente, sem passar por
+    // completeCloudLogin()/g_hasAuthenticatedThisPageLoad (js/web2/auth.js).
+    // Confirmado por que era código morto perigoso, não só redundante:
+    //   1) firebaseConfig tinha só placeholders ("YOUR_API_KEY" etc, nunca preenchidos) — o
+    //      branch real do Firebase nunca rodava; sempre caía no fallback mock.
+    //   2) window.JoinGameServer não existe em NENHUM lugar do código (grep em todo js/) — nem
+    //      a chamada do mock nem a do Firebase real completavam um join de verdade.
+    //   3) Nenhum botão do index.html ao vivo chamava LoginGoogle() — btnNavLogin,
+    //      btnRescueProgress e btnCreateNewAccount chamam OpenLoginModal() (js/web2/auth.js).
+    //      Só a cópia morta em www/index.html tinha um botão ligado a LoginGoogle() — um
+    //      landmine de copiar-e-colar pra quem mexer nessa cópia sem saber que está morta.
+    //   4) localStorage "google_token" só era escrito aqui e nunca lido em lugar nenhum.
+    // Ou seja: sem o Firebase configurado, a função só existia pra ENGANAR A UI fingindo login
+    // (escondia os botões de resgatar/criar conta sem autenticação real nenhuma) sem nunca
+    // completar um join de verdade — e ficava esperando alguém amarrar um botão a ela de novo.
+    // Removida por completo em vez de só sobrescrita; window.LoginGoogle agora é um alias
+    // seguro pra OpenLoginModal() (ver js/web2/auth.js) — qualquer código que ainda chame
+    // LoginGoogle() (ex: um botão copiado da cópia mobile morta) cai no fluxo de login real.
+    // As duas tags <script> do Firebase (firebase-app-compat.js/firebase-auth-compat.js) em
+    // index.html também foram removidas — nada mais em js/ referencia o global `firebase`.
 
     // Mock Save
     function TriggerRPGSaveToDeSo() {
