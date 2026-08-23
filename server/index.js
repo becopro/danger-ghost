@@ -284,7 +284,25 @@ io.on('connection', (socket) => {
 
     // Apaga um fantasma forjado (30/08/2026) — antes disso, descartar um fantasma só tirava do
     // localStorage do aparelho; sem isso ele reaparecia no banco no próximo login.
-    socket.on('delete_character', async (data) => {
+    //
+    // Encadeado na MESMA fila (saveQueues) usada por save_game_state (achado 23/08/2026,
+    // forensic-analyst — irmão do bug já corrigido do saveQueues original): antes desta correção,
+    // delete_character rodava FORA da fila, com um único DELETE (round-trip rápido) competindo
+    // contra a transação de save_game_state (BEGIN + N UPSERTs + COMMIT, mais lenta). Cenário
+    // real: jogador clica "SAVE GAME" (manda a lista completa de fantasmas, incluindo o que está
+    // prestes a apagar) e, logo em seguida, apaga um fantasma pela tela de seleção — o DELETE
+    // terminava primeiro, e o UPSERT do save (que ainda carregava o fantasma no array, porque foi
+    // montado ANTES do apagar) terminava depois e reinseria o fantasma "apagado" de volta no
+    // banco. Reproduzido ao vivo contra o Supabase real (não hipótese): emitir
+    // save_game_state({characters:[A,B]}) imediatamente seguido de delete_character(B) no mesmo
+    // socket deixava B de volta na tabela characters com updated_at igual ao de A, e o log do
+    // servidor mostrava "[DB] Character ... deleted" ANTES de "[DB] Progress saved" — a resposta
+    // "saved" chegando depois é o que reinseria B (ver skill e2e-db-verification). Encadear delete
+    // aqui, na mesma fila de saveQueues, garante que a ordem de CONCLUSÃO das queries segue a
+    // ordem de RECEBIMENTO dos eventos (que o socket.io já preserva) em vez de deixar a duração
+    // de cada query decidir — a mesma garantia que saveQueues já dava entre saves agora vale
+    // também entre save e delete, sem mudar o formato de nenhum payload.
+    socket.on('delete_character', (data) => {
         const playerSession = players[socket.id];
         if (!playerSession || !playerSession.email) {
             console.log('[Delete] Rejected: Player not authenticated.');
@@ -294,14 +312,19 @@ io.on('connection', (socket) => {
             socket.emit('delete_character_error', { message: 'ID do personagem ausente.' });
             return;
         }
-        try {
-            await deleteCharacter(playerSession.email, data.characterId);
-            console.log(`[DB] Character ${data.characterId} deleted for ${playerSession.email}`);
-            socket.emit('delete_character_success', { characterId: data.characterId });
-        } catch (error) {
-            console.error('[DB] Delete character error:', error);
-            socket.emit('delete_character_error', { message: 'Erro ao apagar personagem.' });
-        }
+
+        const previous = saveQueues[socket.id] || Promise.resolve();
+        const current = previous.then(async () => {
+            try {
+                await deleteCharacter(playerSession.email, data.characterId);
+                console.log(`[DB] Character ${data.characterId} deleted for ${playerSession.email}`);
+                socket.emit('delete_character_success', { characterId: data.characterId });
+            } catch (error) {
+                console.error('[DB] Delete character error:', error);
+                socket.emit('delete_character_error', { message: 'Erro ao apagar personagem.' });
+            }
+        });
+        saveQueues[socket.id] = current.catch(() => {});
     });
     // ---------------------------------
 });

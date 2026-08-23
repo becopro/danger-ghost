@@ -2,7 +2,7 @@
 
 Este é o documento de referência principal para o Claude Code (e qualquer agente compatível) trabalhando neste repositório. Ele consolida e substitui, em termos de precisão, o `Gemini.md` deste mesmo diretório — os dois devem contar a mesma história; se divergirem, este arquivo é a fonte da verdade porque é o mais recentemente auditado contra o código real (23/08/2026).
 
-Antes de propor ou implementar qualquer mudança, leia também `docs/PRD.md`, `docs/SPEC.md`, `docs/ARCHITECTURE.md`, `docs/BRIEFING.md` e `docs/HANDOVER.md` — não redescubra a arquitetura do zero a cada sessão.
+Antes de propor ou implementar qualquer mudança, leia também `docs/PRD.md`, `docs/SPEC.md`, `docs/ARCHITECTURE.md`, `docs/BRIEFING.md` e `docs/HANDOVER.md` — não redescubra a arquitetura do zero a cada sessão. Para qualquer mudança em save/sync/auth especificamente, leia também `docs/SAVE_SYSTEM_MASTER_PLAN.md` (23/08/2026) — lista as garantias já verificadas, os invariantes que as sustentam, e os riscos conhecidos e conscientemente não corrigidos; uma mudança que viole um desses invariantes reintroduz um bug já corrigido hoje.
 
 ## 1. Regra de Ouro: Nada de Blockchain DeSo (mas cuidado com o nome)
 - O projeto é **100% Web2**. A blockchain DeSo foi usada no passado e **foi removida**. Não tente reativá-la.
@@ -78,8 +78,9 @@ Criada em 30/08/2026, a pedido do usuário: um time de subagentes com escopo de 
 | `mobile-platform-engineer` | Paridade site↔mobile, build Capacitor/Android, as duas pastas-armadilha já documentadas na §3. |
 | `security-engineer` | Revisão de auth/validação/integridade — não implementa, revisa e aponta cenário concreto de abuso. |
 | `qa-lead` | Verificação ponta a ponta antes de qualquer deploy que toque save/auth/sync — método real, não "parece que funciona". |
+| `forensic-analyst` | Investigação forense de largo espectro (40 anos) — assume que nada está de fato corrigido até rastrear a cadeia causal completa; usado quando um sistema (ex: save/sync) já foi remendado várias vezes e pode ter irmãos do mesmo bug em outro lugar. Não é substituto do `qa-lead` (verificação de UMA mudança antes do deploy) nem do `backend-architect` (implementação) — é auditoria adversarial ampla. |
 | `ui-ux-designer` | HUD, modais, responsividade mobile, identidade visual neon/vaporwave. |
 | `narrative-designer` | Lore da Ghostdex, nomenclatura de espécies, tom do texto voltado ao jogador. |
 | `skills-curator` | Pesquisa e mantém as Skills compartilhadas em `danger ghost/.claude/skills/` — não escreve código de jogo. |
 
-Skills já criadas (carregadas pelos agentes acima quando relevante): `e2e-db-verification` (metodologia de teste contra o Supabase real, com conta descartável, simulando "outro aparelho") e `crossplatform-deploy` (checklist de espelhar pro mobile, recompilar o APK, cache-busting, e o deploy na VPS com as pegadinhas do teclado remoto). Peça ao `skills-curator` pra criar novas conforme o time encontrar mais processos repetíveis.
+Skills já criadas (carregadas pelos agentes acima quando relevante): `e2e-db-verification` (metodologia de teste contra o Supabase real, com conta descartável, simulando "outro aparelho"), `crossplatform-deploy` (checklist de espelhar pro mobile, recompilar o APK, cache-busting, e o deploy na VPS com as pegadinhas do teclado remoto) e `forensic-root-cause-analysis` (mapeamento de cadeia causal, causa raiz vs. gatilho, diagnóstico de race condition a partir do estado bruto, caça a "irmãos" do mesmo tipo de bug — carregada pelo `forensic-analyst` antes de `e2e-db-verification`). Peça ao `skills-curator` pra criar novas conforme o time encontrar mais processos repetíveis.

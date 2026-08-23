@@ -81,6 +81,18 @@ window.ConnectToServer = function() {
         }
     });
 
+    // Achado numa auditoria forense pedida pelo usuário (23/08/2026): o servidor sempre emitiu
+    // save_error quando um save falhava de verdade (query malformada, etc.), mas nenhum lugar do
+    // cliente escutava esse evento — o jogador nunca ficava sabendo que um save específico não
+    // chegou no banco (nem o console mostrava nada). Não é uma mentira ("salvou!" falso), é
+    // silêncio total. Registrado no console pra qualquer investigação futura (e visível ao
+    // usuário) ter o dado; não usa alert() porque a maioria dos saves é automática em segundo
+    // plano (subir de nível, capturar fantasma) e um alert bloqueante a cada falha isolada seria
+    // mais disruptivo que o próprio problema.
+    socket.on('save_error', (data) => {
+        console.error('[Save] Falhou salvar no banco:', (data && data.message) || 'erro desconhecido');
+    });
+
     socket.on('player_joined', (data) => {
         if (data && data.id) {
             window.NetworkState.playerNames[data.id] = data.name || 'Ghost';
