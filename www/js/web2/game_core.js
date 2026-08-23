@@ -48,79 +48,25 @@
     }
     window.SavePlayerName = SavePlayerName;
 
-    // TODO: Replace with your actual Firebase config
-    const firebaseConfig = {
-        apiKey: "YOUR_API_KEY",
-        authDomain: "YOUR_AUTH_DOMAIN",
-        projectId: "YOUR_PROJECT_ID",
-        storageBucket: "YOUR_STORAGE_BUCKET",
-        messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-        appId: "YOUR_APP_ID"
-    };
-
-    try {
-        if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
-            firebase.initializeApp(firebaseConfig);
-        } else {
-            console.warn("[Firebase] Config is missing, running in MOCK mode.");
-        }
-    } catch (e) {
-        console.warn("[Firebase] Initialization skipped.");
-    }
-
-    function LoginGoogle() {
-        var btn = document.getElementById("btnNavLogin");
-        var nameInput = document.getElementById("startNameInput");
-        
-        if (nameInput) {
-            var chosenName = nameInput.value.trim();
-            if (chosenName !== "") {
-                localStorage.setItem("playerName", chosenName);
-            }
-        }
-        
-        if (btn) {
-            btn.innerText = "CONNECTING...";
-            btn.disabled = true;
-        }
-
-        if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            firebase.auth().signInWithPopup(provider).then((result) => {
-                return result.user.getIdToken();
-            }).then((idToken) => {
-                var menu = document.getElementById("loginButtonsContainer");
-                if (menu) menu.style.display = "none";
-                
-                localStorage.setItem("google_token", idToken);
-                
-                if (window.JoinGameServer) {
-                    window.JoinGameServer(idToken);
-                }
-            }).catch((error) => {
-                console.error("Firebase Login Error", error);
-                if (btn) {
-                    btn.innerText = "🔑 LOGIN";
-                    btn.disabled = false;
-                }
-                alert("Erro no login: " + error.message);
-            });
-        } else {
-            console.warn("Using Mock Login fallback (Firebase disabled/unconfigured)!");
-            setTimeout(function() {
-                var menu = document.getElementById("loginButtonsContainer");
-                if (menu) menu.style.display = "none";
-                
-                var mockToken = "mock_" + (localStorage.getItem("playerName") || "user");
-                localStorage.setItem("google_token", mockToken);
-                
-                if (window.JoinGameServer) {
-                    window.JoinGameServer(mockToken);
-                }
-            }, 800);
-        }
-    }
-    window.LoginGoogle = LoginGoogle;
+    // REMOVIDO (23/08/2026, achado numa auditoria forense de paridade site<->mobile pedida pelo
+    // usuário — o site já tinha removido o equivalente em 23/08/2026, mas nunca foi espelhado
+    // aqui). Existia aqui uma função LoginGoogle() com Firebase Auth direto
+    // (firebase.auth().signInWithPopup(...)) e um fallback de MOCK LOGIN — um setTimeout que
+    // gerava um token falso "mock_<nome>", escondia #loginButtonsContainer e chamava
+    // window.JoinGameServer(token) diretamente, sem passar por completeCloudLogin()
+    // (js/web2/auth.js). Diferente do site, aqui ela NÃO era código morto por falta de botão:
+    // www/index.html tem 3 botões ao vivo com onclick="LoginGoogle()" (btnNavLogin e mais dois no
+    // menu mobile). Só não era explorável na prática porque js/web2/auth.js — carregado DEPOIS
+    // deste arquivo no <script> de index.html — redefine window.LoginGoogle = OpenLoginModal()
+    // por cima desta, então o clique real sempre caía no fluxo de login de verdade. Ainda assim,
+    // essa proteção dependia inteiramente da ORDEM dos <script src> em index.html continuar a
+    // mesma — qualquer reordenação futura (ex.: mover auth.js pra cima, ou carregar game_core.js
+    // via defer/lazy) reativava silenciosamente o mock login (token falso, sem servidor validando
+    // nada, e window.JoinGameServer nem existe em lugar nenhum do código — grep em todo js/).
+    // Removida por completo em vez de só sobrescrita, mesmo tratamento do site: window.LoginGoogle
+    // já é um alias seguro pra OpenLoginModal() em js/web2/auth.js. As duas tags <script> do
+    // Firebase (firebase-app-compat.js/firebase-auth-compat.js) em index.html também foram
+    // removidas — nada mais em js/ referencia o global `firebase`.
 
     // Mock Save
     function TriggerRPGSaveToDeSo() {
@@ -207,7 +153,10 @@
     async function TriggerCreateNewGhost() {
         // Login obrigatório pra forjar (30/08/2026, mesmo padrão do site — ver o comentário lá
         // para a explicação completa).
-        if (!localStorage.getItem("dg_cloud_email")) {
+        // 23/08/2026: checa g_hasAuthenticatedThisPageLoad (memória, js/web2/auth.js), não
+        // dg_cloud_email (localStorage, persiste entre reloads e pularia o login sozinho) —
+        // mesmo fix aplicado no site em 22/08/2026, nunca espelhado aqui até agora.
+        if (!window.g_hasAuthenticatedThisPageLoad) {
             CloseNewGhostModal();
             if (typeof window.OpenLoginModal === "function") window.OpenLoginModal();
             return;
@@ -409,6 +358,27 @@
 
             for (var i = 0; i < characters.length; i++) {
                 var char = characters[i];
+
+                // Unlock every owned character in the Ghostdex (23/08/2026, achado numa auditoria
+                // forense de paridade site<->mobile — o site já tinha isso desde a auditoria de
+                // 22/08/2026 "salvar tudo da Ghostdex no banco", nunca espelhado aqui). Sem isso,
+                // um fantasma forjado (TriggerCreateNewGhost) ou restaurado num aparelho novo nunca
+                // ganhava uma entrada "capturado" na Ghostdex nem localmente nem no banco — a tela
+                // de seleção mostrava o fantasma normalmente, mas a Ghostdex dele continuava vazia
+                // pra sempre, em qualquer aparelho. Preferimos UpdateGhostdex porque ele já
+                // persiste em localStorage E sincroniza com o banco (save_game_state); o fallback
+                // de write direto abaixo é só pro caso raro de ghostdex_ui.js ainda não ter
+                // carregado nesta página.
+                if (typeof window.UpdateGhostdex === 'function') {
+                    window.UpdateGhostdex(char.characterId, 2);
+                } else {
+                    try {
+                        var p = JSON.parse(localStorage.getItem('ghostdex_progress') || '{}');
+                        p[char.characterId] = 2;
+                        localStorage.setItem('ghostdex_progress', JSON.stringify(p));
+                    } catch(e) {}
+                }
+
                 var card = document.createElement("div");
                 card.style.width = "230px";
                 card.style.background = "#181224";
@@ -493,7 +463,10 @@
         // Login obrigatório pra jogar (30/08/2026, mesmo fix do site) — essa função é o ponto
         // por onde todo "começar a jogar com um personagem" passa, blindar aqui cobre qualquer
         // chamador, direto ou via PlayAsGhost.
-        if (!localStorage.getItem("dg_cloud_email")) {
+        // 23/08/2026: checa g_hasAuthenticatedThisPageLoad (memória, js/web2/auth.js), não
+        // dg_cloud_email (localStorage, persiste entre reloads e pularia o login sozinho) —
+        // mesmo fix aplicado no site em 22/08/2026, nunca espelhado aqui até agora.
+        if (!window.g_hasAuthenticatedThisPageLoad) {
             if (typeof window.OpenLoginModal === "function") window.OpenLoginModal();
             return;
         }

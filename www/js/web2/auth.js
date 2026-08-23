@@ -1,5 +1,19 @@
 // web2/auth.js
 
+// Fonte de verdade pra "o jogador autenticou de verdade NESTA visita à página" (23/08/2026,
+// achado numa auditoria forense de paridade site<->mobile — mesmo mecanismo que o site já usa
+// há mais tempo em SPACE/P/PlayAsGhost/forge/play/StartGameFromMenu, nunca espelhado aqui). Em
+// memória, não localStorage: começa false a cada carregamento real de página e só vira true
+// dentro de completeCloudLogin(), no momento em que um login/cadastro/sessão é confirmado pelo
+// servidor NESTA visita. Diferente de dg_cloud_email (localStorage), que persiste indefinidamente
+// entre recarregamentos e continua sendo usado em todo o resto do jogo pra decidir SE sincroniza
+// com o banco — não decide mais se uma ação sensível (forjar, jogar, etc.) pode acontecer.
+// Mobile tem uma segunda linha de defesa que o site não tem (#mobileAuthGateScreen, sempre
+// mostrada primeiro no boot do app — ver index.html), mas os checkpoints individuais abaixo
+// continuam existindo como rede de segurança pro caso de algum botão futuro alcançar essas
+// funções sem passar pela tela de auth, exatamente como no site.
+window.g_hasAuthenticatedThisPageLoad = false;
+
 // Google Auth Callback
 function handleGoogleLogin(response) {
     console.log("[Auth] Google Token Received!");
@@ -84,6 +98,11 @@ function updateAllLoginButtons(name) {
 // --- Login por e-mail/senha (Cloud Save) — adicionado 20/08/2026, mesmo padrão do site ---
 function completeCloudLogin(email, name, playerData, token) {
     console.log("[CloudSave] Completing login session for:", email, name);
+    // Marca que o login/cadastro/sessão foi REALMENTE confirmado pelo servidor nesta visita à
+    // página (23/08/2026, ver declaração de g_hasAuthenticatedThisPageLoad no topo deste
+    // arquivo) — precisa vir cedo, antes de qualquer checkpoint que dependa dele mais abaixo no
+    // fluxo de login.
+    window.g_hasAuthenticatedThisPageLoad = true;
     var loadingModal = document.getElementById("loadingModal");
     if (loadingModal) loadingModal.style.display = "none";
     var loginModalUI = document.getElementById("loginModalUI");

@@ -3607,7 +3607,15 @@ var g_binaryBits = [];
 						// sessão, nunca começar o jogo direto). OpenLoginModal() já tenta o token
 						// de sessão salvo primeiro (loga sozinho se ainda for válido); se não,
 						// mostra o formulário com a opção de LOGIN ou CRIAR CONTA NOVA.
-						if (!localStorage.getItem('dg_cloud_email')) {
+						// 23/08/2026: checa g_hasAuthenticatedThisPageLoad (memória, js/web2/auth.js),
+						// não dg_cloud_email — dg_cloud_email persiste no localStorage entre
+						// reloads, então SPACE pularia o login sozinho num app que já logou antes
+						// (mesmo fix aplicado no site em 22/08/2026, nunca espelhado aqui até agora).
+						// g_hasAuthenticatedThisPageLoad reseta a cada carregamento e só vira true
+						// dentro de completeCloudLogin(). #mobileAuthGateScreen (index.html) já
+						// bloqueia a entrada inicial no app sem login, mas este checkpoint continua
+						// como rede de segurança independente, igual ao site.
+						if (!window.g_hasAuthenticatedThisPageLoad) {
 							if (typeof window.OpenLoginModal === 'function') window.OpenLoginModal();
 							return;
 						}
@@ -3633,7 +3641,9 @@ var g_binaryBits = [];
 				if (e.keyCode == 80) { // P (Passwords)
 					// Login obrigatório pra jogar (30/08/2026, mesmo fix do site) — esse atalho
 					// chamava ResetGame() direto, ignorando o gate de login do SPACE.
-					if (!localStorage.getItem('dg_cloud_email')) {
+					// 23/08/2026: mesma troca de dg_cloud_email pra g_hasAuthenticatedThisPageLoad
+					// do gate do SPACE acima — ver o comentário completo lá.
+					if (!window.g_hasAuthenticatedThisPageLoad) {
 						if (typeof window.OpenLoginModal === 'function') window.OpenLoginModal();
 						return;
 					}

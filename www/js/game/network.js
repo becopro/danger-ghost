@@ -72,6 +72,14 @@ window.ConnectToServer = function() {
         }
     });
 
+    // Achado numa auditoria forense pedida pelo usuário (23/08/2026, mesmo fix do site): o
+    // servidor sempre emitiu save_error quando um save falhava de verdade, mas nenhum lugar do
+    // cliente escutava esse evento — silêncio total, sem alert() bloqueante porque a maioria dos
+    // saves é automática em segundo plano.
+    socket.on('save_error', (data) => {
+        console.error('[Save] Falhou salvar no banco:', (data && data.message) || 'erro desconhecido');
+    });
+
     socket.on('player_joined', (data) => {
         if (data && data.id) {
             window.NetworkState.playerNames[data.id] = data.name || 'Ghost';

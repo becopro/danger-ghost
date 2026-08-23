@@ -623,6 +623,18 @@ window.GhostRPG = window.GhostRPG || {};
 window.RenderRPGStatusDrawer = RenderRPGStatusDrawer;
 
 function StartGameFromMenu() {
+    // Login obrigatório pra jogar (23/08/2026, achado numa auditoria forense de paridade
+    // site<->mobile — o site já tinha esse checkpoint desde 22/08/2026, nunca espelhado aqui):
+    // esta função não está amarrada a nenhum botão visível hoje (mesma situação do site), mas
+    // escondia loginButtonsContainer e abria a seleção de personagem incondicionalmente, sem
+    // checar sessão — um caminho pronto pra pular o login inteiro se algum botão futuro for
+    // amarrado a ela sem lembrar desse check. Mesmo padrão de SPACE/P/PlayAsGhost/forge/play:
+    // checa g_hasAuthenticatedThisPageLoad (memória, js/web2/auth.js), não dg_cloud_email.
+    if (!window.g_hasAuthenticatedThisPageLoad) {
+        if (typeof window.OpenLoginModal === 'function') window.OpenLoginModal();
+        return;
+    }
+
     var overlay = document.getElementById('loginButtonsContainer');
     if (overlay) overlay.style.display = 'none';
 

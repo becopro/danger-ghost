@@ -11,21 +11,23 @@
     <link rel="icon" type="image/png" href="favicon.png" />
     
     <!-- Scripts Externos -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <!-- Firebase (firebase-app-compat.js/firebase-auth-compat.js) removido (23/08/2026, auditoria
+         forense de paridade site<->mobile): só era usado pela função LoginGoogle() morta de
+         js/web2/game_core.js (mesmo achado e removida do site nesse mesmo dia) — ver comentário
+         em game_core.js no lugar onde a função existia. -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     <script src="js/core/event_bus.js?v=38"></script>
     <script src="js/globals.js?v=38"></script>
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
     <script src="js/game/network.js?v=53"></script>
-    <script src="js/web2/game_core.js?v=41"></script>
+    <script src="js/web2/game_core.js?v=42"></script>
     <script src="js/web2/scores.js?v=41"></script>
     <script src="js/game/rpg_system.js?v=41"></script>
-    <script src="js/ui/ui_manager.js?v=41"></script>
+    <script src="js/ui/ui_manager.js?v=42"></script>
     <script src="js/game/ghost_inventory.js?v=41"></script>
     <script src="js/game/ghostdex_data.js?v=41"></script>
-    <script src="js/game/ghostdex_ui.js?v=41"></script>
+    <script src="js/game/ghostdex_ui.js?v=42"></script>
 </head>
 <body>
 
@@ -1063,7 +1065,7 @@
     </div>
 
     <!-- Script de inicialização da Engine -->
-    <script src="js/game/engine.js?v=52"></script>
+    <script src="js/game/engine.js?v=53"></script>
 
     <!-- Script para rotação de backgrounds com fade-in suave -->
     <script type="text/javascript">
@@ -1204,7 +1206,7 @@
 
     <!-- Scripts de Autenticação -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="js/web2/auth.js?v=39"></script>
+    <script src="js/web2/auth.js?v=40"></script>
 
     <!-- MOBILE APP AUTH GATE SCREEN (22/08/2026, pedido explícito do usuário) — tela exclusiva,
          primeira coisa que aparece ao abrir o app sem uma sessão válida salva. Só tem os dois
@@ -1317,10 +1319,18 @@
             // Login obrigatório pra jogar (mesma regra já auditada e aplicada em todos os
             // outros pontos de entrada do jogo hoje: SPACE no web, PLAY na Ghostdex, cheat de
             // senha VIP, forjar fantasma). "Episode 1" no mobile era o único fluxo que ainda
-            // pulava direto pro jogo sem checar sessão nenhuma — corrigido aqui. Só bloqueia
-            // quem nunca logou; dg_cloud_email fica salvo assim que loga uma vez, então voltar
-            // do jogo pausado pro menu e apertar "Episode 1"/"Resume" de novo continua liberado.
-            if (!localStorage.getItem('dg_cloud_email')) {
+            // pulava direto pro jogo sem checar sessão nenhuma — corrigido aqui.
+            // 23/08/2026 (auditoria forense de paridade site<->mobile, mesmo dia): trocado de
+            // dg_cloud_email pra g_hasAuthenticatedThisPageLoad (memória, js/web2/auth.js) — o
+            // check original bloqueava quem NUNCA logou, mas dg_cloud_email persiste no
+            // localStorage indefinidamente, então continuava sendo o mesmo "pularia o login
+            // sozinho" que os outros 6 pontos de entrada (SPACE/P/PlayAsGhost/forge/play/
+            // StartGameFromMenu) tinham antes desse mesmo fix. g_hasAuthenticatedThisPageLoad
+            // reseta a cada carregamento e só vira true dentro de completeCloudLogin() — e
+            // #mobileAuthGateScreen já garante que login/auto-login por token de sessão rodou
+            // antes de #mobileMainMenu (e portanto este botão) ficar alcançável, então nenhum
+            // jogador legítimo vê uma tela de login extra por causa desta troca.
+            if (!window.g_hasAuthenticatedThisPageLoad) {
                 if (typeof window.OpenLoginModal === 'function') window.OpenLoginModal();
                 return;
             }
@@ -1443,6 +1453,6 @@
     </script>
     <script src="js/game/ghost_inventory.js?v=40"></script>
     <script src="js/game/ghostdex_data.js?v=40"></script>
-    <script src="js/game/ghostdex_ui.js?v=40"></script>
+    <script src="js/game/ghostdex_ui.js?v=41"></script>
 </body>
 </html>
