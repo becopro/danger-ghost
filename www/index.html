@@ -801,11 +801,11 @@
             <div class="tutorial-modal-body" style="display: flex; height: calc(100% - 60px); padding: 0;">
                 <!-- Sidebar tabs -->
                 <div class="tutorial-sidebar" style="height: 100%; display: flex; flex-direction: column; min-width: 250px; border-right: 1px solid rgba(255,255,255,0.1); padding: 20px;">
-                    <button id="tabBtnLore1" class="tutorial-tab-btn active" onclick="SwitchLoreTab('1')" style="margin-bottom: 10px;">📚 Enciclopédia</button>
-                    <button id="tabBtnLore2" class="tutorial-tab-btn" onclick="SwitchLoreTab('2')" style="margin-bottom: 10px;">📖 Vol 1: A Ascensão</button>
-                    <button id="tabBtnLore3" class="tutorial-tab-btn" onclick="SwitchLoreTab('3')" style="margin-bottom: 10px;">🦁 Vol 2: O Rugido da Fenda</button>
+                    <button id="tabBtnLore1" class="tutorial-tab-btn active" onclick="SwitchLoreTab('1')" style="margin-bottom: 10px;">📚 Encyclopedia</button>
+                    <button id="tabBtnLore2" class="tutorial-tab-btn" onclick="SwitchLoreTab('2')" style="margin-bottom: 10px;">📖 Vol 1: The Ascension</button>
+                    <button id="tabBtnLore3" class="tutorial-tab-btn" onclick="SwitchLoreTab('3')" style="margin-bottom: 10px;">🦁 Vol 2: The Rift's Roar</button>
                     <div style="margin-top: auto;">
-                        <button class="glass-action-btn tutorial-pulsate-btn" onclick="ReadLoreText()" style="width: 100%; font-size: 14px; padding: 15px; border-radius: 8px;">🔊 Ouvir História</button>
+                        <button class="glass-action-btn tutorial-pulsate-btn" onclick="ReadLoreText()" style="width: 100%; font-size: 14px; padding: 15px; border-radius: 8px;">🔊 Listen to the Story</button>
                     </div>
                 </div>
                 
@@ -1196,9 +1196,9 @@
             <input id="loginInputEmail" type="email" placeholder="seuemail@ghostgames.club" style="width: 100%; padding: 10px; margin-bottom: 12px; background: #111; border: 1px solid #00FFFF; color: #FFF; border-radius: 4px; font-family: 'Orbitron', sans-serif; box-sizing: border-box;" />
             <input id="loginInputName" type="text" placeholder="Seu Nickname (só pra CRIAR CONTA NOVA)" style="width: 100%; padding: 10px; margin-bottom: 20px; background: #111; border: 1px solid #00FFFF; color: #FFF; border-radius: 4px; font-family: 'Orbitron', sans-serif; box-sizing: border-box;" />
             <input type="password" id="loginInputPassword" placeholder="Sua Senha Secreta (6 a 12 caracteres)" minlength="6" maxlength="12" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #111; border: 1px solid #00FFFF; color: #fff; font-family: 'Orbitron', sans-serif; border-radius: 4px;">
-            <button onclick="CloudSaveLogin()" style="background: #00FF00; color: #000; font-family: 'Orbitron', sans-serif; font-weight: bold; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; text-transform: uppercase; box-shadow: 0 0 10px #00FF00; width: 100%; margin-bottom: 10px;">ENTRAR & RESGATAR MEU PROGRESSO</button>
-            <button onclick="CloudSaveSignup()" style="background: transparent; color: #00FFFF; font-family: 'Orbitron', sans-serif; font-weight: bold; padding: 12px 24px; border: 1px solid #00FFFF; border-radius: 4px; cursor: pointer; text-transform: uppercase; width: 100%; margin-bottom: 10px;">CRIAR CONTA NOVA</button>
-            <button onclick="CloseLoginModal()" style="background: transparent; color: #FF0055; border: 1px solid #FF0055; padding: 8px 16px; border-radius: 4px; cursor: pointer;">FECHAR</button>
+            <button onclick="CloudSaveLogin()" style="background: #00FF00; color: #000; font-family: 'Orbitron', sans-serif; font-weight: bold; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; text-transform: uppercase; box-shadow: 0 0 10px #00FF00; width: 100%; margin-bottom: 10px;">LOG IN & RESTORE MY PROGRESS</button>
+            <button onclick="CloudSaveSignup()" style="background: transparent; color: #00FFFF; font-family: 'Orbitron', sans-serif; font-weight: bold; padding: 12px 24px; border: 1px solid #00FFFF; border-radius: 4px; cursor: pointer; text-transform: uppercase; width: 100%; margin-bottom: 10px;">CREATE NEW ACCOUNT</button>
+            <button onclick="CloseLoginModal()" style="background: transparent; color: #FF0055; border: 1px solid #FF0055; padding: 8px 16px; border-radius: 4px; cursor: pointer;">CLOSE</button>
         </div>
     </div>
 
@@ -1218,8 +1218,8 @@
     <div id="mobileAuthGateScreen" style="position: fixed; top:0; left:0; width:100vw; height:100vh; background: url('assets/menu_bg.png') center/cover no-repeat #000; z-index: 10050; display: none; flex-direction: column; justify-content: center; align-items: center; gap: 40px; box-sizing: border-box; padding: 20px;">
         <h1 style="color: #00FFFF; font-family: 'Orbitron', sans-serif; font-size: 30px; font-weight: bold; text-transform: uppercase; letter-spacing: 3px; text-shadow: 0 0 10px #00FFFF, 0 0 25px #00FFFF; margin: 0; text-align: center;">DANGER GHOST</h1>
         <div style="display: flex; flex-direction: column; align-items: center; gap: 20px;">
-            <button onclick="OpenLoginModal()" id="mobileAuthGateRescueBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FF00; width: 260px; height: 58px; font-size: 15px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Resgatar Progresso</button>
-            <button onclick="OpenLoginModal()" id="mobileAuthGateCreateBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FFFF; width: 260px; height: 58px; font-size: 15px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Criar Conta Nova</button>
+            <button onclick="OpenLoginModal()" id="mobileAuthGateRescueBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FF00; width: 260px; height: 58px; font-size: 15px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Restore Progress</button>
+            <button onclick="OpenLoginModal()" id="mobileAuthGateCreateBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FFFF; width: 260px; height: 58px; font-size: 15px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Create New Account</button>
         </div>
     </div>
 
@@ -1255,6 +1255,12 @@
         </div>
 
         <div id="mobileActionBtns" style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 0px; margin-top: auto; padding-bottom: 0; width: 100%;">
+            <!-- LOGOUT (23/08/2026, pedido do usuário): fica acima do SAVE de propósito, na ordem
+                 do DOM. Sempre visível assim que #mobileMainMenu aparece (sem display:none como
+                 SAVE/RESUME) porque quem chega aqui já está logado, ao contrário deles que só
+                 fazem sentido depois que uma partida começa. LogoutMobile() está em
+                 js/web2/auth.js, ao lado de completeCloudLogin(). -->
+            <button onclick="LogoutMobile()" id="mobileLogoutBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #FF0055; width: 250px; height: 55px; margin: -2px 0; font-size: 16px; font-weight: bold; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Logout</button>
             <button onclick="window.TriggerRPGSaveToDeSo();" id="mobileSaveBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FF00; width: 250px; height: 55px; margin: -2px 0; font-size: 20px; font-weight: bold; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: none; align-items: center; justify-content: center;">SAVE</button>
             <!-- "Resgatar Progresso"/"Criar Conta Nova" foram movidos daqui pra
                  #mobileAuthGateScreen em 22/08/2026 (pedido do usuário: tela exclusiva, separada

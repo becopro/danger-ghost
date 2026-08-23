@@ -195,6 +195,35 @@ function completeCloudLogin(email, name, playerData, token) {
 }
 window.completeCloudLogin = completeCloudLogin;
 
+// Botão LOGOUT do menu mobile (23/08/2026, pedido do usuário) — o oposto exato de
+// completeCloudLogin() acima: em vez de gravar a sessão, apaga tudo que ela gravou, pra deixar o
+// aparelho limpo pra outra conta (resgatar uma diferente ou criar uma nova com outro e-mail).
+// IMPORTANTE: esta lista de chaves precisa continuar sendo o espelho exato do que
+// completeCloudLogin() grava (linhas ~101-135 e ~186 acima) — se aquela função passar a gravar
+// mais alguma chave no futuro, esta precisa ser atualizada junto, senão sobra lixo da conta
+// antiga pra próxima conta que logar neste mesmo aparelho.
+function LogoutMobile() {
+    try {
+        localStorage.removeItem("dg_cloud_email");
+        localStorage.removeItem("dg_session_token");
+        localStorage.removeItem("dg_cloud_profile");
+        localStorage.removeItem("dg_local_characters");
+        localStorage.removeItem("ghostdex_progress");
+        localStorage.removeItem("DangerGhost_Favorites");
+        localStorage.removeItem("dg_deso_character_id");
+        localStorage.removeItem("playerName");
+    } catch (e) {}
+
+    // Reload em vez de resetar manualmente cada pedacinho de estado em memória do RPG (que está
+    // bastante espalhado pelo engine.js/rpg_system.js) — mais seguro, garante que nenhum resquício
+    // visual da conta anterior sobrevive. O DOMContentLoaded em www/index.html já mostra
+    // #mobileAuthGateScreen incondicionalmente quando o app roda dentro do Capacitor, então o
+    // reload cai direto na tela de "Restore Progress"/"Create New Account" sozinho, sem precisar
+    // de nenhuma lógica extra aqui.
+    window.location.reload();
+}
+window.LogoutMobile = LogoutMobile;
+
 function OpenLoginModal() {
     // Antes de mostrar o formulário, tenta o token de sessão salvo (se ainda for válido, o
     // jogador já está logado e resgata o save sem digitar senha de novo; se não, cai pro
