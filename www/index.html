@@ -1198,15 +1198,17 @@
             <input id="loginInputEmail" type="email" placeholder="seuemail@ghostgames.club" style="width: 100%; padding: 10px; margin-bottom: 12px; background: #111; border: 1px solid #00FFFF; color: #FFF; border-radius: 4px; font-family: 'Orbitron', sans-serif; box-sizing: border-box;" />
             <input id="loginInputName" type="text" placeholder="Seu Nickname (só pra CRIAR CONTA NOVA)" style="width: 100%; padding: 10px; margin-bottom: 20px; background: #111; border: 1px solid #00FFFF; color: #FFF; border-radius: 4px; font-family: 'Orbitron', sans-serif; box-sizing: border-box;" />
             <input type="password" id="loginInputPassword" placeholder="Sua Senha Secreta (6 a 12 caracteres)" minlength="6" maxlength="12" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #111; border: 1px solid #00FFFF; color: #fff; font-family: 'Orbitron', sans-serif; border-radius: 4px;">
-            <button onclick="CloudSaveLogin()" style="background: #00FF00; color: #000; font-family: 'Orbitron', sans-serif; font-weight: bold; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; text-transform: uppercase; box-shadow: 0 0 10px #00FF00; width: 100%; margin-bottom: 10px;">LOG IN & RESTORE MY PROGRESS</button>
-            <button onclick="CloudSaveSignup()" style="background: transparent; color: #00FFFF; font-family: 'Orbitron', sans-serif; font-weight: bold; padding: 12px 24px; border: 1px solid #00FFFF; border-radius: 4px; cursor: pointer; text-transform: uppercase; width: 100%; margin-bottom: 10px;">CREATE NEW ACCOUNT</button>
+            <button onclick="CloudSaveLogin(this)" style="background: #00FF00; color: #000; font-family: 'Orbitron', sans-serif; font-weight: bold; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; text-transform: uppercase; box-shadow: 0 0 10px #00FF00; width: 100%; margin-bottom: 10px;">LOG IN & RESTORE MY PROGRESS</button>
+            <button onclick="CloudSaveSignup(this)" style="background: transparent; color: #00FFFF; font-family: 'Orbitron', sans-serif; font-weight: bold; padding: 12px 24px; border: 1px solid #00FFFF; border-radius: 4px; cursor: pointer; text-transform: uppercase; width: 100%; margin-bottom: 10px;">CREATE NEW ACCOUNT</button>
             <button onclick="CloseLoginModal()" style="background: transparent; color: #FF0055; border: 1px solid #FF0055; padding: 8px 16px; border-radius: 4px; cursor: pointer;">CLOSE</button>
         </div>
     </div>
 
     <!-- Scripts de Autenticação -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="js/web2/auth.js?v=40"></script>
+    <!-- Tag <script> do Google GSI removida em 27/08/2026 (auditoria ao vivo): login via Google
+         foi removido de vez (ver js/web2/auth.js) e nada mais no cliente usa a global `google`
+         que esta tag carregava. -->
+    <script src="js/web2/auth.js?v=41"></script>
 
     <!-- MOBILE APP AUTH GATE SCREEN (22/08/2026, pedido explícito do usuário) — tela exclusiva,
          primeira coisa que aparece ao abrir o app sem uma sessão válida salva. Só tem os dois
@@ -1221,7 +1223,7 @@
         <h1 style="color: #00FFFF; font-family: 'Orbitron', sans-serif; font-size: 30px; font-weight: bold; text-transform: uppercase; letter-spacing: 3px; text-shadow: 0 0 10px #00FFFF, 0 0 25px #00FFFF; margin: 0; text-align: center;">DANGER GHOST</h1>
         <div style="display: flex; flex-direction: column; align-items: center; gap: 20px;">
             <button onclick="OpenLoginModal()" id="mobileAuthGateRescueBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FF00; width: 260px; height: 58px; font-size: 15px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Restore Progress</button>
-            <button onclick="OpenLoginModal()" id="mobileAuthGateCreateBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FFFF; width: 260px; height: 58px; font-size: 15px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Create New Account</button>
+            <button onclick="OpenSignupModal()" id="mobileAuthGateCreateBtn" style="background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FFFF; width: 260px; height: 58px; font-size: 15px; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center;">Create New Account</button>
         </div>
     </div>
 

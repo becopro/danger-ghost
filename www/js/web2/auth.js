@@ -14,67 +14,22 @@
 // funções sem passar pela tela de auth, exatamente como no site.
 window.g_hasAuthenticatedThisPageLoad = false;
 
-// Google Auth Callback
-function handleGoogleLogin(response) {
-    console.log("[Auth] Google Token Received!");
-
-    // Mostra o Modal "Buscando progresso..."
-    var loadingModal = document.getElementById("loadingModal");
-    if (loadingModal) {
-        loadingModal.style.display = "flex";
-    }
-
-    // Envia o token para o backend via socket
-    var socket = window.NetworkState && window.NetworkState.socket;
-    if (!socket || !socket.connected) {
-        alert("Erro: Não foi possível conectar ao servidor para validar o login. O servidor pode estar offline (Render suspenso).");
-        if (loadingModal) loadingModal.style.display = "none";
-        return;
-    }
-
-    // Listener amarrado a esta chamada específica (não mais um listener global registrado uma
-    // vez no carregamento da página) — mesma correção aplicada em CloudSaveLogin() logo abaixo,
-    // ver o comentário lá para o motivo completo. Corrigido em 20/08/2026.
-    var finished = false;
-    function cleanup() {
-        finished = true;
-        clearTimeout(timeoutId);
-        socket.off("auth_google_success", handleSuccess);
-        socket.off("auth_google_error", handleError);
-    }
-    var timeoutId = setTimeout(function() {
-        if (finished) return;
-        cleanup();
-        if (loadingModal) loadingModal.style.display = "none";
-        alert("O servidor demorou demais para responder. Verifique sua internet e tente novamente.");
-    }, 15000);
-    function handleSuccess(data) {
-        if (finished) return;
-        cleanup();
-        if (!data) return;
-        completeCloudLogin(data.email, data.playerData && data.playerData.name, data.playerData, data.token);
-        if (window.g_gameState === 0) window.isCloudLoaded = true;
-    }
-    function handleError(data) {
-        if (finished) return;
-        cleanup();
-        alert("Erro no Login: " + ((data && data.message) || "Falha ao acessar o Cloud Save."));
-        if (loadingModal) loadingModal.style.display = "none";
-    }
-    socket.on("auth_google_success", handleSuccess);
-    socket.on("auth_google_error", handleError);
-    socket.emit("auth_google_token", { token: response.credential });
-}
-window.handleGoogleLogin = handleGoogleLogin;
+// handleGoogleLogin() removida em 27/08/2026 (auditoria ao vivo pedida pelo usuário, mesma
+// limpeza já feita no site em 23/08/2026 — ver LoginGoogle() abaixo). Chamava
+// google.accounts.id.initialize() de verdade no carregamento da página com um client_id
+// placeholder nunca preenchido ("SEU_CLIENT_ID_DO_GOOGLE...") — não era explorável (o servidor
+// rejeitaria por falta de client_id real), mas era código morto perigoso esquecido: se algum dia
+// alguém preenchesse o client_id sem revisar o resto, reativaria um caminho de login que nunca
+// teve verificação real do lado do cliente. window.LoginGoogle continua existindo como alias de
+// segurança pra OpenLoginModal() — ver logo abaixo.
 
 // O botão "LOGIN" do HTML chama esta função.
-// NOTA (20/08/2026): o fluxo do Google (abaixo, ainda no código pra quando um client_id de
-// verdade for configurado) fica pulado por enquanto — o client_id em DOMContentLoaded é
-// literalmente o texto "SEU_CLIENT_ID_DO_GOOGLE...", nunca preenchido, então esse caminho
-// nunca funcionou. Tentar mesmo assim causava o jogador tocar em LOGIN, nada acontecer na
-// hora, e a tela de e-mail/senha só aparecer alguns segundos depois (quando o Google falhava
-// de forma assíncrona) — parecendo, pra quem estava jogando, que a tela abria sozinha ao
-// selecionar um fantasma na Ghostdex. Ir direto pro e-mail/senha evita essa confusão.
+// NOTA (20/08/2026, atualizada 27/08/2026 quando o fluxo do Google foi removido de vez — ver
+// comentário acima): vai direto pro e-mail/senha porque o Google nunca teve client_id real
+// configurado. Antes disso, tentar o caminho do Google causava o jogador tocar em LOGIN, nada
+// acontecer na hora, e a tela de e-mail/senha só aparecer alguns segundos depois (quando o
+// Google falhava de forma assíncrona) — parecendo, pra quem estava jogando, que a tela abria
+// sozinha ao selecionar um fantasma na Ghostdex.
 function LoginGoogle() {
     OpenLoginModal();
 }
@@ -174,8 +129,13 @@ function completeCloudLogin(email, name, playerData, token) {
     // nível/xp que ficava ativo logo após o login vinha só do resumo agregado da conta, que
     // qualquer aparelho sobrescrevia com o que quer que tivesse jogado por último, sem relação
     // com nenhum fantasma específico — daí "o progresso parecer diferente" entre aparelhos).
-    // NÃO chama SelectCharacterToPlay/PlayAsGhost aqui de propósito — essas funções também
-    // disparam StartCutscene()/ResetGame(), e login sozinho não deve começar a jogar sozinho.
+    // Comentário corrigido em 27/08/2026 (estava desatualizado/contraditório — só o texto
+    // mudou, o comportamento sempre foi este; ver explicação completa em js/web2/auth.js do
+    // site). Este bloco NÃO chama SelectCharacterToPlay/PlayAsGhost de propósito — essas funções
+    // também disparam StartCutscene()/ResetGame(), e repetir isso aqui duplicaria o início de
+    // jogo. Isso NÃO significa que login nunca inicia o jogo sozinho: com forceShowOverlay=false
+    // (comentário acima), o LoadRPGStateFromDeSo(null, false) chamado antes deste bloco JÁ faz
+    // esse auto-start quando o jogador tem personagem salvo — comportamento intencional.
     try {
         if (cloudCharacters.length > 0 && window.GhostRPG && window.GhostRPG.loadBlockchainState) {
             var mostRecentChar = cloudCharacters.reduce(function(latest, c) {
@@ -246,7 +206,8 @@ window.LogoutMobile = LogoutMobile;
 function OpenLoginModal() {
     // Antes de mostrar o formulário, tenta o token de sessão salvo (se ainda for válido, o
     // jogador já está logado e resgata o save sem digitar senha de novo; se não, cai pro
-    // formulário normal). Continua sendo o toque no botão LOGIN que dispara isso.
+    // formulário normal). Continua sendo o toque no botão LOGIN/Restore Progress que dispara
+    // isso. NÃO use esta função pro botão "Create New Account" — ver OpenSignupModal() abaixo.
     if (typeof TryAutoLoginFromSession === 'function') {
         TryAutoLoginFromSession(function(loggedIn) {
             if (!loggedIn) showLoginForm();
@@ -256,6 +217,16 @@ function OpenLoginModal() {
     }
 }
 window.OpenLoginModal = OpenLoginModal;
+
+// Bug corrigido em 27/08/2026 (auditoria ao vivo, mesmo fix do site — ver js/web2/auth.js lá
+// pro histórico completo): "Create New Account" (mobileAuthGateCreateBtn) chamava
+// OpenLoginModal() igual "Restore Progress", que tenta TryAutoLoginFromSession() antes de
+// mostrar qualquer formulário — com sessão salva, o app relogava sozinho na conta antiga em vez
+// de abrir o cadastro. OpenSignupModal() mostra o formulário direto, sem tentar retomar sessão.
+function OpenSignupModal() {
+    showLoginForm();
+}
+window.OpenSignupModal = OpenSignupModal;
 
 function showLoginForm() {
     var modal = document.getElementById('loginModalUI');
@@ -280,7 +251,7 @@ window.CloseLoginModal = CloseLoginModal;
 // pedido explícito do usuário — cada e-mail só pode ter uma conta; login recupera uma conta
 // existente, criar conta cadastra uma nova). Listeners amarrados a ESTA chamada específica, com
 // timeout de 15s — ver histórico do bug de spinner travado no commit de 20/08/2026.
-function submitCloudSaveAuth(eventName, payload, loadingText) {
+function submitCloudSaveAuth(eventName, payload, loadingText, submitBtn) {
     var loadingModal = document.getElementById("loadingModal");
     if (loadingModal) {
         var h2 = loadingModal.querySelector("h2");
@@ -295,12 +266,21 @@ function submitCloudSaveAuth(eventName, payload, loadingText) {
         return;
     }
 
+    // Bug corrigido em 27/08/2026 (auditoria ao vivo, mesmo fix do site — ver js/web2/auth.js
+    // lá pro histórico completo): duplo toque rápido nesta função registrava dois pares de
+    // listeners socket.on("cloud_save_success"/"cloud_save_error", ...) sem id de correlação; o
+    // socket.off() da chamada que terminasse primeiro removia o listener da outra, ainda
+    // esperando resposta, que era descartada em silêncio. Corrigido na origem: desabilita o
+    // botão assim que o envio começa, só reabilita quando a resposta voltar.
+    if (submitBtn) submitBtn.disabled = true;
+
     var finished = false;
     function cleanup() {
         finished = true;
         clearTimeout(timeoutId);
         socket.off("cloud_save_success", handleSuccess);
         socket.off("cloud_save_error", handleError);
+        if (submitBtn) submitBtn.disabled = false;
     }
     var timeoutId = setTimeout(function() {
         if (finished) return;
@@ -328,7 +308,7 @@ function submitCloudSaveAuth(eventName, payload, loadingText) {
     socket.emit(eventName, payload);
 }
 
-function CloudSaveLogin() {
+function CloudSaveLogin(btn) {
     var email = document.getElementById('loginInputEmail') ? document.getElementById('loginInputEmail').value.trim() : "";
     var password = document.getElementById('loginInputPassword') ? document.getElementById('loginInputPassword').value.trim() : "";
 
@@ -341,12 +321,12 @@ function CloudSaveLogin() {
         return;
     }
 
-    submitCloudSaveAuth("cloud_save_login", { email: email, password: password }, "Verificando senha e resgatando progresso...");
+    submitCloudSaveAuth("cloud_save_login", { email: email, password: password }, "Verificando senha e resgatando progresso...", btn);
 }
 window.CloudSaveLogin = CloudSaveLogin;
 window.LoginDeveloperFallback = CloudSaveLogin;
 
-function CloudSaveSignup() {
+function CloudSaveSignup(btn) {
     var email = document.getElementById('loginInputEmail') ? document.getElementById('loginInputEmail').value.trim() : "";
     var name = document.getElementById('loginInputName') ? document.getElementById('loginInputName').value.trim() : "";
     var password = document.getElementById('loginInputPassword') ? document.getElementById('loginInputPassword').value.trim() : "";
@@ -360,31 +340,36 @@ function CloudSaveSignup() {
         return;
     }
 
-    submitCloudSaveAuth("cloud_save_signup", { email: email, name: name || 'Ghost', password: password }, "Criando sua conta...");
+    submitCloudSaveAuth("cloud_save_signup", { email: email, name: name || 'Ghost', password: password }, "Criando sua conta...", btn);
 }
 window.CloudSaveSignup = CloudSaveSignup;
-
-window.addEventListener('DOMContentLoaded', () => {
-    // Inicializa a biblioteca do Google assim que a página carregar
-    // Substitua "SEU_CLIENT_ID_DO_GOOGLE" pelo seu Client ID real depois
-    if (typeof google !== 'undefined') {
-        google.accounts.id.initialize({
-            client_id: "SEU_CLIENT_ID_DO_GOOGLE.apps.googleusercontent.com",
-            callback: handleGoogleLogin,
-            cancel_on_tap_outside: false
-        });
-    }
-});
 
 // Login por token de sessão (30/08/2026; ajustado no mesmo dia por pedido explícito do usuário,
 // mesmo padrão do site: SEM disparar sozinho no carregamento da página). Só roda quando alguém
 // chama de propósito: OpenLoginModal() (botão LOGIN) e o SPACE da tela inicial
 // (www/js/game/engine.js) chamam isso antes de decidir se mostram o formulário de e-mail/senha
 // ou se já entram direto. onDone(true|false) avisa quem chamou se conseguiu logar ou não.
+// Trava simples contra chamadas concorrentes (27/08/2026, mesmo fix do site — ver
+// js/web2/auth.js lá pro histórico completo): TryAutoLoginFromSession() é chamada por vários
+// pontos de entrada diferentes (Restore Progress, os vários botões LOGIN via LoginGoogle(), o
+// SPACE/toque da tela inicial), nenhum deles desabilitando nada visualmente. Duplo toque rápido
+// em qualquer um registrava dois pares de listeners socket.on("session_login_success"/
+// "session_login_error", ...) sem id de correlação, e a resposta de um deles era descartada em
+// silêncio — a mesma corrida de submitCloudSaveAuth(). Uma trava única aqui cobre todos os
+// pontos de entrada de uma vez.
+var g_autoLoginInFlight = false;
+
 function TryAutoLoginFromSession(onDone) {
     var token = null;
     try { token = localStorage.getItem("dg_session_token"); } catch (e) {}
     if (!token) { if (onDone) onDone(false); return; }
+
+    if (g_autoLoginInFlight) { if (onDone) onDone(false); return; }
+    g_autoLoginInFlight = true;
+    function done(result) {
+        g_autoLoginInFlight = false;
+        if (onDone) onDone(result);
+    }
 
     var attempts = 0;
     function waitForSocket() {
@@ -394,7 +379,7 @@ function TryAutoLoginFromSession(onDone) {
             return;
         }
         attempts++;
-        if (attempts > 15) { if (onDone) onDone(false); return; } // ~3s tentando; desiste
+        if (attempts > 15) { done(false); return; } // ~3s tentando; desiste
         setTimeout(waitForSocket, 200);
     }
 
@@ -404,7 +389,7 @@ function TryAutoLoginFromSession(onDone) {
             if (finished) return;
             finished = true;
             cleanup();
-            if (onDone) onDone(false);
+            done(false);
         }, 8000);
 
         function cleanup() {
@@ -416,11 +401,11 @@ function TryAutoLoginFromSession(onDone) {
             if (finished) return;
             finished = true;
             cleanup();
-            if (!data) { if (onDone) onDone(false); return; }
+            if (!data) { done(false); return; }
             console.log("[CloudSave] Login por sessão OK para:", data.email);
             completeCloudLogin(data.email, data.playerData && data.playerData.name, data.playerData, data.token);
             if (window.g_gameState === 0) window.isCloudLoaded = true;
-            if (onDone) onDone(true);
+            done(true);
         }
         function onError(data) {
             if (finished) return;
@@ -428,7 +413,7 @@ function TryAutoLoginFromSession(onDone) {
             cleanup();
             console.log("[CloudSave] Sessão salva não é mais válida:", data && data.message);
             try { localStorage.removeItem("dg_session_token"); } catch (e) {}
-            if (onDone) onDone(false);
+            done(false);
         }
 
         socket.on("session_login_success", onSuccess);
