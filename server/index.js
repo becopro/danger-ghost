@@ -411,7 +411,7 @@ PUBLIC_FRONTEND_DIRS.forEach((dir) => {
 // Arquivos individuais servidos direto da raiz do jogo (HTML de verdade referenciado a partir de
 // index.html/codex.html, ícone, apk pra download, e o rpg_system.js que vive fora de js/) — nunca
 // um curinga que abrangeria a pasta inteira.
-const PUBLIC_FRONTEND_FILES = ['index.html', 'codex.html', 'lore_reader.html', 'favicon.png', 'rpg_system.js', 'DangerGhostMobile.apk'];
+const PUBLIC_FRONTEND_FILES = ['index.html', 'codex.html', 'lore_reader.html', 'favicon.png', 'rpg_system.js', 'DangerGhostMobile.apk', 'Bg1.jpg', 'Bg2.jpg', 'Bg5.jpg', 'Bg6.jpg', 'logoGG-pixel.webp'];
 PUBLIC_FRONTEND_FILES.forEach((file) => {
     app.get('/' + file, (req, res) => {
         res.sendFile(path.join(FRONTEND_ROOT, file));
