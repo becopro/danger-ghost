@@ -109,12 +109,19 @@ function completeCloudLogin(email, name, playerData, token) {
     // Carregando explicitamente os dados do fantasma de updatedAt mais recente, os dois
     // aparelhos — consultando o mesmo banco — sempre chegam no mesmo resultado.
     //
-    // Importante: NÃO chama SelectCharacterToPlay() aqui — essa função também dispara
-    // StartCutscene()/ResetGame() quando chamada (é o que acontece quando o jogador clica num
-    // fantasma da Ghostdex), e login sozinho não deve começar a jogar sozinho, só carregar o
-    // dado certo em memória pra quando o jogador apertar PLAY ou SPACE (pedido do usuário: nada
-    // acontece sem ação direta dele). Por isso chama GhostRPG.loadBlockchainState() direto, que
-    // só atualiza os dados, sem nenhum efeito de UI/estado de jogo.
+    // Comentário corrigido em 27/08/2026 (estava desatualizado/contraditório com o bloco acima
+    // — só o texto mudou aqui, o comportamento sempre foi este). Importante: este bloco NÃO
+    // chama SelectCharacterToPlay() — essa função também dispara StartCutscene()/ResetGame()
+    // quando chamada (é o que acontece quando o jogador clica num fantasma da Ghostdex), e
+    // repetir esse efeito colateral aqui duplicaria o início de jogo. Isso NÃO significa que
+    // login nunca inicia o jogo sozinho: com forceShowOverlay=false (comentário acima, decisão
+    // explícita do usuário em 22/08/2026: "login/cadastro deve ir DIRETO pro jogo, sem tela
+    // intermediária"), o LoadRPGStateFromDeSo(null, false) chamado duas linhas acima JÁ faz esse
+    // auto-start sozinho quando o jogador tem personagem salvo — comportamento intencional, não
+    // um bug. Este bloco aqui só garante que os dados do fantasma de updatedAt mais recente
+    // (nível/xp/stats) fiquem corretos em memória, chamando GhostRPG.loadBlockchainState()
+    // direto, sem repetir o efeito de UI/estado de jogo que o LoadRPGStateFromDeSo acima já pode
+    // ter disparado.
     try {
         if (cloudCharacters.length > 0 && window.GhostRPG && window.GhostRPG.loadBlockchainState) {
             var mostRecentChar = cloudCharacters.reduce(function(latest, c) {
@@ -152,8 +159,9 @@ window.completeCloudLogin = completeCloudLogin;
 function OpenLoginModal() {
     // Antes de mostrar o formulário, tenta o token de sessão salvo (se existir e ainda for
     // válido, o jogador já está logado e resgata o save sem digitar senha de novo; se não, cai
-    // pro formulário normal). Continua sendo o clique no botão LOGIN que dispara isso — nunca
-    // roda sozinho.
+    // pro formulário normal). Continua sendo o clique no botão LOGIN/RESGATAR PROGRESSO que
+    // dispara isso — nunca roda sozinho. NÃO use esta função pro botão "CRIAR CONTA NOVA" —
+    // ver OpenSignupModal() logo abaixo e o porquê da separação.
     if (typeof TryAutoLoginFromSession === 'function') {
         TryAutoLoginFromSession(function(loggedIn) {
             if (!loggedIn) showLoginForm();
@@ -163,6 +171,19 @@ function OpenLoginModal() {
     }
 }
 window.OpenLoginModal = OpenLoginModal;
+
+// Bug corrigido em 27/08/2026 (auditoria ao vivo pedida pelo usuário): o botão "CRIAR CONTA
+// NOVA" chamava OpenLoginModal() — igual ao "RESGATAR PROGRESSO" — que tenta
+// TryAutoLoginFromSession() ANTES de mostrar qualquer formulário. Resultado: com uma sessão
+// salva no navegador, clicar em "CRIAR CONTA NOVA" não abria formulário nenhum, o jogo
+// relogava sozinho na conta antiga — sem NENHUM botão de logout no site, um jogador num
+// aparelho compartilhado não tinha jeito nenhum de criar uma segunda conta pela interface.
+// OpenSignupModal() mostra o formulário direto, sem tentar retomar a sessão salva — só
+// "RESGATAR PROGRESSO" (OpenLoginModal() acima) deve tentar login automático.
+function OpenSignupModal() {
+    showLoginForm();
+}
+window.OpenSignupModal = OpenSignupModal;
 // Alias de segurança (23/08/2026, auditoria de login pedida pelo usuário): js/web2/game_core.js
 // tinha uma função LoginGoogle() com Firebase Auth direto + fallback de MOCK LOGIN que fingia um
 // login sem servidor nenhum validando (token falso "mock_<nome>", escondia
@@ -204,7 +225,7 @@ window.CloseLoginModal = CloseLoginModal;
 // cadastra uma nova, e usar o botão errado pro que já existe/não existe dá um erro claro em vez
 // de ambiguidade). Os listeners de resposta são amarrados a ESTA chamada específica (não um
 // setTimeout(1000) global — ver histórico de bug no commit de 20/08/2026), com timeout de 15s.
-function submitCloudSaveAuth(eventName, payload, loadingText) {
+function submitCloudSaveAuth(eventName, payload, loadingText, submitBtn) {
     var loadingModal = document.getElementById("loadingModal");
     if (loadingModal) {
         var h2 = loadingModal.querySelector("h2");
@@ -219,12 +240,24 @@ function submitCloudSaveAuth(eventName, payload, loadingText) {
         return;
     }
 
+    // Bug corrigido em 27/08/2026 (auditoria ao vivo): duas chamadas quase simultâneas desta
+    // função (ex.: duplo clique rápido em "ENTRAR" ou "CRIAR CONTA") registravam cada uma seu
+    // próprio par de listeners socket.on("cloud_save_success"/"cloud_save_error", ...) sem id de
+    // correlação — o socket.io entrega o evento a TODOS os listeners registrados, e o
+    // socket.off() da chamada que terminasse primeiro removia o listener da outra, ainda
+    // esperando resposta, que era descartada em silêncio, sem erro nenhum pro jogador. Corrigido
+    // na origem: desabilita o botão assim que o envio começa, só reabilita quando a resposta
+    // (sucesso, erro ou timeout) voltar — impede o segundo clique de disparar uma segunda
+    // chamada, sem precisar mexer no sistema de listeners.
+    if (submitBtn) submitBtn.disabled = true;
+
     var finished = false;
     function cleanup() {
         finished = true;
         clearTimeout(timeoutId);
         socket.off("cloud_save_success", handleSuccess);
         socket.off("cloud_save_error", handleError);
+        if (submitBtn) submitBtn.disabled = false;
     }
 
     var timeoutId = setTimeout(function() {
@@ -258,7 +291,7 @@ function submitCloudSaveAuth(eventName, payload, loadingText) {
     socket.emit(eventName, payload);
 }
 
-function CloudSaveLogin() {
+function CloudSaveLogin(btn) {
     var email = document.getElementById('loginInputEmail') ? document.getElementById('loginInputEmail').value.trim() : "";
     var password = document.getElementById('loginInputPassword') ? document.getElementById('loginInputPassword').value.trim() : "";
 
@@ -271,12 +304,12 @@ function CloudSaveLogin() {
         return;
     }
 
-    submitCloudSaveAuth("cloud_save_login", { email: email, password: password }, "Verificando senha e resgatando progresso...");
+    submitCloudSaveAuth("cloud_save_login", { email: email, password: password }, "Verificando senha e resgatando progresso...", btn);
 }
 window.CloudSaveLogin = CloudSaveLogin;
 window.LoginDeveloperFallback = CloudSaveLogin;
 
-function CloudSaveSignup() {
+function CloudSaveSignup(btn) {
     var email = document.getElementById('loginInputEmail') ? document.getElementById('loginInputEmail').value.trim() : "";
     var name = document.getElementById('loginInputName') ? document.getElementById('loginInputName').value.trim() : "";
     var password = document.getElementById('loginInputPassword') ? document.getElementById('loginInputPassword').value.trim() : "";
@@ -290,7 +323,7 @@ function CloudSaveSignup() {
         return;
     }
 
-    submitCloudSaveAuth("cloud_save_signup", { email: email, name: name || 'Ghost', password: password }, "Criando sua conta...");
+    submitCloudSaveAuth("cloud_save_signup", { email: email, name: name || 'Ghost', password: password }, "Criando sua conta...", btn);
 }
 window.CloudSaveSignup = CloudSaveSignup;
 
@@ -301,10 +334,29 @@ window.CloudSaveSignup = CloudSaveSignup;
 // de e-mail/senha ou se já entram direto — se o token salvo ainda for válido, o jogador nem vê a
 // tela de login; se não for (ou não existir), cai pro fluxo manual normal, sem alerta.
 // onDone(true|false) avisa quem chamou se conseguiu logar ou não.
+// Trava simples contra chamadas concorrentes (30/08/2026, mesmo bug de corrida de
+// submitCloudSaveAuth() acima, achado no mesmo caminho: TryAutoLoginFromSession() é chamada
+// por vários pontos de entrada diferentes — botão "RESGATAR PROGRESSO", botão "LOGIN" da
+// navbar, SPACE na tela inicial (engine.js), Ghostdex (ghostdex_ui.js) — sem nenhum deles
+// desabilitar nada visualmente. Um duplo clique/toque rápido em qualquer um desses registrava
+// dois pares de listeners socket.on("session_login_success"/"session_login_error", ...) sem id
+// de correlação; o socket.off() da chamada que terminasse primeiro removia o listener da outra,
+// que era descartada em silêncio — a mesma corrida de submitCloudSaveAuth(), só que aqui uma
+// trava única no nível da função cobre TODOS os pontos de entrada de uma vez, em vez de
+// desabilitar um botão de cada vez em cada HTML.
+var g_autoLoginInFlight = false;
+
 function TryAutoLoginFromSession(onDone) {
     var token = null;
     try { token = localStorage.getItem("dg_session_token"); } catch (e) {}
     if (!token) { if (onDone) onDone(false); return; }
+
+    if (g_autoLoginInFlight) { if (onDone) onDone(false); return; }
+    g_autoLoginInFlight = true;
+    function done(result) {
+        g_autoLoginInFlight = false;
+        if (onDone) onDone(result);
+    }
 
     var attempts = 0;
     function waitForSocket() {
@@ -314,7 +366,7 @@ function TryAutoLoginFromSession(onDone) {
             return;
         }
         attempts++;
-        if (attempts > 15) { if (onDone) onDone(false); return; } // ~3s tentando; desiste
+        if (attempts > 15) { done(false); return; } // ~3s tentando; desiste
         setTimeout(waitForSocket, 200);
     }
 
@@ -324,7 +376,7 @@ function TryAutoLoginFromSession(onDone) {
             if (finished) return;
             finished = true;
             cleanup();
-            if (onDone) onDone(false);
+            done(false);
         }, 8000);
 
         function cleanup() {
@@ -336,11 +388,11 @@ function TryAutoLoginFromSession(onDone) {
             if (finished) return;
             finished = true;
             cleanup();
-            if (!data) { if (onDone) onDone(false); return; }
+            if (!data) { done(false); return; }
             console.log("[CloudSave] Login por sessão OK para:", data.email);
             completeCloudLogin(data.email, data.playerData && data.playerData.name, data.playerData, data.token);
             if (window.g_gameState === 0) window.isCloudLoaded = true;
-            if (onDone) onDone(true);
+            done(true);
         }
         function onError(data) {
             if (finished) return;
@@ -348,7 +400,7 @@ function TryAutoLoginFromSession(onDone) {
             cleanup();
             console.log("[CloudSave] Sessão salva não é mais válida:", data && data.message);
             try { localStorage.removeItem("dg_session_token"); } catch (e) {}
-            if (onDone) onDone(false);
+            done(false);
         }
 
         socket.on("session_login_success", onSuccess);
