@@ -81,6 +81,32 @@ function ensurePlayerRecord(socketId) {
 // corrida sem mudar o formato de nenhum payload.
 const saveQueues = {};
 
+// Rate limiting de login/cadastro (27/08/2026, auditoria de segurança pedida pelo usuário, achado
+// ALTO confirmado por ausência total): nenhum handler de autenticação tinha qualquer proteção
+// contra tentativas repetidas — um script externo com socket.io-client puro podia testar centenas
+// de senhas por segundo contra o mesmo e-mail. Contador em memória por IP (socket.handshake.address)
+// com janela deslizante; não precisa de limpeza por setInterval porque cada checagem já descarta
+// os timestamps mais velhos que a janela antes de decidir. Login (cloud_save_login/session_login)
+// fica mais restrito (5/min) porque é o alvo real de brute-force; cadastro (cloud_save_signup) é
+// mais generoso (8/min) porque tentar 2-3 e-mails até achar um livre é uso legítimo.
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 5;
+const SIGNUP_MAX_ATTEMPTS = 8;
+const RATE_LIMIT_MESSAGE = 'Muitas tentativas, aguarde um momento.';
+const rateLimitBuckets = new Map(); // chave "evento:ip" -> array de timestamps (ms) das tentativas recentes
+
+function isRateLimited(bucketKey, maxAttempts, windowMs) {
+    const now = Date.now();
+    const timestamps = (rateLimitBuckets.get(bucketKey) || []).filter((t) => now - t < windowMs);
+    if (timestamps.length >= maxAttempts) {
+        rateLimitBuckets.set(bucketKey, timestamps); // ainda descarta as expiradas, mesmo bloqueando
+        return true;
+    }
+    timestamps.push(now);
+    rateLimitBuckets.set(bucketKey, timestamps);
+    return false;
+}
+
 io.on('connection', (socket) => {
     console.log('[Socket] Player connected: ' + socket.id);
 
@@ -189,6 +215,10 @@ io.on('connection', (socket) => {
     // criar uma conta primeiro, em vez de criar silenciosamente como o código antigo fazia.
     socket.on('cloud_save_login', async (data) => {
         try {
+            if (isRateLimited('cloud_save_login:' + socket.handshake.address, LOGIN_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+                socket.emit('cloud_save_error', { message: RATE_LIMIT_MESSAGE });
+                return;
+            }
             if (!data || !data.email) {
                 socket.emit('cloud_save_error', { message: 'E-mail inválido para o Cloud Save.' });
                 return;
@@ -211,6 +241,10 @@ io.on('connection', (socket) => {
     // "notificação de e-mail já cadastrado" pedida pelo usuário.
     socket.on('cloud_save_signup', async (data) => {
         try {
+            if (isRateLimited('cloud_save_signup:' + socket.handshake.address, SIGNUP_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+                socket.emit('cloud_save_error', { message: RATE_LIMIT_MESSAGE });
+                return;
+            }
             if (!data || !data.email) {
                 socket.emit('cloud_save_error', { message: 'E-mail inválido para criar conta.' });
                 return;
@@ -234,6 +268,10 @@ io.on('connection', (socket) => {
     // assinatura do JWT já prova a identidade; só recusa se a conta não existir mais (ex: apagada).
     socket.on('session_login', async (data) => {
         try {
+            if (isRateLimited('session_login:' + socket.handshake.address, LOGIN_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+                socket.emit('session_login_error', { message: RATE_LIMIT_MESSAGE });
+                return;
+            }
             if (!data || !data.token) {
                 socket.emit('session_login_error', { message: 'Token ausente.' });
                 return;
@@ -351,12 +389,38 @@ setInterval(() => {
     }
 }, 1000 / TICK_RATE);
 
-// Serve os arquivos estáticos do jogo (Front-end)
-app.use(express.static(path.join(__dirname, '../')));
+// Serve os arquivos estáticos do jogo (Front-end) — só os diretórios/arquivos que o jogo de fato
+// usa (conferido em index.html, codex.html e lore_reader.html), nunca a árvore inteira do
+// repositório. Corrigido em 27/08/2026 (auditoria de segurança pedida pelo usuário, achado
+// CRÍTICO confirmado ao vivo): antes, express.static(path.join(__dirname, '../')) servia TODO o
+// diretório pai de server/ como estático público — incluindo a própria pasta server/, como se
+// fosse um arquivo do jogo. Isso deixava server/package.json e server/game_data.db (SQLite antigo,
+// com senhas de contas reais em texto puro, listado no .gitignore mas fisicamente presente)
+// publicamente baixáveis por qualquer um sem login — confirmado com curl real contra produção
+// (https://ghostgames.club/server/game_data.db -> HTTP 200, 12288 bytes). Esta correção NÃO move
+// nem apaga game_data.db (ação separada, na VPS, a ser autorizada à parte pelo usuário) — só
+// impede que o servidor sirva qualquer coisa fora da lista abaixo. Qualquer caminho fora dela
+// (incluindo tudo sob /server/...) cai no 404 padrão do Express, porque nenhuma rota casa com ele.
+const FRONTEND_ROOT = path.join(__dirname, '../');
+
+const PUBLIC_FRONTEND_DIRS = ['js', 'css', 'assets', 'assets2', 'UI', 'Ghosts'];
+PUBLIC_FRONTEND_DIRS.forEach((dir) => {
+    app.use('/' + dir, express.static(path.join(FRONTEND_ROOT, dir)));
+});
+
+// Arquivos individuais servidos direto da raiz do jogo (HTML de verdade referenciado a partir de
+// index.html/codex.html, ícone, apk pra download, e o rpg_system.js que vive fora de js/) — nunca
+// um curinga que abrangeria a pasta inteira.
+const PUBLIC_FRONTEND_FILES = ['index.html', 'codex.html', 'lore_reader.html', 'favicon.png', 'rpg_system.js', 'DangerGhostMobile.apk'];
+PUBLIC_FRONTEND_FILES.forEach((file) => {
+    app.get('/' + file, (req, res) => {
+        res.sendFile(path.join(FRONTEND_ROOT, file));
+    });
+});
 
 // Fallback para garantir que qualquer rota devolva o index.html (SPA/Game)
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../index.html'));
+    res.sendFile(path.join(FRONTEND_ROOT, 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
