@@ -1,5 +1,33 @@
 // web2/auth.js
 
+// Achado #1 da auditoria de 27/08/2026: as 7 mensagens de erro de login/cadastro abaixo
+// apareciam como alert() nativo do navegador — funcional, mas quebra a identidade visual
+// neon/glassmorphism do resto da UI. showLoginError() troca só o CONTAINER: mesma mensagem
+// (a do servidor quando existe), mostrada dentro de #loginModalUI (index.html) em vez de um
+// popup do navegador. Mantém alert(msg) como rede de segurança só pro caso (não esperado) de
+// #loginErrorMsg não existir no DOM por algum motivo. hideLoginError() limpa o estado toda
+// vez que o modal abre/fecha ou uma nova tentativa começa, pra não sobrar erro de uma
+// tentativa antiga visível na próxima.
+function showLoginError(msg) {
+    var errEl = document.getElementById('loginErrorMsg');
+    if (errEl) {
+        errEl.textContent = msg;
+        errEl.style.display = 'block';
+    } else {
+        alert(msg);
+    }
+}
+window.showLoginError = showLoginError;
+
+function hideLoginError() {
+    var errEl = document.getElementById('loginErrorMsg');
+    if (errEl) {
+        errEl.style.display = 'none';
+        errEl.textContent = '';
+    }
+}
+window.hideLoginError = hideLoginError;
+
 // Visibilidade de #loginButtonsContainer ("RESGATAR PROGRESSO" / "CRIAR CONTA NOVA")
 // (22/08/2026, pedido do usuário: NUNCA auto-login — mesmo que o navegador já tenha uma sessão
 // salva de uma visita anterior, os botões têm que aparecer TODA VEZ que a página carrega, e o
@@ -200,6 +228,7 @@ function showLoginForm() {
     if (modal) {
         modal.style.display = 'flex';
     }
+    hideLoginError();
     var emailInput = document.getElementById('loginInputEmail');
     var nameInput = document.getElementById('loginInputName');
     var savedEmail = localStorage.getItem('dg_cloud_email');
@@ -217,6 +246,7 @@ function CloseLoginModal() {
     if (modal) {
         modal.style.display = 'none';
     }
+    hideLoginError();
 }
 window.CloseLoginModal = CloseLoginModal;
 
@@ -226,6 +256,7 @@ window.CloseLoginModal = CloseLoginModal;
 // de ambiguidade). Os listeners de resposta são amarrados a ESTA chamada específica (não um
 // setTimeout(1000) global — ver histórico de bug no commit de 20/08/2026), com timeout de 15s.
 function submitCloudSaveAuth(eventName, payload, loadingText, submitBtn) {
+    hideLoginError();
     var loadingModal = document.getElementById("loadingModal");
     if (loadingModal) {
         var h2 = loadingModal.querySelector("h2");
@@ -235,7 +266,7 @@ function submitCloudSaveAuth(eventName, payload, loadingText, submitBtn) {
 
     var socket = window.NetworkState && window.NetworkState.socket;
     if (!socket) {
-        alert("Erro: Não foi possível conectar ao servidor.");
+        showLoginError("Erro: Não foi possível conectar ao servidor.");
         if (loadingModal) loadingModal.style.display = "none";
         return;
     }
@@ -264,7 +295,7 @@ function submitCloudSaveAuth(eventName, payload, loadingText, submitBtn) {
         if (finished) return;
         cleanup();
         if (loadingModal) loadingModal.style.display = "none";
-        alert("O servidor demorou demais para responder. Verifique sua internet e tente novamente.");
+        showLoginError("O servidor demorou demais para responder. Verifique sua internet e tente novamente.");
     }, 15000);
 
     function handleSuccess(data) {
@@ -282,7 +313,7 @@ function submitCloudSaveAuth(eventName, payload, loadingText, submitBtn) {
         if (finished) return;
         cleanup();
         console.warn("[CloudSave] Erro recebido do servidor:", data && data.message);
-        alert((data && data.message) || "Falha ao acessar o Cloud Save.");
+        showLoginError((data && data.message) || "Falha ao acessar o Cloud Save.");
         if (loadingModal) loadingModal.style.display = "none";
     }
 
@@ -296,11 +327,11 @@ function CloudSaveLogin(btn) {
     var password = document.getElementById('loginInputPassword') ? document.getElementById('loginInputPassword').value.trim() : "";
 
     if (!email) {
-        alert("Por favor, digite o e-mail da sua conta.");
+        showLoginError("Por favor, digite o e-mail da sua conta.");
         return;
     }
     if (!password || password.length < 6 || password.length > 12) {
-        alert("A senha deve ter entre 6 e 12 caracteres.");
+        showLoginError("A senha deve ter entre 6 e 12 caracteres.");
         return;
     }
 
@@ -315,11 +346,11 @@ function CloudSaveSignup(btn) {
     var password = document.getElementById('loginInputPassword') ? document.getElementById('loginInputPassword').value.trim() : "";
 
     if (!email) {
-        alert("Por favor, digite um e-mail para a sua conta nova.");
+        showLoginError("Por favor, digite um e-mail para a sua conta nova.");
         return;
     }
     if (!password || password.length < 6 || password.length > 12) {
-        alert("A senha deve ter entre 6 e 12 caracteres para proteger o seu Cloud Save.");
+        showLoginError("A senha deve ter entre 6 e 12 caracteres para proteger o seu Cloud Save.");
         return;
     }
 

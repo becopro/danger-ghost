@@ -318,7 +318,15 @@ window.PlayAsGhost = function(ghostId) {
         if (typeof window.OpenLoginModal === "function") window.OpenLoginModal();
         return;
     }
-
+    // 27/08/2026: trava contra reentrância, portada do mobile (www/js/game/ghostdex_ui.js,
+    // corrigida lá em 20/08/2026) — mesma estrutura: PlayAsGhost() é agora o dono exclusivo da
+    // lógica de "retomar jogo já em andamento" (ver bloco g_gameState no final desta função);
+    // SelectCharacterToPlay() (game_core.js) não dispara mais essa lógica por conta própria,
+    // fechando o double-start em que as duas funções disparavam ResetGame/PlayBGM na mesma
+    // chamada de PLAY.
+    if (window.__inPlayAsGhost) return;
+    window.__inPlayAsGhost = true;
+    try {
     window.g_currentPlayerGhost = ghostId;
     console.log("Player is now playing as Ghost ID:", ghostId);
 
@@ -487,18 +495,24 @@ window.PlayAsGhost = function(ghostId) {
     var modeBtn = document.getElementById("gameScreenModeBtn");
     if (modeBtn) modeBtn.style.display = "block";
 
+    // 27/08/2026: PlayAsGhost() agora é o dono exclusivo de start/restart (trava
+    // window.__inPlayAsGhost acima + SelectCharacterToPlay guardando os dois branches dela com
+    // essa mesma trava, ver game_core.js) — testado ao vivo contra o double-start real (bug 6):
+    // sem a trava aqui E lá, "jogo já em andamento" disparava ResetGame duas vezes na mesma
+    // chamada de PLAY (uma em SelectCharacterToPlay, outra aqui). O branch G_START usava
+    // dg_saved_level (chave POR-DISPOSITIVO, compartilhada entre TODOS os personagens do
+    // navegador — bug 5, corrigido 27/08/2026); agora usa o worldLevel do PRÓPRIO personagem
+    // (charId/localChars já carregados acima nesta função), consistente com o que
+    // SelectCharacterToPlay usaria se estivesse chamando StartCutscene ela mesma.
     if (typeof window.g_gameState !== 'undefined') {
         if (window.g_gameState === 0) { // G_START
             if (typeof window.StartCutscene === "function") {
-                var savedLevel = localStorage.getItem("dg_saved_level");
-                var startLevel = 1;
-                if (savedLevel && !isNaN(parseInt(savedLevel))) {
-                    startLevel = parseInt(savedLevel);
-                }
+                var ownChar = localChars.find(function(c) { return c.characterId === charId; });
+                var startLevel = (ownChar && ownChar.worldLevel) ? ownChar.worldLevel : 1;
                 window.StartCutscene(startLevel, false);
             }
-        } else if (window.g_gameState === 6 || window.g_gameState === 1) { 
-            // If already in game, we ensure the level resets to use the new ghost 
+        } else if (window.g_gameState === 6 || window.g_gameState === 1) {
+            // If already in game, we ensure the level resets to use the new ghost
             // (or if paused, unpause)
             if (typeof window.ResetGame === "function") window.ResetGame(window.g_currentLevel || 1, true);
             window.g_gamePaused = false;
@@ -511,6 +525,9 @@ window.PlayAsGhost = function(ghostId) {
     var taggedName = baseName + ' (#' + ghostId + ')';
     if (window.NetworkState && window.NetworkState.socket && window.NetworkState.connected) {
         window.NetworkState.socket.emit('join_game', { playerName: taggedName });
+    }
+    } finally {
+        window.__inPlayAsGhost = false;
     }
 };
 

@@ -1897,6 +1897,82 @@ body {
     box-shadow: 0 0 15px var(--magenta-neon);
 }
 
+/* Botões de habilidade V/E/R/F (achado "Também" da auditoria de 27/08/2026): portados de
+   danger_ghost_mobile/www/css/style.css, mas com a estética glassmorphism/neon deste arquivo
+   (círculo translúcido + borda neon + box-shadow) em vez do visual sólido "Gameboy" da versão
+   mobile-app — o app usa !important vindo de "body.is-mobile-app", classe que não existe
+   aqui no site, então não precisamos repetir esse prefixo. Tamanho 60px pra bater com a área
+   mínima de toque recomendada (mesma medida de .touch-btn acima). .spell-btn é reservado
+   como hook semântico sem estilo próprio, igual na origem — hoje o visual inteiro vem de
+   .touch-btn + .gb-btn-round; fica pronto pra uma futura indicação de cooldown/habilidade
+   equipada sem precisar mexer no HTML de novo. */
+.gb-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    pointer-events: auto;
+}
+
+.action-row {
+    display: flex;
+    gap: 10px;
+}
+
+.gb-btn-round {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid var(--magenta-neon);
+    color: var(--magenta-neon);
+    font-size: 18px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    box-shadow: 0 0 10px rgba(255, 0, 255, 0.2);
+    outline: none;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+}
+
+.gb-btn-round:active {
+    background: var(--magenta-neon);
+    color: #000;
+    box-shadow: 0 0 15px var(--magenta-neon);
+}
+
+.center-jump {
+    justify-content: center;
+}
+
+/* .jump-btn portado por completude (uma das 5 classes pedidas na auditoria), mas não está
+   mais aplicado a nenhum botão depois do fix do achado #7 (ver relatório da rodada): a "cara
+   de botão de pulo" (destaque de tamanho/cor) tinha sido deixada por engano no slot de
+   habilidade F/Ghost Mode, que já é uma habilidade real e equipável (ui_manager.js:562, "Ghost
+   Mode (F)") — não um botão de pulo. Pulo de verdade continua sendo #touchJumpBtn (▲, já
+   existente no right-group). Classe mantida pronta pra um futuro botão de ação principal que
+   precise se destacar visualmente dos demais .gb-btn-round. */
+.jump-btn {
+    width: 64px;
+    height: 64px;
+    font-size: 22px;
+    background: rgba(74, 20, 140, 0.55);
+    border-color: #B478FF;
+    color: #B478FF;
+    box-shadow: 0 0 12px rgba(180, 120, 255, 0.35);
+}
+
+.jump-btn:active {
+    background: #B478FF;
+    color: #000;
+    box-shadow: 0 0 18px #B478FF;
+}
+
 /* =========================================================
    MOBILE RESPONSIVENESS & TOUCH HUD ADAPTATION
    ========================================================= */
@@ -1911,9 +1987,58 @@ body {
     }
 }
 
+/* Achado #3 da auditoria de 27/08/2026: .panel-left/.panel-right (mais abaixo, fora de
+   media query) usam deslocamento FIXO em pixels (-320px/320px) pra ficarem escondidos fora
+   da tela quando fechados — isso só cabe sem cortar quando a viewport tem largura >= largura
+   do .canvas-container (640px) + 320px de cada lado (=1280px). Abaixo de ~1283px medidos, o
+   painel aberto ultrapassava a viewport e era cortado; a regra abaixo (que já existia só
+   dentro de @media max-width:768px) força os painéis a 100% de largura/altura ANTES desse
+   ponto de corte real, numa faixa que cobre com folga o intervalo problemático (769px-1283px)
+   sem alterar o comportamento em telas menores, que já caíam aqui mesmo antes. */
+@media (max-width: 1300px) {
+    /* Make overlay panels cover the whole canvas area whenever the fixed -320px/320px
+       flyout offset wouldn't fit the viewport without clipping. */
+    .overlay-panel {
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        top: 0 !important;
+        bottom: 0 !important;
+        z-index: 500 !important;
+    }
+    .panel-left, .panel-right {
+        border-left: 2px solid var(--cyan-neon) !important;
+        border-right: 2px solid var(--cyan-neon) !important;
+        box-shadow: 0 0 15px rgba(0, 255, 255, 0.2) !important;
+    }
+}
+
 @media (max-width: 768px) {
+    /* Achado #2 da auditoria de 27/08/2026: com posição absoluta (regra base acima, fora de
+       media query), os controles de toque ficavam empilhados sobre a faixa inferior do
+       canvas onde Print_HUD() (engine.js, não editado aqui) desenha nome/vidas/mana/cooldown
+       dos 4 slots — nessa largura o .canvas-container só tem ~170px de altura, e os círculos
+       de 60px de toque cobriam boa parte disso. Trocando pra position:static, o container
+       passa a ocupar espaço normal do fluxo do documento logo ABAIXO do canvas (ele é filho
+       direto de .canvas-container), em vez de flutuar por cima — sem sobreposição possível.
+       flex-wrap evita que os agora 9 botões de toque (D-pad simplificado + V/E/R/F novos)
+       estourem a largura da tela em vez de rolar horizontalmente. */
     #mobileControlsContainer {
         display: flex;
+        position: static;
+        left: auto;
+        right: auto;
+        bottom: auto;
+        flex-wrap: wrap;
+        justify-content: center;
+        column-gap: 24px;
+        row-gap: 12px;
+        margin-top: 12px;
+        pointer-events: auto;
+    }
+    .mobile-btn-group {
+        justify-content: center;
     }
     .site-header {
         flex-direction: column;
@@ -1948,22 +2073,7 @@ body {
         width: 100% !important;
         height: auto !important;
     }
-    /* Make overlay panels cover the whole canvas area on mobile */
-    .overlay-panel {
-        left: 0 !important;
-        right: 0 !important;
-        width: 100% !important;
-        height: 100% !important;
-        top: 0 !important;
-        bottom: 0 !important;
-        z-index: 500 !important;
-    }
-    .panel-left, .panel-right {
-        border-left: 2px solid var(--cyan-neon) !important;
-        border-right: 2px solid var(--cyan-neon) !important;
-        box-shadow: 0 0 15px rgba(0, 255, 255, 0.2) !important;
-    }
-    
+
     /* Character cards list responsive wrap */
     #characterCardsContainer {
         flex-direction: column;

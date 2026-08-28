@@ -524,16 +524,27 @@
 
             var overlay = document.getElementById("characterSelectionOverlay");
             if (overlay) overlay.style.display = "none";
-            
+
             var btn = document.getElementById("gameScreenModeBtn");
             if (btn) btn.style.display = "block";
-            
-            if (window.g_gameState === window.G_START) {
-                if (typeof window.StartCutscene === "function") window.StartCutscene(char.worldLevel, true);
-            } else {
-                if (typeof window.ResetGame === "function") window.ResetGame(char.worldLevel || 1, true);
-                window.g_gamePaused = false;
-                if (typeof window.PlayBGM === "function") window.PlayBGM();
+
+            // 27/08/2026: os dois branches abaixo (G_START e "já em andamento") só disparam quando
+            // esta função é chamada FORA de PlayAsGhost (ex: clique direto no card da tela de
+            // seleção). window.__inPlayAsGhost (trava setada por PlayAsGhost, ghostdex_ui.js,
+            // mesma estrutura do mobile) diz quando fomos chamados de DENTRO dela — nesse caso o
+            // bloco final de PlayAsGhost já cuida de start/restart sozinho (com os dados do
+            // próprio personagem), então disparar aqui de novo causava um SEGUNDO
+            // StartCutscene/ResetGame na mesma chamada de PLAY (bug real, achado testando ao
+            // vivo: g_gameState mudava aqui, e PlayAsGhost reavaliava o estado JÁ MUDADO logo em
+            // seguida). Clique direto no card continua funcionando exatamente como sempre.
+            if (!window.__inPlayAsGhost) {
+                if (window.g_gameState === window.G_START) {
+                    if (typeof window.StartCutscene === "function") window.StartCutscene(char.worldLevel, true);
+                } else {
+                    if (typeof window.ResetGame === "function") window.ResetGame(char.worldLevel || 1, true);
+                    window.g_gamePaused = false;
+                    if (typeof window.PlayBGM === "function") window.PlayBGM();
+                }
             }
         }
     }

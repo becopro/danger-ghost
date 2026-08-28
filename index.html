@@ -20,7 +20,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
     <!-- Fontes do Sistema de Design (Acessibilidade) -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&amp;family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/style.css?v=44" />
+    <link rel="stylesheet" href="css/style.css?v=45" />
     <link rel="icon" type="image/png" href="favicon.png" />
     
     <!-- Scripts Externos -->
@@ -33,12 +33,12 @@
     <script src="js/globals.js?v=44"></script>
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
     <script src="js/game/network.js?v=61"></script>
-    <script src="js/web2/game_core.js?v=48"></script>
+    <script src="js/web2/game_core.js?v=49"></script>
     <script src="js/web2/scores.js?v=44"></script>
     <script src="rpg_system.js?v=54"></script>
     <script src="js/ui/ui_manager.js?v=47"></script>
     <script src="js/game/ghostdex_data.js?v=44"></script>
-    <script src="js/game/ghostdex_ui.js?v=49"></script>
+    <script src="js/game/ghostdex_ui.js?v=50"></script>
     <script src="js/game/ghost_inventory.js?v=44"></script>
 </head>
 <body>
@@ -135,6 +135,27 @@
                     <button id="touchSpellBtn" class="touch-btn action-btn">🔥</button>
                     <button id="touchJumpBtn" class="touch-btn action-btn">▲</button>
                 </div>
+                <!-- Botões de Habilidade V/F/E/R (27/08/2026) — portados de
+                     danger_ghost_mobile/www/index.html (#mobileControlsContainer de lá). Estilo
+                     visual (.gb-btn-round / .spell-btn / .jump-btn / .action-row / .gb-actions)
+                     portado pro css/style.css deste site na rodada de 27/08/2026 (achado
+                     "Também" do relatório). A classe "jump-btn" foi REMOVIDA do botão F abaixo
+                     nesta mesma rodada (achado #7, espelhando o fix equivalente em
+                     danger_ghost_mobile/www/index.html): F é a 4ª habilidade equipável real
+                     (Ghost Mode, ver ui_manager.js "Ghost Mode (F)"), não um botão de pulo — o
+                     pulo de verdade já existe abaixo em #touchJumpBtn (▲). Mantê-la aqui
+                     deixaria este botão com a MESMA cara-de-pulo-mas-não-é-pulo que a
+                     auditoria apontou como regressão de UX no mobile. -->
+                <div class="mobile-btn-group gb-actions">
+                    <div class="action-row">
+                        <button id="touchSlotVBtn" class="touch-btn action-btn gb-btn-round spell-btn">V</button>
+                        <button id="touchSlotEBtn" class="touch-btn action-btn gb-btn-round spell-btn">E</button>
+                        <button id="touchSlotRBtn" class="touch-btn action-btn gb-btn-round spell-btn">R</button>
+                    </div>
+                    <div class="action-row center-jump">
+                        <button id="touchSlotFBtn" class="touch-btn action-btn gb-btn-round spell-btn">F</button>
+                    </div>
+                </div>
             </div>
 
             <!-- Painel Esquerdo (RPG & Status) -->
@@ -161,27 +182,36 @@
                 <div id="navbarPanelContent"></div>
             </div>
 
-            <div id="gameOverPanel" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.9); border: 2px solid #FF0000; border-radius: 10px; padding: 30px; text-align: center; z-index: 2000;">
-                <h2 style="color: #FF0000; font-family: 'Courier New', monospace; font-weight: bold; margin-bottom: 20px;">GAME OVER</h2>
-                <p style="color: #00FFFF; font-family: 'Courier New', monospace; font-size: 18px; margin-bottom: 20px;">SCORE: <span id="gameOverScoreDisplay">0</span></p>
-                <input type="text" id="gameOverNameInput" placeholder="ENTER PLAYER NAME" maxlength="20" style="padding: 10px; font-family: 'Courier New', monospace; font-size: 16px; background: #111; color: #FFF; border: 1px solid #FF0000; margin-bottom: 20px; width: 80%; box-sizing: border-box;" />
+            <!-- Achado #4 da auditoria de 27/08/2026: era position:absolute dentro de
+                 .canvas-container, que em mobile só tem ~170px de altura — o painel (maior
+                 que isso) vazava pra fora do container. Trocado pra position:fixed, igual
+                 #leaderboardModal já era: agora centraliza (top/left/transform, técnica que
+                 não depende de display:flex) relativo à VIEWPORT inteira, não ao container
+                 pequeno. width/max-width/box-sizing adicionados pra caber em telas estreitas
+                 sem estourar a lateral — engine.js (não editado aqui) só alterna
+                 display:none/"block" neste mesmo elemento, então a estrutura HTML permanece a
+                 mesma de propósito, sem wrapper novo. -->
+            <div id="gameOverPanel" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.9); border: 2px solid #FF0000; border-radius: 10px; padding: 30px; text-align: center; z-index: 2000; width: 90%; max-width: 400px; box-sizing: border-box;">
+                <h2 style="color: #FF0000; font-family: var(--font-title); font-weight: bold; margin-bottom: 20px;">GAME OVER</h2>
+                <p style="color: #00FFFF; font-family: var(--font-text); font-size: 18px; margin-bottom: 20px;">SCORE: <span id="gameOverScoreDisplay">0</span></p>
+                <input type="text" id="gameOverNameInput" placeholder="ENTER PLAYER NAME" maxlength="20" style="padding: 10px; font-family: var(--font-text); font-size: 16px; background: #111; color: #FFF; border: 1px solid #FF0000; margin-bottom: 20px; width: 80%; box-sizing: border-box;" />
                 <br>
-                <button onclick="SubmitGameOverScore()" style="padding: 10px 20px; background: #FF0000; color: #FFF; font-family: 'Courier New', monospace; font-weight: bold; border: none; cursor: pointer; border-radius: 5px;">SUBMIT SCORE</button>
+                <button onclick="SubmitGameOverScore()" style="padding: 10px 20px; background: #FF0000; color: #FFF; font-family: var(--font-text); font-weight: bold; border: none; cursor: pointer; border-radius: 5px;">SUBMIT SCORE</button>
             </div>
 
         </div>
         
         <!-- Character Name Input Area -->
-        <div style="display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 15px; font-family: 'Courier New', monospace; background: rgba(13, 13, 16, 0.85); border: 1.5px solid var(--cyan-neon); padding: 10px; border-radius: 4px; box-shadow: 0 0 10px rgba(0, 255, 255, 0.15); max-width: 640px; margin-left: auto; margin-right: auto; box-sizing: border-box;">
+        <div style="display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 15px; font-family: var(--font-text); background: rgba(13, 13, 16, 0.85); border: 1.5px solid var(--cyan-neon); padding: 10px; border-radius: 4px; box-shadow: 0 0 10px rgba(0, 255, 255, 0.15); max-width: 640px; margin-left: auto; margin-right: auto; box-sizing: border-box;">
             <label for="charNameInput" style="color: var(--cyan-neon); font-weight: bold; text-shadow: 0 0 5px var(--cyan-neon); font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">Character Name:</label>
-            <input type="text" id="charNameInput" placeholder="Enter Ghost Name..." maxlength="15" style="background: #000; color: #FFF; border: 1px solid var(--border-light); padding: 6px 12px; font-family: 'Courier New', monospace; font-size: 13px; outline: none; border-radius: 2px; width: 180px; box-sizing: border-box; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--cyan-neon)'" onblur="this.style.borderColor='var(--border-light)'" />
-            <button id="saveCharNameBtn" onclick="SaveCharacterName()" style="background: rgba(0, 0, 0, 0.8); border: 1.5px solid var(--cyan-neon); color: var(--cyan-neon); font-family: 'Courier New', monospace; font-weight: bold; font-size: 13px; cursor: pointer; padding: 6px 20px; border-radius: 2px; text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s ease-in-out;" onmouseover="this.style.background='var(--cyan-neon)'; this.style.color='#000'; this.style.boxShadow='0 0 10px var(--cyan-neon)';" onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='var(--cyan-neon)'; this.style.boxShadow='none';">Save</button>
+            <input type="text" id="charNameInput" placeholder="Enter Ghost Name..." maxlength="15" style="background: #000; color: #FFF; border: 1px solid var(--border-light); padding: 6px 12px; font-family: var(--font-text); font-size: 13px; outline: none; border-radius: 2px; width: 180px; box-sizing: border-box; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--cyan-neon)'" onblur="this.style.borderColor='var(--border-light)'" />
+            <button id="saveCharNameBtn" onclick="SaveCharacterName()" style="background: rgba(0, 0, 0, 0.8); border: 1.5px solid var(--cyan-neon); color: var(--cyan-neon); font-family: var(--font-text); font-weight: bold; font-size: 13px; cursor: pointer; padding: 6px 20px; border-radius: 2px; text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s ease-in-out;" onmouseover="this.style.background='var(--cyan-neon)'; this.style.color='#000'; this.style.boxShadow='0 0 10px var(--cyan-neon)';" onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='var(--cyan-neon)'; this.style.boxShadow='none';">Save</button>
         </div>
-        
+
         <!-- Mobile App Download Area -->
         <div class="mobile-app-download-area" style="display: flex; justify-content: center; align-items: center; margin-top: 15px;">
             <a href="DangerGhostMobile.apk?v=66" download="DangerGhostMobile.apk" style="text-decoration: none;">
-                <button id="downloadMobileBtn" style="background: rgba(0, 0, 0, 0.8); border: 2px solid #FF00FF; color: #FF00FF; font-family: 'Courier New', monospace; font-weight: bold; font-size: 16px; cursor: pointer; padding: 12px 30px; border-radius: 6px; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 15px rgba(255, 0, 255, 0.2); transition: all 0.2s ease-in-out;" onmouseover="this.style.background='#FF00FF'; this.style.color='#000'; this.style.boxShadow='0 0 20px #FF00FF';" onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='#FF00FF'; this.style.boxShadow='0 0 15px rgba(255, 0, 255, 0.2)';">
+                <button id="downloadMobileBtn" style="background: rgba(0, 0, 0, 0.8); border: 2px solid #FF00FF; color: #FF00FF; font-family: var(--font-title); font-weight: bold; font-size: 16px; cursor: pointer; padding: 12px 30px; border-radius: 6px; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 15px rgba(255, 0, 255, 0.2); transition: all 0.2s ease-in-out;" onmouseover="this.style.background='#FF00FF'; this.style.color='#000'; this.style.boxShadow='0 0 20px #FF00FF';" onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='#FF00FF'; this.style.boxShadow='0 0 15px rgba(255, 0, 255, 0.2)';">
                     📱 DOWNLOAD DANGER GHOST MOBILE APP
                 </button>
             </a>
@@ -189,8 +219,8 @@
         
         <!-- Leaderboard Modal (Hidden by default) -->
         <div id="leaderboardModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 2000; align-items: center; justify-content: center;">
-            <div style="background: #181224; border: 2px solid #FF00FF; border-radius: 10px; padding: 30px; width: 90%; max-width: 450px; box-shadow: 0 0 20px rgba(255, 0, 255, 0.3); font-family: 'Courier New', monospace; color: #FFF;">
-                <h3 style="color: #FF00FF; margin: 0 0 15px 0; text-align: center; text-transform: uppercase; letter-spacing: 2px;">🏆 LOCAL LEADERBOARD</h3>
+            <div style="background: #181224; border: 2px solid #FF00FF; border-radius: 10px; padding: 30px; width: 90%; max-width: 450px; box-sizing: border-box; box-shadow: 0 0 20px rgba(255, 0, 255, 0.3); font-family: var(--font-text); color: #FFF;">
+                <h3 style="color: #FF00FF; font-family: var(--font-title); margin: 0 0 15px 0; text-align: center; text-transform: uppercase; letter-spacing: 2px;">🏆 LOCAL LEADERBOARD</h3>
                 <div id="leaderboardContent" style="margin-bottom: 20px; max-height: 250px; overflow-y: auto; text-align: left; padding: 10px; background: #08060c; border: 1px solid rgba(255, 0, 255, 0.2); border-radius: 5px;">
                     <!-- Filled dynamically -->
                 </div>
@@ -201,25 +231,25 @@
         </div>
         <br />
             <!-- Character Selection Overlay -->
-            <div id="characterSelectionOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 6, 12, 0.95); z-index: 1000; overflow-y: auto; font-family: 'Courier New', monospace; color: #FFF; text-align: center; padding: 40px 20px; box-sizing: border-box;">
+            <div id="characterSelectionOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 6, 12, 0.95); z-index: 1000; overflow-y: auto; font-family: var(--font-text); color: #FFF; text-align: center; padding: 40px 20px; box-sizing: border-box;">
                 <div style="max-width: 800px; margin: 0 auto;">
-                    <h2 style="color: #00FF00; letter-spacing: 2px; text-shadow: 0 0 10px #00FF00; margin-bottom: 30px;">👻 🎮 SELECT YOUR GHOST</h2>
-                    
+                    <h2 style="color: #00FF00; font-family: var(--font-title); letter-spacing: 2px; text-shadow: 0 0 10px #00FF00; margin-bottom: 30px;">👻 🎮 SELECT YOUR GHOST</h2>
+
                     <div id="characterCardsContainer" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-bottom: 40px;">
                     </div>
-                    
+
                     <div style="background: rgba(255, 255, 255, 0.05); border: 2px dashed rgba(0, 255, 255, 0.3); border-radius: 8px; padding: 25px; margin-bottom: 20px;">
-                        <h3 style="color: #00FFFF; margin: 0 0 10px 0;">CREATE NEW GHOST</h3>
+                        <h3 style="color: #00FFFF; font-family: var(--font-title); margin: 0 0 10px 0;">CREATE NEW GHOST</h3>
                         <p id="newGhostPriceText" style="color: #AAA; font-size: 13px; margin: 0 0 15px 0;">Forge a new unique Ghost character card locally.</p>
                         <button id="createGhostBtn" onclick="OpenNewGhostModal()" style="padding: 10px 25px; background: #00FF00; color: #000; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; outline: none; transition: all 0.15s ease;" onmouseover="this.style.boxShadow='0 0 15px #00FF00'" onmouseout="this.style.boxShadow='none'">FORGE NEW GHOST</button>
                     </div>
                     
                     <!-- New Game Modal (Hidden by default) -->
                     <div id="newGhostModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 2000; align-items: center; justify-content: center;">
-                        <div style="background: #181224; border: 2px solid #00FF00; border-radius: 10px; padding: 30px; width: 90%; max-width: 400px; box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);">
-                            <h3 style="color: #00FF00; margin: 0 0 15px 0;">FORGE NEW GHOST</h3>
+                        <div style="background: #181224; border: 2px solid #00FF00; border-radius: 10px; padding: 30px; width: 90%; max-width: 400px; box-sizing: border-box; box-shadow: 0 0 20px rgba(0, 255, 0, 0.3); font-family: var(--font-text);">
+                            <h3 style="color: #00FF00; font-family: var(--font-title); margin: 0 0 15px 0;">FORGE NEW GHOST</h3>
                             <p style="color: #AAA; font-size: 14px; margin-bottom: 20px;">Your ghost will be generated with random initial attributes (VIT, AGI, INT, POW, MAG). You can have a maximum of 3 active local ghosts.</p>
-                            <input type="text" id="newGhostNameInput" placeholder="Enter Name (Optional)" maxlength="16" style="width: 100%; padding: 10px; background: #08060c; border: 1px solid #00FF00; color: #FFF; font-family: 'Courier New', monospace; font-size: 16px; margin-bottom: 20px; box-sizing: border-box;" />
+                            <input type="text" id="newGhostNameInput" placeholder="Enter Name (Optional)" maxlength="16" style="width: 100%; padding: 10px; background: #08060c; border: 1px solid #00FF00; color: #FFF; font-family: var(--font-text); font-size: 16px; margin-bottom: 20px; box-sizing: border-box;" />
                             <div style="display: flex; gap: 10px; justify-content: center;">
                                 <button onclick="TriggerCreateNewGhost()" id="confirmForgeBtn" style="padding: 10px 20px; background: #00FF00; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 5px;">START GAME</button>
                                 <button onclick="CloseNewGhostModal()" style="padding: 10px 20px; background: #333; color: #FFF; border: 1px solid #555; cursor: pointer; border-radius: 5px;">CANCEL</button>
@@ -363,6 +393,15 @@
             setupTouchButton('touchJumpBtn', 38);  // Up Arrow (Jump)
             setupTouchButton('touchSpellBtn', 49); // '1' key (Cast Spell 1)
             setupTouchButton('touchStartBtn', 32); // SPACE key (Start/Pause)
+
+            // 27/08/2026: portado de danger_ghost_mobile/www/index.html — o site jogado no
+            // navegador do celular não tinha botões de toque pras 4 habilidades V/F/E/R (só dava
+            // pra usar via teclado físico). Mesmo setupTouchButton() acima, mesmos keyCodes do
+            // handler de teclado em js/game/engine.js.
+            setupTouchButton('touchSlotVBtn', 86); // V key
+            setupTouchButton('touchSlotEBtn', 69); // E key
+            setupTouchButton('touchSlotRBtn', 82); // R key
+            setupTouchButton('touchSlotFBtn', 70); // F key
         });
     </script>
 
@@ -1041,7 +1080,7 @@
     </div>
 
     <!-- Script de inicialização Engine -->
-    <script src="js/game/engine.js?v=66"></script>
+    <script src="js/game/engine.js?v=67"></script>
     <!-- Script para rotação de backgrounds com fade-in suave -->
     <script type="text/javascript">
         (function() {
@@ -1121,9 +1160,9 @@
     </script>
 
     <!-- Player Profile Modal (Hidden by default) -->
-    <div id="playerProfileModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 2000; align-items: center; justify-content: center; font-family: 'Courier New', monospace;">
-        <div style="background: #181224; border: 2px solid #00FFFF; border-radius: 10px; padding: 30px; width: 90%; max-width: 400px; box-shadow: 0 0 20px rgba(0, 255, 255, 0.3); color: #FFF; text-align: center;">
-            <h2 id="profileModalName" style="color: #00FFFF; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px #00FFFF;">PlayerName</h2>
+    <div id="playerProfileModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 2000; align-items: center; justify-content: center; font-family: var(--font-text);">
+        <div style="background: #181224; border: 2px solid #00FFFF; border-radius: 10px; padding: 30px; width: 90%; max-width: 400px; box-sizing: border-box; box-shadow: 0 0 20px rgba(0, 255, 255, 0.3); color: #FFF; text-align: center;">
+            <h2 id="profileModalName" style="color: #00FFFF; font-family: var(--font-title); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px #00FFFF;">PlayerName</h2>
             
             <div style="margin-bottom: 20px; background: rgba(0,0,0,0.5); padding: 15px; border-radius: 5px; text-align: left;">
                 <p style="margin: 5px 0; font-size: 16px; color: #FF00FF;"><strong>LEVEL:</strong> <span id="profileModalLevel" style="color: #FFF;">1</span></p>
@@ -1152,12 +1191,18 @@
 
     <!-- Cloud Save Modal -->
     <div id="loginModalUI" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 9999; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif;">
-        <div style="background: rgba(0,0,0,0.9); border: 2px solid #00FFFF; box-shadow: 0 0 20px rgba(0,255,255,0.4); border-radius: 10px; padding: 30px; width: 90%; max-width: 450px; text-align: center; color: #FFF; display: flex; flex-direction: column; align-items: center;">
+        <div style="background: rgba(0,0,0,0.9); border: 2px solid #00FFFF; box-shadow: 0 0 20px rgba(0,255,255,0.4); border-radius: 10px; padding: 30px; width: 90%; max-width: 450px; box-sizing: border-box; text-align: center; color: #FFF; display: flex; flex-direction: column; align-items: center;">
             <h2 style="color: #00FFFF; font-family: 'Orbitron', sans-serif; margin-top: 0; margin-bottom: 10px; text-shadow: 0 0 10px #00FFFF;">SISTEMA DE CLOUD SAVE</h2>
             <p style="color: #ccc; font-size: 14px; margin-bottom: 20px;">Já tem conta? Faça LOGIN para resgatar seu progresso. Primeira vez aqui? CRIE UMA CONTA NOVA.</p>
             <input id="loginInputEmail" type="email" placeholder="seuemail@ghostgames.club" style="width: 100%; padding: 10px; margin-bottom: 12px; background: #111; border: 1px solid #00FFFF; color: #FFF; border-radius: 4px; font-family: 'Orbitron', sans-serif; box-sizing: border-box;" />
             <input id="loginInputName" type="text" placeholder="Seu Nickname (só pra CRIAR CONTA NOVA)" style="width: 100%; padding: 10px; margin-bottom: 20px; background: #111; border: 1px solid #00FFFF; color: #FFF; border-radius: 4px; font-family: 'Orbitron', sans-serif; box-sizing: border-box;" />
             <input type="password" id="loginInputPassword" placeholder="Sua Senha Secreta (6 a 12 caracteres)" minlength="6" maxlength="12" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #111; border: 1px solid #00FFFF; color: #fff; font-family: 'Orbitron', sans-serif; border-radius: 4px;">
+            <!-- Achado #1 da auditoria de 27/08/2026: as 7 mensagens de erro de login/cadastro
+                 (js/web2/auth.js) apareciam como alert() nativo do navegador, quebrando a
+                 identidade visual. Container inline abaixo, escondido por padrão, populado
+                 via showLoginError(msg) em auth.js com a MESMA mensagem que o servidor manda -
+                 só troca o alert() pelo container. Espelhado em www/index.html (mobile). -->
+            <div id="loginErrorMsg" style="display: none; width: 100%; background: rgba(255, 0, 85, 0.12); border: 1px solid #FF0055; color: #FF0055; border-radius: 4px; padding: 10px 12px; margin-bottom: 15px; font-family: 'Orbitron', sans-serif; font-size: 13px; text-align: center; box-sizing: border-box;"></div>
             <button onclick="CloudSaveLogin(this)" style="background: #00FF00; color: #000; font-family: 'Orbitron', sans-serif; font-weight: bold; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; text-transform: uppercase; box-shadow: 0 0 10px #00FF00; width: 100%; margin-bottom: 10px;">ENTRAR & RESGATAR MEU PROGRESSO</button>
             <button onclick="CloudSaveSignup(this)" style="background: transparent; color: #00FFFF; font-family: 'Orbitron', sans-serif; font-weight: bold; padding: 12px 24px; border: 1px solid #00FFFF; border-radius: 4px; cursor: pointer; text-transform: uppercase; width: 100%; margin-bottom: 10px;">CRIAR CONTA NOVA</button>
             <button onclick="CloseLoginModal()" style="background: transparent; color: #FF0055; border: 1px solid #FF0055; padding: 8px 16px; border-radius: 4px; cursor: pointer;">FECHAR</button>
@@ -1166,12 +1211,12 @@
 
     <div id="loadingModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; align-items: center; justify-content: center; flex-direction: column;">
         <div style="width: 50px; height: 50px; border: 5px solid #00FFFF; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-        <h2 style="color: #00FFFF; font-family: 'Courier New', monospace; margin-top: 20px;">Buscando progresso...</h2>
+        <h2 style="color: #00FFFF; font-family: var(--font-title); margin-top: 20px;">Buscando progresso...</h2>
         <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
     </div>
 
     <!-- Scripts de Autenticação -->
-    <script src="js/web2/auth.js?v=11"></script>
+    <script src="js/web2/auth.js?v=12"></script>
 
 </body>
 </html>

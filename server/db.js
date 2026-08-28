@@ -119,6 +119,109 @@ function normalizeCharacterId(rawId) {
     return id;
 }
 
+// Faixas plausíveis pra rejeitar valor absurdo vindo do cliente (achado 27/08/2026, auditoria de
+// segurança: hoje nada impede um jogador de abrir o console e mandar level: 999999999, arma com
+// damage: 999999, etc. — isso gravava direto e ficava pra sempre). Não é um catálogo de itens
+// completo (seria uma reescrita maior) — é bom senso calibrado a partir das regras reais do jogo
+// (rpg_system.js/ghostdex_data.js), não um número arbitrário:
+//   - level: xpRequired(999) = floor(100 * 999^1.6) ≈ 6.3M já é astronômico pra alcançar jogando
+//     (a curva é exponencial); o maxLevel=1e11 hardcoded no cliente é só trava de loop infinito,
+//     nunca um alvo de gameplay real.
+//   - xp/xpRequired: tetados um pouco acima de xpRequired(999) (~6.3M) por folga.
+//   - vit/agi/int/pow/mag: cada nível dá 5 pontos; nem 998 níveis inteiros num único atributo
+//     (4990 pontos) chegam perto de 9999.
+//   - pointsToDistribute: mesmo teto de 5 pontos/nível, com folga.
+//   - mana/maxMana: getMaxMana() = 100 + mag*20; com mag no teto (9999) isso é ~200 mil.
+//   - lives: getMaxLivesCap() = 4 + vit + bônus de elmo; com vit no teto isso é ~10 mil.
+//   - score: sem fórmula fechada (kills, level-up = level*200, etc.) — teto generoso mas finito.
+//   - weapon.damage: upgradeWeapon() soma 10 por upgrade, custo cresce a cada vez; nenhum jogador
+//     real chega nem perto de 100 mil de dano.
+const NUMERIC_BOUNDS = {
+    level: [1, 999],
+    xp: [0, 7000000],
+    xpRequired: [0, 7000000],
+    pointsToDistribute: [0, 6000],
+    vit: [0, 9999],
+    agi: [0, 9999],
+    int: [0, 9999],
+    pow: [0, 9999],
+    mag: [0, 9999],
+    score: [0, 2000000000],
+    time: [0, 100000000],
+    worldLevel: [1, 999],
+    deaths: [0, 1000000]
+};
+const PLAYER_NUMERIC_BOUNDS = {
+    level: NUMERIC_BOUNDS.level,
+    xp: NUMERIC_BOUNDS.xp,
+    mana: [0, 250000],
+    maxMana: [0, 250000],
+    lives: [0, 15000]
+};
+const WEAPON_DAMAGE_BOUNDS = [0, 100000];
+
+function isPlausibleNumber(value, bounds) {
+    const n = Number(value);
+    return Number.isFinite(n) && n >= bounds[0] && n <= bounds[1];
+}
+
+function isPlainObject(value) {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isPlausibleWeapon(weapon) {
+    if (!isPlainObject(weapon)) return false;
+    if (typeof weapon.name !== 'string' || weapon.name.length === 0 || weapon.name.length > 100) return false;
+    return isPlausibleNumber(weapon.damage, WEAPON_DAMAGE_BOUNDS);
+}
+
+// Remove (não grava, loga) campos implausíveis/malformados de um payload de personagem antes de
+// ele alimentar tanto o INSERT (personagem novo) quanto o UPDATE (ver saveCharacters logo abaixo)
+// — um campo ruim vira "ausente" pros dois casos, em vez de derrubar o save inteiro por causa de
+// UM campo ruim (acontece cedo o bastante pra também blindar o desempate de saveCharacters contra
+// um characterId duplicado com level forjado tentando "vencer" a deduplicação).
+function sanitizeCharacterPayload(email, c) {
+    const clean = Object.assign({}, c);
+    function reject(field, value) {
+        console.warn(`[DB] saveCharacters: campo "${field}" implausível/malformado para ${email}/${c.characterId} (valor: ${JSON.stringify(value)}), ignorado.`);
+        delete clean[field];
+    }
+
+    ['level', 'xp', 'xpRequired', 'pointsToDistribute', 'vit', 'agi', 'int', 'pow', 'mag', 'score', 'time', 'worldLevel', 'deaths'].forEach((field) => {
+        if (clean[field] != null && !isPlausibleNumber(clean[field], NUMERIC_BOUNDS[field])) {
+            reject(field, clean[field]);
+        }
+    });
+    if (clean.inventory != null && !Array.isArray(clean.inventory)) reject('inventory', clean.inventory);
+    if (clean.equipment != null && !isPlainObject(clean.equipment)) reject('equipment', clean.equipment);
+    if (clean.weapon != null && !isPlausibleWeapon(clean.weapon)) reject('weapon', clean.weapon);
+    if (clean.equippedSkills != null && !Array.isArray(clean.equippedSkills)) reject('equippedSkills', clean.equippedSkills);
+    if (clean.equippedRunes != null && !Array.isArray(clean.equippedRunes)) reject('equippedRunes', clean.equippedRunes);
+    if (clean.equippedPassives != null && !Array.isArray(clean.equippedPassives)) reject('equippedPassives', clean.equippedPassives);
+
+    return clean;
+}
+
+// Mesma ideia, pro payload que alimenta players (savePlayerProgress).
+function sanitizePlayerProgressPayload(email, data) {
+    const clean = Object.assign({}, data);
+    function reject(field, value) {
+        console.warn(`[DB] savePlayerProgress: campo "${field}" implausível/malformado para ${email} (valor: ${JSON.stringify(value)}), ignorado.`);
+        delete clean[field];
+    }
+
+    if (clean.level != null && !isPlausibleNumber(clean.level, PLAYER_NUMERIC_BOUNDS.level)) reject('level', clean.level);
+    if (clean.xp != null && !isPlausibleNumber(clean.xp, PLAYER_NUMERIC_BOUNDS.xp)) reject('xp', clean.xp);
+    if (clean.mana != null && !isPlausibleNumber(clean.mana, PLAYER_NUMERIC_BOUNDS.mana)) reject('mana', clean.mana);
+    if (clean.maxMana != null && !isPlausibleNumber(clean.maxMana, PLAYER_NUMERIC_BOUNDS.maxMana)) reject('maxMana', clean.maxMana);
+    if (clean.lives != null && !isPlausibleNumber(clean.lives, PLAYER_NUMERIC_BOUNDS.lives)) reject('lives', clean.lives);
+    if (clean.favorites != null && !Array.isArray(clean.favorites)) reject('favorites', clean.favorites);
+    if (clean.ghostdexProgress != null && !isPlainObject(clean.ghostdexProgress)) reject('ghostdexProgress', clean.ghostdexProgress);
+    if (clean.equippedSkills != null && !Array.isArray(clean.equippedSkills)) reject('equippedSkills', clean.equippedSkills);
+
+    return clean;
+}
+
 function characterToRowValues(email, c) {
     return [
         email,
@@ -147,6 +250,38 @@ function characterToRowValues(email, c) {
     ];
 }
 
+// Valor CRU (sem default JS nenhum, null se ausente) de uma coluna a partir do payload já
+// sanitizado — usado só no braço DO UPDATE de saveCharacters (ver comentário lá). Diferente de
+// characterToRowValues (que preenche default pro caso de INSERT de verdade), aqui um campo
+// ausente tem que virar null de propósito: é o que faz COALESCE($raw, characters.col) preservar
+// o valor que já está no banco em vez de sobrescrever com o default de "personagem novo".
+function characterFieldRawValue(col, c) {
+    switch (col) {
+        case 'name': return c.name ?? c.displayName ?? null;
+        case 'level': return c.level ?? null;
+        case 'xp': return c.xp ?? null;
+        case 'xp_required': return c.xpRequired ?? null;
+        case 'points_to_distribute': return c.pointsToDistribute ?? null;
+        case 'vit': return c.vit ?? null;
+        case 'agi': return c.agi ?? null;
+        case 'int': return c.int ?? null;
+        case 'pow': return c.pow ?? null;
+        case 'mag': return c.mag ?? null;
+        case 'equipped_skills': return c.equippedSkills ? JSON.stringify(c.equippedSkills) : null;
+        case 'equipped_runes': return c.equippedRunes ? JSON.stringify(c.equippedRunes) : null;
+        case 'equipped_passives': return c.equippedPassives ? JSON.stringify(c.equippedPassives) : null;
+        case 'weapon': return c.weapon ? JSON.stringify(c.weapon) : null;
+        case 'inventory': return c.inventory ? JSON.stringify(c.inventory) : null;
+        case 'equipment': return c.equipment ? JSON.stringify(c.equipment) : null;
+        case 'score': return c.score ?? null;
+        case 'time': return c.time ?? null;
+        case 'world_level': return c.worldLevel ?? null;
+        case 'deaths': return c.deaths ?? null;
+        case 'image_url': return c.imageUrl ?? null;
+        default: return null;
+    }
+}
+
 async function loadCharacters(email) {
     await ensureTableReady();
     const { rows } = await pool.query(
@@ -163,6 +298,10 @@ async function loadCharacters(email) {
     return rows;
 }
 
+// Colunas que entram no braço DO UPDATE (todas menos character_id, que é chave de conflito e
+// nunca muda).
+const CHARACTER_UPDATE_COLUMNS = CHARACTER_COLUMNS.filter((col) => col !== 'character_id');
+
 async function saveCharacters(email, charactersArray) {
     if (!Array.isArray(charactersArray) || charactersArray.length === 0) return 0;
     await ensureTableReady();
@@ -172,12 +311,19 @@ async function saveCharacters(email, charactersArray) {
     const validChars = charactersArray.filter((c) => c && c.characterId != null && String(c.characterId).length > 0);
     if (validChars.length === 0) return 0;
 
+    // Sanitiza ANTES de deduplicar (achado 27/08/2026): um campo implausível vira "ausente" desse
+    // ponto em diante pra tudo — inclusive pro próprio desempate abaixo, que compara level. Sem
+    // sanitizar antes, um characterId duplicado com level forjado (ex: 999999999) venceria a
+    // deduplicação só por ter o número mais alto, mesmo rejeitado depois; sanitizando primeiro, um
+    // level inválido vira "sem level" (perde o desempate) em vez de "vence o desempate".
+    const sanitizedChars = validChars.map((c) => sanitizeCharacterPayload(email, c));
+
     // Normaliza e deduplica pelo ID normalizado: se o mesmo payload trouxer duas entradas que
     // colapsam pro mesmo ID (ex: "ghost_001" e "ghost_ghost_001" enviadas juntas por um cliente
     // com o bug antigo), mantém só a de maior nível em vez de gravar as duas ou deixar a ordem
     // do array decidir por acaso qual sobrescreve qual.
     const byNormalizedId = new Map();
-    for (const c of validChars) {
+    for (const c of sanitizedChars) {
         const normalizedId = normalizeCharacterId(c.characterId);
         const existing = byNormalizedId.get(normalizedId);
         if (!existing || (Number(c.level) || 0) >= (Number(existing.level) || 0)) {
@@ -189,18 +335,48 @@ async function saveCharacters(email, charactersArray) {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const setClause = CHARACTER_COLUMNS
-            .filter((col) => col !== 'character_id')
-            .map((col) => `${col} = EXCLUDED.${col}`)
+        // ACHADO CRÍTICO #1 (27/08/2026): antes, o braço DO UPDATE fazia "col = EXCLUDED.col" pra
+        // todas as colunas — como characterToRowValues já preenche todo campo ausente do payload
+        // com um default fixo em JS (ex: inventory ausente -> "[]"), um UPDATE parcial (payload
+        // com só 11 dos 21 campos, ex: UnlockGhostForPlayer em ghost_inventory.js capturando um
+        // fantasma já existente no banco mas não no cache local do aparelho) apagava de verdade o
+        // progresso real (inventário, equipamento, etc.) que o payload não mencionou.
+        //
+        // A correção não é só trocar EXCLUDED.col por COALESCE(EXCLUDED.col, characters.col): como
+        // EXCLUDED sempre reflete o valor JÁ DEFAULTADO usado no INSERT (nunca NULL, porque
+        // characterToRowValues preenche o default ANTES de virar parâmetro), esse COALESCE nunca
+        // cairia pro valor existente — sempre escolheria o default de "campo ausente", reproduzindo
+        // o mesmo bug com uma sintaxe diferente. Testado e confirmado que essa forma ingênua NÃO
+        // preserva dado nenhum antes de chegar nesta versão.
+        //
+        // A versão que realmente funciona usa DOIS conjuntos de parâmetros pra cada linha:
+        //   - insertValues (characterToRowValues, com default JS já aplicado) alimenta só a lista
+        //     VALUES(...) do INSERT — cobre o caso de personagem realmente novo, que precisa dos
+        //     defaults (fantasma nunca visto antes, capturado pela primeira vez).
+        //   - rawValues (characterFieldRawValue, SEM nenhum default — null quando o payload não
+        //     trouxe o campo) alimenta só o SET do DO UPDATE, via COALESCE($raw, characters.col) —
+        //     aqui um campo ausente cai de verdade pro valor que já está no banco, porque o
+        //     parâmetro é null de propósito, não o default de personagem novo.
+        // Mesma query resolve os dois casos porque o Postgres só executa UM dos dois braços
+        // (INSERT ou DO UPDATE) por linha, dependendo de o (email, character_id) já existir.
+        const insertColumnList = CHARACTER_COLUMNS.join(', ');
+        // insertValues sempre tem CHARACTER_COLUMNS.length + 1 posições (email + cada coluna) —
+        // os parâmetros "crus" usados pelo COALESCE do UPDATE começam logo depois desses ($1.. até
+        // esse número já estão ocupados pelo INSERT).
+        const INSERT_PARAM_COUNT = CHARACTER_COLUMNS.length + 1;
+        const setClause = CHARACTER_UPDATE_COLUMNS
+            .map((col, i) => `${col} = COALESCE($${INSERT_PARAM_COUNT + 1 + i}, characters.${col})`)
             .join(', ');
         for (const c of dedupedChars) {
-            const values = characterToRowValues(email, c);
-            const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+            const insertValues = characterToRowValues(email, c); // [email, character_id, ...20 cols defaultados]
+            const rawValues = CHARACTER_UPDATE_COLUMNS.map((col) => characterFieldRawValue(col, c));
+            const allValues = insertValues.concat(rawValues);
+            const insertPlaceholders = insertValues.map((_, i) => `$${i + 1}`).join(', ');
             await client.query(
-                `INSERT INTO characters (email, ${CHARACTER_COLUMNS.join(', ')}, updated_at)
-                 VALUES (${placeholders}, now())
+                `INSERT INTO characters (email, ${insertColumnList}, updated_at)
+                 VALUES (${insertPlaceholders}, now())
                  ON CONFLICT (email, character_id) DO UPDATE SET ${setClause}, updated_at = now()`,
-                values
+                allValues
             );
         }
         await client.query('COMMIT');
@@ -375,6 +551,11 @@ async function loadOrCreatePlayer(email, profileName, password) {
 
 async function savePlayerProgress(email, data) {
     await ensureTableReady();
+    // ACHADO CRÍTICO #2 (27/08/2026): sanitiza ANTES do COALESCE — um campo implausível/malformado
+    // (level: 999999999, favorites que não é array, etc.) vira "ausente" pra tudo daqui em diante,
+    // e o COALESCE abaixo já trata "ausente" como "preserva o valor atual" — mesmo mecanismo dos
+    // dois achados, sem precisar de nenhum código novo no corpo da função além desta linha.
+    data = sanitizePlayerProgressPayload(email, data);
     // COALESCE(novo, existente) em cada coluna: quem chama essa função nem sempre manda
     // o estado completo (ex: um save disparado durante a jogatina só manda level/xp/skills,
     // sem mana/vidas) — sem o COALESCE, campos ausentes do payload eram gravados como

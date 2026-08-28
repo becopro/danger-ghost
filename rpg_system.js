@@ -268,6 +268,45 @@ var GhostRPG = (function() {
         return Math.floor(BASE_XP * Math.pow(lvl, XP_EXPONENT));
     }
 
+    // Normaliza a fase atual pra um número antes dela virar state.worldLevel/statsCopy.worldLevel
+    // (achado crítico #4, 27/08/2026): dentro da CAVE1, window.g_currentLevel vira a string
+    // "cave1" em vez de um número — gravar isso cru na coluna world_level (INTEGER no Postgres)
+    // derrubava a transação inteira, travando o save do personagem inteiro (silenciosamente)
+    // enquanto o jogador estivesse nessa fase. window.normalizeLevelName (js/game/network.js) já
+    // sabe converter qualquer nome de fase, incluindo "cave1", num número — reusa essa lógica em
+    // vez de duplicar o mapeamento aqui. Se por algum motivo normalizeLevelName ainda não tiver
+    // carregado, cai pro parseInt direto e, falhando isso também, pro fallback (valor já salvo,
+    // ou 1) — nunca deixa passar algo que não seja um número de verdade.
+    function normalizeWorldLevel(rawLevel, fallback) {
+        if (typeof window !== 'undefined' && typeof window.normalizeLevelName === 'function') {
+            var normalized = parseInt(window.normalizeLevelName(rawLevel), 10);
+            if (!isNaN(normalized)) return normalized;
+        }
+        var parsed = parseInt(rawLevel, 10);
+        if (!isNaN(parsed)) return parsed;
+        return (typeof fallback === 'number' && !isNaN(fallback)) ? fallback : 1;
+    }
+
+    // Stats iniciais por espécie (achado médio, 27/08/2026 — porte do mobile, que já tinha essa
+    // função; o site sempre voltava pro genérico {vit:1,agi:1,int:1,pow:1,mag:1} pra qualquer
+    // fantasma, igual pra todos). window.g_ghostdexDB (mesma fonte de dados em ghostdex_data.js,
+    // idêntica nas duas plataformas) tem os stats_base de cada espécie; convertidos pra atributo
+    // de RPG com a mesma fórmula usada em UnlockGhostForPlayer (ghost_inventory.js): Math.ceil(x/10).
+    function getGhostBaseStats(charId) {
+        var res = { vit: 1, agi: 1, int: 1, pow: 1, mag: 1 };
+        if (!charId || charId === 0 || charId === "0") return res;
+        var ghostNum = charId.toString().replace("ghost_", "").padStart(3, "0");
+        var dbGhost = window.g_ghostdexDB ? window.g_ghostdexDB.find(function(g) { return g.id === ghostNum; }) : null;
+        if (dbGhost && dbGhost.stats_base) {
+            res.vit = Math.ceil(dbGhost.stats_base.hp / 10) || 1;
+            res.pow = Math.ceil(dbGhost.stats_base.ataque / 10) || 1;
+            res.agi = Math.ceil(dbGhost.stats_base.velocidade / 10) || 1;
+            res.int = Math.ceil(dbGhost.stats_base.atq_especial / 10) || 1;
+            res.mag = Math.ceil(dbGhost.stats_base.def_especial / 10) || 1;
+        }
+        return res;
+    }
+
     return {
         init: function() { 
             this.loadLocalStorage(); 
@@ -275,7 +314,23 @@ var GhostRPG = (function() {
         },
         getStats: function() {
             if (!verifyIntegrity()) { this.resetStats(); }
-            
+
+            // Corrige o stat inicial pro certo por espécie (achado médio, 27/08/2026, porte do
+            // mobile) se ainda estiver no nível 1 com o genérico {vit:1,...} — cobre o personagem
+            // que já estava carregado em memória antes desse fix existir.
+            var activeCharId = state.characterId || window.g_currentPlayerGhost;
+            if (state.level === 1 && activeCharId && activeCharId !== 0 && activeCharId !== "0") {
+                var base = getGhostBaseStats(activeCharId);
+                if (state.vit !== base.vit || state.agi !== base.agi || state.int !== base.int || state.pow !== base.pow || state.mag !== base.mag) {
+                    state.vit = base.vit;
+                    state.agi = base.agi;
+                    state.int = base.int;
+                    state.pow = base.pow;
+                    state.mag = base.mag;
+                    updateIntegrityHash();
+                }
+            }
+
             var statsCopy = JSON.parse(JSON.stringify(state));
             
             var bonuses = { vit: 0, agi: 0, int: 0, pow: 0, mag: 0 };
@@ -306,19 +361,22 @@ var GhostRPG = (function() {
             statsCopy.basePow = state.pow;
             statsCopy.baseMag = state.mag;
             statsCopy.bonuses = bonuses;
-            statsCopy.worldLevel = typeof window.g_currentLevel !== 'undefined' ? window.g_currentLevel : 1;
-            
+            statsCopy.worldLevel = typeof window.g_currentLevel !== 'undefined' ? normalizeWorldLevel(window.g_currentLevel, state.worldLevel) : (state.worldLevel || 1);
+
             return statsCopy;
         },
         resetStats: function(newCharId) {
             var currCharId = newCharId || state.characterId || "";
+            // Stat inicial por espécie (achado médio, 27/08/2026, porte do mobile) em vez do
+            // genérico {vit:1,agi:1,int:1,pow:1,mag:1} pra qualquer fantasma.
+            var base = getGhostBaseStats(currCharId);
             var oldInventory = state.inventory || [];
             var oldEquipment = state.equipment || { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
             if (oldEquipment.helmet || oldEquipment.spell) {
                 oldEquipment = { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
             }
-            state = { 
-                level: 1, xp: 0, xpRequired: 100, pointsToDistribute: 0, vit: 1, agi: 1, int: 1, pow: 1, mag: 1, characterId: currCharId,
+            state = {
+                level: 1, xp: 0, xpRequired: 100, pointsToDistribute: 0, vit: base.vit, agi: base.agi, int: base.int, pow: base.pow, mag: base.mag, characterId: currCharId,
                 equippedSkills: [0, 1, 2, 3], equippedRunes: [0, 0, 0, 0], equippedPassives: [-1, -1],
                 weapon: { name: 'Starter Dirk', damage: 10 },
                 inventory: oldInventory,
@@ -442,8 +500,11 @@ var GhostRPG = (function() {
                 // state.worldLevel — getStats() já lia window.g_currentLevel pra mostrar na UI,
                 // só nunca persistia. Sem isso, todo save mandava worldLevel undefined, e o banco
                 // sempre gravava o valor padrão (1), não importa em qual fase o jogador estivesse.
+                // Normaliza pra número (ver normalizeWorldLevel acima) — sem isso, "cave1" ia cru
+                // pra state.worldLevel e quebrava a coluna INTEGER world_level no Postgres,
+                // travando o save do personagem inteiro (achado crítico #4, 27/08/2026).
                 if (typeof window.g_currentLevel !== 'undefined') {
-                    state.worldLevel = window.g_currentLevel;
+                    state.worldLevel = normalizeWorldLevel(window.g_currentLevel, state.worldLevel);
                 }
 
                 var socketPayload = state;
@@ -502,13 +563,18 @@ var GhostRPG = (function() {
         },
         loadLocalStorage: function(forceCharId) {
             try {
-                if (window.cloudSave) {
-                    return this.applyCloudSave(window.cloudSave);
-                }
-                
+                // Ordem corrigida (achado médio, 27/08/2026, mesmo fix já aplicado no mobile): calcula
+                // isGhost ANTES de decidir sobre window.cloudSave, não depois. Antes, a checagem de
+                // cloudSave rodava primeiro incondicionalmente — se window.cloudSave estivesse setado
+                // por resíduo de uma sessão anterior, um pedido explícito de trocar de personagem
+                // (forceCharId) era ignorado e o cloud save genérico "vencia" por acidente de ordem.
                 var charToLoad = forceCharId || state.characterId;
                 var isGhost = charToLoad && charToLoad !== 0 && charToLoad !== "0";
-                
+
+                if (window.cloudSave && !isGhost) {
+                    return this.applyCloudSave(window.cloudSave);
+                }
+
                 if (isGhost) {
                     // Busca pelo ID cru primeiro (formato usado desde 20/08/2026); cai pro formato
                     // antigo prefixado ("ghost_" + zeros) só pra não perder saves feitos antes dessa
@@ -532,23 +598,39 @@ var GhostRPG = (function() {
                             if (!state.equippedPassives) state.equippedPassives = [-1, -1];
                             if (!state.weapon) state.weapon = { name: 'Starter Dirk', damage: 10 };
                             if (!state.inventory) state.inventory = [];
-                            if (!state.equipment || typeof state.equipment.helmet !== 'undefined' || typeof state.equipment.spell !== 'undefined') {
+                            if (!state.equipment) {
                                 state.equipment = { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
                             } else {
+                                // Corrigido (achado crítico #3, 27/08/2026, porte do mobile): antes,
+                                // achar QUALQUER chave legada (helmet/spell) reatribuía state.equipment
+                                // inteiro, apagando itens válidos já equipados nos slots novos. Agora só
+                                // remove as chaves legadas, preservando o resto do objeto.
+                                delete state.equipment.helmet;
+                                delete state.equipment.spell;
                                 var slots = ['head', 'chest', 'mainhand', 'offhand', 'ring1', 'ring2', 'amulet'];
                                 slots.forEach(function(s) {
                                     if (typeof state.equipment[s] === 'undefined') state.equipment[s] = null;
                                 });
                             }
                             if (typeof state.deaths === 'undefined') state.deaths = 0;
-                            
+
+                            // Stat inicial por espécie (achado médio, 27/08/2026, porte do mobile) em
+                            // vez de assumir sempre base 1 na fórmula de pontos usados/disponíveis.
+                            var base = getGhostBaseStats(charToLoad);
+                            if (state.level === 1) {
+                                state.vit = base.vit;
+                                state.agi = base.agi;
+                                state.int = base.int;
+                                state.pow = base.pow;
+                                state.mag = base.mag;
+                            }
                             var expectedPoints = (state.level - 1) * 5;
-                            var usedPoints = (state.vit - 1) + (state.agi - 1) + (state.int - 1) + (state.pow - 1) + (state.mag - 1);
+                            var usedPoints = Math.max(0, (state.vit - base.vit) + (state.agi - base.agi) + (state.int - base.int) + (state.pow - base.pow) + (state.mag - base.mag));
                             var rightfulPoints = Math.max(0, expectedPoints - usedPoints);
                             if (typeof state.pointsToDistribute === 'undefined' || state.pointsToDistribute < rightfulPoints) {
                                 state.pointsToDistribute = rightfulPoints;
                             }
-                            
+
                             state.xpRequired = calculateXpRequired(state.level);
                             updateIntegrityHash();
                             console.log("[RPG] Status carregado do dg_local_characters para ghost: " + state.characterId);
@@ -577,15 +659,19 @@ var GhostRPG = (function() {
                     if (!state.weapon) state.weapon = { name: 'Starter Dirk', damage: 10 };
                     if (!state.inventory) state.inventory = [];
                     
-                    if (!state.equipment || typeof state.equipment.helmet !== 'undefined' || typeof state.equipment.spell !== 'undefined') {
+                    if (!state.equipment) {
                         state.equipment = { head: null, chest: null, mainhand: null, offhand: null, ring1: null, ring2: null, amulet: null };
                     } else {
+                        // Mesmo fix do achado crítico #3 aplicado acima: só remove as chaves legadas
+                        // (helmet/spell), não reatribui state.equipment inteiro.
+                        delete state.equipment.helmet;
+                        delete state.equipment.spell;
                         var slots = ['head', 'chest', 'mainhand', 'offhand', 'ring1', 'ring2', 'amulet'];
                         slots.forEach(function(s) {
                             if (typeof state.equipment[s] === 'undefined') state.equipment[s] = null;
                         });
                     }
-                    
+
                     if (charToLoad) state.characterId = charToLoad;
                     if (typeof state.deaths === 'undefined') state.deaths = 0;
 

@@ -933,9 +933,9 @@
 				var lvl = parseInt(levelNum, 10);
 				if (isNaN(lvl)) return 1;
 				if (lvl === 33) return 666;
-				if (lvl >= 10 && lvl <= 32) {
-					return lvl * 10;
-				}
+				// 27/08/2026: removido o "* 10" nas fases 10-32 — era um degrau artificial de
+				// HP (20x de uma fase pra outra), não uma curva desenhada. Multiplicador agora é
+				// linear (= número da fase) em toda a faixa 1-32; fase 33 e CAVE1 continuam fixos.
 				return lvl;
 			}
 
@@ -1606,12 +1606,14 @@
 						window.g_completedLevels[g_currentLevel] = true;
 					}
 					this.xPos = 48; this.yPos = 150; map_offset = 0;
-					
+
 					// Clean spells and state
 					g_projectiles = [];
 					g_visualEffects = [];
-					this.phantomFormTimer = 0;
-					this.skillCooldowns = [0, 0, 0, 0];
+					// 27/08/2026: NÃO zera phantomFormTimer/skillCooldowns aqui — prevLevel() é a
+					// porta de VOLTA (sem matar boss nenhum), zerar o cooldown permitia manter
+					// Phantom Form disponível indo pra porta de volta e voltando (exploit).
+					// nextLevel() continua zerando: progresso real merece cooldown novo.
 					if (typeof g_bosses !== 'undefined') {
 						g_bosses.forEach(function(b) {
 							if (b) {
@@ -1643,9 +1645,15 @@
 					fireProjectile("spark", runeId);
 					DeSoGhost.skillCooldowns[slotIndex] = 15; // 0.5s cooldown
 				}
-				else if (skillId === 1) { // Ghost Mode (F)
-					if (DeSoGhost.mana >= 10) {
-						DeSoGhost.ghostMode = !DeSoGhost.ghostMode;
+				else if (skillId === 1) { // Ghost Mode
+					// 27/08/2026: no slot F padrão, soltar a tecla desliga sem checar mana (outro
+					// caminho de código, ver keyup). Reatribuído a V/E/R este é o único jeito de
+					// desligar — exigir mana>=10 pra DESLIGAR também travava Ghost Mode ligado
+					// com mana entre 0 e 10. Ligar continua exigindo mana; desligar é sempre livre.
+					if (DeSoGhost.ghostMode) {
+						DeSoGhost.ghostMode = false;
+					} else if (DeSoGhost.mana >= 10) {
+						DeSoGhost.ghostMode = true;
 					}
 				}
 				else if (skillId === 2) { // Plasma Orb (E)

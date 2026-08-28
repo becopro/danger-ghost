@@ -58,9 +58,25 @@ window.UnlockGhostForPlayer = function(ghostId) {
         // (banco manda), igual o bug já corrigido em TriggerCreateNewGhost (forja). Login
         // já é garantido aqui: captura só acontece durante gameplay ativo, e todo ponto de
         // entrada de gameplay hoje exige login antes de começar (SPACE, cheat VIP, etc).
+        //
+        // ACHADO 27/08/2026 (continuação do crítico #1, sinalizado pelo agente que corrigiu
+        // server/db.js): "!existingChar" só verifica o cache LOCAL deste aparelho
+        // (dg_local_characters), não o banco — se essa espécie já foi capturada antes em OUTRO
+        // aparelho da mesma conta (e esse aparelho ainda não resincronizou), esta função monta um
+        // "newChar" do zero achando que é a primeira captura, com inventory/equipment vazios
+        // PRESENTES no objeto. O COALESCE do servidor só preserva campo AUSENTE do payload — um
+        // campo presente com valor vazio ainda sobrescreve o progresso real do outro aparelho. A
+        // correção: manda pro servidor uma cópia sem inventory/equipment (omitidos, não vazios) —
+        // se o personagem já existir no banco (capturado alhures), o COALESCE preserva o que já
+        // tem; se for mesmo inédito, o INSERT already cobre esses dois campos com o default do
+        // schema. O cache local (dg_local_characters, já gravado acima) continua com o objeto
+        // completo — só o payload de rede muda.
         var captureSocket = window.NetworkState && window.NetworkState.socket;
         if (captureSocket && captureSocket.connected && localStorage.getItem('dg_cloud_email')) {
-            captureSocket.emit('save_game_state', { characters: [newChar] });
+            var syncChar = Object.assign({}, newChar);
+            delete syncChar.inventory;
+            delete syncChar.equipment;
+            captureSocket.emit('save_game_state', { characters: [syncChar] });
         }
 
         // Update the Ghostdex UI visually
