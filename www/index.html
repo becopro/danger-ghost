@@ -150,8 +150,17 @@
                         <button id="touchSpell2Btn" class="touch-btn action-btn gb-btn-round spell-btn">2</button>
                         <button id="touchSpell3Btn" class="touch-btn action-btn gb-btn-round spell-btn">3</button>
                     </div>
+                    <!-- Achado #7 da auditoria de 27/08/2026 (docs/UI_MOBILE_REVIEW.md, item
+                         crítico #1): este botão tinha a classe "jump-btn" (visual grande/roxo
+                         de botão de pulo), mas dispara a tecla F, que é Ghost Mode — uma
+                         habilidade real e equipável (ui_manager.js: "Ghost Mode (F)"), não
+                         pulo. Não é código morto nem engano de bind: F precisa continuar
+                         mandando keyCode 70 pra essa habilidade continuar acessível por toque.
+                         O bug era só visual (classe errada); removida "jump-btn", troca por
+                         "spell-btn" igual V/E/R. Pulo de verdade já funciona pelo D-pad ▲
+                         (touchUpBtn, keyCode 38, abaixo). -->
                     <div class="action-row center-jump">
-                        <button id="touchSlotFBtn" class="touch-btn action-btn gb-btn-round jump-btn">F</button>
+                        <button id="touchSlotFBtn" class="touch-btn action-btn gb-btn-round spell-btn">F</button>
                     </div>
                 </div>
             </div>
@@ -360,7 +369,6 @@
                 });
             }
             
-            setupTouchButton('touchJumpBtn', 38);   // Up Arrow (Jump)
             setupTouchButton('touchSpell1Btn', 49); // '1' key
             setupTouchButton('touchSpell2Btn', 50); // '2' key
             setupTouchButton('touchSpell3Btn', 51); // '3' key
@@ -375,8 +383,10 @@
             setupTouchButton('touchSlotVBtn', 86);  // V key
             setupTouchButton('touchSlotEBtn', 69);  // E key
             setupTouchButton('touchSlotRBtn', 82);  // R key
-            setupTouchButton('touchSlotFBtn', 70);  // F key
-            setupTouchButton('touchSlotTBtn', 84);  // T key
+            setupTouchButton('touchSlotFBtn', 70);  // F key (Ghost Mode — habilidade real, não pulo; ver comentário no HTML acima)
+            // setupTouchButton('touchSlotTBtn', 84) removido (achado #7, 27/08/2026): não
+            // existe elemento #touchSlotTBtn no HTML — resquício de um layout mais antigo com
+            // 5 slots de habilidade; hoje são só 4 (V/E/R/F, ver ui_manager.js skillsList).
 
             // Esconder botão START ao clicar
             var startBtn = document.getElementById('touchStartBtn');
@@ -1198,6 +1208,11 @@
             <input id="loginInputEmail" type="email" placeholder="seuemail@ghostgames.club" style="width: 100%; padding: 10px; margin-bottom: 12px; background: #111; border: 1px solid #00FFFF; color: #FFF; border-radius: 4px; font-family: 'Orbitron', sans-serif; box-sizing: border-box;" />
             <input id="loginInputName" type="text" placeholder="Seu Nickname (só pra CRIAR CONTA NOVA)" style="width: 100%; padding: 10px; margin-bottom: 20px; background: #111; border: 1px solid #00FFFF; color: #FFF; border-radius: 4px; font-family: 'Orbitron', sans-serif; box-sizing: border-box;" />
             <input type="password" id="loginInputPassword" placeholder="Sua Senha Secreta (6 a 12 caracteres)" minlength="6" maxlength="12" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #111; border: 1px solid #00FFFF; color: #fff; font-family: 'Orbitron', sans-serif; border-radius: 4px;">
+            <!-- Achado #1 da auditoria de 27/08/2026 (mesmo fix do site — ver index.html lá):
+                 container inline de erro, escondido por padrão, populado via showLoginError(msg)
+                 em js/web2/auth.js com a MESMA mensagem que o servidor manda, no lugar do
+                 alert() nativo. -->
+            <div id="loginErrorMsg" style="display: none; width: 100%; background: rgba(255, 0, 85, 0.12); border: 1px solid #FF0055; color: #FF0055; border-radius: 4px; padding: 10px 12px; margin-bottom: 15px; font-family: 'Orbitron', sans-serif; font-size: 13px; text-align: center; box-sizing: border-box;"></div>
             <button onclick="CloudSaveLogin(this)" style="background: #00FF00; color: #000; font-family: 'Orbitron', sans-serif; font-weight: bold; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; text-transform: uppercase; box-shadow: 0 0 10px #00FF00; width: 100%; margin-bottom: 10px;">LOG IN & RESTORE MY PROGRESS</button>
             <button onclick="CloudSaveSignup(this)" style="background: transparent; color: #00FFFF; font-family: 'Orbitron', sans-serif; font-weight: bold; padding: 12px 24px; border: 1px solid #00FFFF; border-radius: 4px; cursor: pointer; text-transform: uppercase; width: 100%; margin-bottom: 10px;">CREATE NEW ACCOUNT</button>
             <button onclick="CloseLoginModal()" style="background: transparent; color: #FF0055; border: 1px solid #FF0055; padding: 8px 16px; border-radius: 4px; cursor: pointer;">CLOSE</button>
@@ -1208,7 +1223,7 @@
     <!-- Tag <script> do Google GSI removida em 27/08/2026 (auditoria ao vivo): login via Google
          foi removido de vez (ver js/web2/auth.js) e nada mais no cliente usa a global `google`
          que esta tag carregava. -->
-    <script src="js/web2/auth.js?v=41"></script>
+    <script src="js/web2/auth.js?v=42"></script>
 
     <!-- MOBILE APP AUTH GATE SCREEN (22/08/2026, pedido explícito do usuário) — tela exclusiva,
          primeira coisa que aparece ao abrir o app sem uma sessão válida salva. Só tem os dois
@@ -1453,8 +1468,8 @@
             }
         });
     </script>
-    <script src="js/game/ghost_inventory.js?v=40"></script>
-    <script src="js/game/ghostdex_data.js?v=40"></script>
-    <script src="js/game/ghostdex_ui.js?v=41"></script>
+    <!-- 27/08/2026: removidas as 3 tags duplicadas de ghost_inventory.js/ghostdex_data.js/
+         ghostdex_ui.js que estavam aqui (v=40/40/41) — já carregadas no <head> (v=41/41/42),
+         essa segunda cópia era estritamente mais velha e sobrescrevia a versão nova sem motivo. -->
 </body>
 </html>

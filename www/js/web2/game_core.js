@@ -272,6 +272,10 @@
             if (!forceShowOverlay && localChars.length > 0) {
                 try {
                     var savedCharId = localStorage.getItem('dg_deso_character_id');
+                    // 27/08/2026: portado do site (js/web2/game_core.js) — sem isso, um aparelho
+                    // novo (sem dg_deso_character_id local) com personagens já sincronizados da
+                    // nuvem forçava seleção manual mesmo tendo pra quem já tinha fantasma pronto.
+                    if (!savedCharId) savedCharId = localChars[0].characterId; // Auto-pick first if none selected
                     if (savedCharId) {
                         var savedChar = localChars.find(function(c) { return c.characterId === savedCharId; });
                         if (savedChar) {

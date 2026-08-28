@@ -268,6 +268,23 @@ var GhostRPG = (function() {
         return Math.floor(BASE_XP * Math.pow(lvl, XP_EXPONENT));
     }
 
+    // Normaliza a fase atual pra um número antes dela virar state.worldLevel/statsCopy.worldLevel
+    // (achado crítico #4, 27/08/2026, mesmo fix aplicado no site): dentro da CAVE1,
+    // window.g_currentLevel vira a string "cave1" em vez de um número — gravar isso cru na coluna
+    // world_level (INTEGER no Postgres) derrubava a transação inteira, travando o save do
+    // personagem inteiro (silenciosamente) enquanto o jogador estivesse nessa fase.
+    // window.normalizeLevelName (js/game/network.js) já sabe converter qualquer nome de fase,
+    // incluindo "cave1", num número — reusa essa lógica em vez de duplicar o mapeamento aqui.
+    function normalizeWorldLevel(rawLevel, fallback) {
+        if (typeof window !== 'undefined' && typeof window.normalizeLevelName === 'function') {
+            var normalized = parseInt(window.normalizeLevelName(rawLevel), 10);
+            if (!isNaN(normalized)) return normalized;
+        }
+        var parsed = parseInt(rawLevel, 10);
+        if (!isNaN(parsed)) return parsed;
+        return (typeof fallback === 'number' && !isNaN(fallback)) ? fallback : 1;
+    }
+
     function getGhostBaseStats(charId) {
         var res = { vit: 1, agi: 1, int: 1, pow: 1, mag: 1 };
         if (!charId || charId === 0 || charId === "0") return res;
@@ -334,8 +351,8 @@ var GhostRPG = (function() {
             statsCopy.basePow = state.pow;
             statsCopy.baseMag = state.mag;
             statsCopy.bonuses = bonuses;
-            statsCopy.worldLevel = typeof window.g_currentLevel !== 'undefined' ? window.g_currentLevel : 1;
-            
+            statsCopy.worldLevel = typeof window.g_currentLevel !== 'undefined' ? normalizeWorldLevel(window.g_currentLevel, state.worldLevel) : (state.worldLevel || 1);
+
             return statsCopy;
         },
         resetStats: function(newCharId) {
@@ -466,9 +483,12 @@ var GhostRPG = (function() {
         saveLocalStorage: function() {
             try {
                 // Sincroniza a fase atual antes de salvar (30/08/2026, mesmo fix do site — ver o
-                // comentário lá para a explicação completa).
+                // comentário lá para a explicação completa). Normaliza pra número (ver
+                // normalizeWorldLevel acima) — sem isso, "cave1" ia cru pra state.worldLevel e
+                // quebrava a coluna INTEGER world_level no Postgres, travando o save do
+                // personagem inteiro (achado crítico #4, 27/08/2026).
                 if (typeof window.g_currentLevel !== 'undefined') {
-                    state.worldLevel = window.g_currentLevel;
+                    state.worldLevel = normalizeWorldLevel(window.g_currentLevel, state.worldLevel);
                 }
 
                 var socketPayload = state;

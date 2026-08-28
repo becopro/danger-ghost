@@ -925,9 +925,9 @@
 				var lvl = parseInt(levelNum, 10);
 				if (isNaN(lvl)) return 1;
 				if (lvl === 33) return 666;
-				if (lvl >= 10 && lvl <= 32) {
-					return lvl * 10;
-				}
+				// 27/08/2026: removido o "* 10" nas fases 10-32 — era um degrau artificial de
+				// HP (20x de uma fase pra outra), não uma curva desenhada. Multiplicador agora é
+				// linear (= número da fase) em toda a faixa 1-32; fase 33 e CAVE1 continuam fixos.
 				return lvl;
 			}
 
@@ -1152,6 +1152,17 @@
 						g_ctx.shadowBlur = 10;
 						g_ctx.shadowColor = '#00FFFF';
 
+						// 27/08/2026: bug 9 investigado e mantido DIFERENTE do site DE PROPÓSITO —
+						// não é o mesmo bug, apesar de a lógica parecer invertida à primeira vista.
+						// Testado ao vivo: no mobile, safeLoadGhostSprite() (ghostdex_ui.js) sempre
+						// cai no fallback assets/sprites/ghost_<id>_r.webp porque este www/ NÃO tem
+						// pasta Ghosts/ (só existe no site) — e esse .webp já vem PRÉ-ESPELHADO
+						// olhando pra DIREITA. Confirmado ao vivo via
+						// window.g_customPlayerGhostRight.src: no site resolve pra
+						// Ghosts/%23005.png (nativo olhando pra ESQUERDA, precisa espelhar pra
+						// direita); no mobile resolve pra assets/sprites/ghost_005_r.webp (já
+						// olhando pra direita, espelhar de novo ficaria errado). Os branches
+						// precisam continuar opostos porque as imagens de origem são diferentes.
 						if (this.face == 1) {
 							g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
 						} else {
@@ -1179,6 +1190,7 @@
 						g_ctx.textAlign = "center";
 						g_ctx.fillText(charName, this.xPos + map_offset + 12, this.yPos - 10);
 						g_ctx.fillStyle = "#FFFF00";
+						g_ctx.font = "bold 9px Arial"; // 27/08/2026: portado do site — sem isso herdava a fonte do nome
 						g_ctx.fillText("Lv. " + ghostLvl, this.xPos + map_offset + 12, this.yPos - 22);
 
 						// Renderização da animação de Level Up
@@ -1586,12 +1598,14 @@
 						window.g_completedLevels[g_currentLevel] = true;
 					}
 					this.xPos = 48; this.yPos = 150; map_offset = 0;
-					
+
 					// Clean spells and state
 					g_projectiles = [];
 					g_visualEffects = [];
-					this.phantomFormTimer = 0;
-					this.skillCooldowns = [0, 0, 0, 0];
+					// 27/08/2026: NÃO zera phantomFormTimer/skillCooldowns aqui — prevLevel() é a
+					// porta de VOLTA (sem matar boss nenhum), zerar o cooldown permitia manter
+					// Phantom Form disponível indo pra porta de volta e voltando (exploit).
+					// nextLevel() continua zerando: progresso real merece cooldown novo.
 					if (typeof g_bosses !== 'undefined') {
 						g_bosses.forEach(function(b) {
 							if (b) {
@@ -1623,9 +1637,15 @@
 					fireProjectile("spark", runeId);
 					DeSoGhost.skillCooldowns[slotIndex] = 15; // 0.5s cooldown
 				}
-				else if (skillId === 1) { // Ghost Mode (F)
-					if (DeSoGhost.mana >= 10) {
-						DeSoGhost.ghostMode = !DeSoGhost.ghostMode;
+				else if (skillId === 1) { // Ghost Mode
+					// 27/08/2026: no slot F padrão, soltar a tecla desliga sem checar mana (outro
+					// caminho de código, ver keyup). Reatribuído a V/E/R este é o único jeito de
+					// desligar — exigir mana>=10 pra DESLIGAR também travava Ghost Mode ligado
+					// com mana entre 0 e 10. Ligar continua exigindo mana; desligar é sempre livre.
+					if (DeSoGhost.ghostMode) {
+						DeSoGhost.ghostMode = false;
+					} else if (DeSoGhost.mana >= 10) {
+						DeSoGhost.ghostMode = true;
 					}
 				}
 				else if (skillId === 2) { // Plasma Orb (E)
@@ -3277,11 +3297,22 @@ var g_binaryBits = [];
 					for (var id in window.NetworkState.otherPlayers) {
 						if (id === window.NetworkState.playerId) continue;
 						var pos = window.NetworkState.otherPlayers[id];
+						// 27/08/2026: portado do site (js/game/engine.js) — sem essa guarda, uma
+						// posição malformada de outro jogador (pos.x/pos.y ausente ou não-numérico,
+						// ex: durante um frame de reconexão) chegava até o desenho e quebrava aqui.
+						if (!pos || typeof pos.x !== 'number' || typeof pos.y !== 'number') continue;
 						if (pos) {
 							if (window.normalizeLevelName(pos.level) !== window.normalizeLevelName(g_currentLevel)) continue;
 							var match = pos.name && pos.name.match(/\(#(\w+)\)/);
 							var customSprite = match ? getOtherPlayerGhostSprite(match[1]) : null;
 							g_ctx.globalAlpha = 0.85;
+							// 27/08/2026: bug 9 - mantido DIFERENTE do site DE PROPOSITO, mesmo motivo
+							// do jogador local (ver draw() acima e getOtherPlayerGhostSprite() nesta
+							// mesma engine.js): este www/ nao tem pasta Ghosts/, entao o sprite de
+							// OUTRO jogador aqui tambem sempre vem do fallback
+							// assets/sprites/ghost_<id>_r.webp, ja PRE-ESPELHADO olhando pra direita
+							// - diferente do site, que carrega o Ghosts/#NNN.png nativo (olhando
+							// pra esquerda). Espelhar de novo aqui como o site faz ficaria errado.
 							if (customSprite) {
 								if (pos.isFacingRight !== false) {
 									g_ctx.drawImage(customSprite, pos.x + map_offset, pos.y, 24, 24);
@@ -3304,6 +3335,7 @@ var g_binaryBits = [];
 								g_ctx.textAlign = "center";
 								g_ctx.fillText(pos.name, pos.x + map_offset + 12, pos.y - 10);
 								g_ctx.fillStyle = "#FFFF00";
+								g_ctx.font = "bold 9px Arial"; // 27/08/2026: portado do site — sem isso herdava a fonte do nome
 								g_ctx.fillText("Lv. " + (pos.ghostLevel || 1), pos.x + map_offset + 12, pos.y - 22);
 							}
 						} else {
@@ -3318,6 +3350,7 @@ var g_binaryBits = [];
 							g_ctx.textAlign = "center";
 							g_ctx.fillText(pos.name, pos.x + map_offset + 12, pos.y - 10);
 							g_ctx.fillStyle = "#FFFF00";
+							g_ctx.font = "bold 9px Arial"; // 27/08/2026: portado do site — sem isso herdava a fonte do nome
 							g_ctx.fillText("Lv. " + (pos.ghostLevel || 1), pos.x + map_offset + 12, pos.y - 22);
 						}
 					}
@@ -3586,11 +3619,15 @@ var g_binaryBits = [];
 					// isLogged aqui só confirma que o socket conectou ao servidor multiplayer
 					// (join_game roda pra qualquer conexão, logada ou não) — não confirma que o
 					// jogador tem uma CONTA autenticada. Adicionado o segundo checkpoint
-					// (dg_cloud_email) em 30/08/2026: sem ele, um jogador sem conta que apertasse
+					// em 30/08/2026: sem ele, um jogador sem conta que apertasse
 					// SPACE caía nesse alerta de "selecione seu fantasma" em vez de ver o login,
 					// porque tecnicamente "isLogged" (socket) já era verdadeiro mesmo sem conta.
+					// 27/08/2026: trocado dg_cloud_email (localStorage, persiste entre reloads)
+					// por g_hasAuthenticatedThisPageLoad (memória, reseta a cada carregamento) —
+					// dg_cloud_email disparava este checkpoint com sessão obsoleta ANTES do gate
+					// correto (linha ~3618 abaixo) rodar. Mesmo raciocínio do gate de login.
 					var isLogged = window.NetworkState && window.NetworkState.playerId;
-					var hasAccountSession = !!localStorage.getItem('dg_cloud_email');
+					var hasAccountSession = !!window.g_hasAuthenticatedThisPageLoad;
 					if (isLogged && hasAccountSession && (!stats || !stats.characterId)) {
 						var overlay = document.getElementById('characterSelectionOverlay');
 						if (overlay) overlay.style.display = 'block';
