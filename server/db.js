@@ -52,6 +52,10 @@ function ensureTableReady() {
         `)).then(() => pool.query(`
             ALTER TABLE players ADD COLUMN IF NOT EXISTS favorites JSONB DEFAULT '[]'
         `)).then(() => pool.query(`
+            ALTER TABLE players ADD COLUMN IF NOT EXISTS avatar_url TEXT
+        `)).then(() => pool.query(`
+            ALTER TABLE players ADD COLUMN IF NOT EXISTS gallery_urls JSONB DEFAULT '[]'
+        `)).then(() => pool.query(`
             CREATE TABLE IF NOT EXISTS characters (
                 email TEXT NOT NULL REFERENCES players(email) ON DELETE CASCADE,
                 character_id TEXT NOT NULL,
@@ -80,8 +84,17 @@ function ensureTableReady() {
                 updated_at TIMESTAMPTZ DEFAULT now(),
                 PRIMARY KEY (email, character_id)
             )
+        `)).then(() => pool.query(`
+            CREATE TABLE IF NOT EXISTS diary_entries (
+                id SERIAL PRIMARY KEY,
+                email TEXT NOT NULL REFERENCES players(email) ON DELETE CASCADE,
+                content TEXT NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT now()
+            )
+        `)).then(() => pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_diary_entries_email_created ON diary_entries(email, created_at DESC)
         `)).then(() => {
-            console.log('[DB] Players/characters tables ready.');
+            console.log('[DB] Players/characters/diary_entries tables ready.');
         }).catch((err) => {
             console.error('[DB] Error creating table:', err.message);
             tableReadyPromise = null; // permite tentar de novo na próxima chamada, em vez de travar pra sempre
@@ -218,6 +231,67 @@ function sanitizePlayerProgressPayload(email, data) {
     if (clean.favorites != null && !Array.isArray(clean.favorites)) reject('favorites', clean.favorites);
     if (clean.ghostdexProgress != null && !isPlainObject(clean.ghostdexProgress)) reject('ghostdexProgress', clean.ghostdexProgress);
     if (clean.equippedSkills != null && !Array.isArray(clean.equippedSkills)) reject('equippedSkills', clean.equippedSkills);
+
+    return clean;
+}
+
+// Faixas/formatos plausíveis pro perfil de jogador (29/08/2026, feature nova: nome de exibição,
+// avatar, galeria, diário) — mesmo espírito das checagens acima (achados 27/08/2026), aplicado a
+// um payload cujos campos são opcionais por natureza (o cliente só manda o que mudou de verdade).
+// avatarUrl/galleryUrls apontam pra Supabase Storage (upload feito direto do navegador, ver
+// briefing da tarefa) — o servidor nunca recebe o binário, só a URL final; a checagem aqui é
+// deliberadamente simples (prefixo https:// + teto de comprimento) porque validar que a URL
+// realmente existe exigiria uma requisição de rede synchronous ao Storage a cada update_profile,
+// o que não foi pedido e adicionaria uma dependência de rede externa a um caminho que hoje é só
+// banco de dados.
+const DISPLAY_NAME_MAX_LENGTH = 30;
+const MAX_GALLERY_SIZE = 9;
+const MAX_PROFILE_URL_LENGTH = 2000;
+
+function isValidProfileUrl(value) {
+    return typeof value === 'string'
+        && value.startsWith('https://')
+        && value.length > 'https://'.length
+        && value.length <= MAX_PROFILE_URL_LENGTH;
+}
+
+// Sanitiza o payload de update_profile. Diferente de sanitizeCharacterPayload/
+// sanitizePlayerProgressPayload (que clonam o payload inteiro e deletam campo ruim), aqui clean
+// começa VAZIO: um campo ausente do payload não deve virar chave nenhuma em clean (senão
+// updateProfile não teria como distinguir "cliente não mandou esse campo" de "cliente mandou
+// null"), e um campo presente mas inválido é logado e também não entra — nos dois casos o SQL
+// (COALESCE($valor, coluna_atual)) preserva o que já está gravado.
+function sanitizeProfilePayload(email, data) {
+    const clean = {};
+    const source = isPlainObject(data) ? data : {};
+
+    if (source.displayName !== undefined) {
+        if (typeof source.displayName === 'string' && source.displayName.length >= 1 && source.displayName.length <= DISPLAY_NAME_MAX_LENGTH) {
+            clean.displayName = source.displayName;
+        } else {
+            console.warn(`[DB] updateProfile: campo "displayName" inválido para ${email} (precisa ser string de 1 a ${DISPLAY_NAME_MAX_LENGTH} caracteres; valor: ${JSON.stringify(source.displayName)}), ignorado.`);
+        }
+    }
+
+    if (source.avatarUrl !== undefined) {
+        if (isValidProfileUrl(source.avatarUrl)) {
+            clean.avatarUrl = source.avatarUrl;
+        } else {
+            console.warn(`[DB] updateProfile: campo "avatarUrl" inválido para ${email} (precisa ser URL https:// de até ${MAX_PROFILE_URL_LENGTH} caracteres; valor: ${JSON.stringify(source.avatarUrl)}), ignorado.`);
+        }
+    }
+
+    if (source.galleryUrls !== undefined) {
+        if (Array.isArray(source.galleryUrls) && source.galleryUrls.length <= MAX_GALLERY_SIZE && source.galleryUrls.every(isValidProfileUrl)) {
+            clean.galleryUrls = source.galleryUrls;
+        } else if (Array.isArray(source.galleryUrls) && source.galleryUrls.length > MAX_GALLERY_SIZE) {
+            // Rejeita o campo INTEIRO em vez de truncar pros primeiros 9 — truncar silenciosamente
+            // esconderia do jogador que parte da galeria que ele mandou não foi salva.
+            console.warn(`[DB] updateProfile: campo "galleryUrls" para ${email} veio com ${source.galleryUrls.length} itens (máximo ${MAX_GALLERY_SIZE}), campo inteiro rejeitado sem truncar.`);
+        } else {
+            console.warn(`[DB] updateProfile: campo "galleryUrls" inválido para ${email} (precisa ser array de até ${MAX_GALLERY_SIZE} URLs https://; valor: ${JSON.stringify(source.galleryUrls)}), ignorado.`);
+        }
+    }
 
     return clean;
 }
@@ -411,7 +485,7 @@ async function loadPlayerByEmail(email) {
     await ensureTableReady();
     const { rows } = await pool.query(
         `SELECT email, name, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills",
-            ghostdex_progress AS "ghostdexProgress", favorites
+            ghostdex_progress AS "ghostdexProgress", favorites, avatar_url AS "avatarUrl", gallery_urls AS "galleryUrls"
          FROM players WHERE email = $1`,
         [email]
     );
@@ -457,7 +531,7 @@ async function loginPlayer(email, password) {
 
     const { rows } = await pool.query(
         `SELECT email, name, password, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills",
-            ghostdex_progress AS "ghostdexProgress", favorites
+            ghostdex_progress AS "ghostdexProgress", favorites, avatar_url AS "avatarUrl", gallery_urls AS "galleryUrls"
          FROM players WHERE email = $1`,
         [email]
     );
@@ -495,7 +569,7 @@ async function createPlayer(email, profileName, password) {
     }
     return {
         email, name: defaultName, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0, 0, 0, 0],
-        ghostdexProgress: {}, favorites: [],
+        ghostdexProgress: {}, favorites: [], avatarUrl: null, galleryUrls: [],
         characters: [] // conta nova de verdade: nenhum fantasma no banco ainda — o jogador forja o
                         // primeiro (30/08/2026: não existe mais criação automática de um "Ghost
                         // #001" nem adoção de personagens que só existiam no localStorage).
@@ -514,7 +588,8 @@ async function loadOrCreatePlayer(email, profileName, password) {
     await ensureTableReady();
 
     const { rows } = await pool.query(
-        `SELECT email, name, password, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills"
+        `SELECT email, name, password, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills",
+            avatar_url AS "avatarUrl", gallery_urls AS "galleryUrls"
          FROM players WHERE email = $1`,
         [email]
     );
@@ -544,6 +619,7 @@ async function loadOrCreatePlayer(email, profileName, password) {
         }
         return { status: 'created', data: {
             email, name: defaultName, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0, 0, 0, 0],
+            avatarUrl: null, galleryUrls: [],
             characters: []
         } };
     }
@@ -597,6 +673,93 @@ async function savePlayerProgress(email, data) {
     return result.rowCount;
 }
 
+// Grava o perfil de jogador (nome de exibição, avatar, galeria — 29/08/2026, feature nova). Reusa
+// a coluna players.name já existente pro nome de exibição (não existe coluna duplicada). Mesmo
+// mecanismo de COALESCE dos achados críticos de 27/08/2026: sanitizeProfilePayload já reduziu
+// "campo ausente ou inválido" a "chave ausente em clean" antes de chegar aqui, então o `?? null`
+// abaixo é o que faz esse campo ser tratado como "não mudou" pelo COALESCE em vez de apagar o
+// valor já salvo. RETURNING devolve só o que o cliente precisa pra atualizar a UI local, sem
+// round-trip extra nem vazar a senha (nem selecionada nesta query).
+async function updateProfile(email, data) {
+    await ensureTableReady();
+    const clean = sanitizeProfilePayload(email, data);
+    const { rows } = await pool.query(
+        `UPDATE players SET
+            name = COALESCE($1, name),
+            avatar_url = COALESCE($2, avatar_url),
+            gallery_urls = COALESCE($3, gallery_urls),
+            updated_at = now()
+         WHERE email = $4
+         RETURNING name, avatar_url AS "avatarUrl", gallery_urls AS "galleryUrls"`,
+        [
+            clean.displayName ?? null,
+            clean.avatarUrl ?? null,
+            clean.galleryUrls ? JSON.stringify(clean.galleryUrls) : null,
+            email
+        ]
+    );
+    return rows[0];
+}
+
+const DIARY_CONTENT_MAX_LENGTH = 5000;
+const DIARY_DEFAULT_LIMIT = 20;
+const DIARY_MAX_LIMIT = 50;
+
+// Publica uma entrada de diário (29/08/2026). created_at vem do DEFAULT now() da coluna — nunca
+// do cliente, mesma regra de nunca confiar em timestamp vindo do payload que updated_at já segue
+// no resto deste arquivo. Lança erro de validação (mensagem segura de expor ao jogador, mesmo
+// padrão de loginPlayer/createPlayer acima) em vez de rejeitar em silêncio, porque aqui — ao
+// contrário de update_profile, que grava parcialmente o que for válido — a entrada inteira é uma
+// coisa só: ou o conteúdo é válido e vira uma linha nova, ou não tem "publicar parcialmente".
+async function postDiaryEntry(email, content) {
+    await ensureTableReady();
+    if (typeof content !== 'string' || content.length < 1 || content.length > DIARY_CONTENT_MAX_LENGTH) {
+        throw new Error(`O texto do diário precisa ter entre 1 e ${DIARY_CONTENT_MAX_LENGTH} caracteres.`);
+    }
+    const { rows } = await pool.query(
+        `INSERT INTO diary_entries (email, content) VALUES ($1, $2)
+         RETURNING id, content, created_at AS "createdAt"`,
+        [email, content]
+    );
+    return rows[0];
+}
+
+// Lista o diário da conta autenticada, paginado (29/08/2026). Ordena por id DESC (não
+// created_at): id é SERIAL, cresce exatamente na ordem de inserção, então "WHERE id < $beforeId"
+// dá uma página seguinte estável mesmo que duas entradas caiam no mesmíssimo created_at — usar
+// created_at como cursor teria esse risco de empate. Busca limit+1 pra saber se existe próxima
+// página sem precisar de um COUNT(*) separado; devolve só `limit` linhas pro chamador.
+async function getDiaryEntries(email, options) {
+    await ensureTableReady();
+    const opts = isPlainObject(options) ? options : {};
+
+    let limit = Number(opts.limit);
+    if (!Number.isFinite(limit) || limit <= 0) limit = DIARY_DEFAULT_LIMIT;
+    limit = Math.min(Math.floor(limit), DIARY_MAX_LIMIT);
+
+    let rows;
+    if (opts.beforeId !== undefined && opts.beforeId !== null) {
+        const beforeId = Number(opts.beforeId);
+        if (!Number.isFinite(beforeId)) {
+            throw new Error('beforeId inválido.');
+        }
+        ({ rows } = await pool.query(
+            `SELECT id, content, created_at AS "createdAt" FROM diary_entries
+             WHERE email = $1 AND id < $2 ORDER BY id DESC LIMIT $3`,
+            [email, beforeId, limit + 1]
+        ));
+    } else {
+        ({ rows } = await pool.query(
+            `SELECT id, content, created_at AS "createdAt" FROM diary_entries
+             WHERE email = $1 ORDER BY id DESC LIMIT $2`,
+            [email, limit + 1]
+        ));
+    }
+
+    const hasMore = rows.length > limit;
+    return { entries: rows.slice(0, limit), hasMore };
+}
+
 module.exports = {
     loginPlayer,
     createPlayer,
@@ -605,5 +768,8 @@ module.exports = {
     savePlayerProgress,
     loadCharacters,
     saveCharacters,
-    deleteCharacter
+    deleteCharacter,
+    updateProfile,
+    postDiaryEntry,
+    getDiaryEntries
 };

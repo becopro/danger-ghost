@@ -16,7 +16,7 @@ const io = new Server(server, {
     cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-const { loginPlayer, createPlayer, loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveCharacters, deleteCharacter } = require('./db');
+const { loginPlayer, createPlayer, loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveCharacters, deleteCharacter, updateProfile, postDiaryEntry, getDiaryEntries } = require('./db');
 const { OAuth2Client } = require('google-auth-library');
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -92,6 +92,16 @@ const saveQueues = {};
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 5;
 const SIGNUP_MAX_ATTEMPTS = 8;
+// post_diary_entry não fazia parte da auditoria de 27/08/2026 (não existia ainda), mas é o mesmo
+// tipo de escrita repetível e barata (insert de até 5000 caracteres) que um script poderia abusar
+// pra encher a tabela — reusa o mesmo mecanismo de isRateLimited() já existente, com uma janela
+// bem mais generosa que login/signup porque escrever várias entradas de diário em sequência é uso
+// legítimo (29/08/2026, feature de perfil de jogador). Calibrado em 30/min (não 20) depois de um
+// teste real contra o Supabase (e2e-db-verification) travar no próprio limite: o roteiro de teste
+// pedido pelo usuário posta 25 entradas em sequência rápida pra validar a paginação, e um jogador
+// migrando/importando entradas antigas de uma vez é um uso legítimo parecido — 30/min ainda barra
+// um script disparando centenas de posts por segundo, sem penalizar esse uso normal.
+const DIARY_POST_MAX_ATTEMPTS = 30;
 const RATE_LIMIT_MESSAGE = 'Muitas tentativas, aguarde um momento.';
 const rateLimitBuckets = new Map(); // chave "evento:ip" -> array de timestamps (ms) das tentativas recentes
 
@@ -374,6 +384,91 @@ io.on('connection', (socket) => {
             }
         });
         saveQueues[socket.id] = current.catch(() => {});
+    });
+
+    // Perfil de jogador customizável (29/08/2026): nome de exibição (reusa players.name),
+    // avatar e galeria de 9 fotos. O upload do binário acontece direto navegador -> Supabase
+    // Storage (SDK JS do cliente) — este servidor nunca recebe a imagem, só a URL final já
+    // hospedada, validada em db.js/sanitizeProfilePayload (prefixo https://, teto de tamanho).
+    //
+    // Encadeado na MESMA fila (saveQueues) de save_game_state/delete_character: update_profile
+    // grava na mesma linha de players que savePlayerProgress (colunas diferentes, mas mesma
+    // linha). Cada campo aqui já é independente via COALESCE — não depende de um snapshot
+    // completo do cliente como o bug original de saveCharacters (achado #1, 27/08/2026) — então
+    // não existe risco de um save "esquecer" um campo e apagar dado. O risco residual, menor, é
+    // dois update_profile do mesmo socket completando fora de ordem (ex: jogador troca o avatar
+    // duas vezes rápido) e o campo ficar com o valor do mais ANTIGO em vez do mais recente
+    // emitido; encadear na fila elimina esse risco também, pelo mesmo mecanismo já comprovado
+    // pros outros dois eventos.
+    socket.on('update_profile', (data) => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            console.log('[Profile] Rejected: Player not authenticated.');
+            socket.emit('profile_error', { message: 'Não autenticado.' });
+            return;
+        }
+
+        const previous = saveQueues[socket.id] || Promise.resolve();
+        const current = previous.then(async () => {
+            try {
+                const updated = await updateProfile(playerSession.email, data);
+                if (updated && updated.name) players[socket.id].name = updated.name;
+                console.log(`[DB] Profile updated for ${playerSession.email}`);
+                socket.emit('profile_updated', updated);
+            } catch (error) {
+                console.error('[DB] Profile update error:', error);
+                socket.emit('profile_error', { message: 'Erro ao atualizar perfil.' });
+            }
+        });
+        saveQueues[socket.id] = current.catch(() => {});
+    });
+
+    // Diário/blog do jogador (29/08/2026): posts cronológicos, tabela própria (diary_entries),
+    // sem relação de sobrescrita com players/characters — por isso NÃO entra na fila saveQueues
+    // (cada post é um INSERT novo, nunca um UPDATE que possa perder dado por ordem de conclusão;
+    // a classe de bug que saveQueues existe pra evitar não se aplica aqui).
+    socket.on('post_diary_entry', (data) => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            console.log('[Diary] Rejected: Player not authenticated.');
+            socket.emit('diary_error', { message: 'Não autenticado.' });
+            return;
+        }
+        if (isRateLimited('post_diary_entry:' + socket.handshake.address, DIARY_POST_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+            socket.emit('diary_error', { message: RATE_LIMIT_MESSAGE });
+            return;
+        }
+
+        const content = data && data.content;
+        postDiaryEntry(playerSession.email, content).then((entry) => {
+            console.log(`[DB] Diary entry posted for ${playerSession.email} (id ${entry.id})`);
+            socket.emit('diary_entry_posted', entry);
+        }).catch((error) => {
+            console.error('[DB] Diary post error:', error);
+            // error.message aqui é sempre a mensagem de validação de postDiaryEntry (ex: "precisa
+            // ter entre 1 e 5000 caracteres") — segura de expor, mesmo padrão de loginPlayer/
+            // createPlayer (server/db.js) que já devolvem erro de validação direto pro jogador.
+            socket.emit('diary_error', { message: error.message || 'Erro ao publicar no diário.' });
+        });
+    });
+
+    // Lista o diário da conta autenticada, paginado. Somente leitura — não toca players/
+    // characters, não precisa de saveQueues nem de rate limit dedicado (já limitado por limit
+    // máximo de 50 em db.js/getDiaryEntries).
+    socket.on('get_diary_entries', (data) => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            console.log('[Diary] Rejected: Player not authenticated.');
+            socket.emit('diary_error', { message: 'Não autenticado.' });
+            return;
+        }
+
+        getDiaryEntries(playerSession.email, data || {}).then((result) => {
+            socket.emit('diary_entries_loaded', result);
+        }).catch((error) => {
+            console.error('[DB] Diary load error:', error);
+            socket.emit('diary_error', { message: error.message || 'Erro ao carregar diário.' });
+        });
     });
     // ---------------------------------
 });

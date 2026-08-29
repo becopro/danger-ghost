@@ -1176,11 +1176,11 @@ body {
 
 /* Remove all individual button color overrides — image provides the visual */
 #btnNavControls, #btnNavRPG, #btnNavBag, #btnNavEquip,
-#btnNavSpells, #btnNavChat, #btnNavSave, #btnNavLogin, #btnNavGhostdex {
+#btnNavSpells, #btnNavChat, #btnNavSave, #btnNavLogin, #btnNavGhostdex, #btnNavProfile {
     border: none !important;
 }
 #btnNavControls:hover, #btnNavRPG:hover, #btnNavBag:hover, #btnNavEquip:hover,
-#btnNavSpells:hover, #btnNavChat:hover, #btnNavSave:hover, #btnNavLogin:hover, #btnNavGhostdex:hover {
+#btnNavSpells:hover, #btnNavChat:hover, #btnNavSave:hover, #btnNavLogin:hover, #btnNavGhostdex:hover, #btnNavProfile:hover {
     background-color: transparent !important;
 }
 
@@ -2105,6 +2105,347 @@ body {
         padding: 10px 20px !important;
         letter-spacing: 1px !important;
     }
+}
+
+/* =========================================================
+   MY PROFILE MODAL (perfil customizável: nome, avatar, galeria, diário)
+   Adicionado 29/08/2026. Segue a mesma estética glassmorphism/neon dos
+   outros modais (#loginModalUI, #leaderboardModal) — fundo escuro
+   translúcido, borda ciano, cantos arredondados. Ver #myProfileModal em
+   index.html e a lógica em js/web2/profile.js.
+   ========================================================= */
+#myProfileModal .my-profile-box {
+    background: rgba(0, 0, 0, 0.9);
+    border: 2px solid var(--cyan-neon);
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+    border-radius: 10px;
+    padding: 30px;
+    width: 90%;
+    max-width: 560px;
+    max-height: 88vh;
+    overflow-y: auto;
+    box-sizing: border-box;
+    color: #FFF;
+    font-family: var(--font-text);
+}
+
+.my-profile-header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+}
+
+.my-profile-avatar-wrap {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    flex-shrink: 0;
+}
+
+.my-profile-avatar-img {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--cyan-neon);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+    background: #111;
+    align-items: center;
+    justify-content: center;
+    font-size: 42px;
+    box-sizing: border-box;
+}
+
+.my-profile-avatar-edit-btn {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--cyan-neon);
+    color: #000;
+    border: 2px solid #000;
+    cursor: pointer;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+.my-profile-avatar-edit-btn:hover { box-shadow: 0 0 12px var(--cyan-neon); transform: scale(1.08); }
+
+.my-profile-name-block { flex: 1; min-width: 160px; }
+
+.my-profile-name-display-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.my-profile-name-display-row.hidden { display: none; }
+
+.my-profile-name-display {
+    color: var(--cyan-neon);
+    font-family: var(--font-title);
+    font-size: 20px;
+    letter-spacing: 1px;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+    margin: 0;
+    word-break: break-word;
+}
+
+.my-profile-name-edit-row { display: none; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.my-profile-name-edit-row.active { display: flex; }
+
+#myProfileNameInput {
+    background: #111;
+    border: 1px solid var(--cyan-neon);
+    color: #FFF;
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-family: var(--font-text);
+    font-size: 14px;
+    flex: 1;
+    min-width: 140px;
+    box-sizing: border-box;
+}
+#myProfileNameInput:focus { outline: none; box-shadow: 0 0 8px rgba(0, 255, 255, 0.4); }
+
+.my-profile-btn {
+    background: transparent;
+    border: 1px solid var(--magenta-neon);
+    color: var(--magenta-neon);
+    font-family: var(--font-title);
+    font-weight: 700;
+    font-size: 11px;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+.my-profile-btn:hover { background: var(--magenta-neon); color: #000; }
+.my-profile-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.my-profile-btn-primary {
+    background: var(--green-neon);
+    border: 1px solid var(--green-neon);
+    color: #000;
+    font-family: var(--font-title);
+    font-weight: 700;
+    font-size: 11px;
+    padding: 8px 18px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+.my-profile-btn-primary:hover { box-shadow: 0 0 14px var(--green-neon); }
+.my-profile-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+.my-profile-inline-msg {
+    display: none;
+    width: 100%;
+    border-radius: 4px;
+    padding: 9px 12px;
+    margin-bottom: 12px;
+    font-size: 12.5px;
+    text-align: center;
+    box-sizing: border-box;
+    font-family: var(--font-title);
+    letter-spacing: 0.3px;
+}
+.my-profile-inline-msg.error { background: rgba(255, 0, 85, 0.12); border: 1px solid #FF0055; color: #FF0055; }
+.my-profile-inline-msg.success { background: rgba(0, 255, 0, 0.1); border: 1px solid var(--green-neon); color: var(--green-neon); }
+
+.my-profile-section-title {
+    color: var(--magenta-neon);
+    font-family: var(--font-title);
+    font-size: 14px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin: 22px 0 10px 0;
+    text-shadow: 0 0 6px rgba(255, 0, 255, 0.4);
+}
+
+.my-profile-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.my-profile-gallery-slot {
+    aspect-ratio: 1 / 1;
+    border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    background: rgba(24, 18, 36, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.2s ease;
+}
+.my-profile-gallery-slot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.my-profile-gallery-slot.empty {
+    background: rgba(255, 255, 255, 0.03);
+    border: 2px dashed var(--cyan-neon);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    color: var(--cyan-neon);
+    font-family: var(--font-title);
+    font-size: 10px;
+    text-align: center;
+    letter-spacing: 0.5px;
+    padding: 4px;
+    box-sizing: border-box;
+}
+.my-profile-gallery-slot.empty:hover { background: rgba(0, 255, 255, 0.08); box-shadow: 0 0 10px rgba(0, 255, 255, 0.2); }
+.my-profile-gallery-slot.empty .plus-icon { font-size: 24px; line-height: 1; margin-bottom: 2px; }
+
+.my-profile-gallery-slot:not(.empty):hover { box-shadow: 0 0 10px rgba(0, 255, 255, 0.3); border-color: var(--cyan-neon); }
+
+/* Overlay de trocar/remover: aparece no hover (desktop). Em touch (sem hover), o slot inteiro
+   também é clicável direto pra TriggerGallerySlotFileSelect() — ver profile.js — então o toque
+   funciona mesmo sem o overlay aparecer visualmente. */
+.my-profile-gallery-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+.my-profile-gallery-slot:not(.empty):hover .my-profile-gallery-overlay,
+.my-profile-gallery-slot:not(.empty):focus-within .my-profile-gallery-overlay {
+    opacity: 1;
+}
+.my-profile-gallery-overlay button {
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid var(--cyan-neon);
+    color: var(--cyan-neon);
+    border-radius: 4px;
+    font-size: 14px;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    padding: 0;
+}
+.my-profile-gallery-overlay button.remove-btn { border-color: #FF0055; color: #FF0055; }
+
+.my-profile-diary-compose { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+#myDiaryTextarea {
+    width: 100%;
+    min-height: 70px;
+    background: #08060c;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #FFF;
+    border-radius: 6px;
+    padding: 10px;
+    font-family: var(--font-text);
+    font-size: 13px;
+    resize: vertical;
+    box-sizing: border-box;
+}
+#myDiaryTextarea:focus { border-color: var(--cyan-neon); outline: none; }
+#myDiaryTextarea:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.my-profile-diary-compose-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.my-diary-char-count { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+
+.my-diary-list { display: flex; flex-direction: column; gap: 12px; max-height: 320px; overflow-y: auto; padding-right: 4px; margin-bottom: 6px; }
+
+.diary-entry {
+    background: rgba(0, 0, 0, 0.5);
+    border-left: 3px solid var(--magenta-neon);
+    border-radius: 4px;
+    padding: 10px 14px;
+}
+.diary-entry-date {
+    font-size: 11px;
+    color: var(--cyan-neon);
+    font-family: var(--font-mono);
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+}
+.diary-entry-content {
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: #EEE;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.my-diary-empty-state, .my-diary-loading-state {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    padding: 22px 10px;
+    font-family: var(--font-text);
+}
+
+.my-diary-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid var(--cyan-neon);
+    border-top-color: transparent;
+    border-radius: 50%;
+    margin: 0 auto 10px auto;
+    animation: myProfileSpin 0.9s linear infinite;
+}
+@keyframes myProfileSpin { 100% { transform: rotate(360deg); } }
+
+#myDiaryLoadMoreBtn {
+    display: block;
+    margin: 4px auto 0 auto;
+    background: transparent;
+    border: 1px solid var(--cyan-neon);
+    color: var(--cyan-neon);
+    padding: 8px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--font-title);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s ease;
+}
+#myDiaryLoadMoreBtn:hover { background: var(--cyan-neon); color: #000; }
+#myDiaryLoadMoreBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.my-profile-close-btn {
+    display: block;
+    margin: 22px auto 0 auto;
+    padding: 10px 26px;
+    background: var(--cyan-neon);
+    color: #000;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 5px;
+    text-transform: uppercase;
+    font-family: var(--font-title);
+}
+
+@media (max-width: 480px) {
+    #myProfileModal .my-profile-box { padding: 16px; max-width: 94vw; }
+    .my-profile-avatar-wrap { width: 72px; height: 72px; }
+    .my-profile-avatar-img { width: 72px; height: 72px; font-size: 30px; }
+    .my-profile-avatar-edit-btn { width: 26px; height: 26px; font-size: 12px; right: -2px; bottom: -2px; }
+    .my-profile-name-display { font-size: 16px; }
+    .my-profile-gallery-grid { gap: 5px; }
+    .my-profile-gallery-slot.empty { font-size: 8px; }
+    .my-profile-gallery-slot.empty .plus-icon { font-size: 18px; }
+    .my-diary-list { max-height: 220px; }
+    .my-profile-btn, .my-profile-btn-primary { font-size: 10px; padding: 7px 12px; }
 }
 
 /* -------------------------------------

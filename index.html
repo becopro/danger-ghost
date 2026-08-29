@@ -20,7 +20,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
     <!-- Fontes do Sistema de Design (Acessibilidade) -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&amp;family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/style.css?v=45" />
+    <link rel="stylesheet" href="css/style.css?v=47" />
     <link rel="icon" type="image/png" href="favicon.png" />
     
     <!-- Scripts Externos -->
@@ -29,6 +29,20 @@
          verdade (placeholders) e nunca chamada por nenhum botão do site — ver comentário em
          game_core.js no lugar onde a função existia. -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <!-- Supabase JS SDK (Storage) — perfil de jogador (29/08/2026): usado só pro upload de
+         avatar/galeria direto do navegador (o servidor Node nunca vê o binário da imagem, ver
+         server/db.js updateProfile). window.SUPABASE_URL e window.SUPABASE_ANON_KEY (credenciais
+         PÚBLICAS do projeto — a anon key, nunca a service_role) ainda precisam ser definidas aqui
+         por quem configurar o Supabase Storage de verdade no painel; até lá,
+         UploadImageToSupabase() (js/web2/profile.js) falha com uma mensagem clara na UI em vez de
+         travar silenciosamente. Nomes dos buckets já decididos e documentados em profile.js. -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script>
+        // window.SUPABASE_URL = "https://SEU-PROJETO.supabase.co";
+        // window.SUPABASE_ANON_KEY = "SUA_CHAVE_ANON_PUBLICA";
+        window.SUPABASE_STORAGE_BUCKET_AVATARS = window.SUPABASE_STORAGE_BUCKET_AVATARS || "avatars";
+        window.SUPABASE_STORAGE_BUCKET_GALLERY = window.SUPABASE_STORAGE_BUCKET_GALLERY || "gallery";
+    </script>
     <script src="js/core/event_bus.js?v=44"></script>
     <script src="js/globals.js?v=44"></script>
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
@@ -55,6 +69,7 @@
         </div>
         <div id="gameNavbar">
             <button id="btnNavLogin" onclick="OpenLoginModal()">LOGIN</button>
+            <button id="btnNavProfile" onclick="OpenProfileModal()">PROFILE</button>
             <button id="btnNavControls" onclick="ToggleNavbarTab('controls')">CONTROLS</button>
             <button id="btnNavRPG" onclick="ToggleNavbarTab('rpg')">STATS</button>
             <button id="btnNavSpells" onclick="ToggleNavbarTab('spells')">SPELLS</button>
@@ -1189,6 +1204,73 @@
         </div>
     </div>
 
+    <!-- My Profile Modal (perfil customizável: nome de exibição, avatar, galeria de 9 fotos e
+         diário/blog cronológico). Adicionado 29/08/2026. Id de propósito diferente de
+         #playerProfileModal acima (aquele é um card read-only de stats de RPG de OUTRO jogador,
+         nunca aberto por nenhum botão hoje — não confundir os dois). Mesmo padrão de
+         abrir/fechar dos outros modais desta página (display:none <-> flex, IDs únicos) e a
+         mesma estética glassmorphism/neon de #loginModalUI e #leaderboardModal logo abaixo.
+         Toda a lógica de interação (abrir/fechar, editar nome, trocar avatar/galeria, publicar e
+         paginar o diário) vive em js/web2/profile.js — o contrato exato de eventos socket.io
+         (nomes/payloads) está documentado no topo desse arquivo. -->
+    <div id="myProfileModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 2000; align-items: center; justify-content: center;">
+        <div class="my-profile-box">
+            <div id="myProfileAuthWarning" class="my-profile-inline-msg error" style="display:none;">Faça login (botão "RESGATAR PROGRESSO") para editar seu perfil.</div>
+            <div id="myProfileErrorMsg" class="my-profile-inline-msg error"></div>
+            <div id="myProfileSuccessMsg" class="my-profile-inline-msg success"></div>
+
+            <div class="my-profile-header">
+                <div class="my-profile-avatar-wrap">
+                    <img id="myProfileAvatarImg" class="my-profile-avatar-img" style="display:none;" alt="Avatar do jogador" />
+                    <div id="myProfileAvatarPlaceholder" class="my-profile-avatar-img" style="display:flex;">&#128123;</div>
+                    <button type="button" id="myProfileAvatarEditBtn" class="my-profile-avatar-edit-btn" onclick="TriggerAvatarFileSelect()" title="Trocar avatar">&#128247;</button>
+                    <!-- accept="image/*" já filtra a maioria dos seletores de arquivo do SO, mas
+                         HandleAvatarFileSelected() re-valida file.type no JS antes de fazer
+                         qualquer coisa com o arquivo — nunca confiar só no atributo do input. -->
+                    <input type="file" id="myProfileAvatarFileInput" accept="image/*" style="display:none;" onchange="HandleAvatarFileSelected(this)" />
+                </div>
+                <div class="my-profile-name-block">
+                    <div id="myProfileNameDisplayRow" class="my-profile-name-display-row">
+                        <h2 id="myProfileNameDisplay" class="my-profile-name-display">Ghost</h2>
+                        <button type="button" id="myProfileNameEditBtn" class="my-profile-btn" onclick="EnableEditDisplayName()">&#9999;&#65039; EDITAR NOME</button>
+                    </div>
+                    <div id="myProfileNameEditRow" class="my-profile-name-edit-row">
+                        <input type="text" id="myProfileNameInput" maxlength="30" placeholder="Novo nome de exibição" />
+                        <button type="button" id="myProfileNameSaveBtn" class="my-profile-btn-primary" onclick="SaveDisplayName()">SALVAR</button>
+                        <button type="button" class="my-profile-btn" onclick="CancelEditDisplayName()">CANCELAR</button>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="my-profile-section-title">GALERIA</h3>
+            <!-- Grid 3x3 fixo (9 slots sempre renderizados por RenderGallery(), mesmo vazios) —
+                 ver RenderGallerySlot(index, url) em profile.js. Um único <input type=file>
+                 compartilhado entre os 9 slots; qual slot está sendo editado fica em
+                 g_myProfileState.pendingGallerySlotIndex, setado por TriggerGallerySlotFileSelect(). -->
+            <div id="myProfileGalleryGrid" class="my-profile-gallery-grid"></div>
+            <input type="file" id="myProfileGalleryFileInput" accept="image/*" style="display:none;" onchange="HandleGalleryFileSelected(this)" />
+
+            <h3 class="my-profile-section-title">DIÁRIO</h3>
+            <div class="my-profile-diary-compose">
+                <textarea id="myDiaryTextarea" maxlength="5000" placeholder="No que você está pensando, Ghost?" oninput="UpdateDiaryCharCount()"></textarea>
+                <div class="my-profile-diary-compose-footer">
+                    <span id="myDiaryCharCount" class="my-diary-char-count">0 / 5000</span>
+                    <button type="button" id="myDiaryPublishBtn" class="my-profile-btn-primary" onclick="SubmitDiaryEntry()">PUBLICAR</button>
+                </div>
+            </div>
+
+            <div id="myDiaryLoadingState" class="my-diary-loading-state" style="display:none;">
+                <div class="my-diary-spinner"></div>
+                Carregando entradas...
+            </div>
+            <div id="myDiaryEmptyState" class="my-diary-empty-state" style="display:none;">Nenhuma entrada ainda — escreva a primeira!</div>
+            <div id="myDiaryList" class="my-diary-list"></div>
+            <button type="button" id="myDiaryLoadMoreBtn" onclick="LoadMoreDiaryEntries()" style="display:none;">CARREGAR MAIS</button>
+
+            <button type="button" class="my-profile-close-btn" onclick="CloseProfileModal()">FECHAR</button>
+        </div>
+    </div>
+
     <!-- Cloud Save Modal -->
     <div id="loginModalUI" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 9999; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif;">
         <div style="background: rgba(0,0,0,0.9); border: 2px solid #00FFFF; box-shadow: 0 0 20px rgba(0,255,255,0.4); border-radius: 10px; padding: 30px; width: 90%; max-width: 450px; box-sizing: border-box; text-align: center; color: #FFF; display: flex; flex-direction: column; align-items: center;">
@@ -1217,6 +1299,10 @@
 
     <!-- Scripts de Autenticação -->
     <script src="js/web2/auth.js?v=12"></script>
+    <!-- Perfil de jogador (nome, avatar, galeria, diário) — depende de window.NetworkState
+         (js/game/network.js) e de auth.js (localStorage 'dg_cloud_profile'/'dg_cloud_email'),
+         então carrega depois dos dois. -->
+    <script src="js/web2/profile.js?v=1"></script>
 
 </body>
 </html>
