@@ -8,9 +8,25 @@ window.NetworkState = {
     authTimeout: null
 };
 
+// Calcula a URL do backend (site + apps webview) — usada aqui pro socket.io e
+// também reusada por js/web2/profile.js (fetch do upload de imagem de perfil),
+// pra nunca ter duas fontes de verdade sobre qual host é o servidor do jogo
+// (achado 29/08/2026, ao trocar o upload de imagem de Supabase Storage direto do
+// navegador pra um endpoint deste mesmo backend).
+function GetBackendUrl() {
+    const hostname = window.location.hostname;
+    const isApp = typeof Capacitor !== 'undefined' || window.cordova || window.location.protocol === 'file:' || window.location.protocol === 'capacitor:';
+    if (isApp) {
+        return 'https://ghostgames.club';
+    }
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname === '';
+    return isLocal ? `http://${hostname || 'localhost'}:3000` : window.location.origin;
+}
+window.GetBackendUrl = GetBackendUrl;
+
 window.ConnectToServer = function() {
     console.log("[Network] Connecting to simplified server...");
-    
+
     // Clear any existing connection
     if (window.NetworkState.socket) {
         window.NetworkState.socket.disconnect();
@@ -18,15 +34,7 @@ window.ConnectToServer = function() {
         window.NetworkState.playerNames = {};
     }
 
-    const hostname = window.location.hostname;
-    const isApp = typeof Capacitor !== 'undefined' || window.cordova || window.location.protocol === 'file:' || window.location.protocol === 'capacitor:';
-    let BACKEND_URL;
-    if (isApp) {
-        BACKEND_URL = 'https://ghostgames.club';
-    } else {
-        const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname === '';
-        BACKEND_URL = isLocal ? `http://${hostname || 'localhost'}:3000` : window.location.origin;
-    }
+    const BACKEND_URL = GetBackendUrl();
     const socket = io(BACKEND_URL, {
         transports: ['websocket'],
         upgrade: false,

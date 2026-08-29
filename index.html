@@ -29,24 +29,18 @@
          verdade (placeholders) e nunca chamada por nenhum botão do site — ver comentário em
          game_core.js no lugar onde a função existia. -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-    <!-- Supabase JS SDK (Storage) — perfil de jogador (29/08/2026): usado só pro upload de
-         avatar/galeria direto do navegador (o servidor Node nunca vê o binário da imagem, ver
-         server/db.js updateProfile). window.SUPABASE_URL e window.SUPABASE_ANON_KEY (credenciais
-         PÚBLICAS do projeto — a anon key, nunca a service_role) ainda precisam ser definidas aqui
-         por quem configurar o Supabase Storage de verdade no painel; até lá,
-         UploadImageToSupabase() (js/web2/profile.js) falha com uma mensagem clara na UI em vez de
-         travar silenciosamente. Nomes dos buckets já decididos e documentados em profile.js. -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-    <script>
-        // window.SUPABASE_URL = "https://SEU-PROJETO.supabase.co";
-        // window.SUPABASE_ANON_KEY = "SUA_CHAVE_ANON_PUBLICA";
-        window.SUPABASE_STORAGE_BUCKET_AVATARS = window.SUPABASE_STORAGE_BUCKET_AVATARS || "avatars";
-        window.SUPABASE_STORAGE_BUCKET_GALLERY = window.SUPABASE_STORAGE_BUCKET_GALLERY || "gallery";
-    </script>
+    <!-- Upload de imagem de perfil (avatar/galeria) mudou de arquitetura em 29/08/2026: não é
+         mais direto navegador -> Supabase Storage (o SDK JS do Supabase e os globais
+         window.SUPABASE_URL/SUPABASE_ANON_KEY/SUPABASE_STORAGE_BUCKET_AVATARS/_GALLERY que viviam
+         aqui foram removidos). Motivo: este projeto não usa Supabase Auth (login é JWT custom,
+         js/web2/auth.js), então não dava pra restringir quem sobe arquivo sem abrir a anon key
+         geral pra qualquer visitante. Agora o navegador manda o arquivo pro próprio backend Node
+         (POST /api/upload-profile-image, autenticado por JWT) e só o servidor fala com o Supabase
+         Storage — ver UploadProfileImage() em js/web2/profile.js pro contrato completo. -->
     <script src="js/core/event_bus.js?v=44"></script>
     <script src="js/globals.js?v=44"></script>
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
-    <script src="js/game/network.js?v=61"></script>
+    <script src="js/game/network.js?v=62"></script>
     <script src="js/web2/game_core.js?v=49"></script>
     <script src="js/web2/scores.js?v=44"></script>
     <script src="rpg_system.js?v=54"></script>
@@ -1302,7 +1296,7 @@
     <!-- Perfil de jogador (nome, avatar, galeria, diário) — depende de window.NetworkState
          (js/game/network.js) e de auth.js (localStorage 'dg_cloud_profile'/'dg_cloud_email'),
          então carrega depois dos dois. -->
-    <script src="js/web2/profile.js?v=1"></script>
+    <script src="js/web2/profile.js?v=2"></script>
 
 </body>
 </html>

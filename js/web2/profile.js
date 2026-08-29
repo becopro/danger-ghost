@@ -24,6 +24,12 @@
 //   socket.emit('get_diary_entries', { limit, beforeId? })
 //     -> 'diary_entries_loaded' ({ entries: [{id, content, createdAt}], hasMore }) / 'diary_error'
 //
+// Upload de imagem (avatar/galeria) NÃO usa socket.io — é HTTP puro, ver
+// UploadProfileImage() mais abaixo: POST multipart/form-data pra
+// {GetBackendUrl()}/api/upload-profile-image, campos "file" + "type"
+// ("avatar"|"gallery"), header Authorization: Bearer <mesmo JWT de
+// localStorage['dg_session_token']>, resposta esperada { url: "https://..." }.
+//
 // ATENÇÃO — divergência achada em 29/08/2026 lendo server/db.js: o campo de data
 // devolvido é "createdAt" (camelCase), não "created_at" como o briefing original
 // desta tarefa descrevia. FormatDiaryDate() abaixo aceita os dois nomes por
@@ -299,61 +305,61 @@ function SaveDisplayName() {
 window.SaveDisplayName = SaveDisplayName;
 
 // ----------------------------------------------------------------------------
-// Upload de imagem — Supabase Storage direto do navegador
+// Upload de imagem — POST multipart pro próprio backend do jogo
 // ----------------------------------------------------------------------------
-// Ver comentário completo no <head> de index.html: window.SUPABASE_URL e
-// window.SUPABASE_ANON_KEY ainda não existem de verdade (ninguém criou o projeto/
-// buckets no painel do Supabase ainda) — até lá, esta função sempre rejeita com
-// uma mensagem clara, nunca trava silenciosamente. window.SUPABASE_STORAGE_BUCKET_
-// AVATARS/_GALLERY já têm nomes definidos ("avatars"/"gallery") em index.html.
-function GetSupabaseStorageClient() {
-    if (window.g_supabaseStorageClient) return window.g_supabaseStorageClient;
-    if (typeof window.supabase === 'undefined' || !window.supabase.createClient) return null;
-    if (!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) return null;
-    try {
-        window.g_supabaseStorageClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-        return window.g_supabaseStorageClient;
-    } catch (e) {
-        console.error('[Profile] Falha ao criar cliente Supabase:', e);
-        return null;
-    }
-}
-
-function UploadImageToSupabase(file, bucketName, pathPrefix) {
+// Mudança de arquitetura (29/08/2026, decisão do usuário): a primeira versão
+// desta função tentava subir o arquivo direto navegador -> Supabase Storage com
+// o SDK JS (window.SUPABASE_URL/SUPABASE_ANON_KEY, nunca configurados de
+// propósito — a função sempre rejeitava com um erro claro até este ponto).
+// Descartada porque este projeto não usa Supabase Auth (login é JWT custom, ver
+// js/web2/auth.js) — não tinha como restringir quem sobe arquivo sem abrir a
+// anon key geral pra qualquer visitante do site.
+// Desenho novo: o navegador manda o arquivo pro backend Node do próprio jogo
+// (POST /api/upload-profile-image, multipart/form-data, campos "file" + "type"
+// = "avatar"|"gallery"), autenticado com o mesmo token JWT de sessão que
+// auth.js já salva em localStorage['dg_session_token'] (TryAutoLoginFromSession)
+// — só o servidor fala com o Supabase Storage, com a service_role key, que nunca
+// chega no cliente. A URL do backend é a mesma que o socket.io já usa
+// (GetBackendUrl(), js/game/network.js) — nunca hardcoda outro host aqui.
+// Rota implementada por outro agente em server/index.js em paralelo a esta
+// mudança; nome do campo de resposta ("url") é o combinado na tarefa — confira
+// contra o código real do servidor se o upload passar a falhar silenciosamente
+// no .then() abaixo.
+function UploadProfileImage(file, type) {
     return new Promise(function (resolve, reject) {
         if (!file) { reject(new Error('Nenhum arquivo selecionado.')); return; }
-        if (typeof window.supabase === 'undefined') {
-            reject(new Error('Upload indisponível: o SDK do Supabase Storage ainda não carregou nesta página (verifique a conexão e recarregue).'));
-            return;
-        }
-        if (!bucketName) {
-            reject(new Error('Upload indisponível: o bucket do Supabase Storage ainda não foi configurado.'));
-            return;
-        }
-        var client = GetSupabaseStorageClient();
-        if (!client) {
-            reject(new Error('Upload indisponível: faltam as credenciais públicas do Supabase (window.SUPABASE_URL / window.SUPABASE_ANON_KEY) — ainda não configuradas nesta página.'));
+
+        var token = null;
+        try { token = localStorage.getItem('dg_session_token'); } catch (e) {}
+        if (!token) {
+            reject(new Error('Faça login para enviar uma imagem.'));
             return;
         }
 
-        var email = GetCurrentPlayerEmail();
-        var safeEmailPart = (email || 'anon').replace(/[^a-zA-Z0-9_.-]/g, '_');
-        var ext = '.jpg';
-        if (file.name && file.name.lastIndexOf('.') !== -1) {
-            ext = file.name.substring(file.name.lastIndexOf('.'));
-        }
-        var filePath = safeEmailPart + '/' + pathPrefix + '_' + Date.now() + ext;
+        var formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', type);
 
-        client.storage.from(bucketName).upload(filePath, file, { cacheControl: '3600', upsert: false })
-            .then(function (result) {
-                if (result && result.error) {
-                    reject(new Error(result.error.message || 'Falha no upload da imagem.'));
-                    return;
-                }
-                var pub = client.storage.from(bucketName).getPublicUrl(filePath);
-                var publicUrl = pub && pub.data && pub.data.publicUrl;
+        var backendUrl = (typeof window.GetBackendUrl === 'function') ? window.GetBackendUrl() : window.location.origin;
+
+        fetch(backendUrl + '/api/upload-profile-image', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token },
+            body: formData
+        })
+            .then(function (res) {
+                return res.json().catch(function () { return {}; }).then(function (data) {
+                    if (!res.ok) {
+                        var msg = (data && data.message) || ('Falha no upload da imagem (HTTP ' + res.status + ').');
+                        throw new Error(msg);
+                    }
+                    return data;
+                });
+            })
+            .then(function (data) {
+                var publicUrl = data && data.url;
                 if (!publicUrl) {
-                    reject(new Error('Upload concluído, mas não foi possível obter a URL pública da imagem.'));
+                    reject(new Error('Upload concluído, mas o servidor não retornou a URL da imagem.'));
                     return;
                 }
                 resolve(publicUrl);
@@ -363,7 +369,7 @@ function UploadImageToSupabase(file, bucketName, pathPrefix) {
             });
     });
 }
-window.UploadImageToSupabase = UploadImageToSupabase;
+window.UploadProfileImage = UploadProfileImage;
 
 // ----------------------------------------------------------------------------
 // Avatar
@@ -392,7 +398,7 @@ function HandleAvatarFileSelected(inputEl) {
     RenderProfileHeader();
     ShowProfileStatus('Enviando imagem...');
 
-    UploadImageToSupabase(file, window.SUPABASE_STORAGE_BUCKET_AVATARS, 'avatar')
+    UploadProfileImage(file, 'avatar')
         .then(function (publicUrl) {
             g_myProfileState.avatarUrl = publicUrl;
             RenderProfileHeader();
@@ -511,7 +517,7 @@ function HandleGalleryFileSelected(inputEl) {
     RenderGallery();
     ShowProfileStatus('Enviando foto...');
 
-    UploadImageToSupabase(file, window.SUPABASE_STORAGE_BUCKET_GALLERY, 'gallery_' + index)
+    UploadProfileImage(file, 'gallery')
         .then(function (publicUrl) {
             var finalUrls = previousUrls.slice();
             finalUrls[index] = publicUrl;

@@ -484,6 +484,275 @@ setInterval(() => {
     }
 }, 1000 / TICK_RATE);
 
+// ============================================================================
+// Upload de imagem de perfil (avatar/galeria) — 29/08/2026, decisão de
+// arquitetura revisada pelo usuário: o navegador NÃO fala mais direto com o
+// Supabase Storage usando a anon key pública (plano original, abandonado —
+// ver comentário histórico em js/web2/profile.js, função UploadImageToSupabase,
+// que o agente de cliente ainda vai precisar trocar por uma chamada a este
+// endpoint). Este projeto não usa Supabase Auth (login é 100% custom, JWT
+// próprio — mesmo jwt.verify() já usado em session_login acima), então não
+// existia forma de restringir aquele upload direto a "usuário logado de
+// verdade" no sentido do Supabase; só dava pra liberar geral pra qualquer um
+// com a anon key. Este servidor Node agora fica no meio: autentica com o JWT
+// real do jogo, valida o arquivo (tamanho + assinatura binária real, nunca
+// extensão/Content-Type declarado pelo cliente) e só ELE fala com o Supabase
+// Storage, usando a service_role key (secreta, nunca sai daqui, ignora RLS).
+// O cliente troca a URL pública devolvida aqui pelo mesmo evento
+// update_profile que já existia — nada mudou no contrato desse evento.
+// ============================================================================
+
+const MAX_UPLOAD_FILE_SIZE_MB = 5; // mesmo teto configurado nos buckets avatars/gallery no painel do Supabase
+const MAX_UPLOAD_FILE_SIZE_BYTES = MAX_UPLOAD_FILE_SIZE_MB * 1024 * 1024;
+const MAX_UPLOAD_BODY_BYTES = MAX_UPLOAD_FILE_SIZE_BYTES + 64 * 1024; // folga pra boundary/headers/campo "type"
+const MAX_MULTIPART_PARTS = 20; // teto defensivo — este endpoint só usa 2 partes de verdade (arquivo + "type")
+
+const UPLOAD_TYPE_TO_BUCKET = { avatar: 'avatars', gallery: 'gallery' };
+
+// Rate limit da rota de upload (mesmo mecanismo isRateLimited() já usado em login/signup/diário
+// acima): upload é uma operação cara (lê o corpo inteiro, decodifica multipart, faz uma chamada de
+// rede pro Supabase Storage) — nunca deixar sem limite. 12/min é generoso o bastante pra um
+// jogador legítimo trocar o avatar e preencher a galeria inteira (9 fotos) numa sessão só, mas
+// barra um script tentando estourar o bucket ou forçar erro repetidamente.
+const UPLOAD_MAX_ATTEMPTS = 12;
+
+// Assinaturas binárias reais (magic bytes) dos formatos aceitos — checadas nos primeiros bytes do
+// arquivo de verdade, nunca no nome/extensão nem no Content-Type que o cliente declarou (um
+// arquivo .txt renomeado pra .jpg tem Content-Type "image/jpeg" segundo o próprio navegador, mas
+// falha em todas as assinaturas abaixo). Cobre os 4 formatos que os buckets aceitam na prática.
+const IMAGE_SIGNATURES = [
+    { ext: 'jpg', mime: 'image/jpeg', check: (b) => b.length >= 3 && b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF },
+    { ext: 'png', mime: 'image/png', check: (b) => b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47 && b[4] === 0x0D && b[5] === 0x0A && b[6] === 0x1A && b[7] === 0x0A },
+    { ext: 'gif', mime: 'image/gif', check: (b) => b.length >= 6 && b.toString('ascii', 0, 3) === 'GIF' && (b.toString('ascii', 3, 6) === '87a' || b.toString('ascii', 3, 6) === '89a') },
+    { ext: 'webp', mime: 'image/webp', check: (b) => b.length >= 12 && b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP' }
+];
+
+function detectRealImageType(buffer) {
+    return IMAGE_SIGNATURES.find((sig) => sig.check(buffer)) || null;
+}
+
+// Parser multipart/form-data escrito à mão de propósito: este endpoint só precisa de 2 campos
+// conhecidos (um arquivo + um campo de texto "type"), então escrever isso à mão e testar contra
+// requisições reais saiu mais barato — em dependências novas e em superfície de auditoria — do que
+// adicionar multer/busboy só pra esse único uso. Opera em Buffer (nunca converte o corpo inteiro
+// pra string) porque o conteúdo do arquivo é binário — uma conversão UTF-8 corromperia qualquer
+// byte de imagem que não seja um ponto de código UTF-8 válido.
+function parseMultipartFormData(bodyBuffer, contentTypeHeader) {
+    const boundaryMatch = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentTypeHeader || '');
+    const boundary = boundaryMatch ? (boundaryMatch[1] || boundaryMatch[2]).trim() : null;
+    if (!boundary) throw new Error('Content-Type sem boundary multipart.');
+
+    const boundaryDelim = Buffer.from('--' + boundary);
+    const parts = [];
+    let cursor = bodyBuffer.indexOf(boundaryDelim);
+    if (cursor === -1) throw new Error('Boundary inicial não encontrado no corpo multipart.');
+    cursor += boundaryDelim.length;
+
+    while (cursor < bodyBuffer.length) {
+        if (bodyBuffer[cursor] === 0x2d && bodyBuffer[cursor + 1] === 0x2d) break; // "--boundary--" = fim
+        if (bodyBuffer[cursor] === 0x0d && bodyBuffer[cursor + 1] === 0x0a) cursor += 2; // CRLF após o boundary
+
+        const nextBoundaryIndex = bodyBuffer.indexOf(boundaryDelim, cursor);
+        if (nextBoundaryIndex === -1) throw new Error('Boundary de fechamento não encontrado no corpo multipart.');
+
+        let partEnd = nextBoundaryIndex;
+        if (bodyBuffer[partEnd - 2] === 0x0d && bodyBuffer[partEnd - 1] === 0x0a) partEnd -= 2; // CRLF antes do próximo boundary
+
+        parts.push(parseMultipartPart(bodyBuffer.subarray(cursor, partEnd)));
+        if (parts.length > MAX_MULTIPART_PARTS) throw new Error('Corpo multipart com partes demais.');
+
+        cursor = nextBoundaryIndex + boundaryDelim.length;
+    }
+    return parts;
+}
+
+function parseMultipartPart(partBuffer) {
+    const headerEndMarker = Buffer.from('\r\n\r\n');
+    const headerEndIndex = partBuffer.indexOf(headerEndMarker);
+    if (headerEndIndex === -1) throw new Error('Parte multipart sem separador de headers.');
+
+    const headers = {};
+    partBuffer.subarray(0, headerEndIndex).toString('utf8').split('\r\n').forEach((line) => {
+        const sep = line.indexOf(':');
+        if (sep === -1) return;
+        headers[line.slice(0, sep).trim().toLowerCase()] = line.slice(sep + 1).trim();
+    });
+
+    const disposition = headers['content-disposition'] || '';
+    const nameMatch = /name="([^"]*)"/.exec(disposition);
+    const filenameMatch = /filename="([^"]*)"/.exec(disposition);
+
+    return {
+        fieldName: nameMatch ? nameMatch[1] : null,
+        filename: filenameMatch ? filenameMatch[1] : null,
+        data: partBuffer.subarray(headerEndIndex + headerEndMarker.length)
+    };
+}
+
+// Extrai e valida o Bearer token do mesmo jeito que session_login já valida (jwt.verify contra o
+// mesmo JWT_SECRET) — a identidade do dono do upload vem SÓ daqui, nunca de um campo do corpo da
+// requisição (mesmo princípio já documentado em save_game_state/update_profile: nunca confiar no
+// que o cliente diz que é o dono de um dado, só no que a assinatura do token prova).
+function getAuthenticatedEmailFromRequest(req) {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || typeof authHeader !== 'string' || authHeader.slice(0, 7).toLowerCase() !== 'bearer ') return null;
+    const token = authHeader.slice(7).trim();
+    if (!token) return null;
+    try {
+        const payload = jwt.verify(token, JWT_SECRET);
+        return payload && payload.email ? String(payload.email).trim().toLowerCase() : null;
+    } catch (err) {
+        return null;
+    }
+}
+
+// Deriva a URL do projeto Supabase a partir do que já existe em server/.env, sem precisar de mais
+// uma variável nova pra digitar no console remoto: o usuário de conexão do pooler (dbuser) já vem
+// no formato "postgres.<project-ref>" (confirmado no .env atual: "postgres.ywexmucihqjzlqllmqxa").
+// Aceita um override explícito via "supabaseurl" (URL completa) pro caso do projeto um dia trocar
+// pra conexão direta, onde dbuser vira só "postgres" sem o project-ref embutido.
+function getSupabaseProjectUrl() {
+    if (process.env.supabaseurl) return process.env.supabaseurl.replace(/\/+$/, '');
+    const fromDbUser = /^postgres\.([a-z0-9]+)$/i.exec(process.env.dbuser || '');
+    if (fromDbUser) return `https://${fromDbUser[1]}.supabase.co`;
+    const fromDbUrl = /postgres\.([a-z0-9]+)/i.exec(process.env.DATABASE_URL || '');
+    if (fromDbUrl) return `https://${fromDbUrl[1]}.supabase.co`;
+    return null;
+}
+
+if (!process.env.supabaseservicerolekey) {
+    console.warn('[Upload] supabaseservicerolekey não definido no ambiente — POST /api/upload-profile-image vai responder 503 até essa variável existir em server/.env.');
+}
+
+// Sobe o arquivo pro Supabase Storage via REST direta (PUT), autenticado com a service_role key —
+// nunca com a anon key. Não usa @supabase/supabase-js: um PUT com fetch nativo do Node resolve
+// sozinho, sem precisar de mais uma dependência só pra isso (mantém o footprint de dependências do
+// projeto igual).
+async function uploadBufferToSupabaseStorage(bucket, storagePath, buffer, mimeType) {
+    const projectUrl = getSupabaseProjectUrl();
+    const serviceKey = process.env.supabaseservicerolekey;
+    if (!projectUrl || !serviceKey) {
+        const err = new Error('Upload de imagem indisponível: configuração do Supabase Storage ausente no servidor.');
+        err.httpStatus = 503;
+        throw err;
+    }
+
+    const uploadUrl = `${projectUrl}/storage/v1/object/${bucket}/${storagePath}`;
+    const response = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+            'Authorization': `Bearer ${serviceKey}`,
+            'Content-Type': mimeType
+        },
+        body: buffer
+    });
+
+    if (!response.ok) {
+        const bodyText = await response.text().catch(() => '');
+        console.error(`[Upload] Supabase Storage respondeu ${response.status} para ${bucket}/${storagePath}: ${bodyText}`);
+        const err = new Error('Falha ao enviar a imagem para o armazenamento.');
+        err.httpStatus = 502;
+        throw err;
+    }
+
+    return `${projectUrl}/storage/v1/object/public/${bucket}/${storagePath}`;
+}
+
+// Corpo bruto (Buffer) só quando o Content-Type é multipart/form-data — separado do resto do app
+// porque este é o único endpoint HTTP deste servidor que recebe upload binário; os outros
+// (join_game, save_game_state, etc.) são tudo socket.io, sem precisar de body parser HTTP nenhum.
+const uploadRawBodyParser = express.raw({ type: 'multipart/form-data', limit: MAX_UPLOAD_BODY_BYTES });
+function parseUploadBody(req, res, next) {
+    uploadRawBodyParser(req, res, (err) => {
+        if (err) {
+            // Cobre tanto "corpo maior que o limite" (PayloadTooLargeError) quanto qualquer outro
+            // erro do parser — os dois viram 400 com mensagem clara, conforme pedido.
+            return res.status(400).json({ message: `Arquivo maior que o limite de ${MAX_UPLOAD_FILE_SIZE_MB}MB ou corpo da requisição inválido.` });
+        }
+        next();
+    });
+}
+
+// CORS permissivo só nesta rota (mesma política origin:'*' que o socket.io já usa pro resto do
+// jogo, ver `const io = new Server(...)` no topo) — necessário pro app mobile (Capacitor, origem
+// diferente do site) conseguir chamar este endpoint depois de escolher uma imagem.
+function allowUploadCors(req, res, next) {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    next();
+}
+app.options('/api/upload-profile-image', allowUploadCors, (req, res) => res.sendStatus(204));
+
+app.post('/api/upload-profile-image', allowUploadCors, parseUploadBody, async (req, res) => {
+    try {
+        if (isRateLimited('upload_profile_image:' + req.ip, UPLOAD_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+            return res.status(429).json({ message: RATE_LIMIT_MESSAGE });
+        }
+
+        const email = getAuthenticatedEmailFromRequest(req);
+        if (!email) {
+            return res.status(401).json({ message: 'Não autenticado. Faça login novamente.' });
+        }
+
+        if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+            return res.status(400).json({ message: 'Envie a imagem como multipart/form-data (Content-Type ausente ou incorreto).' });
+        }
+
+        let parts;
+        try {
+            parts = parseMultipartFormData(req.body, req.headers['content-type']);
+        } catch (parseErr) {
+            return res.status(400).json({ message: 'Corpo multipart malformado.' });
+        }
+
+        const filePart = parts.find((p) => p.filename);
+        if (!filePart || !filePart.data || filePart.data.length === 0) {
+            return res.status(400).json({ message: 'Nenhum arquivo de imagem enviado (campo de arquivo ausente ou vazio).' });
+        }
+        if (filePart.data.length > MAX_UPLOAD_FILE_SIZE_BYTES) {
+            return res.status(400).json({ message: `Arquivo maior que o limite de ${MAX_UPLOAD_FILE_SIZE_MB}MB.` });
+        }
+
+        const typePart = parts.find((p) => p.fieldName === 'type');
+        const uploadType = typePart ? typePart.data.toString('utf8').trim() : '';
+        const bucket = UPLOAD_TYPE_TO_BUCKET[uploadType];
+        if (!bucket) {
+            return res.status(400).json({ message: 'Campo "type" precisa ser "avatar" ou "gallery".' });
+        }
+
+        // Nunca confia na extensão do nome do arquivo nem no Content-Type declarado pela parte —
+        // só nos magic bytes reais do conteúdo (ver IMAGE_SIGNATURES acima).
+        const signature = detectRealImageType(filePart.data);
+        if (!signature) {
+            return res.status(400).json({ message: 'Arquivo não é uma imagem válida (formatos aceitos: JPEG, PNG, GIF, WEBP).' });
+        }
+
+        // Hash do e-mail (nunca o e-mail cru) no path — e-mail em texto puro na URL pública do
+        // Supabase Storage vazaria o e-mail de qualquer jogador que compartilhasse o link do avatar.
+        const emailHash = crypto.createHash('sha256').update(email).digest('hex').slice(0, 32);
+        const storagePath = `${emailHash}/${uploadType}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${signature.ext}`;
+
+        const publicUrl = await uploadBufferToSupabaseStorage(bucket, storagePath, filePart.data, signature.mime);
+
+        console.log(`[Upload] Imagem (${uploadType}, ${filePart.data.length} bytes) enviada para ${bucket}/${storagePath} — dono: ${email}`);
+        return res.status(200).json({ url: publicUrl });
+    } catch (error) {
+        // error.httpStatus só existe nos erros esperados (503 "não configurado", 502 "Supabase
+        // recusou") — esses já logam o próprio contexto onde acontecem (ex: uploadBufferToSupabaseStorage
+        // já loga o corpo da resposta do Supabase em erro). Só imprime o stack trace completo pra
+        // exceção genuína e inesperada, senão o log de produção enche de stack trace todo request
+        // enquanto supabaseservicerolekey não estiver configurado.
+        if (error.httpStatus) {
+            console.warn(`[Upload] ${error.httpStatus}: ${error.message}`);
+        } else {
+            console.error('[Upload] Erro inesperado:', error);
+        }
+        return res.status(error.httpStatus || 500).json({ message: error.message || 'Erro ao enviar a imagem.' });
+    }
+});
+// ---------------------------------
+
 // Serve os arquivos estáticos do jogo (Front-end) — só os diretórios/arquivos que o jogo de fato
 // usa (conferido em index.html, codex.html e lore_reader.html), nunca a árvore inteira do
 // repositório. Corrigido em 27/08/2026 (auditoria de segurança pedida pelo usuário, achado
