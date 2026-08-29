@@ -1,5 +1,13 @@
+// Guarda o retorno do dotenv (em vez de descartar) porque ele é a única fonte confiável pra
+// diagnosticar, mais abaixo, um problema real encontrado em 29/08/2026: dotenv.config() por
+// padrão NUNCA sobrescreve uma variável que já exista em process.env (comportamento documentado
+// da própria lib) — então se o PM2 já guarda um valor (mesmo vazio/velho) pra alguma dessas
+// variáveis na sua "snapshot" de ambiente do processo (ex: de um `pm2 set` ou export de shell
+// antigo capturado por um `--update-env` anterior), editar server/.env e reiniciar não muda
+// nada, pra sempre, com zero erro visível. Ver diagnóstico logo após a leitura de supabaseservicerolekey.
+let dotenvLoadResult = null;
 try {
-    require('dotenv').config();
+    dotenvLoadResult = require('dotenv').config();
 } catch (err) {
     // dotenv é opcional se as variáveis de ambiente já vierem injetadas pelo PM2/OS
 }
@@ -610,19 +618,70 @@ function getAuthenticatedEmailFromRequest(req) {
 // uma variável nova pra digitar no console remoto: o usuário de conexão do pooler (dbuser) já vem
 // no formato "postgres.<project-ref>" (confirmado no .env atual: "postgres.ywexmucihqjzlqllmqxa").
 // Aceita um override explícito via "supabaseurl" (URL completa) pro caso do projeto um dia trocar
-// pra conexão direta, onde dbuser vira só "postgres" sem o project-ref embutido.
+// pra conexão direta, onde dbuser vira só "postgres" sem o project-ref embutido — e, desde
+// 29/08/2026, também tenta extrair o project-ref direto do HOST nesse caso (dbhost/DATABASE_URL
+// no formato "db.<project-ref>.supabase.co"), já que "postgres" sozinho no usuário não carrega
+// o ref nenhum. Antes disso, conexão direta caía sempre em `null` (mesmo erro 503 ambíguo da
+// chave ausente) sem log nenhum explicando o motivo real.
 function getSupabaseProjectUrl() {
     if (process.env.supabaseurl) return process.env.supabaseurl.replace(/\/+$/, '');
     const fromDbUser = /^postgres\.([a-z0-9]+)$/i.exec(process.env.dbuser || '');
     if (fromDbUser) return `https://${fromDbUser[1]}.supabase.co`;
     const fromDbUrl = /postgres\.([a-z0-9]+)/i.exec(process.env.DATABASE_URL || '');
     if (fromDbUrl) return `https://${fromDbUrl[1]}.supabase.co`;
+    // Conexão direta (não-pooler): dbuser/DATABASE_URL trazem só "postgres", sem project-ref
+    // embutido — o ref mora no HOST ("db.<ref>.supabase.co"), não no usuário.
+    const hostSource = process.env.dbhost || process.env.DATABASE_URL || '';
+    const fromHost = /(?:^|@|\/\/)db\.([a-z0-9]+)\.supabase\.co/i.exec(hostSource);
+    if (fromHost) return `https://${fromHost[1]}.supabase.co`;
     return null;
 }
 
-if (!process.env.supabaseservicerolekey) {
-    console.warn('[Upload] supabaseservicerolekey não definido no ambiente — POST /api/upload-profile-image vai responder 503 até essa variável existir em server/.env.');
-}
+// Diagnóstico de startup — 29/08/2026. Antes disto, `projectUrl` nulo e `serviceKey` ausente
+// jogavam a MESMA mensagem de erro ("configuração ausente"), então "a chave não está definida" e
+// "a URL do projeto não pôde ser derivada" eram indistinguíveis pelos logs. Loga cada causa
+// separadamente, nunca o valor da chave — só comprimento (uma service_role key do Supabase é um
+// JWT, tipicamente bem acima de 100 caracteres; comprimento 0 ou muito curto indica linha vazia,
+// aspas mal fechadas ou colagem cortada no meio, não ausência total da variável).
+(function diagnoseSupabaseUploadConfig() {
+    const serviceKey = process.env.supabaseservicerolekey;
+    const projectUrl = getSupabaseProjectUrl();
+
+    if (dotenvLoadResult && dotenvLoadResult.error) {
+        console.warn(`[Upload] dotenv não conseguiu ler um .env (path tentado: ${dotenvLoadResult.error.path || 'desconhecido'} — cwd atual: ${process.cwd()}). Se este NÃO for o caminho de server/.env, o processo foi iniciado com o cwd errado e nenhuma edição em server/.env terá efeito, não importa quantas vezes reiniciar.`);
+    }
+
+    if (!serviceKey) {
+        console.warn('[Upload] supabaseservicerolekey não definido no ambiente — POST /api/upload-profile-image vai responder 503 até essa variável existir em server/.env.');
+        // dotenv nunca sobrescreve uma variável que JÁ exista em process.env (mesmo vazia) — se o
+        // arquivo .env tem um valor mas ele não "pegou", o mais provável é que o PM2 já guardava
+        // essa chave (vazia ou velha) na env salva do processo antes mesmo do dotenv rodar.
+        const fileHadValue = dotenvLoadResult && dotenvLoadResult.parsed && dotenvLoadResult.parsed.supabaseservicerolekey;
+        if (fileHadValue) {
+            console.warn('[Upload] server/.env TEM uma linha supabaseservicerolekey=... com conteúdo, mas o processo terminou sem a variável — indica que o PM2 já tinha essa chave gravada na env salva do processo (de um `pm2 set`, export de shell antigo, ou --update-env anterior) e dotenv não sobrescreve o que já existe. Rode `pm2 env <id>` pra confirmar.');
+        }
+    } else if (serviceKey.length < 100) {
+        console.warn(`[Upload] supabaseservicerolekey está definido mas com só ${serviceKey.length} caracteres — uma service_role key real do Supabase (JWT) costuma passar de 200. Isso cheira a valor vazio, truncado, ou colagem cortada no meio de uma linha.`);
+    }
+
+    if (!projectUrl) {
+        console.warn('[Upload] Não foi possível derivar a URL do projeto Supabase a partir de supabaseurl/dbuser/DATABASE_URL/dbhost — POST /api/upload-profile-image vai responder 503 até uma dessas variáveis identificar o projeto (ver getSupabaseProjectUrl em server/index.js).');
+    }
+
+    // Caça a nomes de variável parecidos mas não exatos (typo de maiúscula/underscore/hífen) —
+    // este console remoto tem um teclado que derruba o Shift (ver comentário do JWT_SECRET acima),
+    // então "SUPABASE_SERVICE_ROLE_KEY" (nome padrão do próprio painel do Supabase) digitado à mão
+    // vira algo com hífen ou minúsculo sem avisar ninguém, e o nome exato exigido aqui
+    // ("supabaseservicerolekey", tudo minúsculo, sem underscore) não bate com nada disso.
+    if (dotenvLoadResult && dotenvLoadResult.parsed) {
+        const nearMisses = Object.keys(dotenvLoadResult.parsed)
+            .filter((k) => k !== 'supabaseservicerolekey' && k !== 'supabaseurl')
+            .filter((k) => /supa|servic/i.test(k));
+        if (nearMisses.length > 0) {
+            console.warn(`[Upload] server/.env tem variável(is) parecida(s) com o nome esperado mas com grafia diferente: ${nearMisses.join(', ')}. Nenhuma delas é lida pelo código — o nome exato precisa ser "supabaseservicerolekey" (tudo minúsculo, sem underscore/hífen).`);
+        }
+    }
+})();
 
 // Sobe o arquivo pro Supabase Storage via REST direta (PUT), autenticado com a service_role key —
 // nunca com a anon key. Não usa @supabase/supabase-js: um PUT com fetch nativo do Node resolve
@@ -631,8 +690,26 @@ if (!process.env.supabaseservicerolekey) {
 async function uploadBufferToSupabaseStorage(bucket, storagePath, buffer, mimeType) {
     const projectUrl = getSupabaseProjectUrl();
     const serviceKey = process.env.supabaseservicerolekey;
-    if (!projectUrl || !serviceKey) {
+    // Duas causas completamente diferentes (chave ausente vs. URL do projeto não-derivável)
+    // jogavam a mesma mensagem — achado da investigação de 29/08/2026 (mesmo erro "configuração
+    // ausente" persistindo apesar de duas correções de .env em produção). Separadas aqui pra
+    // nunca mais exigir adivinhação: o log do servidor (não exposto ao cliente) diz exatamente
+    // qual das duas faltou.
+    if (!projectUrl && !serviceKey) {
+        console.warn('[Upload] Upload bloqueado: nem a URL do projeto Supabase nem supabaseservicerolekey estão disponíveis no ambiente.');
         const err = new Error('Upload de imagem indisponível: configuração do Supabase Storage ausente no servidor.');
+        err.httpStatus = 503;
+        throw err;
+    }
+    if (!serviceKey) {
+        console.warn('[Upload] Upload bloqueado: supabaseservicerolekey ausente/vazio no ambiente (URL do projeto foi derivada normalmente).');
+        const err = new Error('Upload de imagem indisponível: chave de serviço do Supabase ausente no servidor.');
+        err.httpStatus = 503;
+        throw err;
+    }
+    if (!projectUrl) {
+        console.warn('[Upload] Upload bloqueado: URL do projeto Supabase não pôde ser derivada de supabaseurl/dbuser/DATABASE_URL/dbhost (chave de serviço está presente).');
+        const err = new Error('Upload de imagem indisponível: URL do projeto Supabase não pôde ser determinada no servidor.');
         err.httpStatus = 503;
         throw err;
     }
