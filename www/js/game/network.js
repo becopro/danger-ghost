@@ -8,9 +8,19 @@ window.NetworkState = {
     authTimeout: null
 };
 
+// Mesma ideia do site (js/game/network.js): host único do backend, reusado pelo
+// socket.io e pelo upload de imagem de perfil via fetch() em js/web2/profile.js.
+// Sem detecção local/prod aqui — o app mobile sempre fala com produção; pra testar
+// contra um servidor local, troque esta constante temporariamente e reverta antes
+// de commitar (ver skill crossplatform-deploy).
+function GetBackendUrl() {
+    return "https://ghostgames.club";
+}
+window.GetBackendUrl = GetBackendUrl;
+
 window.ConnectToServer = function() {
     console.log("[Network] Connecting to simplified server...");
-    
+
     // Clear any existing connection
     if (window.NetworkState.socket) {
         window.NetworkState.socket.disconnect();
@@ -18,7 +28,7 @@ window.ConnectToServer = function() {
         window.NetworkState.playerNames = {};
     }
 
-    const BACKEND_URL = "https://ghostgames.club";
+    const BACKEND_URL = GetBackendUrl();
     const socket = io(BACKEND_URL, {
         transports: ['websocket'],
         upgrade: false,
