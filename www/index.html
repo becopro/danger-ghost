@@ -51,7 +51,8 @@
         </div>
         <div id="gameNavbar">
             <button id="btnNavLogin" onclick="LoginGoogle()" style="border: 1.5px solid #00FFFF !important; color: #00FFFF !important; text-shadow: 0 0 5px #00FFFF;">🔑 LOGIN</button>
-            <button id="btnNavProfile" onclick="OpenProfileModal()">🪪 PROFILE</button>
+            <!-- Botao de perfil unico fica no menu de pausa (no lugar do "Bio"), nao aqui tambem -
+                 pedido explicito do usuario em 30/08/2026, pra nao ter dois pontos de entrada. -->
             <button id="btnNavControls" onclick="ToggleNavbarTab('controls')">🎮 CONTROLS</button>
             <button id="btnNavRPG" onclick="ToggleNavbarTab('rpg')">👤 STATS</button>
             <button id="btnNavSpells" onclick="ToggleNavbarTab('spells')">⚡ SPELLS</button>
