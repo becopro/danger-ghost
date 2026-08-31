@@ -7,7 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
     <!-- Fontes do Sistema de Design (Acessibilidade) -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&amp;family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/style.css?v=39" />
+    <link rel="stylesheet" href="css/style.css?v=40" />
     <link rel="icon" type="image/png" href="favicon.png" />
     
     <!-- Scripts Externos -->
@@ -1242,6 +1242,13 @@
                         <button type="button" id="myProfileNameSaveBtn" class="my-profile-btn-primary" onclick="SaveDisplayName()">SALVAR</button>
                         <button type="button" class="my-profile-btn" onclick="CancelEditDisplayName()">CANCELAR</button>
                     </div>
+                    <!-- Contador de amigos (31/08/2026) — espelho do site, ver
+                         danger ghost/index.html. Carregado via get_friends ao abrir o
+                         perfil (LoadFriends()/UpdateFriendsCounter() em js/web2/friends.js).
+                         Toque rola até a seção AMIGOS mais abaixo, no mesmo modal. -->
+                    <div id="myFriendsCounterRow" class="my-friends-counter-row" onclick="ScrollToFriendsSection()" title="Ver amigos">
+                        &#128101; AMIGOS (<span id="myFriendsCounterValue">0</span>)
+                    </div>
                 </div>
             </div>
 
@@ -1269,6 +1276,34 @@
             <div id="myDiaryEmptyState" class="my-diary-empty-state" style="display:none;">Nenhuma entrada ainda — escreva a primeira!</div>
             <div id="myDiaryList" class="my-diary-list"></div>
             <button type="button" id="myDiaryLoadMoreBtn" onclick="LoadMoreDiaryEntries()" style="display:none;">CARREGAR MAIS</button>
+
+            <h3 class="my-profile-section-title">AMIGOS</h3>
+            <!-- Sistema de amizades (31/08/2026) — espelho do site, ver
+                 danger ghost/index.html. Busca de jogadores + pedido de amizade +
+                 pedidos pendentes + lista de amigos confirmados. Uma seção rolável a
+                 mais dentro do mesmo modal (este modal não usa abas de verdade — é uma
+                 coluna única rolável). Lógica em js/web2/friends.js (carrega depois de
+                 profile.js — reaproveita emitProfileRequest() de lá). Botões sempre
+                 visíveis (nunca atrás de :hover) — a WebView do app é 100% touch. -->
+            <div id="myFriendsSection">
+                <div class="my-friends-search-row">
+                    <!-- Busca com debounce de 400ms (ver OnFriendsSearchInput em friends.js) —
+                         não dispara uma request por tecla. Enter (teclado virtual) ou o botão
+                         BUSCAR disparam a busca na hora, sem esperar o debounce. -->
+                    <input type="text" id="myFriendsSearchInput" placeholder="Buscar jogador por nome..." oninput="OnFriendsSearchInput()" onkeydown="OnFriendsSearchKeydown(event)" />
+                    <button type="button" id="myFriendsSearchBtn" class="my-profile-btn" onclick="SearchPlayers()">BUSCAR</button>
+                </div>
+                <div id="myFriendsSearchStatus" class="my-friends-search-status" style="display:none;"></div>
+                <div id="myFriendsSearchResults" class="my-friends-list"></div>
+
+                <h4 class="my-friends-subtitle">PEDIDOS RECEBIDOS</h4>
+                <div id="myFriendsRequestsEmptyState" class="my-diary-empty-state" style="display:none;">Nenhum pedido pendente.</div>
+                <div id="myFriendsRequestsList" class="my-friends-list"></div>
+
+                <h4 class="my-friends-subtitle">MEUS AMIGOS</h4>
+                <div id="myFriendsListEmptyState" class="my-diary-empty-state" style="display:none;">Você ainda não tem amigos. Busque jogadores acima!</div>
+                <div id="myFriendsList" class="my-friends-list"></div>
+            </div>
 
             <button type="button" class="my-profile-close-btn" onclick="CloseProfileModal()">FECHAR</button>
         </div>
@@ -1318,7 +1353,11 @@
     <!-- Perfil de jogador (nome, avatar, galeria, diário) — depende de window.NetworkState
          (js/game/network.js) e de auth.js (localStorage 'dg_cloud_profile'/'dg_cloud_email'),
          então carrega depois dos dois. Mesmo padrão do site. -->
-    <script src="js/web2/profile.js?v=2"></script>
+    <script src="js/web2/profile.js?v=3"></script>
+    <!-- Sistema de amizades (31/08/2026) — espelho do site, precisa carregar DEPOIS
+         de profile.js (reaproveita emitProfileRequest()/ShowProfileError()/
+         IsPlayerAuthenticated() de lá). Ver contrato de eventos no topo do arquivo. -->
+    <script src="js/web2/friends.js?v=1"></script>
 
     <!-- MOBILE APP AUTH GATE SCREEN (22/08/2026, pedido explícito do usuário) — tela exclusiva,
          primeira coisa que aparece ao abrir o app sem uma sessão válida salva. Só tem os dois

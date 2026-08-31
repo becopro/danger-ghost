@@ -175,6 +175,14 @@ function SetProfileEditingEnabled(enabled) {
     if (diaryTextarea) diaryTextarea.disabled = !enabled;
     if (diaryPublishBtn) diaryPublishBtn.disabled = !enabled;
     if (grid) grid.style.pointerEvents = enabled ? 'auto' : 'none';
+
+    // Amigos (31/08/2026, espelho do site): busca de jogadores também exige
+    // login (o servidor precisa saber quem está pedindo).
+    var friendsSearchInput = document.getElementById('myFriendsSearchInput');
+    var friendsSearchBtn = document.getElementById('myFriendsSearchBtn');
+    if (friendsSearchInput) friendsSearchInput.disabled = !enabled;
+    if (friendsSearchBtn) friendsSearchBtn.disabled = !enabled;
+
     if (enabled) { HideProfileAuthWarning(); } else { ShowProfileAuthWarning(); }
 }
 
@@ -227,6 +235,9 @@ function OpenProfileModal() {
         RenderProfileHeader();
         RenderGallery();
         RenderDiaryList();
+        // Sem login não há "meu" e-mail pra buscar/pedir amizade — zera a seção
+        // AMIGOS (espelho do site, ver ResetFriendsUI() em friends.js).
+        if (typeof ResetFriendsUI === 'function') ResetFriendsUI();
         modal.style.display = 'flex';
         return;
     }
@@ -242,6 +253,11 @@ function OpenProfileModal() {
     modal.style.display = 'flex';
 
     LoadDiaryEntries(true);
+    // Amigos (31/08/2026, espelho do site): contador + lista via get_friends,
+    // pedidos pendentes via get_friend_requests — disparados junto com o
+    // diário, ao abrir o perfil (ver friends.js).
+    if (typeof LoadFriends === 'function') LoadFriends();
+    if (typeof LoadFriendRequests === 'function') LoadFriendRequests();
 }
 window.OpenProfileModal = OpenProfileModal;
 
@@ -250,6 +266,9 @@ function CloseProfileModal() {
     if (modal) modal.style.display = 'none';
     CancelEditDisplayName();
     HideProfileMessages();
+    // Cancela debounce de busca pendente (senão SearchPlayers() dispara depois
+    // do modal já fechado) — ver friends.js.
+    if (typeof g_myFriendsState !== 'undefined') clearTimeout(g_myFriendsState.searchDebounceTimer);
 }
 window.CloseProfileModal = CloseProfileModal;
 
