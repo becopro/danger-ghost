@@ -1,16 +1,24 @@
 // web2/friends.js (MOBILE — espelho de danger ghost/js/web2/friends.js, 31/08/2026)
 // ============================================================================
 // Sistema de amizades: busca de jogadores, pedido de amizade, pedidos
-// pendentes e lista de amigos — nova seção "AMIGOS" dentro do modal de perfil
-// já existente (#myProfileModal, ver www/index.html). Lida linha a linha
-// contra o original do site (crossplatform-deploy skill, regra #1: nunca
-// presumir que é idêntico sem ler os dois) — a lógica é 100% idêntica, nenhuma
-// API usada aqui é exclusiva de navegador desktop (localStorage, socket.io,
+// pendentes e lista de amigos — seção "FRIENDS" dentro do modal de perfil já
+// existente (#myProfileModal, ver www/index.html). Lida linha a linha contra
+// o original do site (crossplatform-deploy skill, regra #1: nunca presumir
+// que é idêntico sem ler os dois) — a lógica é 100% idêntica, nenhuma API
+// usada aqui é exclusiva de navegador desktop (localStorage, socket.io,
 // setTimeout/clearTimeout funcionam igual dentro da WebView do Capacitor).
 // A única adaptação real pra mobile é do lado do CSS (www/css/style.css,
 // seção "AMIGOS"): :hover trocado por :active, já que a WebView é 100% touch —
-// o botão "ADICIONAR" já nascia sempre visível nos dois lados, então esta
-// função não precisou de nenhuma mudança de touch/hover, só o CSS.
+// o botão "ADD" já nascia sempre visível nos dois lados, então esta função não
+// precisou de nenhuma mudança de touch/hover, só o CSS. Toda a UI desta seção
+// está em inglês (tradução de 31/08/2026) — comentários continuam em
+// português, seguindo o resto do projeto.
+//
+// PERFIL TOCÁVEL (31/08/2026, espelho do site): cada resultado de busca e cada
+// item da lista MEUS AMIGOS abre o perfil do jogador em modo visualização (ver
+// OpenPlayerProfileModal(email) em profile.js) — tocar em qualquer parte do
+// item exceto o próprio botão de ação. Pedidos pendentes recebidos NÃO são
+// tocáveis pro perfil: só têm ACCEPT/DECLINE.
 //
 // Este arquivo depende de profile.js (mobile) já ter carregado antes —
 // reaproveita emitProfileRequest(), ShowProfileError()/ShowProfileSuccess()/
@@ -83,6 +91,10 @@ function UpdateFriendsCounter(count) {
 window.UpdateFriendsCounter = UpdateFriendsCounter;
 
 function ScrollToFriendsSection() {
+    // No modo "outro jogador" a seção FRIENDS fica escondida (ver
+    // ApplyProfileModalMode() em profile.js) — não há pra onde rolar, então
+    // este toque vira no-op nesse modo (o cursor:pointer também some, ver CSS).
+    if (typeof g_myProfileState !== 'undefined' && g_myProfileState.viewMode === 'other') return;
     var section = document.getElementById('myFriendsSection');
     if (section && section.scrollIntoView) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -102,12 +114,12 @@ function LoadFriends() {
             g_myFriendsState.friends = friends;
             RenderFriendsList(friends);
             UpdateFriendsCounter(count);
-            // Resultados de busca já na tela podem precisar trocar "ADICIONAR" por
-            // "JÁ SÃO AMIGOS" agora que a lista de amigos foi (re)carregada.
+            // Resultados de busca já na tela podem precisar trocar "ADD" por
+            // "ALREADY FRIENDS" agora que a lista de amigos foi (re)carregada.
             if (g_myFriendsState.searchResults.length > 0) RenderSearchResults(g_myFriendsState.searchResults);
         },
         function (err) {
-            ShowProfileError((err && err.message) || 'Erro ao carregar lista de amigos.');
+            ShowProfileError((err && err.message) || 'Error loading friends list.');
         }
     );
 }
@@ -128,11 +140,16 @@ function RenderFriendsList(friends) {
     friends.forEach(function (friend) {
         var item = document.createElement('div');
         item.className = 'my-friend-item';
+        item.style.cursor = 'pointer';
+        // Tocável (31/08/2026): abre o perfil deste amigo em modo visualização.
+        // Sem botão de ação nesta lista, então o item inteiro pode ser o alvo do
+        // toque sem risco de capturar o toque de outra coisa.
+        item.onclick = function () { OpenPlayerProfileModal(friend.email); };
         item.appendChild(BuildFriendAvatarNode(friend.avatarUrl, friend.name));
 
         var nameEl = document.createElement('div');
         nameEl.className = 'my-friend-item-name';
-        nameEl.textContent = friend.name || friend.email || 'Jogador';
+        nameEl.textContent = friend.name || friend.email || 'Player';
         item.appendChild(nameEl);
 
         list.appendChild(item);
@@ -155,7 +172,7 @@ function LoadFriendRequests() {
             RenderFriendRequests(requests);
         },
         function (err) {
-            ShowProfileError((err && err.message) || 'Erro ao carregar pedidos de amizade.');
+            ShowProfileError((err && err.message) || 'Error loading friend requests.');
         }
     );
 }
@@ -174,13 +191,15 @@ function RenderFriendRequests(requests) {
     if (emptyState) emptyState.style.display = 'none';
 
     requests.forEach(function (req) {
+        // Pedidos pendentes NÃO são tocáveis pro perfil (ver comentário no topo
+        // do arquivo) — só ACCEPT/DECLINE.
         var item = document.createElement('div');
         item.className = 'my-friend-item';
         item.appendChild(BuildFriendAvatarNode(req.fromAvatarUrl, req.fromName));
 
         var nameEl = document.createElement('div');
         nameEl.className = 'my-friend-item-name';
-        nameEl.textContent = req.fromName || req.fromEmail || 'Jogador';
+        nameEl.textContent = req.fromName || req.fromEmail || 'Player';
         item.appendChild(nameEl);
 
         var actions = document.createElement('div');
@@ -190,14 +209,14 @@ function RenderFriendRequests(requests) {
         var acceptBtn = document.createElement('button');
         acceptBtn.type = 'button';
         acceptBtn.className = 'my-profile-btn-primary my-friends-action-btn';
-        acceptBtn.textContent = 'ACEITAR';
+        acceptBtn.textContent = 'ACCEPT';
         acceptBtn.onclick = function () { RespondToFriendRequest(req.fromEmail, true, acceptBtn, declineBtn); };
         actions.appendChild(acceptBtn);
 
         var declineBtn = document.createElement('button');
         declineBtn.type = 'button';
         declineBtn.className = 'my-profile-btn my-friends-decline-btn my-friends-action-btn';
-        declineBtn.textContent = 'RECUSAR';
+        declineBtn.textContent = 'DECLINE';
         declineBtn.onclick = function () { RespondToFriendRequest(req.fromEmail, false, acceptBtn, declineBtn); };
         actions.appendChild(declineBtn);
 
@@ -223,16 +242,16 @@ function RespondToFriendRequest(fromEmail, accept, acceptBtnEl, declineBtnEl) {
             RenderFriendRequests(g_myFriendsState.pendingRequests);
 
             if (accepted) {
-                ShowProfileSuccess('Pedido aceito! Vocês agora são amigos.');
+                ShowProfileSuccess('Request accepted! You are now friends.');
                 LoadFriends(); // recarrega lista + contador com o novo amigo
             } else {
-                ShowProfileSuccess('Pedido recusado.');
+                ShowProfileSuccess('Request declined.');
             }
         },
         function (err) {
             if (acceptBtnEl) acceptBtnEl.disabled = false;
             if (declineBtnEl) declineBtnEl.disabled = false;
-            ShowProfileError((err && err.message) || 'Erro ao responder o pedido de amizade.');
+            ShowProfileError((err && err.message) || 'Error responding to the friend request.');
         }
     );
 }
@@ -240,7 +259,7 @@ window.RespondToFriendRequest = RespondToFriendRequest;
 
 // ----------------------------------------------------------------------------
 // Busca de jogadores — debounce de 400ms enquanto digita, ou Enter (teclado
-// virtual)/botão BUSCAR pra disparar na hora (cancela o debounce pendente pra
+// virtual)/botão SEARCH pra disparar na hora (cancela o debounce pendente pra
 // não duplicar a request).
 // ----------------------------------------------------------------------------
 function OnFriendsSearchInput() {
@@ -270,20 +289,20 @@ function OnFriendsSearchKeydown(event) {
 window.OnFriendsSearchKeydown = OnFriendsSearchKeydown;
 
 function SearchPlayers() {
-    if (!IsPlayerAuthenticated()) { ShowProfileError('Faça login para buscar jogadores.'); return; }
+    if (!IsPlayerAuthenticated()) { ShowProfileError('Log in to search for players.'); return; }
 
     var input = document.getElementById('myFriendsSearchInput');
     var query = input ? input.value.trim() : '';
     var statusEl = document.getElementById('myFriendsSearchStatus');
 
     if (query.length < FRIENDS_SEARCH_MIN_LENGTH) {
-        if (statusEl) { statusEl.textContent = 'Digite pelo menos ' + FRIENDS_SEARCH_MIN_LENGTH + ' caracteres.'; statusEl.style.display = 'block'; }
+        if (statusEl) { statusEl.textContent = 'Enter at least ' + FRIENDS_SEARCH_MIN_LENGTH + ' characters.'; statusEl.style.display = 'block'; }
         return;
     }
     if (g_myFriendsState.searchLoading) return;
 
     g_myFriendsState.searchLoading = true;
-    if (statusEl) { statusEl.textContent = 'Buscando...'; statusEl.style.display = 'block'; }
+    if (statusEl) { statusEl.textContent = 'Searching...'; statusEl.style.display = 'block'; }
 
     // 'friend_search_error' (não 'friend_request_error') — única chamada desta lista
     // com evento de erro próprio, ver comentário de contrato no topo do arquivo.
@@ -299,14 +318,14 @@ function SearchPlayers() {
 
             g_myFriendsState.searchResults = results;
             if (statusEl) {
-                if (results.length === 0) { statusEl.textContent = 'Nenhum jogador encontrado.'; statusEl.style.display = 'block'; }
+                if (results.length === 0) { statusEl.textContent = 'No players found.'; statusEl.style.display = 'block'; }
                 else { statusEl.style.display = 'none'; }
             }
             RenderSearchResults(results);
         },
         function (err) {
             g_myFriendsState.searchLoading = false;
-            if (statusEl) { statusEl.textContent = (err && err.message) || 'Erro ao buscar jogadores.'; statusEl.style.display = 'block'; }
+            if (statusEl) { statusEl.textContent = (err && err.message) || 'Error searching for players.'; statusEl.style.display = 'block'; }
             RenderSearchResults([]);
         }
     );
@@ -323,13 +342,18 @@ function RenderSearchResults(results) {
     list.innerHTML = '';
 
     results.forEach(function (player) {
+        // Tocável (31/08/2026): abre o perfil deste jogador em modo visualização.
+        // O botão ADD faz e.stopPropagation() antes de agir, senão o toque nele
+        // também dispararia a abertura do perfil por baixo.
         var item = document.createElement('div');
         item.className = 'my-friend-item';
+        item.style.cursor = 'pointer';
+        item.onclick = function () { OpenPlayerProfileModal(player.email); };
         item.appendChild(BuildFriendAvatarNode(player.avatarUrl, player.name));
 
         var nameEl = document.createElement('div');
         nameEl.className = 'my-friend-item-name';
-        nameEl.textContent = player.name || player.email || 'Jogador';
+        nameEl.textContent = player.name || player.email || 'Player';
         item.appendChild(nameEl);
 
         var actions = document.createElement('div');
@@ -338,21 +362,21 @@ function RenderSearchResults(results) {
         if (IsAlreadyFriend(player.email)) {
             var friendTag = document.createElement('span');
             friendTag.className = 'my-friends-status-tag';
-            friendTag.textContent = 'JÁ SÃO AMIGOS';
+            friendTag.textContent = 'ALREADY FRIENDS';
             actions.appendChild(friendTag);
         } else if (g_myFriendsState.sentRequestEmails[player.email]) {
             var sentTag = document.createElement('span');
             sentTag.className = 'my-friends-status-tag';
-            sentTag.textContent = 'PEDIDO ENVIADO';
+            sentTag.textContent = 'REQUEST SENT';
             actions.appendChild(sentTag);
         } else {
-            // Botão "ADICIONAR" SEMPRE visível (não depende de :hover) — app é 100%
+            // Botão "ADD" SEMPRE visível (não depende de :hover) — app é 100%
             // touch, mesma lição já aplicada na galeria de fotos.
             var addBtn = document.createElement('button');
             addBtn.type = 'button';
             addBtn.className = 'my-profile-btn-primary my-friends-action-btn';
-            addBtn.textContent = 'ADICIONAR';
-            addBtn.onclick = function () { SendFriendRequest(player.email, addBtn); };
+            addBtn.textContent = 'ADD';
+            addBtn.onclick = function (e) { e.stopPropagation(); SendFriendRequest(player.email, addBtn); };
             actions.appendChild(addBtn);
         }
 
@@ -373,20 +397,20 @@ function SendFriendRequest(toEmail, sourceBtn) {
             if (autoAccepted) {
                 // autoAccepted: o outro jogador já tinha mandado um pedido pra você antes
                 // — mandar o seu de volta fecha o par na hora, sem esperar aceite manual.
-                ShowProfileSuccess('Vocês já eram amigos um do outro — pedido aceito automaticamente!');
+                ShowProfileSuccess('You already had a pending request from each other — automatically accepted!');
                 LoadFriends();
             } else {
-                ShowProfileSuccess('Pedido de amizade enviado!');
+                ShowProfileSuccess('Friend request sent!');
             }
             // Re-renderiza os resultados já carregados pra trocar o botão pela tag de
-            // status (ADICIONAR -> PEDIDO ENVIADO/JÁ SÃO AMIGOS) sem precisar buscar de novo.
+            // status (ADD -> REQUEST SENT/ALREADY FRIENDS) sem precisar buscar de novo.
             RenderSearchResults(g_myFriendsState.searchResults);
         },
         function (err) {
             if (sourceBtn) sourceBtn.disabled = false;
             // Mensagens específicas (já são amigos / pedido já pendente / jogador não
             // encontrado etc.) vêm prontas do servidor em err.message.
-            ShowProfileError((err && err.message) || 'Erro ao enviar pedido de amizade.');
+            ShowProfileError((err && err.message) || 'Error sending friend request.');
         }
     );
 }

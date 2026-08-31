@@ -2577,24 +2577,36 @@ body.is-mobile-app .centered-start {
 .my-profile-gallery-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
+    align-items: start; /* nunca esticar as células — ver comentário abaixo sobre altura uniforme */
     gap: 8px;
 }
 
+/* Cada slot = bloco de mídia (foto quadrada ou "+ ADD PHOTO") + faixa fixa embaixo (botão de
+   ampliar, ou espaçador invisível nos slots vazios). Altura própria e fixa nas duas partes, então
+   as 9 células do grid saem com a MESMA altura total (align-items:start acima evita ambiguidade
+   de stretch entre células com/sem foto). */
 .my-profile-gallery-slot {
-    aspect-ratio: 1 / 1;
     border-radius: 6px;
-    position: relative;
     overflow: hidden;
-    cursor: pointer;
     background: rgba(24, 18, 36, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.08);
     transition: all 0.2s ease;
 }
-.my-profile-gallery-slot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.my-gallery-slot-media {
+    aspect-ratio: 1 / 1;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+}
+.my-gallery-slot-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .my-profile-gallery-slot.empty {
-    background: rgba(255, 255, 255, 0.03);
     border: 2px dashed var(--cyan-neon);
+    background: transparent;
+}
+.my-profile-gallery-slot.empty .my-gallery-slot-media {
+    background: rgba(255, 255, 255, 0.03);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2607,14 +2619,15 @@ body.is-mobile-app .centered-start {
     padding: 4px;
     box-sizing: border-box;
 }
-.my-profile-gallery-slot.empty:active { background: rgba(0, 255, 255, 0.08); box-shadow: 0 0 10px rgba(0, 255, 255, 0.2); }
+.my-profile-gallery-slot.empty:active .my-gallery-slot-media { background: rgba(0, 255, 255, 0.08); box-shadow: 0 0 10px rgba(0, 255, 255, 0.2); }
 .my-profile-gallery-slot.empty .plus-icon { font-size: 24px; line-height: 1; margin-bottom: 2px; }
 
 /* Touch: sem :hover disponível, então o overlay de trocar/remover fica sempre
    visível em vez de escondido por padrão (diferente do site, que só revela no
    :hover do mouse — ver comentário na cabeça deste bloco e em profile.js
    RenderGallerySlot()). Um leve gradiente por trás garante contraste dos dois
-   ícones mesmo sobre fotos claras, sem escurecer a miniatura inteira. */
+   ícones mesmo sobre fotos claras, sem escurecer a miniatura inteira. Só existe
+   no modo PRÓPRIO (allowEdit=true) — nunca renderizado no modo "outro jogador". */
 .my-profile-gallery-overlay {
     position: absolute;
     inset: auto 0 0 0;
@@ -2639,6 +2652,42 @@ body.is-mobile-app .centered-start {
     margin-bottom: 4px;
 }
 .my-profile-gallery-overlay button.remove-btn { border-color: #FF0055; color: #FF0055; }
+
+/* Botão de AMPLIAR (31/08/2026): faixa própria embaixo de CADA foto, SEMPRE visível — já nasce
+   assim, não precisou trocar :hover por :active porque nunca dependeu de hover pra começo de
+   conversa (mesmo padrão do botão ADICIONAR na seção AMIGOS abaixo). Idêntico nos modos próprio
+   e "outro jogador" (mesma RenderGallerySlot() em profile.js desenha os dois). Slots vazios
+   ganham a faixa também, como espaçador invisível, só pra manter a altura das 9 células igual.
+   Faixa um pouco mais alta que no site (26px vs 22px) — alvo de toque maior. */
+.my-gallery-slot-footer { height: 26px; }
+.my-gallery-slot-footer-spacer { visibility: hidden; }
+.my-gallery-zoom-btn {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border: none;
+    border-top: 1px solid rgba(0, 255, 255, 0.15);
+    color: var(--cyan-neon);
+    font-family: var(--font-title);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    padding: 0;
+    opacity: 0.9;
+}
+.my-gallery-zoom-btn:active { opacity: 1; background: rgba(0, 255, 255, 0.18); }
+
+/* Modo "outro jogador" com galeria vazia (31/08/2026) — RenderGallery() não desenha nenhum slot
+   nesse caso, mostra este aviso no lugar. */
+.my-gallery-empty-view-msg {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    padding: 18px 0;
+    font-family: var(--font-text);
+}
 
 .my-profile-diary-compose { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 #myDiaryTextarea {
@@ -2842,9 +2891,26 @@ body.is-mobile-app .centered-start {
     padding: 6px 4px;
 }
 
+.my-profile-member-since {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-text);
+    letter-spacing: 0.3px;
+}
+
+.my-profile-footer-actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 22px;
+}
+
 .my-profile-close-btn {
     display: block;
-    margin: 22px auto 0 auto;
+    margin: 0;
     padding: 11px 26px;
     background: var(--cyan-neon);
     color: #000;
@@ -2856,6 +2922,49 @@ body.is-mobile-app .centered-start {
     font-family: var(--font-title);
 }
 
+/* Gallery Photo Lightbox (31/08/2026) — ver #galleryLightbox em www/index.html. z-index bem
+   acima de 10000 de propósito (mesma família do bug de z-index já corrigido nesta sessão no
+   menu de pausa mobile) — maior z-index estático já usado neste app hoje é #founderBioModal em
+   15000; precisa ficar por cima do #myProfileModal (10000) já aberto por baixo, e de qualquer
+   outra tela cheia do app. */
+.gallery-lightbox-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.92);
+    z-index: 999999;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+}
+.gallery-lightbox-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 6px;
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.25);
+}
+.gallery-lightbox-close-btn {
+    position: fixed;
+    top: max(18px, env(safe-area-inset-top));
+    right: max(18px, env(safe-area-inset-right));
+    width: 46px;
+    height: 46px;
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid var(--cyan-neon);
+    color: var(--cyan-neon);
+    border-radius: 50%;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+.gallery-lightbox-close-btn:active { background: var(--cyan-neon); color: #000; box-shadow: 0 0 14px var(--cyan-neon); }
+
 @media (max-width: 480px) {
     #myProfileModal .my-profile-box { padding: 16px; max-width: 94vw; }
     .my-profile-avatar-wrap { width: 72px; height: 72px; }
@@ -2865,6 +2974,8 @@ body.is-mobile-app .centered-start {
     .my-profile-gallery-grid { gap: 5px; }
     .my-profile-gallery-slot.empty { font-size: 8px; }
     .my-profile-gallery-slot.empty .plus-icon { font-size: 18px; }
+    .my-gallery-slot-footer { height: 22px; }
+    .my-gallery-zoom-btn { font-size: 9px; }
     .my-diary-list { max-height: 220px; }
     .my-profile-btn, .my-profile-btn-primary { font-size: 10px; padding: 7px 12px; }
     .my-friends-search-row { flex-wrap: wrap; }
