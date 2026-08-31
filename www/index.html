@@ -1203,8 +1203,20 @@
          glassmorphism/neon de #loginModalUI acima. Toda a lógica de interação (abrir/fechar,
          editar nome, trocar avatar/galeria, publicar e paginar o diário) vive em
          js/web2/profile.js — o contrato exato de eventos socket.io (nomes/payloads) está
-         documentado no topo desse arquivo. -->
-    <div id="myProfileModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 2000; align-items: center; justify-content: center;">
+         documentado no topo desse arquivo.
+         z-index 10000 (31/08/2026, bumpado de 2000 — só no mobile, o site usa 2000 e continua
+         certo lá): desde o commit a20f7b9 (30/08/2026) o botão que abre este modal mora dentro
+         de #mobileMainMenu (o menu de pausa), que tem z-index 9999 e um fundo opaco (imagem +
+         #000, não transparente) e NUNCA é escondido por OpenProfileModal()/CloseProfileModal().
+         Com z-index 2000 o modal abria de verdade (display:flex) só que renderizado ATRÁS do
+         menu de pausa ainda visível — completamente invisível e sem receber clique nenhum
+         (confirmado via elementFromPoint no centro da tela, que retornava o menu de pausa, não
+         o modal). No site não tinha esse problema porque #btnNavProfile fica na navbar sempre
+         visível, sem nenhuma outra tela full-screen de z-index maior competindo por cima no
+         momento do clique. 10000 é o mesmo degrau já usado por #mobileNameInputScreen logo
+         abaixo, que também precisa ficar por cima de #mobileMainMenu; não precisa competir com
+         #loginModalUI (10100)/#loadingModal (10200) porque os dois não abrem por cima do perfil. -->
+    <div id="myProfileModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 10000; align-items: center; justify-content: center;">
         <div class="my-profile-box">
             <div id="myProfileAuthWarning" class="my-profile-inline-msg error" style="display:none;">Faça login (botão "LOGIN") para editar seu perfil.</div>
             <div id="myProfileErrorMsg" class="my-profile-inline-msg error"></div>
