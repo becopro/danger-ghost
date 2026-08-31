@@ -93,8 +93,23 @@ function ensureTableReady() {
             )
         `)).then(() => pool.query(`
             CREATE INDEX IF NOT EXISTS idx_diary_entries_email_created ON diary_entries(email, created_at DESC)
+        `)).then(() => pool.query(`
+            CREATE TABLE IF NOT EXISTS friendships (
+                id SERIAL PRIMARY KEY,
+                requester_email TEXT NOT NULL REFERENCES players(email) ON DELETE CASCADE,
+                addressee_email TEXT NOT NULL REFERENCES players(email) ON DELETE CASCADE,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at TIMESTAMPTZ DEFAULT now(),
+                responded_at TIMESTAMPTZ,
+                UNIQUE(requester_email, addressee_email),
+                CHECK (requester_email <> addressee_email)
+            )
+        `)).then(() => pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships(addressee_email, status)
+        `)).then(() => pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_friendships_requester ON friendships(requester_email, status)
         `)).then(() => {
-            console.log('[DB] Players/characters/diary_entries tables ready.');
+            console.log('[DB] Players/characters/diary_entries/friendships tables ready.');
         }).catch((err) => {
             console.error('[DB] Error creating table:', err.message);
             tableReadyPromise = null; // permite tentar de novo na próxima chamada, em vez de travar pra sempre
@@ -760,6 +775,186 @@ async function getDiaryEntries(email, options) {
     return { entries: rows.slice(0, limit), hasMore };
 }
 
+// ============================================================================
+// Sistema de amizades (31/08/2026). status só assume 'pending'/'accepted' — um pedido recusado
+// é DELETADO (não vira um registro 'rejected' pra sempre bloquear um pedido futuro entre os
+// mesmos dois e-mails, mesmo espírito de "recusar não deixa rastro" já usado neste projeto pra
+// outras coisas). Identidade de quem AGE (busca, manda pedido, responde) nunca vem daqui — todas
+// as funções abaixo recebem `sessionEmail`/`fromEmail`(ator) já resolvido pelo socket.io a partir
+// do JWT da sessão (ver server/index.js); os parâmetros vindos direto do payload do cliente
+// (`toEmail`, o e-mail buscado) só identificam o ALVO da ação, nunca o autor.
+// ============================================================================
+
+const FRIEND_SEARCH_MIN_QUERY_LENGTH = 2;
+const FRIEND_SEARCH_RESULT_LIMIT = 20;
+
+// Escapa os caracteres especiais do LIKE/ILIKE (%, _ e a própria barra de escape) antes de montar
+// o padrão "%query%" — sem isso, um jogador buscando literalmente por "%" ou "_" no nome faria uma
+// varredura de curinga total em vez de uma busca por substring, e passaria por baixo do limite de
+// resultados pretendido (o LIMIT 20 ainda protege, mas o padrão de busca deixaria de significar o
+// que o jogador digitou).
+function escapeLikePattern(str) {
+    return str.replace(/[\\%_]/g, '\\$&');
+}
+
+// search_players: busca por NOME (nunca por e-mail — não é um lookup de contato, é descoberta
+// pública de apelido), exige pelo menos 2 caracteres (menos que isso é essencialmente "liste a
+// tabela inteira de jogadores", ver comentário do handler no index.js) e nunca retorna a própria
+// conta que está buscando.
+async function searchPlayers(sessionEmail, rawQuery) {
+    await ensureTableReady();
+    const query = typeof rawQuery === 'string' ? rawQuery.trim() : '';
+    if (query.length < FRIEND_SEARCH_MIN_QUERY_LENGTH) {
+        throw new Error(`Digite pelo menos ${FRIEND_SEARCH_MIN_QUERY_LENGTH} caracteres para buscar.`);
+    }
+    const { rows } = await pool.query(
+        `SELECT email, name, avatar_url AS "avatarUrl" FROM players
+         WHERE name ILIKE $1 ESCAPE '\\' AND email <> $2
+         ORDER BY name
+         LIMIT ${FRIEND_SEARCH_RESULT_LIMIT}`,
+        [`%${escapeLikePattern(query)}%`, sessionEmail]
+    );
+    return rows;
+}
+
+// send_friend_request: valida o alvo, e decide entre criar um pedido pendente novo ou (caso já
+// exista um pedido pendente na direção OPOSTA) aceitar automaticamente o que já existia, em vez de
+// deixar dois pedidos pendentes cruzados — na prática os dois já queriam ser amigos.
+//
+// Tudo dentro de UMA transação com um advisory lock por PAR de e-mails (ordenado, pra "A,B" e
+// "B,A" caírem na mesma trava): dois pedidos concorrentes entre as MESMAS duas contas (ex: A manda
+// pra B e B manda pra A quase ao mesmo tempo, de sockets/processos diferentes) não têm nenhuma
+// relação de "quem chegou primeiro" garantida só pela ordem de chegada no servidor — sem a trava,
+// os dois poderiam ler "nenhum pedido existe ainda" antes de qualquer um COMMITar, e o resultado
+// seria dois registros pendentes cruzados (A->B e B->A) em vez do auto-accept pretendido. A trava
+// é liberada sozinha no fim da transação (xact_lock), sem precisar de unlock explícito.
+async function sendFriendRequest(sessionEmail, rawToEmail) {
+    await ensureTableReady();
+    const toEmail = typeof rawToEmail === 'string' ? rawToEmail.trim().toLowerCase() : '';
+    if (!toEmail) {
+        throw new Error('E-mail do destinatário ausente ou inválido.');
+    }
+    if (toEmail === sessionEmail) {
+        throw new Error('Você não pode enviar um pedido de amizade para si mesmo.');
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const pairKey = [sessionEmail, toEmail].sort().join('|');
+        await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [pairKey]);
+
+        const { rows: targetRows } = await client.query('SELECT email FROM players WHERE email = $1', [toEmail]);
+        if (targetRows.length === 0) {
+            throw new Error('Esse jogador não existe.');
+        }
+
+        const { rows: existingRows } = await client.query(
+            `SELECT id, requester_email AS "requesterEmail", status FROM friendships
+             WHERE (requester_email = $1 AND addressee_email = $2)
+                OR (requester_email = $2 AND addressee_email = $1)
+             FOR UPDATE`,
+            [sessionEmail, toEmail]
+        );
+        const existing = existingRows[0];
+
+        let autoAccepted = false;
+        if (existing) {
+            if (existing.status === 'accepted') {
+                throw new Error('Vocês já são amigos.');
+            }
+            if (existing.requesterEmail === sessionEmail) {
+                throw new Error('Você já enviou um pedido de amizade para esse jogador.');
+            }
+            // Pedido pendente já existia na direção oposta (toEmail -> sessionEmail): aceita em
+            // vez de criar um segundo registro pendente cruzado.
+            await client.query(
+                `UPDATE friendships SET status = 'accepted', responded_at = now() WHERE id = $1`,
+                [existing.id]
+            );
+            autoAccepted = true;
+        } else {
+            await client.query(
+                `INSERT INTO friendships (requester_email, addressee_email, status) VALUES ($1, $2, 'pending')`,
+                [sessionEmail, toEmail]
+            );
+        }
+
+        await client.query('COMMIT');
+        return { toEmail, autoAccepted };
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+}
+
+// get_friend_requests: só os pedidos pendentes que a conta autenticada RECEBEU (nunca os que ela
+// mandou — isso não é "meus pedidos enviados", é "minha caixa de entrada").
+async function getFriendRequests(sessionEmail) {
+    await ensureTableReady();
+    const { rows } = await pool.query(
+        `SELECT f.requester_email AS "fromEmail", p.name AS "fromName", p.avatar_url AS "fromAvatarUrl",
+                f.created_at AS "createdAt"
+         FROM friendships f
+         JOIN players p ON p.email = f.requester_email
+         WHERE f.addressee_email = $1 AND f.status = 'pending'
+         ORDER BY f.created_at DESC`,
+        [sessionEmail]
+    );
+    return rows;
+}
+
+// respond_friend_request: o filtro "addressee_email = sessionEmail" na própria query é o que
+// garante que só quem é o DESTINATÁRIO do pedido pode responder — alguém tentando responder um
+// pedido endereçado a outra conta simplesmente não encontra a linha (0 resultados), cai no mesmo
+// erro genérico de "pedido não encontrado" que qualquer fromEmail inválido também cairia, sem
+// vazar se o pedido existe endereçado a outra pessoa.
+async function respondFriendRequest(sessionEmail, rawFromEmail, accept) {
+    await ensureTableReady();
+    const fromEmail = typeof rawFromEmail === 'string' ? rawFromEmail.trim().toLowerCase() : '';
+    if (!fromEmail) {
+        throw new Error('E-mail do remetente ausente ou inválido.');
+    }
+
+    const { rows } = await pool.query(
+        `SELECT id FROM friendships
+         WHERE requester_email = $1 AND addressee_email = $2 AND status = 'pending'`,
+        [fromEmail, sessionEmail]
+    );
+    const row = rows[0];
+    if (!row) {
+        throw new Error('Pedido de amizade não encontrado.');
+    }
+
+    if (accept) {
+        await pool.query(`UPDATE friendships SET status = 'accepted', responded_at = now() WHERE id = $1`, [row.id]);
+    } else {
+        // Recusar APAGA o registro (não existe status 'rejected') — permite um pedido futuro
+        // entre as mesmas duas contas sem ficar bloqueado por um "não" antigo pra sempre.
+        await pool.query('DELETE FROM friendships WHERE id = $1', [row.id]);
+    }
+    return { fromEmail, accepted: !!accept };
+}
+
+// get_friends: amizade aceita vale nos dois sentidos — a conta autenticada pode estar como
+// requester OU addressee da linha, então o JOIN escolhe dinamicamente qual dos dois e-mails da
+// linha é "o outro lado" em vez de assumir uma coluna fixa.
+async function getFriends(sessionEmail) {
+    await ensureTableReady();
+    const { rows } = await pool.query(
+        `SELECT p.email, p.name, p.avatar_url AS "avatarUrl"
+         FROM friendships f
+         JOIN players p ON p.email = CASE WHEN f.requester_email = $1 THEN f.addressee_email ELSE f.requester_email END
+         WHERE f.status = 'accepted' AND (f.requester_email = $1 OR f.addressee_email = $1)
+         ORDER BY p.name`,
+        [sessionEmail]
+    );
+    return { friends: rows, count: rows.length };
+}
+
 module.exports = {
     loginPlayer,
     createPlayer,
@@ -771,5 +966,10 @@ module.exports = {
     deleteCharacter,
     updateProfile,
     postDiaryEntry,
-    getDiaryEntries
+    getDiaryEntries,
+    searchPlayers,
+    sendFriendRequest,
+    getFriendRequests,
+    respondFriendRequest,
+    getFriends
 };

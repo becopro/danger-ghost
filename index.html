@@ -20,7 +20,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
     <!-- Fontes do Sistema de Design (Acessibilidade) -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&amp;family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/style.css?v=47" />
+    <link rel="stylesheet" href="css/style.css?v=48" />
     <link rel="icon" type="image/png" href="favicon.png" />
     
     <!-- Scripts Externos -->
@@ -219,7 +219,7 @@
 
         <!-- Mobile App Download Area -->
         <div class="mobile-app-download-area" style="display: flex; justify-content: center; align-items: center; margin-top: 15px;">
-            <a href="DangerGhostMobile.apk?v=66" download="DangerGhostMobile.apk" style="text-decoration: none;">
+            <a href="DangerGhostMobile.apk?v=67" download="DangerGhostMobile.apk" style="text-decoration: none;">
                 <button id="downloadMobileBtn" style="background: rgba(0, 0, 0, 0.8); border: 2px solid #FF00FF; color: #FF00FF; font-family: var(--font-title); font-weight: bold; font-size: 16px; cursor: pointer; padding: 12px 30px; border-radius: 6px; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 15px rgba(255, 0, 255, 0.2); transition: all 0.2s ease-in-out;" onmouseover="this.style.background='#FF00FF'; this.style.color='#000'; this.style.boxShadow='0 0 20px #FF00FF';" onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='#FF00FF'; this.style.boxShadow='0 0 15px rgba(255, 0, 255, 0.2)';">
                     📱 DOWNLOAD DANGER GHOST MOBILE APP
                 </button>
@@ -1233,6 +1233,13 @@
                         <button type="button" id="myProfileNameSaveBtn" class="my-profile-btn-primary" onclick="SaveDisplayName()">SALVAR</button>
                         <button type="button" class="my-profile-btn" onclick="CancelEditDisplayName()">CANCELAR</button>
                     </div>
+                    <!-- Contador de amigos (31/08/2026) — proeminente, perto do nome/avatar,
+                         carregado via get_friends ao abrir o perfil (LoadFriends() /
+                         UpdateFriendsCounter() em js/web2/friends.js). Clique rola até a
+                         seção AMIGOS mais abaixo, no mesmo modal. -->
+                    <div id="myFriendsCounterRow" class="my-friends-counter-row" onclick="ScrollToFriendsSection()" title="Ver amigos">
+                        &#128101; AMIGOS (<span id="myFriendsCounterValue">0</span>)
+                    </div>
                 </div>
             </div>
 
@@ -1260,6 +1267,35 @@
             <div id="myDiaryEmptyState" class="my-diary-empty-state" style="display:none;">Nenhuma entrada ainda — escreva a primeira!</div>
             <div id="myDiaryList" class="my-diary-list"></div>
             <button type="button" id="myDiaryLoadMoreBtn" onclick="LoadMoreDiaryEntries()" style="display:none;">CARREGAR MAIS</button>
+
+            <h3 class="my-profile-section-title">AMIGOS</h3>
+            <!-- Sistema de amizades (31/08/2026): busca de jogadores + pedido de amizade +
+                 pedidos pendentes + lista de amigos confirmados. Uma seção rolável a mais
+                 dentro do mesmo modal, mesmo padrão de GALERIA/DIÁRIO acima (este modal não
+                 usa abas de verdade — é uma coluna única rolável — então não criamos uma aba
+                 nova só pra isso). Lógica em js/web2/friends.js (carrega depois de
+                 profile.js — reaproveita emitProfileRequest() de lá). Contrato de eventos
+                 socket.io documentado no topo de friends.js; confira contra o server/index.js
+                 real antes de considerar esta integração fechada. -->
+            <div id="myFriendsSection">
+                <div class="my-friends-search-row">
+                    <!-- Busca com debounce de 400ms (ver OnFriendsSearchInput em friends.js) —
+                         não dispara uma request por tecla. Enter ou o botão BUSCAR disparam a
+                         busca na hora, sem esperar o debounce. -->
+                    <input type="text" id="myFriendsSearchInput" placeholder="Buscar jogador por nome..." oninput="OnFriendsSearchInput()" onkeydown="OnFriendsSearchKeydown(event)" />
+                    <button type="button" id="myFriendsSearchBtn" class="my-profile-btn" onclick="SearchPlayers()">BUSCAR</button>
+                </div>
+                <div id="myFriendsSearchStatus" class="my-friends-search-status" style="display:none;"></div>
+                <div id="myFriendsSearchResults" class="my-friends-list"></div>
+
+                <h4 class="my-friends-subtitle">PEDIDOS RECEBIDOS</h4>
+                <div id="myFriendsRequestsEmptyState" class="my-diary-empty-state" style="display:none;">Nenhum pedido pendente.</div>
+                <div id="myFriendsRequestsList" class="my-friends-list"></div>
+
+                <h4 class="my-friends-subtitle">MEUS AMIGOS</h4>
+                <div id="myFriendsListEmptyState" class="my-diary-empty-state" style="display:none;">Você ainda não tem amigos. Busque jogadores acima!</div>
+                <div id="myFriendsList" class="my-friends-list"></div>
+            </div>
 
             <button type="button" class="my-profile-close-btn" onclick="CloseProfileModal()">FECHAR</button>
         </div>
@@ -1296,7 +1332,11 @@
     <!-- Perfil de jogador (nome, avatar, galeria, diário) — depende de window.NetworkState
          (js/game/network.js) e de auth.js (localStorage 'dg_cloud_profile'/'dg_cloud_email'),
          então carrega depois dos dois. -->
-    <script src="js/web2/profile.js?v=2"></script>
+    <script src="js/web2/profile.js?v=3"></script>
+    <!-- Sistema de amizades (31/08/2026) — precisa carregar DEPOIS de profile.js,
+         reaproveita emitProfileRequest()/ShowProfileError()/IsPlayerAuthenticated()
+         de lá em vez de duplicar o helper. Ver contrato de eventos no topo do arquivo. -->
+    <script src="js/web2/friends.js?v=1"></script>
 
 </body>
 </html>

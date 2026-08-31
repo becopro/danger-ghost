@@ -24,7 +24,7 @@ const io = new Server(server, {
     cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-const { loginPlayer, createPlayer, loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveCharacters, deleteCharacter, updateProfile, postDiaryEntry, getDiaryEntries } = require('./db');
+const { loginPlayer, createPlayer, loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveCharacters, deleteCharacter, updateProfile, postDiaryEntry, getDiaryEntries, searchPlayers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends } = require('./db');
 const { OAuth2Client } = require('google-auth-library');
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -110,6 +110,11 @@ const SIGNUP_MAX_ATTEMPTS = 8;
 // migrando/importando entradas antigas de uma vez é um uso legítimo parecido — 30/min ainda barra
 // um script disparando centenas de posts por segundo, sem penalizar esse uso normal.
 const DIARY_POST_MAX_ATTEMPTS = 30;
+// search_players (31/08/2026, sistema de amizades): é leitura, não escrita, mas ainda assim
+// varre a tabela players inteira via ILIKE a cada chamada — sem limite nenhum, um script podia
+// disparar centenas de buscas por segundo só pra forçar carga no banco. 20/min é folgado pro uso
+// legítimo (digitar um nome, ajustar, buscar de novo) e barra abuso automatizado.
+const FRIEND_SEARCH_MAX_ATTEMPTS = 20;
 const RATE_LIMIT_MESSAGE = 'Muitas tentativas, aguarde um momento.';
 const rateLimitBuckets = new Map(); // chave "evento:ip" -> array de timestamps (ms) das tentativas recentes
 
@@ -476,6 +481,98 @@ io.on('connection', (socket) => {
         }).catch((error) => {
             console.error('[DB] Diary load error:', error);
             socket.emit('diary_error', { message: error.message || 'Erro ao carregar diário.' });
+        });
+    });
+
+    // Sistema de amizades (31/08/2026): busca de jogadores, pedido de amizade, aceitar/recusar,
+    // lista de amigos com contador. Mesma regra de identidade usada em todo o resto deste
+    // servidor (save_game_state, update_profile, etc.): quem está AGINDO vem SEMPRE de
+    // players[socket.id].email (a sessão autenticada pelo JWT), nunca de um campo do payload —
+    // um campo do payload só pode identificar o ALVO da ação (toEmail/fromEmail), nunca o autor.
+    // Nenhum desses eventos toca players/characters diretamente (friendships é uma tabela
+    // própria, sem coluna compartilhada com o que saveQueues protege), então não precisam entrar
+    // na fila saveQueues — mesmo raciocínio já usado pra diary_entries acima; a corrida entre
+    // duas contas mandando pedido uma pra outra ao mesmo tempo é resolvida dentro do próprio
+    // db.js/sendFriendRequest, com um advisory lock por par de e-mails.
+
+    socket.on('search_players', (data) => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            socket.emit('friend_search_error', { message: 'Não autenticado.' });
+            return;
+        }
+        if (isRateLimited('search_players:' + socket.handshake.address, FRIEND_SEARCH_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+            socket.emit('friend_search_error', { message: RATE_LIMIT_MESSAGE });
+            return;
+        }
+
+        searchPlayers(playerSession.email, data && data.query).then((results) => {
+            socket.emit('players_found', { results });
+        }).catch((error) => {
+            // error.message aqui é sempre a validação de comprimento mínimo (db.js/searchPlayers),
+            // segura de expor — mesmo padrão de loginPlayer/postDiaryEntry.
+            socket.emit('friend_search_error', { message: error.message || 'Erro ao buscar jogadores.' });
+        });
+    });
+
+    socket.on('send_friend_request', (data) => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            socket.emit('friend_request_error', { message: 'Não autenticado.' });
+            return;
+        }
+
+        sendFriendRequest(playerSession.email, data && data.toEmail).then((result) => {
+            console.log(`[Friends] ${playerSession.email} -> ${result.toEmail} (autoAccepted: ${result.autoAccepted})`);
+            socket.emit('friend_request_sent', result);
+        }).catch((error) => {
+            socket.emit('friend_request_error', { message: error.message || 'Erro ao enviar pedido de amizade.' });
+        });
+    });
+
+    socket.on('get_friend_requests', () => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            socket.emit('friend_request_error', { message: 'Não autenticado.' });
+            return;
+        }
+
+        getFriendRequests(playerSession.email).then((requests) => {
+            socket.emit('friend_requests_loaded', { requests });
+        }).catch((error) => {
+            console.error('[DB] Friend requests load error:', error);
+            socket.emit('friend_request_error', { message: 'Erro ao carregar pedidos de amizade.' });
+        });
+    });
+
+    socket.on('respond_friend_request', (data) => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            socket.emit('friend_request_error', { message: 'Não autenticado.' });
+            return;
+        }
+
+        const accept = !!(data && data.accept);
+        respondFriendRequest(playerSession.email, data && data.fromEmail, accept).then((result) => {
+            console.log(`[Friends] ${playerSession.email} respondeu pedido de ${result.fromEmail}: ${result.accepted ? 'aceitou' : 'recusou'}`);
+            socket.emit('friend_request_responded', result);
+        }).catch((error) => {
+            socket.emit('friend_request_error', { message: error.message || 'Erro ao responder pedido de amizade.' });
+        });
+    });
+
+    socket.on('get_friends', () => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            socket.emit('friend_request_error', { message: 'Não autenticado.' });
+            return;
+        }
+
+        getFriends(playerSession.email).then((result) => {
+            socket.emit('friends_loaded', result);
+        }).catch((error) => {
+            console.error('[DB] Friends load error:', error);
+            socket.emit('friend_request_error', { message: 'Erro ao carregar lista de amigos.' });
         });
     });
     // ---------------------------------
