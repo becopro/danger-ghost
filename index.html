@@ -20,7 +20,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
     <!-- Fontes do Sistema de Design (Acessibilidade) -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&amp;family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/style.css?v=48" />
+    <link rel="stylesheet" href="css/style.css?v=49" />
     <link rel="icon" type="image/png" href="favicon.png" />
     
     <!-- Scripts Externos -->
@@ -219,7 +219,7 @@
 
         <!-- Mobile App Download Area -->
         <div class="mobile-app-download-area" style="display: flex; justify-content: center; align-items: center; margin-top: 15px;">
-            <a href="DangerGhostMobile.apk?v=67" download="DangerGhostMobile.apk" style="text-decoration: none;">
+            <a href="DangerGhostMobile.apk?v=68" download="DangerGhostMobile.apk" style="text-decoration: none;">
                 <button id="downloadMobileBtn" style="background: rgba(0, 0, 0, 0.8); border: 2px solid #FF00FF; color: #FF00FF; font-family: var(--font-title); font-weight: bold; font-size: 16px; cursor: pointer; padding: 12px 30px; border-radius: 6px; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 15px rgba(255, 0, 255, 0.2); transition: all 0.2s ease-in-out;" onmouseover="this.style.background='#FF00FF'; this.style.color='#000'; this.style.boxShadow='0 0 20px #FF00FF';" onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='#FF00FF'; this.style.boxShadow='0 0 15px rgba(255, 0, 255, 0.2)';">
                     📱 DOWNLOAD DANGER GHOST MOBILE APP
                 </button>
@@ -1209,15 +1209,15 @@
          (nomes/payloads) está documentado no topo desse arquivo. -->
     <div id="myProfileModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 2000; align-items: center; justify-content: center;">
         <div class="my-profile-box">
-            <div id="myProfileAuthWarning" class="my-profile-inline-msg error" style="display:none;">Faça login (botão "RESGATAR PROGRESSO") para editar seu perfil.</div>
+            <div id="myProfileAuthWarning" class="my-profile-inline-msg error" style="display:none;">Log in to edit your profile.</div>
             <div id="myProfileErrorMsg" class="my-profile-inline-msg error"></div>
             <div id="myProfileSuccessMsg" class="my-profile-inline-msg success"></div>
 
             <div class="my-profile-header">
                 <div class="my-profile-avatar-wrap">
-                    <img id="myProfileAvatarImg" class="my-profile-avatar-img" style="display:none;" alt="Avatar do jogador" />
+                    <img id="myProfileAvatarImg" class="my-profile-avatar-img" style="display:none;" alt="Player avatar" />
                     <div id="myProfileAvatarPlaceholder" class="my-profile-avatar-img" style="display:flex;">&#128123;</div>
-                    <button type="button" id="myProfileAvatarEditBtn" class="my-profile-avatar-edit-btn" onclick="TriggerAvatarFileSelect()" title="Trocar avatar">&#128247;</button>
+                    <button type="button" id="myProfileAvatarEditBtn" class="my-profile-avatar-edit-btn" onclick="TriggerAvatarFileSelect()" title="Change avatar">&#128247;</button>
                     <!-- accept="image/*" já filtra a maioria dos seletores de arquivo do SO, mas
                          HandleAvatarFileSelected() re-valida file.type no JS antes de fazer
                          qualquer coisa com o arquivo — nunca confiar só no atributo do input. -->
@@ -1226,79 +1226,119 @@
                 <div class="my-profile-name-block">
                     <div id="myProfileNameDisplayRow" class="my-profile-name-display-row">
                         <h2 id="myProfileNameDisplay" class="my-profile-name-display">Ghost</h2>
-                        <button type="button" id="myProfileNameEditBtn" class="my-profile-btn" onclick="EnableEditDisplayName()">&#9999;&#65039; EDITAR NOME</button>
+                        <button type="button" id="myProfileNameEditBtn" class="my-profile-btn" onclick="EnableEditDisplayName()">&#9999;&#65039; EDIT NAME</button>
                     </div>
                     <div id="myProfileNameEditRow" class="my-profile-name-edit-row">
-                        <input type="text" id="myProfileNameInput" maxlength="30" placeholder="Novo nome de exibição" />
-                        <button type="button" id="myProfileNameSaveBtn" class="my-profile-btn-primary" onclick="SaveDisplayName()">SALVAR</button>
-                        <button type="button" class="my-profile-btn" onclick="CancelEditDisplayName()">CANCELAR</button>
+                        <input type="text" id="myProfileNameInput" maxlength="30" placeholder="New display name" />
+                        <button type="button" id="myProfileNameSaveBtn" class="my-profile-btn-primary" onclick="SaveDisplayName()">SAVE</button>
+                        <button type="button" class="my-profile-btn" onclick="CancelEditDisplayName()">CANCEL</button>
                     </div>
                     <!-- Contador de amigos (31/08/2026) — proeminente, perto do nome/avatar,
                          carregado via get_friends ao abrir o perfil (LoadFriends() /
-                         UpdateFriendsCounter() em js/web2/friends.js). Clique rola até a
-                         seção AMIGOS mais abaixo, no mesmo modal. -->
-                    <div id="myFriendsCounterRow" class="my-friends-counter-row" onclick="ScrollToFriendsSection()" title="Ver amigos">
-                        &#128101; AMIGOS (<span id="myFriendsCounterValue">0</span>)
+                         UpdateFriendsCounter() em js/web2/friends.js) no modo PRÓPRIO; no modo
+                         "outro jogador" vem pronto de player_profile_loaded.friendCount (ver
+                         OpenPlayerProfileModal() em profile.js). Clique rola até a seção AMIGOS
+                         — só existe seção pra rolar no modo próprio (ScrollToFriendsSection()
+                         vira no-op no modo "outro jogador", ver ApplyProfileModalMode()). -->
+                    <div id="myFriendsCounterRow" class="my-friends-counter-row" onclick="ScrollToFriendsSection()" title="View friends">
+                        &#128101; FRIENDS (<span id="myFriendsCounterValue">0</span>)
                     </div>
+                    <!-- Modo "ver perfil de outro jogador" (31/08/2026): data de criação da
+                         conta, só populada/mostrada nesse modo — ver FormatMemberSince() e
+                         ApplyProfileModalMode() em profile.js. Formato decidido: "Member since
+                         <Mês> <Ano>" (ex: "Member since March 2026"), sempre em inglês. -->
+                    <div id="myProfileMemberSince" class="my-profile-member-since" style="display:none;"></div>
                 </div>
             </div>
 
-            <h3 class="my-profile-section-title">GALERIA</h3>
-            <!-- Grid 3x3 fixo (9 slots sempre renderizados por RenderGallery(), mesmo vazios) —
-                 ver RenderGallerySlot(index, url) em profile.js. Um único <input type=file>
-                 compartilhado entre os 9 slots; qual slot está sendo editado fica em
-                 g_myProfileState.pendingGallerySlotIndex, setado por TriggerGallerySlotFileSelect(). -->
+            <h3 class="my-profile-section-title">GALLERY</h3>
+            <!-- Modo PRÓPRIO: grid 3x3 fixo (9 slots sempre renderizados por RenderGallery(),
+                 mesmo vazios) — ver RenderGallerySlot(index, url, allowEdit) em profile.js. Um
+                 único <input type=file> compartilhado entre os 9 slots; qual slot está sendo
+                 editado fica em g_myProfileState.pendingGallerySlotIndex.
+                 Modo "OUTRO JOGADOR" (31/08/2026): só as fotos que existem de fato, sem slots
+                 vazios "+ ADD PHOTO" (não faz sentido oferecer adicionar foto de quem não é
+                 você) — mesmo RenderGallery(), ramificado por g_myProfileState.viewMode.
+                 Botão de AMPLIAR (🔍) embaixo de cada foto, sempre visível (nunca atrás de
+                 :hover — ver css/style.css), idêntico nos dois modos. -->
             <div id="myProfileGalleryGrid" class="my-profile-gallery-grid"></div>
             <input type="file" id="myProfileGalleryFileInput" accept="image/*" style="display:none;" onchange="HandleGalleryFileSelected(this)" />
 
-            <h3 class="my-profile-section-title">DIÁRIO</h3>
+            <h3 class="my-profile-section-title">TIME CAPSULE</h3>
+            <!-- "Diário" renomeado pra "Time Capsule" em 31/08/2026 (pedido do usuário) — só a
+                 UI mudou de nome, os IDs/eventos por baixo continuam "diary_*"/"myDiary*" de
+                 propósito (evita mexer no contrato já combinado com o backend). -->
             <div class="my-profile-diary-compose">
-                <textarea id="myDiaryTextarea" maxlength="5000" placeholder="No que você está pensando, Ghost?" oninput="UpdateDiaryCharCount()"></textarea>
+                <textarea id="myDiaryTextarea" maxlength="5000" placeholder="Write something for your future self..." oninput="UpdateDiaryCharCount()"></textarea>
                 <div class="my-profile-diary-compose-footer">
                     <span id="myDiaryCharCount" class="my-diary-char-count">0 / 5000</span>
-                    <button type="button" id="myDiaryPublishBtn" class="my-profile-btn-primary" onclick="SubmitDiaryEntry()">PUBLICAR</button>
+                    <button type="button" id="myDiaryPublishBtn" class="my-profile-btn-primary" onclick="SubmitDiaryEntry()">PUBLISH ENTRY</button>
                 </div>
             </div>
 
             <div id="myDiaryLoadingState" class="my-diary-loading-state" style="display:none;">
                 <div class="my-diary-spinner"></div>
-                Carregando entradas...
+                Loading entries...
             </div>
-            <div id="myDiaryEmptyState" class="my-diary-empty-state" style="display:none;">Nenhuma entrada ainda — escreva a primeira!</div>
+            <div id="myDiaryEmptyState" class="my-diary-empty-state" style="display:none;">No entries yet — write the first one!</div>
             <div id="myDiaryList" class="my-diary-list"></div>
-            <button type="button" id="myDiaryLoadMoreBtn" onclick="LoadMoreDiaryEntries()" style="display:none;">CARREGAR MAIS</button>
+            <button type="button" id="myDiaryLoadMoreBtn" onclick="LoadMoreDiaryEntries()" style="display:none;">LOAD MORE</button>
 
-            <h3 class="my-profile-section-title">AMIGOS</h3>
+            <h3 id="myFriendsSectionTitle" class="my-profile-section-title">FRIENDS</h3>
             <!-- Sistema de amizades (31/08/2026): busca de jogadores + pedido de amizade +
                  pedidos pendentes + lista de amigos confirmados. Uma seção rolável a mais
-                 dentro do mesmo modal, mesmo padrão de GALERIA/DIÁRIO acima (este modal não
-                 usa abas de verdade — é uma coluna única rolável — então não criamos uma aba
-                 nova só pra isso). Lógica em js/web2/friends.js (carrega depois de
-                 profile.js — reaproveita emitProfileRequest() de lá). Contrato de eventos
-                 socket.io documentado no topo de friends.js; confira contra o server/index.js
-                 real antes de considerar esta integração fechada. -->
+                 dentro do mesmo modal, mesmo padrão de GALLERY/TIME CAPSULE acima. Lógica em
+                 js/web2/friends.js. Seção inteira ESCONDIDA no modo "outro jogador" (é sobre o
+                 grafo social de QUEM ESTÁ VENDO, não do jogador visualizado — ver
+                 ApplyProfileModalMode()); o contador de amigos acima continua aparecendo, só
+                 que vindo de player_profile_loaded, sem chamar get_friends(). Resultados de
+                 busca e itens da lista MEUS AMIGOS são clicáveis (abrem o perfil do jogador em
+                 modo visualização, ver friends.js) — pedidos pendentes não (só têm
+                 aceitar/recusar, não faria sentido abrir o perfil de quem ainda nem é seu
+                 amigo a partir dali). -->
             <div id="myFriendsSection">
                 <div class="my-friends-search-row">
                     <!-- Busca com debounce de 400ms (ver OnFriendsSearchInput em friends.js) —
-                         não dispara uma request por tecla. Enter ou o botão BUSCAR disparam a
+                         não dispara uma request por tecla. Enter ou o botão SEARCH disparam a
                          busca na hora, sem esperar o debounce. -->
-                    <input type="text" id="myFriendsSearchInput" placeholder="Buscar jogador por nome..." oninput="OnFriendsSearchInput()" onkeydown="OnFriendsSearchKeydown(event)" />
-                    <button type="button" id="myFriendsSearchBtn" class="my-profile-btn" onclick="SearchPlayers()">BUSCAR</button>
+                    <input type="text" id="myFriendsSearchInput" placeholder="Search for a player by name..." oninput="OnFriendsSearchInput()" onkeydown="OnFriendsSearchKeydown(event)" />
+                    <button type="button" id="myFriendsSearchBtn" class="my-profile-btn" onclick="SearchPlayers()">SEARCH</button>
                 </div>
                 <div id="myFriendsSearchStatus" class="my-friends-search-status" style="display:none;"></div>
                 <div id="myFriendsSearchResults" class="my-friends-list"></div>
 
-                <h4 class="my-friends-subtitle">PEDIDOS RECEBIDOS</h4>
-                <div id="myFriendsRequestsEmptyState" class="my-diary-empty-state" style="display:none;">Nenhum pedido pendente.</div>
+                <h4 class="my-friends-subtitle">FRIEND REQUESTS</h4>
+                <div id="myFriendsRequestsEmptyState" class="my-diary-empty-state" style="display:none;">No pending requests.</div>
                 <div id="myFriendsRequestsList" class="my-friends-list"></div>
 
-                <h4 class="my-friends-subtitle">MEUS AMIGOS</h4>
-                <div id="myFriendsListEmptyState" class="my-diary-empty-state" style="display:none;">Você ainda não tem amigos. Busque jogadores acima!</div>
+                <h4 class="my-friends-subtitle">MY FRIENDS</h4>
+                <div id="myFriendsListEmptyState" class="my-diary-empty-state" style="display:none;">You don't have any friends yet. Search for players above!</div>
                 <div id="myFriendsList" class="my-friends-list"></div>
             </div>
 
-            <button type="button" class="my-profile-close-btn" onclick="CloseProfileModal()">FECHAR</button>
+            <div class="my-profile-footer-actions">
+                <!-- Botão "Voltar" (31/08/2026): só visível no modo "outro jogador" (ver
+                     ApplyProfileModalMode()) — leva de volta ao PRÓPRIO perfil sem precisar
+                     fechar e reabrir o modal (a alternativa mais simples também funcionaria —
+                     fechar/reabrir já reseta pro modo próprio via OpenProfileModal() — mas um
+                     botão explícito é mais claro pra quem está navegando pelo perfil de vários
+                     jogadores em sequência a partir da lista de amigos/busca). -->
+                <button type="button" id="myProfileBackBtn" class="my-profile-btn" onclick="GoBackToOwnProfile()" style="display:none;">&#8592; BACK TO MY PROFILE</button>
+                <button type="button" id="myProfileCloseBtn" class="my-profile-close-btn" onclick="CloseProfileModal()">CLOSE</button>
+            </div>
         </div>
+    </div>
+
+    <!-- Gallery Photo Lightbox (31/08/2026): overlay pra ampliar uma foto da galeria, mesmo
+         comportamento pro perfil próprio e pro de outro jogador (OpenGalleryLightbox()/
+         CloseGalleryLightbox() em js/web2/profile.js). z-index bem acima de 10000 (maior
+         z-index estático já usado no site hoje é #loadingModal/#loginModalUI em 10000 — mesma
+         família do bug de z-index já corrigido nesta sessão no menu de pausa mobile) pra
+         garantir que fica por cima do #myProfileModal já aberto por baixo, e de qualquer outro
+         modal. Fecha clicando fora da imagem, no botão X, ou tecla Esc (listener em profile.js). -->
+    <div id="galleryLightbox" class="gallery-lightbox-overlay" onclick="if (event.target === this) CloseGalleryLightbox();">
+        <button type="button" class="gallery-lightbox-close-btn" onclick="CloseGalleryLightbox()" aria-label="Close" title="Close">&times;</button>
+        <img id="galleryLightboxImg" class="gallery-lightbox-img" src="" alt="Enlarged gallery photo" />
     </div>
 
     <!-- Cloud Save Modal -->
@@ -1332,11 +1372,11 @@
     <!-- Perfil de jogador (nome, avatar, galeria, diário) — depende de window.NetworkState
          (js/game/network.js) e de auth.js (localStorage 'dg_cloud_profile'/'dg_cloud_email'),
          então carrega depois dos dois. -->
-    <script src="js/web2/profile.js?v=3"></script>
+    <script src="js/web2/profile.js?v=4"></script>
     <!-- Sistema de amizades (31/08/2026) — precisa carregar DEPOIS de profile.js,
          reaproveita emitProfileRequest()/ShowProfileError()/IsPlayerAuthenticated()
          de lá em vez de duplicar o helper. Ver contrato de eventos no topo do arquivo. -->
-    <script src="js/web2/friends.js?v=1"></script>
+    <script src="js/web2/friends.js?v=2"></script>
 
 </body>
 </html>

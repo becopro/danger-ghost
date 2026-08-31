@@ -1,8 +1,23 @@
 // web2/profile.js
 // ============================================================================
 // Perfil de jogador customizável (29/08/2026): nome de exibição, avatar, galeria
-// de até 9 fotos e diário/blog cronológico. Modal em index.html (#myProfileModal),
-// estilos em css/style.css (seção "MY PROFILE MODAL").
+// de até 9 fotos e diário/blog cronológico (renomeado "Time Capsule" na UI em
+// 31/08/2026 — só o texto mudou, os nomes internos de evento/campo/ID continuam
+// "diary"/"myDiary*" de propósito, contrato com o backend inalterado). Modal em
+// index.html (#myProfileModal), estilos em css/style.css (seção "MY PROFILE
+// MODAL"). Toda a UI dentro do modal está em inglês (tradução de 31/08/2026) —
+// comentários deste arquivo continuam em português, seguindo o resto do projeto.
+//
+// MODO DE VISUALIZAÇÃO DE OUTRO JOGADOR (31/08/2026): além do modo "próprio"
+// de sempre, este modal agora também abre em modo somente-leitura pra ver o
+// perfil de QUALQUER outro jogador — acionado por clique num resultado de busca
+// ou item da lista de amigos (ver friends.js), via OpenPlayerProfileModal(email)
+// abaixo. g_myProfileState.viewMode ('self' | 'other') controla tudo: quais
+// controles de edição aparecem (ApplyProfileModalMode()), de onde vêm os dados
+// (get_player_profile em vez de localStorage) e o botão "← BACK TO MY PROFILE"
+// (só visível em 'other'). Fechar e reabrir o modal (CloseProfileModal() +
+// OpenProfileModal()) também reseta pro modo próprio — o botão Back só existe
+// pra não obrigar isso enquanto se navega por vários perfis em sequência.
 //
 // CONTRATO COM O BACKEND (server/index.js + server/db.js, implementado por outro
 // agente em paralelo — nomes de evento/payload conferidos lendo o código real em
@@ -21,8 +36,27 @@
 //     buracos.
 //   socket.emit('post_diary_entry', { content })
 //     -> 'diary_entry_posted' ({ id, content, createdAt }) / 'diary_error' ({ message })
-//   socket.emit('get_diary_entries', { limit, beforeId? })
+//   socket.emit('get_diary_entries', { limit, beforeId?, email? })
 //     -> 'diary_entries_loaded' ({ entries: [{id, content, createdAt}], hasMore }) / 'diary_error'
+//     `email` (31/08/2026): OPCIONAL. Omitido = diário da conta autenticada
+//     (comportamento de sempre). Presente = lê o diário PÚBLICO de outro jogador
+//     (modo de visualização). Nomes/payload combinados com o outro agente — o
+//     código real de server/index.js é a fonte de verdade se divergir; em
+//     31/08/2026 o handler de get_diary_entries em server/index.js ainda só lia
+//     playerSession.email (sem suportar o campo `email` do payload) — se o modo
+//     "outro jogador" não trouxer o diário certo, confira se esse suporte já
+//     foi mesclado no servidor antes de desconfiar deste arquivo.
+//   socket.emit('get_player_profile', { email })
+//     -> 'player_profile_loaded' ({ email, name, avatarUrl, galleryUrls, createdAt,
+//        friendCount }) / 'player_profile_error' ({ message })
+//     Usado só pelo modo "outro jogador" (OpenPlayerProfileModal() abaixo) — o
+//     próprio perfil nunca chama isto, continua lendo de
+//     localStorage['dg_cloud_profile'] (GetStoredProfileData()) sem rede extra,
+//     como sempre. Em 31/08/2026 este evento AINDA NÃO existia em
+//     server/index.js (não encontrado ao ler o código real) — implementação
+//     paralela do outro agente ainda não tinha chegado nesse ponto; o cliente
+//     aqui já está pronto pro contrato combinado, mas o modo "outro jogador" só
+//     funciona de fato depois que esse handler existir no servidor.
 //
 // Upload de imagem (avatar/galeria) NÃO usa socket.io — é HTTP puro, ver
 // UploadProfileImage() mais abaixo: POST multipart/form-data pra
@@ -51,7 +85,12 @@ var g_myProfileState = {
     diaryLoading: false,
     diaryHasMore: false,
     oldestDiaryId: null,
-    pendingGallerySlotIndex: null
+    pendingGallerySlotIndex: null,
+    // Modo de visualização (31/08/2026): 'self' = próprio perfil (padrão, editável
+    // se autenticado); 'other' = perfil de outro jogador (sempre somente-leitura).
+    viewMode: 'self',
+    viewingEmail: null,
+    viewingCreatedAt: null
 };
 
 var DISPLAY_NAME_MAX_LENGTH = 30;   // espelha server/db.js DISPLAY_NAME_MAX_LENGTH
@@ -144,30 +183,69 @@ function HideProfileAuthWarning() {
     if (el) el.style.display = 'none';
 }
 
-// Habilita/desabilita os controles de edição conforme o jogador está logado ou
-// não nesta visita — evita disparar socket.emit condenado a voltar "Não
-// autenticado." e deixa isso visualmente óbvio (achado de UX, mesmo espírito do
-// resto do projeto: nunca falhar em silêncio).
+// Habilita/desabilita os controles de edição. Usado nos dois sentidos:
+//  - modo próprio, sem login: enabled=false (nada pra editar sem estar autenticado).
+//  - modo próprio, autenticado: enabled=true.
+//  - modo "outro jogador": SEMPRE enabled=false, mesmo autenticado — visualização é
+//    sempre somente-leitura, mas isso NÃO é "não autenticado", então o aviso de
+//    login (myProfileAuthWarning) é responsabilidade de quem chama esta função, não
+//    dela — ver OpenProfileModal()/OpenPlayerProfileModal() abaixo. O grid da
+//    galeria também não é mexido aqui: pointer-events dele é responsabilidade de
+//    ApplyProfileModalMode(), porque no modo "outro jogador" o grid PRECISA
+//    continuar clicável (botão de ampliar foto funciona nos dois modos).
 function SetProfileEditingEnabled(enabled) {
     var nameEditBtn = document.getElementById('myProfileNameEditBtn');
     var avatarEditBtn = document.getElementById('myProfileAvatarEditBtn');
     var diaryTextarea = document.getElementById('myDiaryTextarea');
     var diaryPublishBtn = document.getElementById('myDiaryPublishBtn');
-    var grid = document.getElementById('myProfileGalleryGrid');
     if (nameEditBtn) nameEditBtn.style.display = enabled ? 'inline-block' : 'none';
     if (avatarEditBtn) avatarEditBtn.style.display = enabled ? 'flex' : 'none';
     if (diaryTextarea) diaryTextarea.disabled = !enabled;
     if (diaryPublishBtn) diaryPublishBtn.disabled = !enabled;
-    if (grid) grid.style.pointerEvents = enabled ? 'auto' : 'none';
 
-    // Amigos (31/08/2026): busca de jogadores também exige login (o servidor
-    // precisa saber quem está pedindo pra checar pedidos/amizades existentes).
+    // Amigos: busca de jogadores também exige login (o servidor precisa saber
+    // quem está pedindo pra checar pedidos/amizades existentes). Redundante no
+    // modo "outro jogador" (a seção inteira fica escondida por
+    // ApplyProfileModalMode()), mas inofensivo manter aqui também.
     var friendsSearchInput = document.getElementById('myFriendsSearchInput');
     var friendsSearchBtn = document.getElementById('myFriendsSearchBtn');
     if (friendsSearchInput) friendsSearchInput.disabled = !enabled;
     if (friendsSearchBtn) friendsSearchBtn.disabled = !enabled;
+}
 
-    if (enabled) { HideProfileAuthWarning(); } else { ShowProfileAuthWarning(); }
+// Aplica as diferenças visuais do modo "outro jogador" (31/08/2026) por cima do
+// que SetProfileEditingEnabled() já fez: esconde (não só desabilita) tudo que é
+// exclusivo de edição — caixa de escrever no time capsule e a seção AMIGOS
+// inteira (é sobre o grafo social de quem está OLHANDO, não do perfil aberto) —
+// mostra/esconde o botão "← Back" e a linha "Member since", e garante que o
+// grid da galeria continua clicável nos dois modos (o botão de ampliar foto
+// precisa funcionar tanto no próprio perfil quanto no de outro jogador).
+function ApplyProfileModalMode() {
+    var isOther = g_myProfileState.viewMode === 'other';
+
+    var diaryCompose = document.querySelector('.my-profile-diary-compose');
+    if (diaryCompose) diaryCompose.style.display = isOther ? 'none' : 'flex';
+
+    var friendsSection = document.getElementById('myFriendsSection');
+    if (friendsSection) friendsSection.style.display = isOther ? 'none' : 'block';
+    // O <h3>FRIENDS</h3> é irmão de #myFriendsSection, não filho — escondido à parte
+    // pra não sobrar um título solto sem conteúdo embaixo no modo "outro jogador"
+    // (achado no teste manual de 31/08/2026: o contador já mostra "FRIENDS (N)" lá
+    // em cima, então um segundo cabeçalho "FRIENDS" vazio no fim do modal é só ruído).
+    var friendsSectionTitle = document.getElementById('myFriendsSectionTitle');
+    if (friendsSectionTitle) friendsSectionTitle.style.display = isOther ? 'none' : 'block';
+
+    var backBtn = document.getElementById('myProfileBackBtn');
+    if (backBtn) backBtn.style.display = isOther ? 'inline-block' : 'none';
+
+    var memberSinceEl = document.getElementById('myProfileMemberSince');
+    if (memberSinceEl) memberSinceEl.style.display = isOther ? 'block' : 'none';
+
+    var counterRow = document.getElementById('myFriendsCounterRow');
+    if (counterRow) counterRow.style.cursor = isOther ? 'default' : 'pointer';
+
+    var grid = document.getElementById('myProfileGalleryGrid');
+    if (grid) grid.style.pointerEvents = isOther ? 'auto' : (IsPlayerAuthenticated() ? 'auto' : 'none');
 }
 
 // ----------------------------------------------------------------------------
@@ -181,7 +259,7 @@ function SetProfileEditingEnabled(enabled) {
 function emitProfileRequest(eventName, payload, successEvent, errorEvent, onSuccess, onError, timeoutMs) {
     var socket = window.NetworkState && window.NetworkState.socket;
     if (!socket) {
-        onError({ message: 'Não foi possível conectar ao servidor.' });
+        onError({ message: 'Could not connect to the server.' });
         return;
     }
 
@@ -189,7 +267,7 @@ function emitProfileRequest(eventName, payload, successEvent, errorEvent, onSucc
     var timeoutId = setTimeout(function () {
         if (finished) return;
         cleanup();
-        onError({ message: 'O servidor demorou demais para responder. Verifique sua internet e tente novamente.' });
+        onError({ message: 'The server took too long to respond. Check your connection and try again.' });
     }, timeoutMs || 15000);
 
     function cleanup() {
@@ -207,15 +285,25 @@ function emitProfileRequest(eventName, payload, successEvent, errorEvent, onSucc
 }
 
 // ----------------------------------------------------------------------------
-// Abrir / Fechar o modal
+// Abrir / Fechar o modal (modo PRÓPRIO)
 // ----------------------------------------------------------------------------
 function OpenProfileModal() {
     var modal = document.getElementById('myProfileModal');
     if (!modal) return;
     HideProfileMessages();
+    CancelEditDisplayName();
+
+    // Sempre volta pro modo próprio ao abrir por aqui — é o reset "fechar/reabrir"
+    // documentado no comentário do topo do arquivo (a outra forma de sair do modo
+    // "outro jogador" além do botão "← Back", ver GoBackToOwnProfile()).
+    g_myProfileState.viewMode = 'self';
+    g_myProfileState.viewingEmail = null;
+    g_myProfileState.viewingCreatedAt = null;
 
     if (!IsPlayerAuthenticated()) {
         SetProfileEditingEnabled(false);
+        ShowProfileAuthWarning();
+        ApplyProfileModalMode();
         RenderProfileHeader();
         RenderGallery();
         RenderDiaryList();
@@ -228,6 +316,8 @@ function OpenProfileModal() {
     }
 
     SetProfileEditingEnabled(true);
+    HideProfileAuthWarning();
+    ApplyProfileModalMode();
     var stored = GetStoredProfileData() || {};
     g_myProfileState.displayName = stored.name || localStorage.getItem('playerName') || 'Ghost';
     g_myProfileState.avatarUrl = stored.avatarUrl || null;
@@ -247,6 +337,78 @@ function OpenProfileModal() {
     if (typeof LoadFriendRequests === 'function') LoadFriendRequests();
 }
 window.OpenProfileModal = OpenProfileModal;
+
+// ----------------------------------------------------------------------------
+// Abrir o modal em modo "OUTRO JOGADOR" (31/08/2026) — somente-leitura, chamado
+// a partir de um clique num resultado de busca ou item da lista de amigos (ver
+// friends.js). Exige estar autenticado (mesma regra de sempre: sem "quem está
+// vendo", o servidor não tem pra quem responder no socket) — mas note que isso
+// é diferente de "sem permissão pra editar o perfil visto": aqui o VIEWER está
+// logado, só o PERFIL ABERTO é que nunca é editável neste modo.
+function OpenPlayerProfileModal(email) {
+    if (!email) return;
+    var modal = document.getElementById('myProfileModal');
+    if (!modal) return;
+    if (!IsPlayerAuthenticated()) { ShowProfileError('Log in to view other players’ profiles.'); return; }
+
+    HideProfileMessages();
+    CancelEditDisplayName();
+
+    g_myProfileState.viewMode = 'other';
+    g_myProfileState.viewingEmail = email;
+    g_myProfileState.viewingCreatedAt = null;
+    g_myProfileState.displayName = '';
+    g_myProfileState.avatarUrl = null;
+    g_myProfileState.galleryUrls = [];
+    g_myProfileState.diaryEntries = [];
+    g_myProfileState.oldestDiaryId = null;
+    g_myProfileState.diaryHasMore = false;
+
+    SetProfileEditingEnabled(false);
+    HideProfileAuthWarning(); // quem está vendo ESTÁ autenticado — esconde o aviso de login
+    ApplyProfileModalMode();
+    RenderProfileHeader();
+    RenderGallery();
+    RenderDiaryList();
+    UpdateFriendsCounter(0);
+    RenderMemberSince(null);
+    modal.style.display = 'flex';
+
+    ShowProfileStatus('Loading profile...');
+    emitProfileRequest('get_player_profile', { email: email }, 'player_profile_loaded', 'player_profile_error',
+        function (data) {
+            // Confere se o modal ainda está mostrando ESTE jogador — se o jogador
+            // clicou em outro perfil (ou voltou pro próprio) antes desta resposta
+            // chegar, a resposta antiga não deve mais pisar no estado atual.
+            if (g_myProfileState.viewMode !== 'other' || g_myProfileState.viewingEmail !== email) return;
+
+            HideProfileMessages();
+            g_myProfileState.displayName = (data && data.name) || 'Ghost';
+            g_myProfileState.avatarUrl = (data && data.avatarUrl) || null;
+            g_myProfileState.galleryUrls = (data && Array.isArray(data.galleryUrls)) ? data.galleryUrls.slice(0, MAX_GALLERY_SIZE) : [];
+            g_myProfileState.viewingCreatedAt = data && data.createdAt;
+
+            RenderProfileHeader();
+            RenderGallery();
+            UpdateFriendsCounter((data && typeof data.friendCount === 'number') ? data.friendCount : 0);
+            RenderMemberSince(g_myProfileState.viewingCreatedAt);
+            LoadDiaryEntries(true);
+        },
+        function (err) {
+            if (g_myProfileState.viewMode !== 'other' || g_myProfileState.viewingEmail !== email) return;
+            ShowProfileError((err && err.message) || 'Error loading this profile.');
+        }
+    );
+}
+window.OpenPlayerProfileModal = OpenPlayerProfileModal;
+
+// Botão "← BACK TO MY PROFILE" (só visível no modo "outro jogador"): reabre o
+// modal em modo próprio sem precisar fechar — reaproveita OpenProfileModal(),
+// que já reseta viewMode pra 'self' no início.
+function GoBackToOwnProfile() {
+    OpenProfileModal();
+}
+window.GoBackToOwnProfile = GoBackToOwnProfile;
 
 function CloseProfileModal() {
     var modal = document.getElementById('myProfileModal');
@@ -279,8 +441,31 @@ function RenderProfileHeader() {
     }
 }
 
+// "Member since <Mês> <Ano>" (ex: "Member since March 2026") — só usado no modo
+// "outro jogador", a partir de player_profile_loaded.createdAt. Formato decidido
+// nesta tarefa: mês por extenso + ano, sempre em inglês (independente do idioma
+// do navegador), sem dia/hora — é uma marca de "há quanto tempo" a conta existe,
+// não um timestamp preciso como as entradas do time capsule (FormatDiaryDate()).
+function FormatMemberSince(createdAt) {
+    if (!createdAt) return '';
+    var d = new Date(createdAt);
+    if (isNaN(d.getTime())) return '';
+    try {
+        return 'Member since ' + d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    } catch (e) {
+        return 'Member since ' + d.getFullYear();
+    }
+}
+window.FormatMemberSince = FormatMemberSince;
+
+function RenderMemberSince(createdAt) {
+    var el = document.getElementById('myProfileMemberSince');
+    if (!el) return;
+    el.textContent = FormatMemberSince(createdAt);
+}
+
 function EnableEditDisplayName() {
-    if (!IsPlayerAuthenticated()) { ShowProfileError('Faça login para editar o nome.'); return; }
+    if (!IsPlayerAuthenticated()) { ShowProfileError('Log in to edit your name.'); return; }
     var displayRow = document.getElementById('myProfileNameDisplayRow');
     var editRow = document.getElementById('myProfileNameEditRow');
     var input = document.getElementById('myProfileNameInput');
@@ -302,9 +487,9 @@ function SaveDisplayName() {
     HideProfileMessages();
     var input = document.getElementById('myProfileNameInput');
     var name = input ? input.value.trim() : '';
-    if (!name) { ShowProfileError('Digite um nome de exibição.'); return; }
+    if (!name) { ShowProfileError('Enter a display name.'); return; }
     if (name.length > DISPLAY_NAME_MAX_LENGTH) {
-        ShowProfileError('O nome de exibição pode ter no máximo ' + DISPLAY_NAME_MAX_LENGTH + ' caracteres.');
+        ShowProfileError('Display name can be at most ' + DISPLAY_NAME_MAX_LENGTH + ' characters.');
         return;
     }
 
@@ -318,11 +503,11 @@ function SaveDisplayName() {
             PersistProfileFieldsLocally({ name: g_myProfileState.displayName });
             RenderProfileHeader();
             CancelEditDisplayName();
-            ShowProfileSuccess('Nome atualizado!');
+            ShowProfileSuccess('Name updated!');
         },
         function (err) {
             if (btn) btn.disabled = false;
-            ShowProfileError((err && err.message) || 'Erro ao salvar o nome.');
+            ShowProfileError((err && err.message) || 'Error saving name.');
         }
     );
 }
@@ -351,12 +536,12 @@ window.SaveDisplayName = SaveDisplayName;
 // no .then() abaixo.
 function UploadProfileImage(file, type) {
     return new Promise(function (resolve, reject) {
-        if (!file) { reject(new Error('Nenhum arquivo selecionado.')); return; }
+        if (!file) { reject(new Error('No file selected.')); return; }
 
         var token = null;
         try { token = localStorage.getItem('dg_session_token'); } catch (e) {}
         if (!token) {
-            reject(new Error('Faça login para enviar uma imagem.'));
+            reject(new Error('Log in to upload an image.'));
             return;
         }
 
@@ -374,7 +559,7 @@ function UploadProfileImage(file, type) {
             .then(function (res) {
                 return res.json().catch(function () { return {}; }).then(function (data) {
                     if (!res.ok) {
-                        var msg = (data && data.message) || ('Falha no upload da imagem (HTTP ' + res.status + ').');
+                        var msg = (data && data.message) || ('Image upload failed (HTTP ' + res.status + ').');
                         throw new Error(msg);
                     }
                     return data;
@@ -383,13 +568,13 @@ function UploadProfileImage(file, type) {
             .then(function (data) {
                 var publicUrl = data && data.url;
                 if (!publicUrl) {
-                    reject(new Error('Upload concluído, mas o servidor não retornou a URL da imagem.'));
+                    reject(new Error('Upload finished, but the server did not return the image URL.'));
                     return;
                 }
                 resolve(publicUrl);
             })
             .catch(function (err) {
-                reject(new Error((err && err.message) || 'Erro inesperado no upload da imagem.'));
+                reject(new Error((err && err.message) || 'Unexpected error uploading the image.'));
             });
     });
 }
@@ -399,7 +584,7 @@ window.UploadProfileImage = UploadProfileImage;
 // Avatar
 // ----------------------------------------------------------------------------
 function TriggerAvatarFileSelect() {
-    if (!IsPlayerAuthenticated()) { ShowProfileError('Faça login para trocar o avatar.'); return; }
+    if (!IsPlayerAuthenticated()) { ShowProfileError('Log in to change your avatar.'); return; }
     var input = document.getElementById('myProfileAvatarFileInput');
     if (input) { input.value = ''; input.click(); }
 }
@@ -410,7 +595,7 @@ function HandleAvatarFileSelected(inputEl) {
     var file = inputEl.files && inputEl.files[0];
     if (!file) return;
     if (!file.type || file.type.indexOf('image/') !== 0) {
-        ShowProfileError('Selecione um arquivo de imagem.');
+        ShowProfileError('Select an image file.');
         return;
     }
 
@@ -420,7 +605,7 @@ function HandleAvatarFileSelected(inputEl) {
     var previewUrl = URL.createObjectURL(file);
     g_myProfileState.avatarUrl = previewUrl;
     RenderProfileHeader();
-    ShowProfileStatus('Enviando imagem...');
+    ShowProfileStatus('Uploading image...');
 
     UploadProfileImage(file, 'avatar')
         .then(function (publicUrl) {
@@ -432,87 +617,138 @@ function HandleAvatarFileSelected(inputEl) {
                     g_myProfileState.avatarUrl = finalUrl;
                     RenderProfileHeader();
                     PersistProfileFieldsLocally({ avatarUrl: finalUrl });
-                    ShowProfileSuccess('Avatar atualizado!');
+                    ShowProfileSuccess('Avatar updated!');
                 },
                 function (err) {
-                    ShowProfileError((err && err.message) || 'A imagem foi enviada, mas houve um erro ao salvar no perfil.');
+                    ShowProfileError((err && err.message) || 'The image was uploaded, but there was an error saving it to your profile.');
                 }
             );
         })
         .catch(function (err) {
             g_myProfileState.avatarUrl = previousUrl;
             RenderProfileHeader();
-            ShowProfileError(err.message || 'Falha ao enviar a imagem.');
+            ShowProfileError(err.message || 'Failed to upload the image.');
         });
 }
 window.HandleAvatarFileSelected = HandleAvatarFileSelected;
 
 // ----------------------------------------------------------------------------
-// Galeria (grid 3x3 = 9 slots). A galeria é tratada como uma lista COMPACTA
-// (índices 0..N-1 preenchidos, o resto "+ adicionar") porque o servidor exige
-// um array só de URLs válidas, sem buracos no meio (ver comentário no topo do
-// arquivo) — remover uma foto do meio desloca as seguintes, como uma lista
-// normal, não como "slots" fixos e independentes.
+// Galeria (grid 3x3 = 9 slots no modo próprio). A galeria é tratada como uma
+// lista COMPACTA (índices 0..N-1 preenchidos, o resto "+ adicionar") porque o
+// servidor exige um array só de URLs válidas, sem buracos no meio (ver
+// comentário no topo do arquivo) — remover uma foto do meio desloca as
+// seguintes, como uma lista normal, não como "slots" fixos e independentes.
+//
+// Modo "outro jogador" (31/08/2026): só as fotos que realmente existem, sem
+// slots vazios "+ ADD PHOTO" (não faz sentido oferecer adicionar foto de quem
+// não é você). Botão de AMPLIAR sempre presente em toda foto preenchida, nos
+// dois modos — mesma RenderGallerySlot() desenha os dois casos, só o parâmetro
+// allowEdit muda (controla se o overlay de trocar/remover é desenhado).
 // ----------------------------------------------------------------------------
 function RenderGallery() {
     var grid = document.getElementById('myProfileGalleryGrid');
     if (!grid) return;
     grid.innerHTML = '';
+
+    if (g_myProfileState.viewMode === 'other') {
+        if (g_myProfileState.galleryUrls.length === 0) {
+            var emptyMsg = document.createElement('div');
+            emptyMsg.className = 'my-gallery-empty-view-msg';
+            emptyMsg.textContent = 'No photos yet.';
+            grid.appendChild(emptyMsg);
+            return;
+        }
+        g_myProfileState.galleryUrls.forEach(function (url, i) {
+            grid.appendChild(RenderGallerySlot(i, url, false));
+        });
+        return;
+    }
+
     for (var i = 0; i < MAX_GALLERY_SIZE; i++) {
-        grid.appendChild(RenderGallerySlot(i, g_myProfileState.galleryUrls[i] || null));
+        grid.appendChild(RenderGallerySlot(i, g_myProfileState.galleryUrls[i] || null, true));
     }
 }
 
-function RenderGallerySlot(index, url) {
+function RenderGallerySlot(index, url, allowEdit) {
     var slot = document.createElement('div');
     slot.className = 'my-profile-gallery-slot' + (url ? '' : ' empty');
+
+    var media = document.createElement('div');
+    media.className = 'my-gallery-slot-media';
 
     if (url) {
         var img = document.createElement('img');
         img.src = url;
-        img.alt = 'Foto ' + (index + 1) + ' da galeria';
-        slot.appendChild(img);
+        img.alt = 'Gallery photo ' + (index + 1);
+        media.appendChild(img);
 
-        var overlay = document.createElement('div');
-        overlay.className = 'my-profile-gallery-overlay';
+        if (allowEdit) {
+            var overlay = document.createElement('div');
+            overlay.className = 'my-profile-gallery-overlay';
 
-        var changeBtn = document.createElement('button');
-        changeBtn.type = 'button';
-        changeBtn.title = 'Trocar foto';
-        changeBtn.textContent = '✏️'; // lapis (trocar)
-        changeBtn.onclick = function (e) { e.stopPropagation(); TriggerGallerySlotFileSelect(index); };
-        overlay.appendChild(changeBtn);
+            var changeBtn = document.createElement('button');
+            changeBtn.type = 'button';
+            changeBtn.title = 'Change photo';
+            changeBtn.setAttribute('aria-label', 'Change photo');
+            changeBtn.textContent = '✏️'; // lapis (trocar)
+            changeBtn.onclick = function (e) { e.stopPropagation(); TriggerGallerySlotFileSelect(index); };
+            overlay.appendChild(changeBtn);
 
-        var removeBtn = document.createElement('button');
-        removeBtn.type = 'button';
-        removeBtn.className = 'remove-btn';
-        removeBtn.title = 'Remover foto';
-        removeBtn.textContent = '✖'; // X (remover)
-        removeBtn.onclick = function (e) { e.stopPropagation(); RemoveGalleryPhoto(index); };
-        overlay.appendChild(removeBtn);
+            var removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'remove-btn';
+            removeBtn.title = 'Remove photo';
+            removeBtn.setAttribute('aria-label', 'Remove photo');
+            removeBtn.textContent = '✖'; // X (remover)
+            removeBtn.onclick = function (e) { e.stopPropagation(); RemoveGalleryPhoto(index); };
+            overlay.appendChild(removeBtn);
 
-        slot.appendChild(overlay);
-        // Em touch (sem :hover) o overlay não aparece sozinho — o slot inteiro também
-        // é clicável e abre direto a troca, então o toque continua funcionando.
-        slot.onclick = function () { TriggerGallerySlotFileSelect(index); };
+            media.appendChild(overlay);
+            // Em touch (sem :hover) o overlay não aparece sozinho — a própria foto
+            // também é clicável e abre direto a troca, então o toque continua funcionando.
+            media.onclick = function () { TriggerGallerySlotFileSelect(index); };
+        }
     } else {
         var plus = document.createElement('div');
         plus.className = 'plus-icon';
         plus.textContent = '+';
-        slot.appendChild(plus);
+        media.appendChild(plus);
 
         var label = document.createElement('div');
-        label.textContent = 'ADICIONAR FOTO';
-        slot.appendChild(label);
+        label.textContent = 'ADD PHOTO';
+        media.appendChild(label);
 
-        slot.onclick = function () { TriggerGallerySlotFileSelect(index); };
+        media.onclick = function () { TriggerGallerySlotFileSelect(index); };
     }
+    slot.appendChild(media);
+
+    // Faixa fixa embaixo de CADA foto (31/08/2026): botão de ampliar, sempre
+    // visível (nunca atrás de :hover — ver css/style.css), idêntico nos modos
+    // próprio e "outro jogador". Slots vazios ganham a mesma faixa, só que como
+    // espaçador invisível, unicamente pra manter as 9 células do grid com a
+    // mesma altura total (ver comentário em css/style.css).
+    var footer = document.createElement('div');
+    footer.className = 'my-gallery-slot-footer';
+    if (url) {
+        var zoomBtn = document.createElement('button');
+        zoomBtn.type = 'button';
+        zoomBtn.className = 'my-gallery-zoom-btn';
+        zoomBtn.title = 'Enlarge photo';
+        zoomBtn.setAttribute('aria-label', 'Enlarge photo');
+        zoomBtn.textContent = '\u{1F50D} ENLARGE';
+        zoomBtn.onclick = function (e) { e.stopPropagation(); OpenGalleryLightbox(url); };
+        footer.appendChild(zoomBtn);
+    } else {
+        footer.className += ' my-gallery-slot-footer-spacer';
+    }
+    slot.appendChild(footer);
+
     return slot;
 }
 window.RenderGallerySlot = RenderGallerySlot;
 
 function TriggerGallerySlotFileSelect(index) {
-    if (!IsPlayerAuthenticated()) { ShowProfileError('Faça login para editar a galeria.'); return; }
+    if (!IsPlayerAuthenticated()) { ShowProfileError('Log in to edit your gallery.'); return; }
     g_myProfileState.pendingGallerySlotIndex = index;
     var input = document.getElementById('myProfileGalleryFileInput');
     if (input) { input.value = ''; input.click(); }
@@ -525,7 +761,7 @@ function HandleGalleryFileSelected(inputEl) {
     var index = g_myProfileState.pendingGallerySlotIndex;
     if (!file || index === null || index === undefined) return;
     if (!file.type || file.type.indexOf('image/') !== 0) {
-        ShowProfileError('Selecione um arquivo de imagem.');
+        ShowProfileError('Select an image file.');
         return;
     }
 
@@ -539,7 +775,7 @@ function HandleGalleryFileSelected(inputEl) {
     previewUrls[index] = previewUrl;
     g_myProfileState.galleryUrls = previewUrls;
     RenderGallery();
-    ShowProfileStatus('Enviando foto...');
+    ShowProfileStatus('Uploading photo...');
 
     UploadProfileImage(file, 'gallery')
         .then(function (publicUrl) {
@@ -553,13 +789,13 @@ function HandleGalleryFileSelected(inputEl) {
         .catch(function (err) {
             g_myProfileState.galleryUrls = previousUrls;
             RenderGallery();
-            ShowProfileError(err.message || 'Falha ao enviar a foto.');
+            ShowProfileError(err.message || 'Failed to upload the photo.');
         });
 }
 window.HandleGalleryFileSelected = HandleGalleryFileSelected;
 
 function RemoveGalleryPhoto(index) {
-    if (!IsPlayerAuthenticated()) { ShowProfileError('Faça login para editar a galeria.'); return; }
+    if (!IsPlayerAuthenticated()) { ShowProfileError('Log in to edit your gallery.'); return; }
     var previousUrls = g_myProfileState.galleryUrls.slice();
     var newUrls = previousUrls.slice();
     newUrls.splice(index, 1);
@@ -576,17 +812,51 @@ function SaveGalleryUrls(newUrls, rollbackUrls) {
             g_myProfileState.galleryUrls = (data && Array.isArray(data.galleryUrls)) ? data.galleryUrls : newUrls;
             RenderGallery();
             PersistProfileFieldsLocally({ galleryUrls: g_myProfileState.galleryUrls });
-            ShowProfileSuccess('Galeria atualizada!');
+            ShowProfileSuccess('Gallery updated!');
         },
         function (err) {
             if (rollbackUrls) { g_myProfileState.galleryUrls = rollbackUrls; RenderGallery(); }
-            ShowProfileError((err && err.message) || 'Erro ao salvar a galeria.');
+            ShowProfileError((err && err.message) || 'Error saving the gallery.');
         }
     );
 }
 
 // ----------------------------------------------------------------------------
-// Diário / Blog
+// Gallery Photo Lightbox (31/08/2026): amplia uma foto da galeria em overlay
+// por cima de tudo — mesmo comportamento pro perfil próprio e pro de outro
+// jogador (chamado por RenderGallerySlot() acima, nos dois modos). z-index bem
+// acima de 10000 (ver css/style.css) pra sempre ficar por cima do
+// #myProfileModal já aberto por baixo. Fecha clicando fora da imagem (ver
+// onclick inline em index.html), no botão X, ou tecla Esc (listener abaixo).
+// ----------------------------------------------------------------------------
+function OpenGalleryLightbox(url) {
+    if (!url) return;
+    var overlay = document.getElementById('galleryLightbox');
+    var img = document.getElementById('galleryLightboxImg');
+    if (!overlay || !img) return;
+    img.src = url;
+    overlay.style.display = 'flex';
+}
+window.OpenGalleryLightbox = OpenGalleryLightbox;
+
+function CloseGalleryLightbox() {
+    var overlay = document.getElementById('galleryLightbox');
+    var img = document.getElementById('galleryLightboxImg');
+    if (overlay) overlay.style.display = 'none';
+    if (img) img.src = '';
+}
+window.CloseGalleryLightbox = CloseGalleryLightbox;
+
+document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' && e.key !== 'Esc') return;
+    var overlay = document.getElementById('galleryLightbox');
+    if (overlay && overlay.style.display !== 'none') CloseGalleryLightbox();
+});
+
+// ----------------------------------------------------------------------------
+// Time Capsule (antigo "Diário"/blog cronológico — renomeado na UI em
+// 31/08/2026, ver comentário no topo do arquivo). IDs/eventos continuam
+// "diary"/"myDiary*" de propósito.
 // ----------------------------------------------------------------------------
 function FormatDiaryDate(entry) {
     var raw = entry && (entry.createdAt !== undefined ? entry.createdAt : entry.created_at);
@@ -594,7 +864,7 @@ function FormatDiaryDate(entry) {
     var d = new Date(raw);
     if (isNaN(d.getTime())) return String(raw);
     try {
-        return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        return d.toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     } catch (e) {
         return d.toLocaleString();
     }
@@ -625,7 +895,14 @@ function RenderDiaryList() {
     list.innerHTML = '';
 
     if (g_myProfileState.diaryEntries.length === 0) {
-        if (emptyState) emptyState.style.display = g_myProfileState.diaryLoading ? 'none' : 'block';
+        if (emptyState) {
+            // Texto diferente no modo "outro jogador" — não faz sentido convidar quem
+            // está vendo a "escrever a primeira" no time capsule alheio.
+            emptyState.textContent = (g_myProfileState.viewMode === 'other')
+                ? 'This player hasn’t added any time capsule entries yet.'
+                : 'No entries yet — write the first one!';
+            emptyState.style.display = g_myProfileState.diaryLoading ? 'none' : 'block';
+        }
         return;
     }
     if (emptyState) emptyState.style.display = 'none';
@@ -643,6 +920,9 @@ function SetDiaryLoadingUI(isLoading) {
 
 // reset=true: recarrega a primeira página do zero (ex: ao abrir o modal).
 // reset=false: pede a próxima página (beforeId = id da última entrada já carregada).
+// Modo "outro jogador" (31/08/2026): manda `email` no payload (leitura pública do
+// diário de outro jogador — ver contrato no topo do arquivo); modo próprio nunca
+// manda `email`, comportamento idêntico a antes.
 function LoadDiaryEntries(reset) {
     if (!IsPlayerAuthenticated()) return;
     if (g_myProfileState.diaryLoading) return;
@@ -662,12 +942,21 @@ function LoadDiaryEntries(reset) {
     if (emptyState) emptyState.style.display = 'none';
 
     var payload = { limit: 20 };
+    if (g_myProfileState.viewMode === 'other' && g_myProfileState.viewingEmail) {
+        payload.email = g_myProfileState.viewingEmail;
+    }
     if (!reset && g_myProfileState.oldestDiaryId !== null) payload.beforeId = g_myProfileState.oldestDiaryId;
+
+    var requestedEmail = g_myProfileState.viewingEmail;
+    var requestedMode = g_myProfileState.viewMode;
 
     emitProfileRequest('get_diary_entries', payload, 'diary_entries_loaded', 'diary_error',
         function (data) {
             g_myProfileState.diaryLoading = false;
             SetDiaryLoadingUI(false);
+            // Mesma proteção contra resposta atrasada de um perfil que não é mais o
+            // que está aberto (ver OpenPlayerProfileModal()).
+            if (g_myProfileState.viewMode !== requestedMode || g_myProfileState.viewingEmail !== requestedEmail) return;
 
             var entries = (data && Array.isArray(data.entries)) ? data.entries : [];
             g_myProfileState.diaryEntries = g_myProfileState.diaryEntries.concat(entries);
@@ -686,8 +975,9 @@ function LoadDiaryEntries(reset) {
         function (err) {
             g_myProfileState.diaryLoading = false;
             SetDiaryLoadingUI(false);
+            if (g_myProfileState.viewMode !== requestedMode || g_myProfileState.viewingEmail !== requestedEmail) return;
             RenderDiaryList();
-            ShowProfileError((err && err.message) || 'Erro ao carregar o diário.');
+            ShowProfileError((err && err.message) || 'Error loading the time capsule.');
         }
     );
 }
@@ -706,13 +996,17 @@ window.UpdateDiaryCharCount = UpdateDiaryCharCount;
 
 function SubmitDiaryEntry() {
     HideProfileMessages();
-    if (!IsPlayerAuthenticated()) { ShowProfileError('Faça login para publicar no diário.'); return; }
+    if (!IsPlayerAuthenticated()) { ShowProfileError('Log in to add a time capsule entry.'); return; }
+    // Defensivo: a caixa de escrever fica escondida no modo "outro jogador" (ver
+    // ApplyProfileModalMode()), mas esta função é global — nunca confia só no
+    // CSS pra impedir publicar na conta errada.
+    if (g_myProfileState.viewMode === 'other') { ShowProfileError('You can only add entries to your own time capsule.'); return; }
 
     var textarea = document.getElementById('myDiaryTextarea');
     var content = textarea ? textarea.value.trim() : '';
-    if (!content) { ShowProfileError('Escreva algo antes de publicar.'); return; }
+    if (!content) { ShowProfileError('Write something before publishing.'); return; }
     if (content.length > DIARY_CONTENT_MAX_LENGTH) {
-        ShowProfileError('O texto do diário pode ter no máximo ' + DIARY_CONTENT_MAX_LENGTH + ' caracteres.');
+        ShowProfileError('Time capsule entries can be at most ' + DIARY_CONTENT_MAX_LENGTH + ' characters.');
         return;
     }
 
@@ -727,11 +1021,11 @@ function SubmitDiaryEntry() {
             // Adiciona no topo (mais recente primeiro) sem recarregar a lista inteira.
             g_myProfileState.diaryEntries.unshift(entry);
             RenderDiaryList();
-            ShowProfileSuccess('Publicado!');
+            ShowProfileSuccess('Published!');
         },
         function (err) {
             if (btn) btn.disabled = false;
-            ShowProfileError((err && err.message) || 'Erro ao publicar a entrada.');
+            ShowProfileError((err && err.message) || 'Error publishing the entry.');
         }
     );
 }

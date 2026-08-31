@@ -729,7 +729,7 @@ const DIARY_MAX_LIMIT = 50;
 async function postDiaryEntry(email, content) {
     await ensureTableReady();
     if (typeof content !== 'string' || content.length < 1 || content.length > DIARY_CONTENT_MAX_LENGTH) {
-        throw new Error(`O texto do diário precisa ter entre 1 e ${DIARY_CONTENT_MAX_LENGTH} caracteres.`);
+        throw new Error(`Diary text must be between 1 and ${DIARY_CONTENT_MAX_LENGTH} characters.`);
     }
     const { rows } = await pool.query(
         `INSERT INTO diary_entries (email, content) VALUES ($1, $2)
@@ -756,7 +756,7 @@ async function getDiaryEntries(email, options) {
     if (opts.beforeId !== undefined && opts.beforeId !== null) {
         const beforeId = Number(opts.beforeId);
         if (!Number.isFinite(beforeId)) {
-            throw new Error('beforeId inválido.');
+            throw new Error('Invalid beforeId.');
         }
         ({ rows } = await pool.query(
             `SELECT id, content, created_at AS "createdAt" FROM diary_entries
@@ -805,7 +805,7 @@ async function searchPlayers(sessionEmail, rawQuery) {
     await ensureTableReady();
     const query = typeof rawQuery === 'string' ? rawQuery.trim() : '';
     if (query.length < FRIEND_SEARCH_MIN_QUERY_LENGTH) {
-        throw new Error(`Digite pelo menos ${FRIEND_SEARCH_MIN_QUERY_LENGTH} caracteres para buscar.`);
+        throw new Error(`Type at least ${FRIEND_SEARCH_MIN_QUERY_LENGTH} characters to search.`);
     }
     const { rows } = await pool.query(
         `SELECT email, name, avatar_url AS "avatarUrl" FROM players
@@ -832,10 +832,10 @@ async function sendFriendRequest(sessionEmail, rawToEmail) {
     await ensureTableReady();
     const toEmail = typeof rawToEmail === 'string' ? rawToEmail.trim().toLowerCase() : '';
     if (!toEmail) {
-        throw new Error('E-mail do destinatário ausente ou inválido.');
+        throw new Error('Recipient email missing or invalid.');
     }
     if (toEmail === sessionEmail) {
-        throw new Error('Você não pode enviar um pedido de amizade para si mesmo.');
+        throw new Error('You cannot send a friend request to yourself.');
     }
 
     const client = await pool.connect();
@@ -847,7 +847,7 @@ async function sendFriendRequest(sessionEmail, rawToEmail) {
 
         const { rows: targetRows } = await client.query('SELECT email FROM players WHERE email = $1', [toEmail]);
         if (targetRows.length === 0) {
-            throw new Error('Esse jogador não existe.');
+            throw new Error('This player does not exist.');
         }
 
         const { rows: existingRows } = await client.query(
@@ -862,10 +862,10 @@ async function sendFriendRequest(sessionEmail, rawToEmail) {
         let autoAccepted = false;
         if (existing) {
             if (existing.status === 'accepted') {
-                throw new Error('Vocês já são amigos.');
+                throw new Error('You are already friends.');
             }
             if (existing.requesterEmail === sessionEmail) {
-                throw new Error('Você já enviou um pedido de amizade para esse jogador.');
+                throw new Error('You already sent a friend request to this player.');
             }
             // Pedido pendente já existia na direção oposta (toEmail -> sessionEmail): aceita em
             // vez de criar um segundo registro pendente cruzado.
@@ -916,7 +916,7 @@ async function respondFriendRequest(sessionEmail, rawFromEmail, accept) {
     await ensureTableReady();
     const fromEmail = typeof rawFromEmail === 'string' ? rawFromEmail.trim().toLowerCase() : '';
     if (!fromEmail) {
-        throw new Error('E-mail do remetente ausente ou inválido.');
+        throw new Error('Sender email missing or invalid.');
     }
 
     const { rows } = await pool.query(
@@ -926,7 +926,7 @@ async function respondFriendRequest(sessionEmail, rawFromEmail, accept) {
     );
     const row = rows[0];
     if (!row) {
-        throw new Error('Pedido de amizade não encontrado.');
+        throw new Error('Friend request not found.');
     }
 
     if (accept) {
@@ -955,6 +955,46 @@ async function getFriends(sessionEmail) {
     return { friends: rows, count: rows.length };
 }
 
+// get_player_profile (31/08/2026, pedido do usuário: "ver perfil de OUTRO jogador, pode ver tudo
+// sem restrição"). Público de propósito — não checa amizade nem se o alvo é a própria sessão,
+// só que o email pedido exista em players. Devolve EXATAMENTE 6 campos (email + as 5 coisas
+// públicas do perfil: nome, avatar, galeria, data de criação, contador de amigos) — nunca
+// password/hash nem qualquer outra coluna de players (level/xp/mana/etc são progresso de jogo,
+// não perfil público). friendCount usa a MESMA contagem de getFriends (status 'accepted', nas
+// duas direções da amizade), só que pro email pedido em vez do da sessão autenticada.
+async function getPlayerProfile(rawEmail) {
+    await ensureTableReady();
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : '';
+    if (!email) {
+        throw new Error('Invalid or missing email.');
+    }
+
+    const { rows } = await pool.query(
+        `SELECT email, name, avatar_url AS "avatarUrl", gallery_urls AS "galleryUrls", created_at AS "createdAt"
+         FROM players WHERE email = $1`,
+        [email]
+    );
+    const player = rows[0];
+    if (!player) {
+        throw new Error('This player does not exist.');
+    }
+
+    const { rows: countRows } = await pool.query(
+        `SELECT COUNT(*)::int AS count FROM friendships
+         WHERE status = 'accepted' AND (requester_email = $1 OR addressee_email = $1)`,
+        [email]
+    );
+
+    return {
+        email: player.email,
+        name: player.name,
+        avatarUrl: player.avatarUrl,
+        galleryUrls: player.galleryUrls,
+        createdAt: player.createdAt,
+        friendCount: countRows[0].count
+    };
+}
+
 module.exports = {
     loginPlayer,
     createPlayer,
@@ -971,5 +1011,6 @@ module.exports = {
     sendFriendRequest,
     getFriendRequests,
     respondFriendRequest,
-    getFriends
+    getFriends,
+    getPlayerProfile
 };

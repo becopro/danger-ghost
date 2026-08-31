@@ -24,7 +24,7 @@ const io = new Server(server, {
     cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-const { loginPlayer, createPlayer, loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveCharacters, deleteCharacter, updateProfile, postDiaryEntry, getDiaryEntries, searchPlayers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends } = require('./db');
+const { loginPlayer, createPlayer, loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveCharacters, deleteCharacter, updateProfile, postDiaryEntry, getDiaryEntries, searchPlayers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends, getPlayerProfile } = require('./db');
 const { OAuth2Client } = require('google-auth-library');
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -115,7 +115,17 @@ const DIARY_POST_MAX_ATTEMPTS = 30;
 // disparar centenas de buscas por segundo só pra forçar carga no banco. 20/min é folgado pro uso
 // legítimo (digitar um nome, ajustar, buscar de novo) e barra abuso automatizado.
 const FRIEND_SEARCH_MAX_ATTEMPTS = 20;
+// get_player_profile (31/08/2026, "ver perfil de outro jogador"): é leitura de UMA linha por
+// email (não varre a tabela como search_players), então pode ser mais generoso — 30/min ainda
+// barra um script abrindo perfis em sequência só pra forçar carga no banco.
+const PLAYER_PROFILE_MAX_ATTEMPTS = 30;
 const RATE_LIMIT_MESSAGE = 'Muitas tentativas, aguarde um momento.';
+// Mesmo texto de RATE_LIMIT_MESSAGE, só que em inglês — pedido do usuário (31/08/2026) foi
+// traduzir só as mensagens de perfil/diário/upload/amizades pro inglês, sem mexer nas de
+// login/cadastro/sessão (fora de escopo), que continuam usando RATE_LIMIT_MESSAGE em português.
+// Como o bucket de rate limit é o mesmo mecanismo (isRateLimited) pros dois grupos de eventos,
+// a mensagem tem que ser escolhida por CONSTANTE, nunca por tradução da mesma string.
+const RATE_LIMIT_MESSAGE_EN = 'Too many attempts, please wait a moment.';
 const rateLimitBuckets = new Map(); // chave "evento:ip" -> array de timestamps (ms) das tentativas recentes
 
 function isRateLimited(bucketKey, maxAttempts, windowMs) {
@@ -417,7 +427,7 @@ io.on('connection', (socket) => {
         const playerSession = players[socket.id];
         if (!playerSession || !playerSession.email) {
             console.log('[Profile] Rejected: Player not authenticated.');
-            socket.emit('profile_error', { message: 'Não autenticado.' });
+            socket.emit('profile_error', { message: 'Not authenticated.' });
             return;
         }
 
@@ -430,7 +440,7 @@ io.on('connection', (socket) => {
                 socket.emit('profile_updated', updated);
             } catch (error) {
                 console.error('[DB] Profile update error:', error);
-                socket.emit('profile_error', { message: 'Erro ao atualizar perfil.' });
+                socket.emit('profile_error', { message: 'Error updating profile.' });
             }
         });
         saveQueues[socket.id] = current.catch(() => {});
@@ -444,11 +454,11 @@ io.on('connection', (socket) => {
         const playerSession = players[socket.id];
         if (!playerSession || !playerSession.email) {
             console.log('[Diary] Rejected: Player not authenticated.');
-            socket.emit('diary_error', { message: 'Não autenticado.' });
+            socket.emit('diary_error', { message: 'Not authenticated.' });
             return;
         }
         if (isRateLimited('post_diary_entry:' + socket.handshake.address, DIARY_POST_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
-            socket.emit('diary_error', { message: RATE_LIMIT_MESSAGE });
+            socket.emit('diary_error', { message: RATE_LIMIT_MESSAGE_EN });
             return;
         }
 
@@ -461,26 +471,62 @@ io.on('connection', (socket) => {
             // error.message aqui é sempre a mensagem de validação de postDiaryEntry (ex: "precisa
             // ter entre 1 e 5000 caracteres") — segura de expor, mesmo padrão de loginPlayer/
             // createPlayer (server/db.js) que já devolvem erro de validação direto pro jogador.
-            socket.emit('diary_error', { message: error.message || 'Erro ao publicar no diário.' });
+            socket.emit('diary_error', { message: error.message || 'Error posting diary entry.' });
         });
     });
 
-    // Lista o diário da conta autenticada, paginado. Somente leitura — não toca players/
-    // characters, não precisa de saveQueues nem de rate limit dedicado (já limitado por limit
-    // máximo de 50 em db.js/getDiaryEntries).
+    // Lista o diário, paginado. Somente leitura — não toca players/characters, não precisa de
+    // saveQueues nem de rate limit dedicado (já limitado por limit máximo de 50 em
+    // db.js/getDiaryEntries).
+    //
+    // email opcional no payload (31/08/2026, pedido do usuário: "ver diário de outro jogador",
+    // mesmo espírito público de get_player_profile abaixo) — se vier e for diferente da sessão,
+    // lê o diário desse OUTRO jogador; sem o campo (ou igual ao e-mail da própria sessão), o
+    // comportamento é EXATAMENTE o de antes (retrocompatibilidade: sempre o próprio diário).
+    // Continua exigindo socket autenticado (algum jogador logado) — só não exige que o ALVO seja
+    // amigo nem a própria sessão, porque o usuário pediu leitura pública entre jogadores logados.
     socket.on('get_diary_entries', (data) => {
         const playerSession = players[socket.id];
         if (!playerSession || !playerSession.email) {
             console.log('[Diary] Rejected: Player not authenticated.');
-            socket.emit('diary_error', { message: 'Não autenticado.' });
+            socket.emit('diary_error', { message: 'Not authenticated.' });
             return;
         }
 
-        getDiaryEntries(playerSession.email, data || {}).then((result) => {
+        const requestedEmail = data && typeof data.email === 'string' ? data.email.trim().toLowerCase() : '';
+        const targetEmail = requestedEmail || playerSession.email;
+
+        getDiaryEntries(targetEmail, data || {}).then((result) => {
             socket.emit('diary_entries_loaded', result);
         }).catch((error) => {
             console.error('[DB] Diary load error:', error);
-            socket.emit('diary_error', { message: error.message || 'Erro ao carregar diário.' });
+            socket.emit('diary_error', { message: error.message || 'Error loading diary.' });
+        });
+    });
+
+    // Perfil PÚBLICO de outro jogador (31/08/2026, pedido do usuário: "ver profile de outro
+    // jogador, pode ver tudo sem restrição" — nome, avatar, galeria, data de criação da conta,
+    // contador de amigos). Mesma decisão de get_diary_entries acima: exige só que o socket esteja
+    // autenticado (algum jogador logado, não anônimo), nunca que o alvo seja amigo. getPlayerProfile
+    // (db.js) já garante que NUNCA volta password/hash nem qualquer coluna fora dessas 5 + email.
+    socket.on('get_player_profile', (data) => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            socket.emit('player_profile_error', { message: 'Not authenticated.' });
+            return;
+        }
+        if (isRateLimited('get_player_profile:' + socket.handshake.address, PLAYER_PROFILE_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+            socket.emit('player_profile_error', { message: RATE_LIMIT_MESSAGE_EN });
+            return;
+        }
+
+        getPlayerProfile(data && data.email).then((profile) => {
+            socket.emit('player_profile_loaded', profile);
+        }).catch((error) => {
+            // error.message aqui é sempre a validação de db.js/getPlayerProfile ("e-mail
+            // ausente/inválido" ou "esse jogador não existe") — segura de expor, mesmo padrão já
+            // usado em searchPlayers/sendFriendRequest.
+            socket.emit('player_profile_error', { message: error.message || 'Error loading player profile.' });
         });
     });
 
@@ -498,11 +544,11 @@ io.on('connection', (socket) => {
     socket.on('search_players', (data) => {
         const playerSession = players[socket.id];
         if (!playerSession || !playerSession.email) {
-            socket.emit('friend_search_error', { message: 'Não autenticado.' });
+            socket.emit('friend_search_error', { message: 'Not authenticated.' });
             return;
         }
         if (isRateLimited('search_players:' + socket.handshake.address, FRIEND_SEARCH_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
-            socket.emit('friend_search_error', { message: RATE_LIMIT_MESSAGE });
+            socket.emit('friend_search_error', { message: RATE_LIMIT_MESSAGE_EN });
             return;
         }
 
@@ -511,14 +557,14 @@ io.on('connection', (socket) => {
         }).catch((error) => {
             // error.message aqui é sempre a validação de comprimento mínimo (db.js/searchPlayers),
             // segura de expor — mesmo padrão de loginPlayer/postDiaryEntry.
-            socket.emit('friend_search_error', { message: error.message || 'Erro ao buscar jogadores.' });
+            socket.emit('friend_search_error', { message: error.message || 'Error searching players.' });
         });
     });
 
     socket.on('send_friend_request', (data) => {
         const playerSession = players[socket.id];
         if (!playerSession || !playerSession.email) {
-            socket.emit('friend_request_error', { message: 'Não autenticado.' });
+            socket.emit('friend_request_error', { message: 'Not authenticated.' });
             return;
         }
 
@@ -526,14 +572,14 @@ io.on('connection', (socket) => {
             console.log(`[Friends] ${playerSession.email} -> ${result.toEmail} (autoAccepted: ${result.autoAccepted})`);
             socket.emit('friend_request_sent', result);
         }).catch((error) => {
-            socket.emit('friend_request_error', { message: error.message || 'Erro ao enviar pedido de amizade.' });
+            socket.emit('friend_request_error', { message: error.message || 'Error sending friend request.' });
         });
     });
 
     socket.on('get_friend_requests', () => {
         const playerSession = players[socket.id];
         if (!playerSession || !playerSession.email) {
-            socket.emit('friend_request_error', { message: 'Não autenticado.' });
+            socket.emit('friend_request_error', { message: 'Not authenticated.' });
             return;
         }
 
@@ -541,14 +587,14 @@ io.on('connection', (socket) => {
             socket.emit('friend_requests_loaded', { requests });
         }).catch((error) => {
             console.error('[DB] Friend requests load error:', error);
-            socket.emit('friend_request_error', { message: 'Erro ao carregar pedidos de amizade.' });
+            socket.emit('friend_request_error', { message: 'Error loading friend requests.' });
         });
     });
 
     socket.on('respond_friend_request', (data) => {
         const playerSession = players[socket.id];
         if (!playerSession || !playerSession.email) {
-            socket.emit('friend_request_error', { message: 'Não autenticado.' });
+            socket.emit('friend_request_error', { message: 'Not authenticated.' });
             return;
         }
 
@@ -557,14 +603,14 @@ io.on('connection', (socket) => {
             console.log(`[Friends] ${playerSession.email} respondeu pedido de ${result.fromEmail}: ${result.accepted ? 'aceitou' : 'recusou'}`);
             socket.emit('friend_request_responded', result);
         }).catch((error) => {
-            socket.emit('friend_request_error', { message: error.message || 'Erro ao responder pedido de amizade.' });
+            socket.emit('friend_request_error', { message: error.message || 'Error responding to friend request.' });
         });
     });
 
     socket.on('get_friends', () => {
         const playerSession = players[socket.id];
         if (!playerSession || !playerSession.email) {
-            socket.emit('friend_request_error', { message: 'Não autenticado.' });
+            socket.emit('friend_request_error', { message: 'Not authenticated.' });
             return;
         }
 
@@ -572,7 +618,7 @@ io.on('connection', (socket) => {
             socket.emit('friends_loaded', result);
         }).catch((error) => {
             console.error('[DB] Friends load error:', error);
-            socket.emit('friend_request_error', { message: 'Erro ao carregar lista de amigos.' });
+            socket.emit('friend_request_error', { message: 'Error loading friends list.' });
         });
     });
     // ---------------------------------
@@ -794,19 +840,19 @@ async function uploadBufferToSupabaseStorage(bucket, storagePath, buffer, mimeTy
     // qual das duas faltou.
     if (!projectUrl && !serviceKey) {
         console.warn('[Upload] Upload bloqueado: nem a URL do projeto Supabase nem supabaseservicerolekey estão disponíveis no ambiente.');
-        const err = new Error('Upload de imagem indisponível: configuração do Supabase Storage ausente no servidor.');
+        const err = new Error('Image upload unavailable: Supabase Storage configuration missing on the server.');
         err.httpStatus = 503;
         throw err;
     }
     if (!serviceKey) {
         console.warn('[Upload] Upload bloqueado: supabaseservicerolekey ausente/vazio no ambiente (URL do projeto foi derivada normalmente).');
-        const err = new Error('Upload de imagem indisponível: chave de serviço do Supabase ausente no servidor.');
+        const err = new Error('Image upload unavailable: Supabase service key missing on the server.');
         err.httpStatus = 503;
         throw err;
     }
     if (!projectUrl) {
         console.warn('[Upload] Upload bloqueado: URL do projeto Supabase não pôde ser derivada de supabaseurl/dbuser/DATABASE_URL/dbhost (chave de serviço está presente).');
-        const err = new Error('Upload de imagem indisponível: URL do projeto Supabase não pôde ser determinada no servidor.');
+        const err = new Error('Image upload unavailable: Supabase project URL could not be determined on the server.');
         err.httpStatus = 503;
         throw err;
     }
@@ -824,7 +870,7 @@ async function uploadBufferToSupabaseStorage(bucket, storagePath, buffer, mimeTy
     if (!response.ok) {
         const bodyText = await response.text().catch(() => '');
         console.error(`[Upload] Supabase Storage respondeu ${response.status} para ${bucket}/${storagePath}: ${bodyText}`);
-        const err = new Error('Falha ao enviar a imagem para o armazenamento.');
+        const err = new Error('Failed to upload the image to storage.');
         err.httpStatus = 502;
         throw err;
     }
@@ -841,7 +887,7 @@ function parseUploadBody(req, res, next) {
         if (err) {
             // Cobre tanto "corpo maior que o limite" (PayloadTooLargeError) quanto qualquer outro
             // erro do parser — os dois viram 400 com mensagem clara, conforme pedido.
-            return res.status(400).json({ message: `Arquivo maior que o limite de ${MAX_UPLOAD_FILE_SIZE_MB}MB ou corpo da requisição inválido.` });
+            return res.status(400).json({ message: `File larger than the ${MAX_UPLOAD_FILE_SIZE_MB}MB limit, or invalid request body.` });
         }
         next();
     });
@@ -861,45 +907,45 @@ app.options('/api/upload-profile-image', allowUploadCors, (req, res) => res.send
 app.post('/api/upload-profile-image', allowUploadCors, parseUploadBody, async (req, res) => {
     try {
         if (isRateLimited('upload_profile_image:' + req.ip, UPLOAD_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
-            return res.status(429).json({ message: RATE_LIMIT_MESSAGE });
+            return res.status(429).json({ message: RATE_LIMIT_MESSAGE_EN });
         }
 
         const email = getAuthenticatedEmailFromRequest(req);
         if (!email) {
-            return res.status(401).json({ message: 'Não autenticado. Faça login novamente.' });
+            return res.status(401).json({ message: 'Not authenticated. Please log in again.' });
         }
 
         if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
-            return res.status(400).json({ message: 'Envie a imagem como multipart/form-data (Content-Type ausente ou incorreto).' });
+            return res.status(400).json({ message: 'Send the image as multipart/form-data (Content-Type missing or incorrect).' });
         }
 
         let parts;
         try {
             parts = parseMultipartFormData(req.body, req.headers['content-type']);
         } catch (parseErr) {
-            return res.status(400).json({ message: 'Corpo multipart malformado.' });
+            return res.status(400).json({ message: 'Malformed multipart body.' });
         }
 
         const filePart = parts.find((p) => p.filename);
         if (!filePart || !filePart.data || filePart.data.length === 0) {
-            return res.status(400).json({ message: 'Nenhum arquivo de imagem enviado (campo de arquivo ausente ou vazio).' });
+            return res.status(400).json({ message: 'No image file sent (file field missing or empty).' });
         }
         if (filePart.data.length > MAX_UPLOAD_FILE_SIZE_BYTES) {
-            return res.status(400).json({ message: `Arquivo maior que o limite de ${MAX_UPLOAD_FILE_SIZE_MB}MB.` });
+            return res.status(400).json({ message: `File larger than the ${MAX_UPLOAD_FILE_SIZE_MB}MB limit.` });
         }
 
         const typePart = parts.find((p) => p.fieldName === 'type');
         const uploadType = typePart ? typePart.data.toString('utf8').trim() : '';
         const bucket = UPLOAD_TYPE_TO_BUCKET[uploadType];
         if (!bucket) {
-            return res.status(400).json({ message: 'Campo "type" precisa ser "avatar" ou "gallery".' });
+            return res.status(400).json({ message: 'The "type" field must be "avatar" or "gallery".' });
         }
 
         // Nunca confia na extensão do nome do arquivo nem no Content-Type declarado pela parte —
         // só nos magic bytes reais do conteúdo (ver IMAGE_SIGNATURES acima).
         const signature = detectRealImageType(filePart.data);
         if (!signature) {
-            return res.status(400).json({ message: 'Arquivo não é uma imagem válida (formatos aceitos: JPEG, PNG, GIF, WEBP).' });
+            return res.status(400).json({ message: 'File is not a valid image (accepted formats: JPEG, PNG, GIF, WEBP).' });
         }
 
         // Hash do e-mail (nunca o e-mail cru) no path — e-mail em texto puro na URL pública do
@@ -922,7 +968,7 @@ app.post('/api/upload-profile-image', allowUploadCors, parseUploadBody, async (r
         } else {
             console.error('[Upload] Erro inesperado:', error);
         }
-        return res.status(error.httpStatus || 500).json({ message: error.message || 'Erro ao enviar a imagem.' });
+        return res.status(error.httpStatus || 500).json({ message: error.message || 'Error uploading the image.' });
     }
 });
 // ---------------------------------
