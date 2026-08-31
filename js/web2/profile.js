@@ -253,9 +253,11 @@ function CloseProfileModal() {
     if (modal) modal.style.display = 'none';
     CancelEditDisplayName();
     HideProfileMessages();
-    // Cancela debounce de busca pendente (senão SearchPlayers() dispara depois
-    // do modal já fechado) — ver friends.js.
-    if (typeof g_myFriendsState !== 'undefined') clearTimeout(g_myFriendsState.searchDebounceTimer);
+    // Limpa só a BUSCA de amigos (não amigos/pedidos/contador — ver comentário de
+    // ClearFriendsSearchOnClose() em friends.js, achado em QA 31/08/2026): cancela
+    // debounce pendente (senão SearchPlayers() dispara depois do modal já fechado)
+    // e evita mostrar resultado de busca de uma sessão anterior ao reabrir.
+    if (typeof ClearFriendsSearchOnClose === 'function') ClearFriendsSearchOnClose();
 }
 window.CloseProfileModal = CloseProfileModal;
 

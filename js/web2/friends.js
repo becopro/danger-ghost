@@ -395,11 +395,39 @@ function SendFriendRequest(toEmail, sourceBtn) {
 window.SendFriendRequest = SendFriendRequest;
 
 // ----------------------------------------------------------------------------
-// Reset da UI de amigos — chamado por profile.js em dois pontos: quando o
-// modal abre sem o jogador estar logado (nada pra carregar) e quando o modal
-// fecha (evita o debounce de busca pendente disparar SearchPlayers() depois
-// que a seção já não está mais visível, e evita mostrar resultado da sessão
-// anterior na próxima abertura).
+// Limpeza só da BUSCA ao fechar o modal (achado em QA de integração,
+// 31/08/2026): CloseProfileModal() (profile.js) dizia no comentário que
+// chamava ResetFriendsUI() no fechamento, mas na prática só cancelava o
+// debounce timer inline — texto e resultados de busca de uma sessão anterior
+// ficavam visíveis ao reabrir o modal, contradizendo o comentário original.
+// Corrigido chamando ISSO (não ResetFriendsUI() inteiro) no fechamento:
+// zerar amigos/pedidos/contador também no fechamento reintroduziria o
+// "contador mostra 0 por um instante" enquanto get_friends() ainda não
+// respondeu de novo no próximo open — pior experiência, não melhor. Fechar
+// não deveria fazer o jogador "esquecer" quem são os amigos dele, só a busca
+// em si (que é claramente escopo "desta visita").
+// ----------------------------------------------------------------------------
+function ClearFriendsSearchOnClose() {
+    clearTimeout(g_myFriendsState.searchDebounceTimer);
+    g_myFriendsState.searchResults = [];
+    g_myFriendsState.searchLoading = false;
+    g_myFriendsState.sentRequestEmails = {};
+
+    var input = document.getElementById('myFriendsSearchInput');
+    if (input) input.value = '';
+    var statusEl = document.getElementById('myFriendsSearchStatus');
+    if (statusEl) statusEl.style.display = 'none';
+
+    RenderSearchResults([]);
+}
+window.ClearFriendsSearchOnClose = ClearFriendsSearchOnClose;
+
+// ----------------------------------------------------------------------------
+// Reset COMPLETO da UI de amigos — chamado por profile.js só quando o modal
+// abre sem o jogador estar logado (nada pra carregar, e não haveria "meu"
+// e-mail pra buscar/pedir amizade). NÃO é o que roda no fechamento normal do
+// modal (ver ClearFriendsSearchOnClose() acima) — zerar amigos/contador
+// também ali seria pior, não melhor (ver comentário acima).
 // ----------------------------------------------------------------------------
 function ResetFriendsUI() {
     clearTimeout(g_myFriendsState.searchDebounceTimer);
