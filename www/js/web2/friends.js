@@ -393,10 +393,34 @@ function SendFriendRequest(toEmail, sourceBtn) {
 window.SendFriendRequest = SendFriendRequest;
 
 // ----------------------------------------------------------------------------
-// Reset da UI de amigos — chamado por profile.js quando o modal abre sem
-// login (nada pra carregar) e quando o modal fecha (evita debounce pendente
-// disparar SearchPlayers() depois de fechado, e evita mostrar resultado da
-// sessão anterior na próxima abertura).
+// Limpeza só da BUSCA ao fechar o modal (mesmo achado do site, ver friends.js
+// original — QA de integração 31/08/2026): CloseProfileModal() dizia no
+// comentário que chamava ResetFriendsUI() no fechamento, mas só cancelava o
+// debounce timer inline — texto e resultados de busca de uma sessão anterior
+// ficavam visíveis ao reabrir o modal. Corrigido chamando ISTO (não
+// ResetFriendsUI() inteiro) no fechamento: zerar amigos/pedidos/contador
+// também no fechamento reintroduziria o "contador mostra 0 por um instante"
+// enquanto get_friends() ainda não respondeu de novo no próximo open.
+// ----------------------------------------------------------------------------
+function ClearFriendsSearchOnClose() {
+    clearTimeout(g_myFriendsState.searchDebounceTimer);
+    g_myFriendsState.searchResults = [];
+    g_myFriendsState.searchLoading = false;
+    g_myFriendsState.sentRequestEmails = {};
+
+    var input = document.getElementById('myFriendsSearchInput');
+    if (input) input.value = '';
+    var statusEl = document.getElementById('myFriendsSearchStatus');
+    if (statusEl) statusEl.style.display = 'none';
+
+    RenderSearchResults([]);
+}
+window.ClearFriendsSearchOnClose = ClearFriendsSearchOnClose;
+
+// ----------------------------------------------------------------------------
+// Reset COMPLETO da UI de amigos — chamado por profile.js só quando o modal
+// abre sem o jogador estar logado (nada pra carregar). NÃO roda no fechamento
+// normal (ver ClearFriendsSearchOnClose() acima).
 // ----------------------------------------------------------------------------
 function ResetFriendsUI() {
     clearTimeout(g_myFriendsState.searchDebounceTimer);
