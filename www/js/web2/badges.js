@@ -20,10 +20,19 @@
 // CONTRATO COM O BACKEND — mesmo backend dos dois clientes (server/ vive só
 // em "danger ghost/", não precisa mirror de servidor) — contrato CONFIRMADO
 // em 01/09/2026 lendo server/db.js e server/index.js linha a linha:
-//   socket.emit('get_badges', {})
+//   socket.emit('get_badges', { email? })
 //     -> 'badges_loaded' ({ badges: [{id, category, name, description,
-//        requirementType, requirementValue, sortOrder}], unlocked: [badgeId, ...] })
+//        requirementType, requirementValue, sortOrder}], unlocked: [badgeId, ...],
+//        email })
 //     -> 'badges_error' ({ message })
+//   `email` no payload (01/09/2026 — FIX aplicado aqui no mobile no mesmo dia,
+//   depois de confirmado que este arquivo era cópia de ANTES da feature "ver
+//   medalhas de outro jogador" ter sido adicionada no site): OPCIONAL. Omitido
+//   = "unlocked" da conta autenticada. Presente = "unlocked" público daquele
+//   outro jogador. Ver GetBadgesTargetEmail()/LoadBadges() abaixo: manda o
+//   email automaticamente quando #myProfileModal está em modo 'other'
+//   (g_myProfileState, profile.js — mesmo nome de estado, confirmado idêntico
+//   entre site e mobile antes deste fix).
 // ARMADILHA REAL ENCONTRADA (categoria com nome em português, não inglês):
 //   'category' NÃO é 'evolution'/'combat'/etc — são os slugs em português que o
 //   gameplay-engineer/backend-architect escolheram em server/seed_badges.js:
@@ -47,10 +56,20 @@
 // precisar recompilar o APK a cada mudança), depois contra 'get_badges' de
 // verdade no site também (servidor local, 320 badges reais, conta de teste
 // descartável — ver relatório desta sessão). Este arquivo mobile é uma cópia
-// byte-a-byte da lógica já validada, ainda NÃO testado dentro do app
-// Capacitor real (emulador/dispositivo) nesta sessão — só a mesma lógica
-// rodando no navegador comum, mais a revisão do CSS mobile-specific
+// byte-a-byte da lógica já validada, mais a revisão do CSS mobile-specific
 // (grid a 375px, filtro do estado bloqueado, :active em vez de :hover).
+//
+// BUG CORRIGIDO EM 01/09/2026 (mobile-platform-engineer): este arquivo tinha
+// sido copiado do site ANTES da feature "ver medalhas de outro jogador" ter
+// sido implementada lá (mesmo dia, mais cedo) — LoadBadges() sempre mandava
+// 'get_badges' com payload {} (vazio), então o servidor sempre resolvia pra
+// conta autenticada do PRÓPRIO socket, não importa qual perfil estivesse
+// aberto na tela. Sintoma reportado: abrir o perfil de outro jogador no app
+// mobile e ver as PRÓPRIAS medalhas em vez das dele. Corrigido replicando
+// GetBadgesTargetEmail() do site (lê g_myProfileState.viewMode/viewingEmail,
+// já existentes e idênticos no profile.js mobile — não precisou mudar nada
+// lá) e a mesma proteção contra resposta atrasada "grudando" no jogador
+// errado (ver comentário em LoadBadges() abaixo).
 // ============================================================================
 
 var g_badgesState = {
@@ -601,6 +620,21 @@ function BuildMockBadgeData() {
 // de sair desse estado é o timeout, então não faz sentido fazer o jogador
 // esperar 15s pra ver o aviso "mostrando dado de exemplo".
 // ----------------------------------------------------------------------------
+// Perfil de OUTRO jogador (ver "BUG CORRIGIDO" no topo do arquivo): se
+// #myProfileModal estiver aberto em g_myProfileState.viewMode === 'other'
+// (ver profile.js/OpenPlayerProfileModal), devolve o email daquele jogador —
+// LoadBadges() manda esse email no payload pro servidor devolver o
+// "unlocked" DAQUELE jogador em vez do da conta autenticada. Sem
+// g_myProfileState em modo 'other' (ou o objeto nem existindo — badges.js
+// não depende de profile.js pra carregar), retorna null e o payload fica {}
+// como sempre — retrocompatível.
+function GetBadgesTargetEmail() {
+    if (window.g_myProfileState && window.g_myProfileState.viewMode === 'other' && window.g_myProfileState.viewingEmail) {
+        return window.g_myProfileState.viewingEmail;
+    }
+    return null;
+}
+
 function LoadBadges() {
     var loadingEl = document.getElementById('badgesLoadingState');
     var errorEl = document.getElementById('badgesErrorState');
@@ -615,8 +649,16 @@ function LoadBadges() {
         return;
     }
 
-    emitProfileRequest('get_badges', {}, 'badges_loaded', 'badges_error',
+    var requestedEmail = GetBadgesTargetEmail();
+    var payload = requestedEmail ? { email: requestedEmail } : {};
+
+    emitProfileRequest('get_badges', payload, 'badges_loaded', 'badges_error',
         function (data) {
+            // Se o alvo mudou (modal fechado/reaberto noutro perfil, ou voltou pro
+            // próprio via "← BACK TO MY PROFILE") desde que este request saiu, esta
+            // resposta é de um jogador que não é mais o que está na tela — descarta.
+            if (GetBadgesTargetEmail() !== requestedEmail) return;
+
             var badges = (data && Array.isArray(data.badges)) ? data.badges : [];
             var unlocked = (data && Array.isArray(data.unlocked)) ? data.unlocked : [];
             if (badges.length === 0) {
@@ -628,6 +670,7 @@ function LoadBadges() {
             RenderBadgeGrid(badges, unlocked);
         },
         function (err) {
+            if (GetBadgesTargetEmail() !== requestedEmail) return;
             RenderBadgesFromMock((err && err.message ? (err.message + ' — ') : '') + 'Showing local preview data instead.');
         },
         8000
