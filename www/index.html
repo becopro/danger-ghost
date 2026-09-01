@@ -7,7 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
     <!-- Fontes do Sistema de Design (Acessibilidade) -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&amp;family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/style.css?v=40" />
+    <link rel="stylesheet" href="css/style.css?v=41" />
     <link rel="icon" type="image/png" href="favicon.png" />
     
     <!-- Scripts Externos -->
@@ -1250,6 +1250,16 @@
                     <div id="myFriendsCounterRow" class="my-friends-counter-row" onclick="ScrollToFriendsSection()" title="View friends">
                         &#128101; FRIENDS (<span id="myFriendsCounterValue">0</span>)
                     </div>
+                    <!-- Botão de acesso ao sistema de emblemas (01/09/2026) — espelho do site,
+                         mesma "área de destaque" do contador de amigos (inline-flex lado a
+                         lado). Sem contador ao vivo aqui de propósito: a lista completa só é
+                         buscada quando o modal abre (OpenBadgesModal() -> LoadBadges() em
+                         js/web2/badges.js). Toque funciona igual ao clique (addEventListener
+                         'click' comum no elemento, sem depender de :hover) — mesmo botão nos
+                         dois modos (próprio / outro jogador). -->
+                    <div id="myBadgesButtonRow" class="my-badges-counter-row" onclick="OpenBadgesModal()" title="View badges">
+                        &#127941; BADGES
+                    </div>
                     <!-- Modo "ver perfil de outro jogador" (31/08/2026): data de criação da
                          conta, só populada/mostrada nesse modo — ver FormatMemberSince() em
                          profile.js. Formato: "Member since <Mês> <Ano>", sempre em inglês. -->
@@ -1334,6 +1344,48 @@
         <img id="galleryLightboxImg" class="gallery-lightbox-img" src="" alt="Enlarged gallery photo" />
     </div>
 
+    <!-- Badges Modal (01/09/2026) — espelho do site, ver js/web2/badges.js pro contrato com o
+         backend, a regra de geração de ícone e o estado do teste (mock vs. servidor real).
+         Aberto a partir de #myBadgesButtonRow dentro de #myProfileModal — z-index 10300,
+         acima de #myProfileModal (10000 neste app, bem maior que os 2000 do site — escala de
+         z-index própria daqui, ver comentário de #loadingModal logo abaixo) e de
+         #loginModalUI (10100)/#loadingModal (10200), abaixo do maior z-index estático já usado
+         (#founderBioModal, 15000), pra não precisar virar o novo teto se algo mais alto surgir.
+         Ícones são gerados em runtime por GenerateBadgeIconSVG() — não existe nenhum SVG de
+         emblema hardcoded aqui no HTML. -->
+    <div id="badgesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 10300; align-items: center; justify-content: center;" onclick="if (event.target === this) CloseBadgesModal();">
+        <div class="badges-box">
+            <div class="badges-header">
+                <h2 class="badges-title">&#127941; BADGES</h2>
+                <div id="badgesOverallProgress" class="badges-overall-progress">Loading...</div>
+                <button type="button" class="badges-close-btn" onclick="CloseBadgesModal()" aria-label="Close" title="Close">&times;</button>
+            </div>
+            <div id="badgesLoadingState" class="my-diary-loading-state">
+                <div class="my-diary-spinner"></div>
+                Loading badges...
+            </div>
+            <div id="badgesErrorState" class="my-profile-inline-msg error" style="display:none;"></div>
+            <div id="badgesGridContainer" class="badges-grid-container"></div>
+        </div>
+    </div>
+
+    <!-- Badge Detail Overlay: mesmo padrão de #galleryLightbox, mas em cima até de
+         #badgesModal (z-index 10301) — mostra nome/descrição/data (desbloqueado) ou
+         nome+requisito (bloqueado, decisão deliberada de MOSTRAR o requisito pra motivar
+         progressão, ver comentário no topo de badges.js). Fecha tocando fora da caixa, no
+         botão X, ou tecla Esc (listener em badges.js — Esc não existe em toque, mas não faz
+         mal manter o listener; o X e o toque fora já cobrem o fechamento no app). -->
+    <div id="badgeDetailOverlay" class="badge-detail-overlay" onclick="if (event.target === this) CloseBadgeDetail();">
+        <div class="badge-detail-box">
+            <button type="button" class="badge-detail-close-btn" onclick="CloseBadgeDetail()" aria-label="Close" title="Close">&times;</button>
+            <div id="badgeDetailIconWrap" class="badge-detail-icon-wrap"></div>
+            <h3 id="badgeDetailName" class="badge-detail-name"></h3>
+            <div id="badgeDetailCategory" class="badge-detail-category"></div>
+            <p id="badgeDetailText" class="badge-detail-text"></p>
+            <div id="badgeDetailMeta" class="badge-detail-meta"></div>
+        </div>
+    </div>
+
     <!-- Google Auth & Cloud Save Modal -->
     <!-- z-index 10200 (22/08/2026, bumpado de 10000): precisa continuar acima da nova
          #mobileAuthGateScreen (z-index 10050, ver abaixo) — esse spinner aparece durante
@@ -1383,6 +1435,10 @@
          de profile.js (reaproveita emitProfileRequest()/ShowProfileError()/
          IsPlayerAuthenticated() de lá). Ver contrato de eventos no topo do arquivo. -->
     <script src="js/web2/friends.js?v=1"></script>
+    <!-- Sistema de emblemas/conquistas (01/09/2026) — espelho do site, precisa carregar DEPOIS
+         de profile.js (reaproveita emitProfileRequest() de lá). Ver contrato com o backend e a
+         regra de geração de ícone no topo do arquivo. -->
+    <script src="js/web2/badges.js?v=1"></script>
 
     <!-- MOBILE APP AUTH GATE SCREEN (22/08/2026, pedido explícito do usuário) — tela exclusiva,
          primeira coisa que aparece ao abrir o app sem uma sessão válida salva. Só tem os dois
