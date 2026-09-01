@@ -56,6 +56,22 @@ function ensureTableReady() {
         `)).then(() => pool.query(`
             ALTER TABLE players ADD COLUMN IF NOT EXISTS gallery_urls JSONB DEFAULT '[]'
         `)).then(() => pool.query(`
+            -- Contadores de conta pro sistema de emblemas (31/08/2026, tarefa do backend-architect:
+            -- "total de inimigos derrotados" e "total de itens/vidas coletadas" ao longo da CONTA, não
+            -- do personagem/fantasma ativo). Vivem em players (não em characters) de propósito: o
+            -- jogador troca de fantasma o tempo todo (rpg_system.js/SwitchActiveGhost), e um kill ou
+            -- item coletado não "pertence" ao fantasma que por acaso estava ativo no momento — é
+            -- estatística da conta inteira, mesmo raciocínio que já vale pra ghostdex_progress/
+            -- favorites nesta mesma tabela. Nunca são gravados como valor absoluto vindo do cliente
+            -- (trivial de forjar no console, igual ao já documentado em NUMERIC_BOUNDS acima) — só via
+            -- incrementPlayerStat(), que soma no servidor (total_x = total_x + $delta), com o delta
+            -- limitado a um teto pequeno por chamada (ver INCREMENT_STAT_BOUNDS em index.js).
+            ALTER TABLE players ADD COLUMN IF NOT EXISTS total_kills INTEGER DEFAULT 0
+        `)).then(() => pool.query(`
+            ALTER TABLE players ADD COLUMN IF NOT EXISTS total_items_collected INTEGER DEFAULT 0
+        `)).then(() => pool.query(`
+            ALTER TABLE players ADD COLUMN IF NOT EXISTS total_lives_collected INTEGER DEFAULT 0
+        `)).then(() => pool.query(`
             CREATE TABLE IF NOT EXISTS characters (
                 email TEXT NOT NULL REFERENCES players(email) ON DELETE CASCADE,
                 character_id TEXT NOT NULL,
@@ -108,8 +124,49 @@ function ensureTableReady() {
             CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships(addressee_email, status)
         `)).then(() => pool.query(`
             CREATE INDEX IF NOT EXISTS idx_friendships_requester ON friendships(requester_email, status)
-        `)).then(() => {
-            console.log('[DB] Players/characters/diary_entries/friendships tables ready.');
+        `)).then(() => pool.query(`
+            -- Sistema de emblemas/conquistas (31/08/2026). "badges" é catálogo estático — populado
+            -- uma vez por server/seed_badges.js, igual ghostdex_data.js do cliente mas server-side —
+            -- nunca escrito por um jogador. "player_badges" é o desbloqueio real por conta, checado em
+            -- checkAndUnlockBadges() sempre que level/kills/itens/vidas/ghostdex mudam de verdade.
+            CREATE TABLE IF NOT EXISTS badges (
+                id TEXT PRIMARY KEY,
+                category TEXT NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                requirement_type TEXT NOT NULL,
+                requirement_value NUMERIC,
+                sort_order INTEGER NOT NULL
+            )
+        `)).then(() => pool.query(`
+            CREATE TABLE IF NOT EXISTS player_badges (
+                email TEXT NOT NULL REFERENCES players(email) ON DELETE CASCADE,
+                badge_id TEXT NOT NULL REFERENCES badges(id) ON DELETE CASCADE,
+                unlocked_at TIMESTAMPTZ DEFAULT now(),
+                PRIMARY KEY (email, badge_id)
+            )
+        `)).then(() => pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_player_badges_email ON player_badges(email)
+        `)).then(() => pool.query(`
+            -- Progresso cru por conta (01/09/2026, gameplay-engineer). "badges"/"player_badges" (acima,
+            -- já existiam quando cheguei) cobrem catálogo + desbloqueio, mas nenhum dos dois guarda o
+            -- VALOR corrente de um contador que só o sistema de badges rastreia (ex: quantas vezes já
+            -- tentou sair do mapa, melhor tempo já feito numa fase) — muita coisa das minhas 3
+            -- categorias (Exploração/Acrobacias/Segredos) não tem coluna equivalente em nenhuma tabela
+            -- existente pra reaproveitar. Sem isso, o progresso "quase lá" se perderia a cada refresh
+            -- (o cliente só manda o valor local, que também pode ser limpo com o localStorage).
+            -- Convenção: "value" é sempre o MELHOR valor já visto pra essa conta+requirement_type —
+            -- MAX pra contadores (quanto maior melhor) e MIN pra tempos (quanto menor melhor), ver
+            -- isLowerBetter() logo abaixo.
+            CREATE TABLE IF NOT EXISTS player_stat_progress (
+                email TEXT NOT NULL REFERENCES players(email) ON DELETE CASCADE,
+                requirement_type TEXT NOT NULL,
+                value NUMERIC NOT NULL,
+                updated_at TIMESTAMPTZ DEFAULT now(),
+                PRIMARY KEY (email, requirement_type)
+            )
+        `)).then(() => seedBadgeCatalog()).then(() => {
+            console.log('[DB] Players/characters/diary_entries/friendships/badges/player_stat_progress tables ready.');
         }).catch((err) => {
             console.error('[DB] Error creating table:', err.message);
             tableReadyPromise = null; // permite tentar de novo na próxima chamada, em vez de travar pra sempre
@@ -117,6 +174,128 @@ function ensureTableReady() {
         });
     }
     return tableReadyPromise;
+}
+
+// Popula/atualiza o catálogo estático de emblemas a partir de server/seed_badges.js (idempotente —
+// ON CONFLICT faz UPDATE pra editar nome/descrição/threshold de um emblema só editando o arquivo e
+// reiniciando o servidor, sem precisar de migration manual). Nunca toca em player_badges — só o
+// catálogo. Roda uma vez por boot, dentro da mesma cadeia de ensureTableReady().
+async function seedBadgeCatalog() {
+    let catalog;
+    try {
+        catalog = require('./seed_badges.js');
+    } catch (err) {
+        console.warn('[DB] seed_badges.js ausente ou inválido — catálogo de emblemas não populado:', err.message);
+        return;
+    }
+    if (!Array.isArray(catalog) || catalog.length === 0) return;
+
+    // Achado 31/08/2026 (agente que testou "ver medalhas de outro jogador"): a versão original
+    // fazia 1 INSERT por linha (320 round-trips sequenciais pro Supabase), travando o primeiro
+    // login de qualquer jogador em 1-2 minutos toda vez que o servidor reinicia — ensureTableReady()
+    // roda isso antes de liberar qualquer query. Um único INSERT multi-linha (mesmo ON CONFLICT,
+    // mesmo resultado) faz isso em 1 round-trip.
+    const rows = catalog.filter((b) => b && b.id && b.category && b.name && b.requirement_type);
+    if (rows.length === 0) return;
+
+    const values = [];
+    const placeholders = rows.map((b, i) => {
+        const base = i * 7;
+        values.push(b.id, b.category, b.name, b.description || '', b.requirement_type, b.requirement_value, b.sort_order || 0);
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7})`;
+    }).join(', ');
+
+    await pool.query(
+        `INSERT INTO badges (id, category, name, description, requirement_type, requirement_value, sort_order)
+         VALUES ${placeholders}
+         ON CONFLICT (id) DO UPDATE SET
+            category = EXCLUDED.category,
+            name = EXCLUDED.name,
+            description = EXCLUDED.description,
+            requirement_type = EXCLUDED.requirement_type,
+            requirement_value = EXCLUDED.requirement_value,
+            sort_order = EXCLUDED.sort_order`,
+        values
+    );
+    console.log(`[DB] Catálogo de emblemas: ${rows.length} linhas seedadas/atualizadas de seed_badges.js.`);
+}
+
+// requirement_type cujo progresso é "quanto MENOR, melhor" (recordes de tempo) — todo o resto usa
+// a convenção padrão "quanto MAIOR, melhor" (contadores/thresholds). Não existe coluna de direção
+// no schema de badges (dado como está); inferir por convenção de nome evita adicionar uma coluna
+// que o outro agente (schema/210 badges numéricas) não previu. Se um requirement_type numérico novo
+// também for "menor melhor" (ex: "menos mortes"), adicione aqui — não crie uma segunda convenção.
+function isLowerBetter(requirementType) {
+    return requirementType.startsWith('level_time_') || requirementType === 'full_game_time';
+}
+
+// Push-based, irmão do checkAndUnlockBadges(email) pull-based do backend-architect (acima) — não dá
+// pra reusar aquele aqui: ele relê level/kills/lives/episode_items_complete direto de colunas que
+// já existem em players/characters, com uma WHERE fixa pra só esses 4 requirement_type. As minhas 3
+// categorias (Exploração/Acrobacias/Segredos) não têm nenhuma coluna equivalente pra reler — o
+// cliente PRECISA empurrar o valor (quantas vezes já phaseou parede, melhor tempo de fase, etc.),
+// daí o nome diferente. Devolve os emblemas recém-desbloqueados no MESMO formato de linha que
+// checkAndUnlockBadges devolve, pra o handler em index.js poder emitir os dois pelo mesmo evento
+// 'badges_unlocked' sem o cliente precisar saber qual dos dois caminhos disparou.
+async function submitBadgeProgress(email, requirementType, rawValue) {
+    await ensureTableReady();
+    const value = Number(rawValue);
+    if (!email || typeof requirementType !== 'string' || !requirementType || !isFinite(value)) return [];
+
+    const lowerBetter = isLowerBetter(requirementType);
+    const { rows: progressRows } = await pool.query(
+        `INSERT INTO player_stat_progress (email, requirement_type, value, updated_at)
+         VALUES ($1, $2, $3, now())
+         ON CONFLICT (email, requirement_type) DO UPDATE SET
+            value = CASE WHEN $4 THEN LEAST(player_stat_progress.value, EXCLUDED.value)
+                          ELSE GREATEST(player_stat_progress.value, EXCLUDED.value) END,
+            updated_at = now()
+         RETURNING value`,
+        [email, requirementType, value, lowerBetter]
+    );
+    const bestValue = Number(progressRows[0].value);
+
+    // Mesma transação + ON CONFLICT DO NOTHING que checkAndUnlockBadges usa (mesma preocupação de
+    // corrida rara entre duas chamadas quase simultâneas pra essa conta — inofensiva por causa da
+    // PK composta (email, badge_id), sem precisar de fila).
+    const { rows: candidates } = await pool.query(
+        `SELECT b.id, b.category, b.name, b.description, b.requirement_type, b.requirement_value, b.sort_order
+         FROM badges b
+         WHERE b.requirement_type = $1
+           AND NOT EXISTS (SELECT 1 FROM player_badges pb WHERE pb.email = $2 AND pb.badge_id = b.id)
+           AND (($3 AND b.requirement_value >= $4) OR (NOT $3 AND b.requirement_value <= $4))`,
+        [requirementType, email, lowerBetter, bestValue]
+    );
+    if (candidates.length === 0) return [];
+
+    const client = await pool.connect();
+    const unlocked = [];
+    try {
+        await client.query('BEGIN');
+        for (const badge of candidates) {
+            const result = await client.query(
+                `INSERT INTO player_badges (email, badge_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING badge_id`,
+                [email, badge.id]
+            );
+            if (result.rowCount > 0) unlocked.push(badge);
+        }
+        await client.query('COMMIT');
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+    return unlocked;
+}
+
+async function getPlayerStatProgress(email, requirementType) {
+    await ensureTableReady();
+    const { rows } = await pool.query(
+        'SELECT value FROM player_stat_progress WHERE email = $1 AND requirement_type = $2',
+        [email, requirementType]
+    );
+    return rows.length > 0 ? Number(rows[0].value) : null;
 }
 
 // Coluna por coluna, sem depender de JS spread — assim um personagem com campos
@@ -152,10 +331,17 @@ function normalizeCharacterId(rawId) {
 // damage: 999999, etc. — isso gravava direto e ficava pra sempre). Não é um catálogo de itens
 // completo (seria uma reescrita maior) — é bom senso calibrado a partir das regras reais do jogo
 // (rpg_system.js/ghostdex_data.js), não um número arbitrário:
-//   - level: xpRequired(999) = floor(100 * 999^1.6) ≈ 6.3M já é astronômico pra alcançar jogando
-//     (a curva é exponencial); o maxLevel=1e11 hardcoded no cliente é só trava de loop infinito,
-//     nunca um alvo de gameplay real.
-//   - xp/xpRequired: tetados um pouco acima de xpRequired(999) (~6.3M) por folga.
+//   - level: teto alinhado ao maxLevel=1e11 (100 bilhões) já hardcoded no cliente como trava de
+//     loop infinito (decisão do usuário, 31/08/2026, pro emblema "Entidade Máxima" do sistema de
+//     medalhas ser um alvo real, ainda que praticamente inalcançável por gameplay legítimo — a
+//     curva de XP exponencial já torna isso simbólico). ATENÇÃO: isso remove a proteção anti-cheat
+//     específica contra um level fabricado no console — só o teto numérico mudou, o resto da
+//     validação (xp/atributos/mana/vidas abaixo) continua no mesmo padrão de antes.
+//   - xp/xpRequired: tetados um pouco acima de xpRequired(999) (~6.3M) por folga — não escalados
+//     junto com o teto de level (fora do pedido, e escalar isso removeria proteção real que
+//     ninguém pediu pra remover); na prática nenhum level acima de ~999 vai ter xp/xpRequired
+//     consistentes com ele, mas isso não trava o save (campo implausível vira "ausente", não
+//     rejeita o save inteiro) — só relevante pra levels que nenhum jogador real vai alcançar mesmo.
 //   - vit/agi/int/pow/mag: cada nível dá 5 pontos; nem 998 níveis inteiros num único atributo
 //     (4990 pontos) chegam perto de 9999.
 //   - pointsToDistribute: mesmo teto de 5 pontos/nível, com folga.
@@ -165,7 +351,7 @@ function normalizeCharacterId(rawId) {
 //   - weapon.damage: upgradeWeapon() soma 10 por upgrade, custo cresce a cada vez; nenhum jogador
 //     real chega nem perto de 100 mil de dano.
 const NUMERIC_BOUNDS = {
-    level: [1, 999],
+    level: [1, 100000000000],
     xp: [0, 7000000],
     xpRequired: [0, 7000000],
     pointsToDistribute: [0, 6000],
@@ -995,6 +1181,160 @@ async function getPlayerProfile(rawEmail) {
     };
 }
 
+// ============================================================================
+// Sistema de emblemas/conquistas (31/08/2026, backend-architect)
+// ============================================================================
+//
+// 101 = window.g_ghostdexDB.length em js/game/ghostdex_data.js (contado em 31/08/2026: IDs "001" a
+// "101"). É o "episódio 1" inteiro: os 33 níveis numerados + cave1 (js/game/engine.js, g_levels e
+// Initialize_Map_Array.loadLevel) e as 4 pools de fantasma de SpawnNativeGhosts (js/game/
+// ghost_inventory.js) cobrem só essa faixa. Não existe episódio 2+ jogável hoje — a lore de
+// "Episódio 2/3/4/5" (lore_books.md, js/lore_data.js) é só texto narrativo, sem level nenhum
+// implementado, então "episode_items_complete" só faz sentido pro episódio 1 por enquanto. Se um
+// dia existir conteúdo de episódio 2, esse número (e a query abaixo) precisam ser revisitados —
+// não há como esse arquivo descobrir sozinho quantos episódios existem de verdade.
+const EPISODE_1_TOTAL_GHOSTS = 101;
+
+// Mesmo padrão de "conta inteira, nunca por personagem" de ghostdex_progress/favorites: soma
+// direto no servidor (coluna = coluna + delta), nunca aceita um total absoluto vindo do cliente —
+// isso seria trivial de forjar no console (mesmo raciocínio de NUMERIC_BOUNDS acima, só que aqui
+// nem preciso de uma faixa plausível pro VALOR final, porque o cliente nunca manda um valor final).
+// O nome da coluna vem só deste mapa fixo (nunca de string do cliente concatenada na query) —
+// não há injeção possível, mas documentando por clareza pra quem for mexer aqui depois.
+const STAT_COLUMN_BY_INCREMENT_TYPE = {
+    kill: 'total_kills',
+    item: 'total_items_collected',
+    life: 'total_lives_collected'
+};
+
+// Teto por chamada (não por janela de tempo — ver ressalva no relatório do backend-architect: isso
+// limita o estrago de UMA chamada forjada, não a frequência de chamadas repetidas; um rate-limit de
+// verdade pro socket increment_stat, no mesmo espírito do que já existe pra login em index.js, é
+// uma melhoria futura ainda não implementada).
+const INCREMENT_STAT_MAX_PER_CALL = 50;
+
+async function incrementPlayerStat(email, type, amount) {
+    await ensureTableReady();
+    const column = STAT_COLUMN_BY_INCREMENT_TYPE[type];
+    if (!column) {
+        throw new Error(`Tipo de estatística desconhecido: ${type}`);
+    }
+    const n = Number(amount);
+    if (!Number.isInteger(n) || n < 1 || n > INCREMENT_STAT_MAX_PER_CALL) {
+        throw new Error(`Quantidade inválida para incremento de estatística (1-${INCREMENT_STAT_MAX_PER_CALL}): ${amount}`);
+    }
+    await pool.query(
+        `UPDATE players SET ${column} = ${column} + $1, updated_at = now() WHERE email = $2`,
+        [n, email]
+    );
+}
+
+// Le os quatro insumos que os emblemas hoje sabem avaliar, sempre frescos do banco (nunca confia
+// em nenhum valor que o chamador já tenha em mãos — mesmo espírito de "banco é a única fonte de
+// verdade" já documentado em vários pontos deste arquivo). "level" é o MAIOR level entre TODOS os
+// personagens da conta (não characters.level de um só, nem players.level — esse último é só um
+// espelho de qual foi o ÚLTIMO personagem a salvar, ver comentário grande em savePlayerProgress;
+// usar ele aqui deixaria um emblema de nível "regredir" só porque o jogador deu save num alt
+// fraco). "episodeItemsComplete" conta quantas entradas da Ghostdex já chegaram no estado 2
+// ("capturado", ver js/game/ghostdex_ui.js/UpdateGhostdex) dentro do JSONB ghostdex_progress.
+async function getPlayerBadgeStats(email) {
+    const { rows } = await pool.query(
+        `SELECT
+            COALESCE((SELECT MAX(level) FROM characters WHERE email = $1), 0) AS max_level,
+            p.total_kills AS kills,
+            p.total_lives_collected AS lives,
+            p.total_items_collected AS items,
+            COALESCE((
+                SELECT COUNT(*) FROM jsonb_each_text(COALESCE(p.ghostdex_progress, '{}'::jsonb)) AS kv(key, value)
+                WHERE kv.value::int >= 2
+            ), 0) AS ghosts_captured
+         FROM players p WHERE p.email = $1`,
+        [email]
+    );
+    if (rows.length === 0) return null;
+    const row = rows[0];
+    return {
+        level: Number(row.max_level) || 0,
+        kills: Number(row.kills) || 0,
+        lives: Number(row.lives) || 0,
+        items: Number(row.items) || 0,
+        episodeItemsComplete: Number(row.ghosts_captured) >= EPISODE_1_TOTAL_GHOSTS ? 1 : 0
+    };
+}
+
+// Chamado depois de qualquer save que possa ter mudado level/kills/vidas/itens/ghostdex (ver
+// index.js: save_game_state, increment_stat). Idempotente por natureza: o "WHERE NOT EXISTS"
+// já evita reprocessar emblema que essa conta já tem, e o INSERT usa ON CONFLICT DO NOTHING como
+// segunda camada (cobre a corrida rara de duas chamadas concorrentes pra mesma conta chegando quase
+// juntas — mesma preocupação de saveQueues em index.js, só que aqui uma dupla tentativa é inofensiva
+// por causa da PK composta (email, badge_id) em vez de precisar de fila). Só INSERE o que faltava;
+// nunca remove um emblema já concedido, mesmo que a estatística caia (não deveria cair, já que são
+// contadores monotônicos, mas não é papel desta função reforçar isso).
+async function checkAndUnlockBadges(email) {
+    await ensureTableReady();
+    const stats = await getPlayerBadgeStats(email);
+    if (!stats) return [];
+
+    const { rows: candidates } = await pool.query(
+        `SELECT b.id, b.category, b.name, b.description, b.requirement_type, b.requirement_value, b.sort_order
+         FROM badges b
+         WHERE NOT EXISTS (SELECT 1 FROM player_badges pb WHERE pb.email = $1 AND pb.badge_id = b.id)
+           AND (
+                (b.requirement_type = 'level' AND b.requirement_value <= $2) OR
+                (b.requirement_type = 'kills' AND b.requirement_value <= $3) OR
+                (b.requirement_type = 'lives' AND b.requirement_value <= $4) OR
+                (b.requirement_type = 'episode_items_complete' AND b.requirement_value <= $5)
+           )`,
+        [email, stats.level, stats.kills, stats.lives, stats.episodeItemsComplete]
+    );
+    if (candidates.length === 0) return [];
+
+    const client = await pool.connect();
+    const unlocked = [];
+    try {
+        await client.query('BEGIN');
+        for (const badge of candidates) {
+            const result = await client.query(
+                `INSERT INTO player_badges (email, badge_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING badge_id`,
+                [email, badge.id]
+            );
+            if (result.rowCount > 0) unlocked.push(badge);
+        }
+        await client.query('COMMIT');
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+    return unlocked;
+}
+
+// Catálogo estático inteiro (todas as categorias, não só as 210 do backend-architect — get_badges
+// em index.js não filtra por categoria, ver briefing da tarefa).
+async function getBadgeCatalog() {
+    await ensureTableReady();
+    const { rows } = await pool.query(
+        `SELECT id, category, name, description, requirement_type, requirement_value, sort_order
+         FROM badges ORDER BY sort_order`
+    );
+    return rows.map((r) => ({
+        id: r.id,
+        category: r.category,
+        name: r.name,
+        description: r.description,
+        requirementType: r.requirement_type,
+        requirementValue: r.requirement_value,
+        sortOrder: r.sort_order
+    }));
+}
+
+async function getUnlockedBadgeIds(email) {
+    await ensureTableReady();
+    const { rows } = await pool.query('SELECT badge_id FROM player_badges WHERE email = $1', [email]);
+    return rows.map((r) => r.badge_id);
+}
+
 module.exports = {
     loginPlayer,
     createPlayer,
@@ -1012,5 +1352,11 @@ module.exports = {
     getFriendRequests,
     respondFriendRequest,
     getFriends,
-    getPlayerProfile
+    getPlayerProfile,
+    incrementPlayerStat,
+    checkAndUnlockBadges,
+    getBadgeCatalog,
+    getUnlockedBadgeIds,
+    submitBadgeProgress,
+    getPlayerStatProgress
 };

@@ -20,7 +20,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
     <!-- Fontes do Sistema de Design (Acessibilidade) -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&amp;family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/style.css?v=49" />
+    <link rel="stylesheet" href="css/style.css?v=50" />
     <link rel="icon" type="image/png" href="favicon.png" />
     
     <!-- Scripts Externos -->
@@ -41,6 +41,7 @@
     <script src="js/globals.js?v=44"></script>
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
     <script src="js/game/network.js?v=62"></script>
+    <script src="js/game/badge_tracker.js?v=1"></script>
     <script src="js/web2/game_core.js?v=49"></script>
     <script src="js/web2/scores.js?v=44"></script>
     <script src="rpg_system.js?v=54"></script>
@@ -219,7 +220,7 @@
 
         <!-- Mobile App Download Area -->
         <div class="mobile-app-download-area" style="display: flex; justify-content: center; align-items: center; margin-top: 15px;">
-            <a href="DangerGhostMobile.apk?v=68" download="DangerGhostMobile.apk" style="text-decoration: none;">
+            <a href="DangerGhostMobile.apk?v=69" download="DangerGhostMobile.apk" style="text-decoration: none;">
                 <button id="downloadMobileBtn" style="background: rgba(0, 0, 0, 0.8); border: 2px solid #FF00FF; color: #FF00FF; font-family: var(--font-title); font-weight: bold; font-size: 16px; cursor: pointer; padding: 12px 30px; border-radius: 6px; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 15px rgba(255, 0, 255, 0.2); transition: all 0.2s ease-in-out;" onmouseover="this.style.background='#FF00FF'; this.style.color='#000'; this.style.boxShadow='0 0 20px #FF00FF';" onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='#FF00FF'; this.style.boxShadow='0 0 15px rgba(255, 0, 255, 0.2)';">
                     📱 DOWNLOAD DANGER GHOST MOBILE APP
                 </button>
@@ -1243,6 +1244,20 @@
                     <div id="myFriendsCounterRow" class="my-friends-counter-row" onclick="ScrollToFriendsSection()" title="View friends">
                         &#128101; FRIENDS (<span id="myFriendsCounterValue">0</span>)
                     </div>
+                    <!-- Botão de acesso ao sistema de emblemas (01/09/2026) — mesma "área de
+                         destaque" do contador de amigos acima, de propósito (ver
+                         .my-badges-counter-row em css/style.css: os dois são inline-flex e
+                         ficam lado a lado). Sem contador ao vivo aqui (diferente do de amigos):
+                         a lista completa de 333 emblemas só é buscada quando o modal de
+                         verdade abre (OpenBadgesModal() -> LoadBadges() em js/web2/badges.js),
+                         não a cada abertura do perfil — evita uma request a mais toda vez que
+                         o jogador só quer ver nome/galeria/diário. Aparece nos dois modos
+                         (próprio e "outro jogador"): ver o progresso de emblemas de outro
+                         jogador também faz sentido, então não é escondido por
+                         ApplyProfileModalMode() como a seção AMIGOS é. -->
+                    <div id="myBadgesButtonRow" class="my-badges-counter-row" onclick="OpenBadgesModal()" title="View badges">
+                        &#127941; BADGES
+                    </div>
                     <!-- Modo "ver perfil de outro jogador" (31/08/2026): data de criação da
                          conta, só populada/mostrada nesse modo — ver FormatMemberSince() e
                          ApplyProfileModalMode() em profile.js. Formato decidido: "Member since
@@ -1341,6 +1356,45 @@
         <img id="galleryLightboxImg" class="gallery-lightbox-img" src="" alt="Enlarged gallery photo" />
     </div>
 
+    <!-- Badges Modal (01/09/2026): sistema de 333 emblemas/conquistas, ver js/web2/badges.js
+         pro contrato com o backend, a regra de geração de ícone e o estado do teste (mock vs.
+         servidor real). Aberto a partir de #myBadgesButtonRow dentro de #myProfileModal — por
+         isso o z-index precisa ficar ACIMA de #myProfileModal (2000), na mesma família de
+         #galleryLightbox/#loginModalUI/#loadingModal (>10000) documentada logo acima, senão o
+         modal de perfil (ainda aberto por baixo) tampa este. Ícones são gerados em runtime por
+         GenerateBadgeIconSVG() — não existe nenhum SVG de emblema hardcoded aqui no HTML. -->
+    <div id="badgesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 10001; align-items: center; justify-content: center;" onclick="if (event.target === this) CloseBadgesModal();">
+        <div class="badges-box">
+            <div class="badges-header">
+                <h2 class="badges-title">&#127941; BADGES</h2>
+                <div id="badgesOverallProgress" class="badges-overall-progress">Loading...</div>
+                <button type="button" class="badges-close-btn" onclick="CloseBadgesModal()" aria-label="Close" title="Close">&times;</button>
+            </div>
+            <div id="badgesLoadingState" class="my-diary-loading-state">
+                <div class="my-diary-spinner"></div>
+                Loading badges...
+            </div>
+            <div id="badgesErrorState" class="my-profile-inline-msg error" style="display:none;"></div>
+            <div id="badgesGridContainer" class="badges-grid-container"></div>
+        </div>
+    </div>
+
+    <!-- Badge Detail Overlay: mesmo padrão de #galleryLightbox, mas em cima até de
+         #badgesModal (z-index maior ainda) — mostra nome/descrição/data (desbloqueado) ou
+         nome+requisito (bloqueado, decisão deliberada de MOSTRAR o requisito pra motivar
+         progressão, ver comentário no topo de badges.js). Fecha clicando fora da caixa, no
+         botão X, ou tecla Esc (listener em badges.js). -->
+    <div id="badgeDetailOverlay" class="badge-detail-overlay" onclick="if (event.target === this) CloseBadgeDetail();">
+        <div class="badge-detail-box">
+            <button type="button" class="badge-detail-close-btn" onclick="CloseBadgeDetail()" aria-label="Close" title="Close">&times;</button>
+            <div id="badgeDetailIconWrap" class="badge-detail-icon-wrap"></div>
+            <h3 id="badgeDetailName" class="badge-detail-name"></h3>
+            <div id="badgeDetailCategory" class="badge-detail-category"></div>
+            <p id="badgeDetailText" class="badge-detail-text"></p>
+            <div id="badgeDetailMeta" class="badge-detail-meta"></div>
+        </div>
+    </div>
+
     <!-- Cloud Save Modal -->
     <div id="loginModalUI" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 9999; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif;">
         <div style="background: rgba(0,0,0,0.9); border: 2px solid #00FFFF; box-shadow: 0 0 20px rgba(0,255,255,0.4); border-radius: 10px; padding: 30px; width: 90%; max-width: 450px; box-sizing: border-box; text-align: center; color: #FFF; display: flex; flex-direction: column; align-items: center;">
@@ -1377,6 +1431,10 @@
          reaproveita emitProfileRequest()/ShowProfileError()/IsPlayerAuthenticated()
          de lá em vez de duplicar o helper. Ver contrato de eventos no topo do arquivo. -->
     <script src="js/web2/friends.js?v=2"></script>
+    <!-- Sistema de emblemas/conquistas (01/09/2026) — precisa carregar DEPOIS de
+         profile.js, reaproveita emitProfileRequest() de lá em vez de duplicar o helper.
+         Ver contrato com o backend e a regra de geração de ícone no topo do arquivo. -->
+    <script src="js/web2/badges.js?v=1"></script>
 
 </body>
 </html>

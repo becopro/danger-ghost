@@ -535,6 +535,13 @@
 					g_timeRemaining = 240;
 					g_slimeScoreTracker = 0;
 					g_bosses = [];
+					// BADGE HOOK ("Bem-vindo à Matrix"): fase 26 é a única com o fundo de código
+					// binário caindo (ver updateBinaryBackground/drawBinaryBackground, gateados em
+					// g_currentLevel==26) — chegar aqui de qualquer jeito (porta normal OU senha VIP
+					// "matrix") já conta como "viu o easter egg".
+					if (levelNum === 26 && window.BadgeTracker) {
+						window.BadgeTracker.unlockOnce('level26_binary_seen');
+					}
 
 					if (levelNum === "cave1") {
 						this.bitmap = [];
@@ -1054,6 +1061,13 @@
 							}
 							if (this.type === "skull") {
 								if (typeof spawnCave1Diamonds === 'function') spawnCave1Diamonds();
+								// BADGE HOOK ("Guardião da Caverna" / "Tesouro Escondido"): "skull" só
+								// existe como chefe original da CAVE1 (ver loadLevel) — nenhum outro
+								// nível gera esse tipo, então esta derrota é sempre a da CAVE1.
+								if (window.BadgeTracker) {
+									window.BadgeTracker.unlockOnce('cave1_boss_defeated');
+									window.BadgeTracker.unlockOnce('cave1_diamonds_collected');
+								}
 							}
 							if (window.RollEnemyDrop) {
 								window.RollEnemyDrop(g_currentLevel);
@@ -1240,6 +1254,11 @@
 					this.alive = true; this.xPos = 48; this.yPos = 150;
 					explosionFrame = 0; map_offset = 0;
 					map.loadLevel(g_currentLevel);
+					// BADGE HOOK ("Sem um Arranhão"): morrer é a ÚNICA forma de "dano" que este jogo
+					// tem (não existe barra de HP parcial) — respawn() só roda depois de this.alive
+					// virar false, então esta É a marca de "essa tentativa de fase não foi limpa".
+					// Fica true até a próxima fase de verdade (nextLevel()/prevLevel() resetam).
+					this._btDied = true;
 
 					// Clampa as vidas atuais pelo teto dinâmico de Vitalidade (sem bônus de ressurreição no respawn)
 					var maxLivesCap = GhostRPG.getMaxLivesCap();
@@ -1254,7 +1273,19 @@
 						if (this.skillCooldowns[s] > 0) this.skillCooldowns[s]--;
 					}
 					// Update Phantom Form timer
-					if (this.phantomFormTimer > 0) this.phantomFormTimer--;
+					// BADGE HOOK ("Velocidade Máxima Sustentada"): _btPhantomSustainOk é ligado em
+					// true no momento em que useSlotSkill() ativa o Phantom Form (skillId===3) e
+					// derruba pra false no primeiro frame em que o jogador soltar as duas teclas de
+					// movimento enquanto ainda ativo — só conta se ele ficou true até o timer
+					// expirar SOZINHO (não interrompido por dano/morte, que zera phantomFormTimer
+					// direto em vários pontos do código sem passar por aqui).
+					if (this.phantomFormTimer > 0) {
+						if (!(this.moveLeft || this.moveRight)) this._btPhantomSustainOk = false;
+						this.phantomFormTimer--;
+						if (this.phantomFormTimer === 0 && this._btPhantomSustainOk && window.BadgeTracker) {
+							window.BadgeTracker.bump('phantom_form_sustained_count');
+						}
+					}
 
 					// Physical attributes updates
 					var baseSpeed = (this.phantomFormTimer > 0) ? 4.8 : 3; // 60% speed bonus during Phantom Form
@@ -1302,6 +1333,10 @@
 										if (window.emitPlayerAttack) {
 											window.emitPlayerAttack({ bossId: boss.id || 0, damage: finalDmg, type: 'jump' });
 										}
+										// BADGE HOOK ("Pisão Fantasma"): pouso de ataque em cima de um chefe —
+										// conta o ataque acertado, dano zerado por Phantom Form (linha acima)
+										// ou não, ainda foi um pisão de verdade.
+										if (window.BadgeTracker) window.BadgeTracker.bump('boss_stomp_count');
 									} else if (!self.ghostMode && self.phantomFormTimer <= 0) { // Immune during Phantom Form
 										if (boss && boss.isOriginal) {
 											if (window.emitBossCollision) window.emitBossCollision();
@@ -1309,6 +1344,15 @@
 										} else {
 											self.alive = false;
 										}
+									} else if (self.phantomFormTimer > 0 && window.BadgeTracker) {
+										// BADGE HOOK ("Reflexos do Além"): encostou num chefe que mataria fora
+										// do Phantom Form — mesma contagem de esquiva do fogo/água (rising
+										// edge separado por chefe pra não contar cada frame colado nele).
+										self._btWasTouchingBoss = self._btWasTouchingBoss || {};
+										if (!self._btWasTouchingBoss[boss.id || 'boss']) {
+											window.BadgeTracker.bump('phantom_hazard_survive_count');
+										}
+										self._btWasTouchingBoss[boss.id || 'boss'] = true;
 									}
 								}
 							}
@@ -1334,6 +1378,7 @@
 								if (window.emitPlayerAttack) {
 									window.emitPlayerAttack({ bossId: g_boss.id || 0, damage: finalDmg, type: 'jump' });
 								}
+								if (window.BadgeTracker) window.BadgeTracker.bump('boss_stomp_count');
 							} else if (!this.ghostMode && this.phantomFormTimer <= 0) { // Immune during Phantom Form
 								if (g_boss && g_boss.isOriginal) {
 									if (window.emitBossCollision) window.emitBossCollision();
@@ -1341,6 +1386,11 @@
 								} else {
 									this.alive = false;
 								}
+							} else if (this.phantomFormTimer > 0 && window.BadgeTracker) {
+								if (!this._btWasTouchingSingletonBoss) {
+									window.BadgeTracker.bump('phantom_hazard_survive_count');
+								}
+								this._btWasTouchingSingletonBoss = true;
 							}
 						}
 					}
@@ -1348,6 +1398,27 @@
 					var dx = 0;
 					if (this.moveLeft) { dx = -this.speed; this.face = 2; }
 					if (this.moveRight) { dx = this.speed; this.face = 1; }
+
+					// BADGE HOOK ("Andarilho Fantasma" / "Acelerador Fantasma"): acumula localmente
+					// (não manda progresso a cada frame — 60x/s de socket seria um desperdício) e só
+					// empurra pro servidor de tantos em tantos pixels, ver flush abaixo dos handlers
+					// de teclado/nível. g_isFast (var no mesmo escopo, T segurado) já dobra a taxa de
+					// chamadas de Game_Step_Logic (ver Game_Step) — então distância aqui já reflete
+					// o "2x" natural sem precisar multiplicar nada.
+					if (dx !== 0) {
+						this._btDistanceAccum = (this._btDistanceAccum || 0) + Math.abs(dx);
+						if (typeof g_isFast !== 'undefined' && g_isFast) {
+							this._btFastForwardAccum = (this._btFastForwardAccum || 0) + Math.abs(dx);
+						}
+						if (this._btDistanceAccum >= 500 && window.BadgeTracker) {
+							window.BadgeTracker.bump('distance_traveled_px', this._btDistanceAccum);
+							this._btDistanceAccum = 0;
+						}
+						if (this._btFastForwardAccum >= 500 && window.BadgeTracker) {
+							window.BadgeTracker.bump('fast_forward_distance', this._btFastForwardAccum);
+							this._btFastForwardAccum = 0;
+						}
+					}
 
 					if (this.jump) {
 						if (!this.jumpPressed) {
@@ -1364,6 +1435,14 @@
 					var prevX = this.xPos;
 					var prevY = this.yPos;
 					this.xPos += dx;
+					// BADGE HOOK (01/09/2026, "Quebrando as Regras"): conta só a TRANSIÇÃO pra
+					// dentro do limite (borda de subida), não cada frame parado encostado nela —
+					// senão segurar contra a borda 1s a 60fps estouraria os 3 tiers de uma vez.
+					var _btAtBoundary = (this.xPos < 0 || this.xPos > 100 * 24 - 24);
+					if (_btAtBoundary && !this._btWasAtBoundary && window.BadgeTracker) {
+						window.BadgeTracker.bump('boundary_hit_count');
+					}
+					this._btWasAtBoundary = _btAtBoundary;
 					if (this.xPos < 0) this.xPos = 0;
 					if (this.xPos > 100 * 24 - 24) this.xPos = 100 * 24 - 24; // Limitador à direita (2376px)
 
@@ -1373,6 +1452,15 @@
 						var t1 = map.bitmap[ty][cx], t2 = map.bitmap[by][cx];
 						var s1 = (t1 == 1 || t1 == 2 || t1 == 13 || t1 == 14 || t1 == 15 || t1 == 19);
 						var s2 = (t2 == 1 || t2 == 2 || t2 == 13 || t2 == 14 || t2 == 15 || t2 == 19);
+						// BADGE HOOK ("Deslizamento Sombrio" / "Passagem Aérea"): igual à borda do
+						// mapa acima, só na transição pra dentro da parede (rising edge) — atravessar
+						// UM obstáculo com Ghost Mode ligado tipicamente ocupa vários frames.
+						var _btPhasing = this.ghostMode && (s1 || s2);
+						if (_btPhasing && !this._btWasPhasing && window.BadgeTracker) {
+							window.BadgeTracker.bump('ghost_mode_phase_count');
+							if (this.jumpNum !== 0) window.BadgeTracker.bump('ghost_mode_midair_count');
+						}
+						this._btWasPhasing = _btPhasing;
 						if (!this.ghostMode && (s1 || s2)) this.xPos = prevX;
 
 						if (!this.ghostMode) {
@@ -1416,6 +1504,24 @@
 							if (this.jumpNum == 1) this.jumpNum = 2;
 						}
 						if (!this.ghostMode && cb >= 0 && cb < 11 && (map.bitmap[cb][c] == 1 || map.bitmap[cb][c] == 2 || map.bitmap[cb][c] == 13 || map.bitmap[cb][c] == 14 || map.bitmap[cb][c] == 15 || map.bitmap[cb][c] == 19)) {
+							// BADGE HOOK ("Salto Triplo" / "Pouso de Precisão" / "Voo Fantasma"): este é
+							// o pouso de verdade (colisão de baixo resolvida) — jumpsPerformed ainda
+							// tem o valor de ANTES do reset duas linhas abaixo, então dá pra saber se
+							// foi um salto triplo completo. "Plataforma isolada" = a própria coluna de
+							// pouso não tem chão sólido nas colunas vizinhas na mesma linha (bloco de
+							// 1 tile cercado de vazio/queda dos dois lados).
+							if (window.BadgeTracker) {
+								if (cb === 9 || cb === 10) this._btTouchedGround = true;
+								if (this.jumpsPerformed === 3) {
+									window.BadgeTracker.bump('triple_jump_count');
+									var _btRow = map.bitmap[cb];
+									var _btLeft = _btRow[c - 1], _btRight = _btRow[c + 1];
+									var _btSolid = { 1: 1, 2: 1, 13: 1, 14: 1, 15: 1, 19: 1 };
+									if (!_btSolid[_btLeft] && !_btSolid[_btRight]) {
+										window.BadgeTracker.bump('triple_jump_narrow_platform_count');
+									}
+								}
+							}
 							this.yPos = (cb - 1) * 24;
 							this.jumpNum = 0; this.jumpCounter = 0;
 							this.jumpsPerformed = 0;
@@ -1423,6 +1529,17 @@
 						if (this.phantomFormTimer <= 0) {
 							if (ct >= 0 && ct < 11 && (map.bitmap[ct][c] == 5 || map.bitmap[ct][c] == 6)) this.alive = false;
 							if (cb >= 0 && cb < 11 && (map.bitmap[cb][c] == 5 || map.bitmap[cb][c] == 6)) this.alive = false;
+						} else if (window.BadgeTracker) {
+							// BADGE HOOK ("Reflexos do Além" — reinterpretação honesta: o jogo não tem
+							// "dash", esse é o mecanismo real mais próximo de uma esquiva). Só entra
+							// aqui quando phantomFormTimer>0 já impediu a morte por fogo/água acima —
+							// rising edge pra não contar cada frame parado dentro do fogo.
+							var _btHazard = (ct >= 0 && ct < 11 && (map.bitmap[ct][c] == 5 || map.bitmap[ct][c] == 6)) ||
+								(cb >= 0 && cb < 11 && (map.bitmap[cb][c] == 5 || map.bitmap[cb][c] == 6));
+							if (_btHazard && !this._btWasInHazard) {
+								window.BadgeTracker.bump('phantom_hazard_survive_count');
+							}
+							this._btWasInHazard = _btHazard;
 						}
 
 						if (ct >= 0 && ct < 11 && map.bitmap[ct][c] == 4 && this.jump) {
@@ -1448,9 +1565,17 @@
 								this.skillCooldowns = [0, 0, 0, 0];
 								map.loadLevel(g_currentLevel);
 								this.jump = false;
+								// BADGE HOOK ("Curiosidade Mórbida" / "Frequentador da Cave1"): a
+								// primeira entrada de todas é tanto a "achou a sala secreta" (unlockOnce,
+								// só a primeira conta) quanto a visita #1 pro contador de frequência.
+								if (window.BadgeTracker) {
+									window.BadgeTracker.unlockOnce('secret_room_found');
+									window.BadgeTracker.bump('cave1_revisited_count');
+								}
 							} else {
 								alert("🔒 This door is locked! You need the Blue Key to enter CAVE1.");
 								this.jump = false;
+								if (window.BadgeTracker) window.BadgeTracker.bump('cave1_door_locked_count');
 							}
 						}
 
@@ -1461,6 +1586,15 @@
 							if (r >= 0 && r < 11) {
 								var tile = map.bitmap[r][c];
 								if ((tile >= 7 && tile <= 12) || tile == 23 || tile == 24) {
+									// BADGE HOOK ("Diamante/Taça/Coroa/Anel Raro" — apelidados de
+									// "colecionáveis de vaidade" no relatório): tiles 7/9/10/11 juntos só
+									// aparecem 12+11+14+13=50 vezes em todo o jogo (contado direto do
+									// array g_levels), o resto do mapa é 13642 tiles vazios e 358 de
+									// diamante azul comum — genuinamente raro, não inflado.
+									if (tile == 7 && window.BadgeTracker) window.BadgeTracker.onRareCollected('reddiamond');
+									else if (tile == 9 && window.BadgeTracker) window.BadgeTracker.onRareCollected('cup');
+									else if (tile == 10 && window.BadgeTracker) window.BadgeTracker.onRareCollected('crown');
+									else if (tile == 11 && window.BadgeTracker) window.BadgeTracker.onRareCollected('ring');
 									if (tile == 7) { AddScore(50); }
 									else if (tile == 8) {
 										AddScore(100);
@@ -1495,12 +1629,18 @@
 											window.AddInventoryItem("blue_key", "Blue Key", "<img src='assets/sprites/Blue key (1).webp' style='width:24px;height:24px;image-rendering:pixelated;vertical-align:middle;' />", "Unlocks CAVE1", 1);
 										}
 										AddScore(300);
+										if (window.BadgeTracker) window.BadgeTracker.unlockOnce('item_collected_bluekey');
 									}
 									else if (tile == 24) {
 										if (window.AddInventoryItem) {
 											window.AddInventoryItem("ghost_spell", "Fireball", "🔥", "Active fireball spell. Equip to cast by pressing '1'.", 3);
 										}
 										AddScore(300);
+										// BADGE HOOK ("Bola de Fogo Escondida" / "Caçador de Segredos"): só
+										// existe nas fases 3/6/9/13/32 (perto da porta de saída, ver
+										// loadLevel) — passa a fase pra saber qual das 5 foi, exigido pro
+										// meta-emblema "as 5 numa run só" não farmar a mesma via porta "back".
+										if (window.BadgeTracker) window.BadgeTracker.onFireballCollected(g_currentLevel);
 									}
 									map.bitmap[r][c] = 0;
 								}
@@ -1551,6 +1691,25 @@
 				};
 
 				this.nextLevel = function () {
+					// BADGE HOOK ("Vento Frio" / "Sem um Arranhão" / "Voo Fantasma" / "Jornada
+					// Completa" / "Sem Atalhos"): captura ANTES de qualquer mutação — depois desta
+					// linha g_currentLevel já é a PRÓXIMA fase e g_levelStartTime já foi resetado
+					// por map.loadLevel() lá embaixo, então precisa do valor de agora.
+					var _btCompletedLevel = g_currentLevel;
+					var _btElapsedSec = (Date.now() - g_levelStartTime) / 1000;
+					var _btNoDamage = !this._btDied;
+					var _btAirborne = !this._btTouchedGround;
+					// BADGE HOOK ("Ida e Volta"): _btBacktrackPending é ligado em prevLevel() quando
+					// o jogador de fato usa a porta "back" — se a próxima vez que ele chegar aqui
+					// (nextLevel(), avançando de novo) ainda não tiver morrido nesse meio-tempo,
+					// completou o ciclo ida-e-volta sem morrer. Consumido (desligado) numa via só,
+					// não acumula por múltiplos avanços.
+					if (this._btBacktrackPending) {
+						this._btBacktrackPending = false;
+						if (_btNoDamage && window.BadgeTracker) {
+							window.BadgeTracker.bump('backtrack_no_death_count');
+						}
+					}
 					if (window.g_completedLevels) {
 						window.g_completedLevels[g_currentLevel] = true;
 					}
@@ -1558,13 +1717,22 @@
 					if (g_currentLevel === "cave1") {
 						g_currentLevel = 4;
 					} else {
-						if (g_currentLevel >= 33) { 
+						if (g_currentLevel >= 33) {
 							g_globalTotalTime = Math.floor((Date.now() - g_globalStartTime) / 1000);
+							if (window.BadgeTracker) {
+								window.BadgeTracker.onLevelCompleted(_btCompletedLevel, _btElapsedSec, { noDamage: _btNoDamage, airborne: _btAirborne });
+								window.BadgeTracker.onGameCompleted(g_globalTotalTime);
+							}
 							StartEndCutscene();
-							return; 
+							return;
 						}
 						g_currentLevel++;
 					}
+					if (window.BadgeTracker) {
+						window.BadgeTracker.onLevelCompleted(_btCompletedLevel, _btElapsedSec, { noDamage: _btNoDamage, airborne: _btAirborne });
+					}
+					this._btDied = false;
+					this._btTouchedGround = false;
 					if (window.g_completedLevels) {
 						window.g_completedLevels[g_currentLevel] = true;
 					}
@@ -1598,9 +1766,21 @@
 					if (g_currentLevel === "cave1") {
 						g_currentLevel = 3;
 					} else {
-						if (g_currentLevel <= 1) return;
+						// BADGE HOOK ("Teimoso"): o jogo bloqueia voltar da fase 1 aqui embaixo — conta
+						// a TENTATIVA antes do return, senão nunca dispararia (a lógica sempre barra).
+						if (g_currentLevel <= 1) {
+							if (window.BadgeTracker) window.BadgeTracker.bump('prevlevel_blocked_count');
+							return;
+						}
 						g_currentLevel--;
 					}
+					// BADGE HOOK ("Fantasma Nostálgico" / "Ida e Volta"): só chega aqui se de fato
+					// voltou de fase — arma o flag que nextLevel() consome quando o jogador avançar
+					// de novo (ver comentário lá).
+					if (window.BadgeTracker) window.BadgeTracker.bump('levels_revisited_count');
+					this._btBacktrackPending = true;
+					this._btDied = false;
+					this._btTouchedGround = false;
 					if (g_doorsUsed > 0) g_doorsUsed--;
 					if (window.g_completedLevels) {
 						window.g_completedLevels[g_currentLevel] = true;
@@ -1644,6 +1824,11 @@
 				if (skillId === 0) { // Spectral Spark (V)
 					fireProjectile("spark", runeId);
 					DeSoGhost.skillCooldowns[slotIndex] = 15; // 0.5s cooldown
+					// BADGE HOOK ("Faísca em Movimento"): resolve o skillId de verdade (equipável por
+					// slot), não a tecla crua — então continua certo mesmo se o jogador reatribuir V.
+					if ((DeSoGhost.moveLeft || DeSoGhost.moveRight) && window.BadgeTracker) {
+						window.BadgeTracker.bump('spark_while_moving_count');
+					}
 				}
 				else if (skillId === 1) { // Ghost Mode
 					// 27/08/2026: no slot F padrão, soltar a tecla desliga sem checar mana (outro
@@ -1670,6 +1855,15 @@
 						DeSoGhost.mana -= manaCost;
 						DeSoGhost.phantomFormTimer = 150; // 5s duration
 						DeSoGhost.skillCooldowns[slotIndex] = 450; // 15s cooldown
+						// BADGE HOOK ("Velocidade Máxima Sustentada" / "Reflexos do Além"): reseta os
+						// flags de "ficou em movimento o tempo todo" e "já contou esse contato" pra
+						// esta nova ativação — sem isso, sobreviver a um SEGUNDO contato com o mesmo
+						// chefe/perigo numa ativação nova de Phantom Form não recontaria (ver
+						// c_DeSoGhost.move() e os dois blocos de colisão com chefe).
+						DeSoGhost._btPhantomSustainOk = true;
+						DeSoGhost._btWasInHazard = false;
+						DeSoGhost._btWasTouchingBoss = {};
+						DeSoGhost._btWasTouchingSingletonBoss = false;
 						g_visualEffects.push({
 							type: "expand",
 							x: DeSoGhost.xPos + 12,
@@ -3166,6 +3360,13 @@
 				g_bosses = [];
 				g_projectiles = [];
 				g_visualEffects = [];
+				// BADGE HOOK: toda "partida nova de verdade" (SPACE na tela de título ou uma senha
+				// VIP) reseta os flags de progresso por-fase e o rastreio de fireballs secretas
+				// coletadas NESSA partida ("Caçador de Segredos" exige as 5 na mesma run).
+				DeSoGhost._btDied = false;
+				DeSoGhost._btTouchedGround = false;
+				DeSoGhost._btBacktrackPending = false;
+				if (window.BadgeTracker) window.BadgeTracker.onRunReset();
 				map.loadLevel(g_currentLevel); SetGameState(G_PLAY);
 			}
 
@@ -3680,14 +3881,18 @@ var g_binaryBits = [];
 						if (typeof window.OpenLoginModal === 'function') window.OpenLoginModal();
 						return;
 					}
+					if (window.BadgeTracker) window.BadgeTracker.onPasswordPromptOpened();
 					var pw = prompt("ENTER VIP PASSWORD");
 					if (pw) {
 						var pwLower = pw.toLowerCase();
 						if (pwLower === "matrix" || pwLower === "becopro" || pwLower === "maximo") {
 							window.g_hasUsedPassword = true;
+							if (window.BadgeTracker) window.BadgeTracker.onPasswordResult(pwLower, true);
 							if (pwLower === "matrix") { ResetGame(26); }
 							else if (pwLower === "becopro") { ResetGame(29); }
 							else if (pwLower === "maximo") { ResetGame(33); }
+						} else if (window.BadgeTracker) {
+							window.BadgeTracker.onPasswordResult(pwLower, false);
 						}
 					}
 				}

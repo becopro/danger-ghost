@@ -24,7 +24,7 @@ const io = new Server(server, {
     cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-const { loginPlayer, createPlayer, loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveCharacters, deleteCharacter, updateProfile, postDiaryEntry, getDiaryEntries, searchPlayers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends, getPlayerProfile } = require('./db');
+const { loginPlayer, createPlayer, loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveCharacters, deleteCharacter, updateProfile, postDiaryEntry, getDiaryEntries, searchPlayers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends, getPlayerProfile, incrementPlayerStat, checkAndUnlockBadges, getBadgeCatalog, getUnlockedBadgeIds, submitBadgeProgress } = require('./db');
 const { OAuth2Client } = require('google-auth-library');
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -354,6 +354,21 @@ io.on('connection', (socket) => {
                 }
                 console.log(`[DB] Progress saved for ${playerSession.email}`);
                 socket.emit('save_success', { message: 'Progresso salvo na nuvem!' });
+
+                // Emblemas (31/08/2026): save_game_state é o único ponto por onde level (via
+                // characters) e ghostdexProgress (via players) sempre passam, então é aqui que faz
+                // sentido checar — depois de já ter confirmado que os dois upserts acima terminaram.
+                // Não bloqueia o save_success de cima nem o rejeita se falhar (um emblema atrasado é
+                // muito menos grave que um save rejeitado por causa de uma feature separada).
+                try {
+                    const newlyUnlocked = await checkAndUnlockBadges(playerSession.email);
+                    if (newlyUnlocked.length > 0) {
+                        console.log(`[Badges] ${playerSession.email} desbloqueou ${newlyUnlocked.length} emblema(s).`);
+                        socket.emit('badges_unlocked', { badges: newlyUnlocked });
+                    }
+                } catch (badgeError) {
+                    console.error('[Badges] Erro ao checar emblemas após save_game_state:', badgeError);
+                }
             } catch (error) {
                 console.error('[DB] Save error:', error);
                 socket.emit('save_error', { message: 'Erro ao salvar progresso.' });
@@ -528,6 +543,135 @@ io.on('connection', (socket) => {
             // usado em searchPlayers/sendFriendRequest.
             socket.emit('player_profile_error', { message: error.message || 'Error loading player profile.' });
         });
+    });
+
+    // Sistema de emblemas (31/08/2026, backend-architect). Catálogo estático inteiro (todas as
+    // categorias que existirem na tabela `badges`, não só as 210 desta tarefa) + a lista de IDs que
+    // uma conta já desbloqueou. Exige login pelo mesmo motivo de get_diary_entries/get_player_profile
+    // (nenhuma dessas telas faz sentido pra um socket anônimo).
+    //
+    // email opcional no payload (01/09/2026, pedido do usuário: "ver medalhas de outro jogador a
+    // partir do perfil dele" — mesmo padrão já usado em get_diary_entries acima e get_player_profile):
+    // se vier e for diferente da sessão, "unlocked" é a lista DAQUELE jogador; sem o campo (ou igual
+    // ao e-mail da própria sessão), comportamento idêntico a antes (sempre os próprios). O catálogo
+    // (getBadgeCatalog) nunca muda por jogador — só o filtro de getUnlockedBadgeIds(targetEmail) é
+    // que passa a olhar pra outra conta. Mesma decisão já tomada pra get_player_profile/diário: exige
+    // só socket autenticado, nunca amizade com o alvo (leitura pública entre contas logadas).
+    socket.on('get_badges', (data) => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            socket.emit('badges_error', { message: 'Not authenticated.' });
+            return;
+        }
+
+        const requestedEmail = data && typeof data.email === 'string' ? data.email.trim().toLowerCase() : '';
+        const targetEmail = requestedEmail || playerSession.email;
+
+        Promise.all([getBadgeCatalog(), getUnlockedBadgeIds(targetEmail)])
+            .then(([badges, unlocked]) => {
+                socket.emit('badges_loaded', { badges, unlocked, email: targetEmail });
+            })
+            .catch((error) => {
+                console.error('[Badges] Erro ao carregar catálogo:', error);
+                socket.emit('badges_error', { message: 'Error loading badges.' });
+            });
+    });
+
+    // Incremento de contador de conta pro sistema de emblemas (kills / itens / vidas — ver
+    // server/db.js, incrementPlayerStat e o comentário grande em ensureTableReady sobre por que
+    // esses contadores vivem em players e não em characters). NUNCA aceita um total absoluto do
+    // cliente, só um delta pequeno desde a última chamada — db.js já rejeita amount fora de
+    // [1, INCREMENT_STAT_MAX_PER_CALL], mas a checagem de "type" é redundante de propósito aqui:
+    // um erro de validação rejeitado ainda ANTES de entrar na fila evita que um payload malformado
+    // ocupe espaço numa fila que também serve save_game_state/delete_character/update_profile.
+    //
+    // Encadeado na MESMA fila (saveQueues) que save_game_state/delete_character/update_profile: são
+    // todos updates na mesma linha de players (colunas diferentes, mesma linha, mesmo motivo já
+    // documentado nesses outros handlers) — sem a fila, um increment_stat disparado no mesmo
+    // instante que um save_game_state manual poderia terminar fora de ordem.
+    const VALID_STAT_TYPES = ['kill', 'item', 'life'];
+    socket.on('increment_stat', (data) => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            console.log('[Badges] increment_stat rejected: Player not authenticated.');
+            return;
+        }
+        const type = data && data.type;
+        const amount = data && data.amount;
+        if (!VALID_STAT_TYPES.includes(type) || !Number.isInteger(amount) || amount < 1) {
+            socket.emit('increment_stat_error', { message: 'Payload inválido para increment_stat.' });
+            return;
+        }
+
+        const previous = saveQueues[socket.id] || Promise.resolve();
+        const current = previous.then(async () => {
+            try {
+                await incrementPlayerStat(playerSession.email, type, amount);
+                const newlyUnlocked = await checkAndUnlockBadges(playerSession.email);
+                if (newlyUnlocked.length > 0) {
+                    console.log(`[Badges] ${playerSession.email} desbloqueou ${newlyUnlocked.length} emblema(s) via increment_stat.`);
+                    socket.emit('badges_unlocked', { badges: newlyUnlocked });
+                }
+            } catch (error) {
+                console.error('[Badges] Erro em increment_stat:', error);
+                socket.emit('increment_stat_error', { message: error.message || 'Erro ao registrar estatística.' });
+            }
+        });
+        saveQueues[socket.id] = current.catch(() => {});
+    });
+
+    // Progresso de emblemas das categorias Exploração/Acrobacias/Segredos (01/09/2026,
+    // gameplay-engineer) — irmão do increment_stat logo acima, mas NÃO é a mesma coisa:
+    // increment_stat soma um delta pequeno numa coluna fixa de players (kill/item/life) e
+    // recomputa contra checkAndUnlockBadges(email) (pull, lê de players/characters).
+    // badge_progress empurra um VALOR (contador OU melhor tempo, requirement_type livre —
+    // ver js/game/badge_tracker.js) pra uma tabela que só esse sistema usa
+    // (player_stat_progress, porque nenhuma dessas ~30 métricas novas tem coluna em
+    // players/characters pra reler) e chama submitBadgeProgress (push, MIN/MAX no servidor
+    // conforme isLowerBetter() em db.js — nunca aceita o valor bruto como "já é a conquista",
+    // sempre compara contra o melhor já registrado, então reenviar um valor pior não desfaz
+    // nada). Emite no MESMO evento 'badges_unlocked' que increment_stat/save_game_state usam,
+    // pra UI do cliente não precisar saber qual dos dois caminhos disparou um emblema.
+    //
+    // requirement_type é validado contra um formato esperado (não uma allowlist fechada dos
+    // 123 — impediria o outro agente de reusar esse mesmo evento pra um requirement_type novo
+    // sem editar este arquivo) só pra rejeitar payload obviamente malformado antes de entrar
+    // na fila; quem decide se aquele requirement_type existe de verdade é a query em
+    // submitBadgeProgress (WHERE b.requirement_type = $1 — um tipo que não bate com nenhuma
+    // linha de badges simplesmente não desbloqueia nada, sem erro).
+    //
+    // Mesma fila (saveQueues) que save_game_state/increment_stat: mesmo raciocínio de "linha
+    // compartilhada" não se aplica aqui (player_stat_progress é uma tabela própria, PK
+    // composta), mas o client pode disparar save_game_state e badge_progress bem próximos
+    // (ex: level_completed emite os dois) — encadear evita round-trips fora de ordem no log,
+    // mesmo sem risco real de corrupção de dado.
+    socket.on('badge_progress', (data) => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            console.log('[Badges] badge_progress rejected: Player not authenticated.');
+            return;
+        }
+        const requirementType = data && data.requirement_type;
+        const value = data && data.value;
+        if (typeof requirementType !== 'string' || !/^[a-zA-Z0-9_]{1,64}$/.test(requirementType) || typeof value !== 'number' || !isFinite(value)) {
+            socket.emit('badge_progress_error', { message: 'Payload inválido para badge_progress.' });
+            return;
+        }
+
+        const previous = saveQueues[socket.id] || Promise.resolve();
+        const current = previous.then(async () => {
+            try {
+                const newlyUnlocked = await submitBadgeProgress(playerSession.email, requirementType, value);
+                if (newlyUnlocked.length > 0) {
+                    console.log(`[Badges] ${playerSession.email} desbloqueou ${newlyUnlocked.length} emblema(s) via badge_progress (${requirementType}).`);
+                    socket.emit('badges_unlocked', { badges: newlyUnlocked });
+                }
+            } catch (error) {
+                console.error('[Badges] Erro em badge_progress:', error);
+                socket.emit('badge_progress_error', { message: error.message || 'Erro ao registrar progresso de emblema.' });
+            }
+        });
+        saveQueues[socket.id] = current.catch(() => {});
     });
 
     // Sistema de amizades (31/08/2026): busca de jogadores, pedido de amizade, aceitar/recusar,
