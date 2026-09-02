@@ -807,7 +807,7 @@ var GhostRPG = (function() {
             if (!verifyIntegrity()) return;
             if (!state.inventory) state.inventory = [];
             
-            var isStackable = (item.id === "ghost_spell" || item.id === "deso_coin" || item.id === "blue_key" || !item.quality || item.quality === "Common");
+            var isStackable = (item.id === "ghost_spell" || item.id === "elixir" || item.id === "deso_coin" || item.id === "blue_key" || !item.quality || item.quality === "Common");
             var existing = null;
             if (isStackable) {
                 existing = state.inventory.find(function(i) { return i.id === item.id; });
@@ -1001,12 +1001,42 @@ var GhostRPG = (function() {
             }
             
             if (!spellSlot) return false;
-            
+
             state.equipment[spellSlot].count--;
             if (state.equipment[spellSlot].count <= 0) {
                 state.equipment[spellSlot] = null;
             }
-            
+
+            updateIntegrityHash();
+            this.saveLocalStorage();
+            if (typeof UpdateNavbarEquip === "function" && window.g_activeTab === 'equip') {
+                UpdateNavbarEquip();
+            }
+            return true;
+        },
+        // Elixir (espelhado do site, 02/09/2026): mesmo padrão de consumeSpellUse acima, mas
+        // pro item "elixir" equipado em vez de "ghost_spell" -- os dois disputam o mesmo slot
+        // mainhand/offhand (equipItem() manda ambos pra mainhand por padrão). Quem decide
+        // "curar ou lançar fogo" ao apertar "1" é o handler de keydown em engine.js, que chama
+        // ConsumeElixir() OU ConsumeSpellUse() dependendo de qual item está de fato equipado.
+        consumeElixir: function() {
+            if (!verifyIntegrity()) return false;
+            if (!state.equipment) return false;
+
+            var elixirSlot = "";
+            if (state.equipment.mainhand && state.equipment.mainhand.id === "elixir") {
+                elixirSlot = "mainhand";
+            } else if (state.equipment.offhand && state.equipment.offhand.id === "elixir") {
+                elixirSlot = "offhand";
+            }
+
+            if (!elixirSlot) return false;
+
+            state.equipment[elixirSlot].count--;
+            if (state.equipment[elixirSlot].count <= 0) {
+                state.equipment[elixirSlot] = null;
+            }
+
             updateIntegrityHash();
             this.saveLocalStorage();
             if (typeof UpdateNavbarEquip === "function" && window.g_activeTab === 'equip') {
@@ -1058,6 +1088,9 @@ window.UnequipEquipmentItem = function(slotName) {
 };
 window.ConsumeSpellUse = function() {
     return GhostRPG.consumeSpellUse();
+};
+window.ConsumeElixir = function() {
+    return GhostRPG.consumeElixir();
 };
 window.GetEquipmentState = function() {
     return GhostRPG.getEquipment();
