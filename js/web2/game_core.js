@@ -539,7 +539,18 @@
             // seguida). Clique direto no card continua funcionando exatamente como sempre.
             if (!window.__inPlayAsGhost) {
                 if (window.g_gameState === window.G_START) {
-                    if (typeof window.StartCutscene === "function") window.StartCutscene(char.worldLevel, true);
+                    // 02/09/2026: tela inicial agora é o overworld isométrico, não mais direto o
+                    // Episódio 1 (mesma mudança em js/game/engine.js e PlayAsGhost em
+                    // js/game/ghostdex_ui.js) — este é o gatilho real na maioria dos logins
+                    // (auto-select 400ms depois de completeCloudLogin(), ver LoadRPGStateFromDeSo
+                    // acima), então precisa do mesmo guard pra não pular o overworld. Sem
+                    // overworld.js carregado, cai no StartCutscene() de sempre (paridade v1.0).
+                    if (typeof window.ActivateOverworld === "function") {
+                        var _owSpawnSCP = (typeof window.GetOverworldSpawnPos === "function") ? window.GetOverworldSpawnPos() : (window.OverworldTowerGridPos || { gridX: 0, gridY: 0 });
+                        window.ActivateOverworld(_owSpawnSCP.gridX, _owSpawnSCP.gridY);
+                    } else if (typeof window.StartCutscene === "function") {
+                        window.StartCutscene(char.worldLevel, true);
+                    }
                 } else {
                     if (typeof window.ResetGame === "function") window.ResetGame(char.worldLevel || 1, true);
                     window.g_gamePaused = false;

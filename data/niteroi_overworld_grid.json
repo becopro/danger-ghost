@@ -1,0 +1,489 @@
+{
+  "_meta": {
+    "_comment": "Danger Ghost - Niteroi isometric overworld grid. Real-world street geometry sourced from OpenStreetMap (ODbL). Generated for the entrance-tower feature at Rua Beltrao leading into Episodio 1.",
+    "generated_at_utc": "2026-09-02T20:34:21Z",
+    "osm_data_timestamp": "2026-09-02T20:32:55Z",
+    "osm_attribution": "© OpenStreetMap contributors, data available under the Open Database License (ODbL) - https://www.openstreetmap.org/copyright",
+    "real_world_reference": {
+      "requested_street_name": "Rua Beltrão",
+      "resolved_osm_name": "Rua Doutor Beltrão",
+      "name_note": "OSM has no way literally named 'Rua Beltrao'. The closest, verified real street is 'Rua Doutor Beltrao' (osm way ids 182630122 + 785117600), a residential street in the Santa Rosa neighbourhood of Niteroi-RJ. OSM's own data carries an editorial note on both ways ('Please confirm name: Rua vs Travessa') flagging uncertainty about whether it should be 'Rua' or 'Travessa'. A separate, different street named 'Travessa Beltrao' (way id 182630104) also exists about 250m to the northeast and was NOT used as the origin - do not confuse the two.",
+      "city": "Niterói",
+      "state": "RJ",
+      "country": "Brasil",
+      "neighbourhood": "Santa Rosa",
+      "street_total_length_m": 240.5,
+      "origin_definition": "Origin (0,0) is the true midpoint by distance (50% of cumulative length) along the combined Rua Doutor Beltrao polyline (ways 182630122 + 785117600), NOT a bounding-box centroid.",
+      "origin_lat": -22.904479806248524,
+      "origin_lon": -43.088103756280866
+    },
+    "data_source": {
+      "provider": "OpenStreetMap via Overpass API",
+      "endpoint": "https://overpass-api.de/api/interpreter",
+      "query_1_identify_street": "[out:json][timeout:60];way(182630122);out geom;way(785117600);out geom;way(182630104);out geom;",
+      "query_1_purpose": "Fetch exact geometry of the 2 way-segments forming Rua Doutor Beltrao by OSM id (ids obtained from a prior Nominatim search: https://nominatim.openstreetmap.org/search?q=Rua+Beltr%C3%A3o,+Niter%C3%B3i,+RJ,+Brasil&format=json), plus the neighbouring Travessa Beltrao for disambiguation.",
+      "query_2_road_network": "[out:json][timeout:90];way[\"highway\"](around:600,-22.9044798,-43.0881038);out geom;",
+      "query_2_purpose": "Fetch every OSM way tagged highway=* within 600m of the computed origin point, used to rasterize the walkable street network.",
+      "extraction_performed": true,
+      "extraction_note": "Both queries were executed for real against the live Overpass API during this session; no coordinates in this file are invented."
+    },
+    "projection": {
+      "method": "local equirectangular (flat-earth approximation), adequate at this scale (<1km)",
+      "reference_latitude_for_scale_deg": -22.90478355,
+      "meters_per_degree_latitude": 111320.0,
+      "meters_per_degree_longitude": 102542.7425,
+      "formula_x_east_meters": "x = (lon - origin_lon) * meters_per_degree_longitude",
+      "formula_y_south_meters": "y = (origin_lat - lat) * meters_per_degree_latitude   // NOTE: y is SOUTH-positive, matching row-major grid order (row 0 = north)",
+      "inverse_formula_lat": "lat = origin_lat - (y / meters_per_degree_latitude)",
+      "inverse_formula_lon": "lon = origin_lon + (x / meters_per_degree_longitude)"
+    },
+    "grid": {
+      "tile_size_m": 10.0,
+      "tile_size_rationale": "10m/tile chosen so a typical Brazilian residential street (7-10m carriageway+sidewalks) occupies about 1 tile width, keeping streets walkable as a single lane in the isometric grid without inflating the map. Matches classic tile-RPG scale conventions.",
+      "query_radius_m": 600,
+      "query_radius_rationale": "600m radius around the origin gives a believable multi-block neighbourhood context (well within the 500m-1km range) while keeping the Overpass query and resulting grid small enough to be practical.",
+      "grid_extent_note": "The deliverable grid is the largest AXIS-ALIGNED SQUARE fully inscribed in the 600m query circle (half-extent 600/sqrt(2)=424.26m, rounded down to 420m = 42 tiles), so every cell in this file is backed by real queried OSM data - no cell was extrapolated beyond the query radius.",
+      "half_extent_tiles": 42,
+      "half_extent_m": 420.0,
+      "dimensions": {
+        "rows": 85,
+        "cols": 85
+      },
+      "origin_cell": {
+        "row": 42,
+        "col": 42
+      },
+      "row_order": "row 0 = northernmost row; row increases southward",
+      "col_order": "col 0 = westernmost column; col increases eastward",
+      "cell_to_local_meters": "x_m = (col - half_extent_tiles) * tile_size_m ; y_m = (row - half_extent_tiles) * tile_size_m",
+      "cell_to_latlon": "combine cell_to_local_meters with projection.inverse_formula_lat/lon above",
+      "legend": {
+        ".": "street (walkable)",
+        "#": "block (building/quarteirao - blocked)",
+        "L": "landmark (Rua Beltrao entrance tower to Episodio 1)"
+      },
+      "encoding": "grid.rows is an array of DIM strings, each DIM characters long, one character per cell per the legend above. rows[row][col]."
+    },
+    "classification_method": {
+      "street": "A cell is 'street' if its center lies within halfwidth_by_highway_type meters of some OSM way tagged highway=*, measured as point-to-segment distance on the projected polyline. Halfwidths (meters): {\"motorway\": 9, \"trunk\": 8, \"primary\": 7, \"secondary\": 6.5, \"tertiary\": 6, \"unclassified\": 5, \"residential\": 5, \"living_street\": 4.5, \"service\": 3.5, \"pedestrian\": 4, \"footway\": 2.5, \"path\": 2, \"steps\": 2, \"track\": 3, \"cycleway\": 3}",
+      "block": "Default classification for every cell not reached by a street buffer. This is a simplification: no separate OSM building-footprint query was run (block == 'not street'), since for a game-grid contract that is sufficient to make cells walkable/blocked; the art team can subdivide 'block' cells with building art freely without touching walkability.",
+      "landmark": "A fixed 3x3 tile footprint (30m x 30m) centered exactly on the grid origin (row 42, col 42), i.e. on Rua Doutor Beltrao's true midpoint. This overrides whatever street/block classification would otherwise apply there. The 3x3 size and centering are a PLACEHOLDER for the entrance-tower building footprint - level design/art should reposition or resize it (e.g. set back from the street centerline instead of straddling it) once the actual tower asset is authored.",
+      "excluded_highway_types": [
+        "abandoned",
+        "bus_guideway",
+        "construction",
+        "escape",
+        "platform",
+        "proposed",
+        "raceway",
+        "razed"
+      ]
+    },
+    "extraction_stats": {
+      "overpass_elements_returned": 127,
+      "highway_ways_rasterized": 100,
+      "highway_ways_skipped": 0,
+      "grid_cell_counts": {
+        "street": 945,
+        "block": 6271,
+        "landmark": 9
+      },
+      "named_streets_found": {
+        "Rua Doutor Mário Vianna": {
+          "highway": "secondary",
+          "osm_ids": [
+            27458742,
+            785117599,
+            785117604,
+            785117605
+          ],
+          "segments": 4
+        },
+        "Rua Padre Emílio Miotti": {
+          "highway": "residential",
+          "osm_ids": [
+            33637812
+          ],
+          "segments": 1
+        },
+        "Rua Waldir Cabral": {
+          "highway": "residential",
+          "osm_ids": [
+            182485051,
+            785117607
+          ],
+          "segments": 2
+        },
+        "Rua Lions Club": {
+          "highway": "residential",
+          "osm_ids": [
+            182628966,
+            785117606
+          ],
+          "segments": 2
+        },
+        "Travessa Nossa Senhora de Nazaré": {
+          "highway": "residential",
+          "osm_ids": [
+            182628967
+          ],
+          "segments": 1
+        },
+        "Travessa Santa Maria": {
+          "highway": "residential",
+          "osm_ids": [
+            182629883,
+            182630374
+          ],
+          "segments": 2
+        },
+        "Travessa Maria Auxiliadora Gonçalves": {
+          "highway": "residential",
+          "osm_ids": [
+            182629884
+          ],
+          "segments": 1
+        },
+        "Travessa Beltrão": {
+          "highway": "residential",
+          "osm_ids": [
+            182630104
+          ],
+          "segments": 1
+        },
+        "Travessa Pedro Alberto Gripp": {
+          "highway": "residential",
+          "osm_ids": [
+            182630106
+          ],
+          "segments": 1
+        },
+        "Rua Capitão Mattar": {
+          "highway": "residential",
+          "osm_ids": [
+            182630108
+          ],
+          "segments": 1
+        },
+        "Travessa Lúcia": {
+          "highway": "residential",
+          "osm_ids": [
+            182630110
+          ],
+          "segments": 1
+        },
+        "Rua José Gomes Cruz": {
+          "highway": "residential",
+          "osm_ids": [
+            182630111,
+            182630123
+          ],
+          "segments": 2
+        },
+        "Travessa Glória": {
+          "highway": "residential",
+          "osm_ids": [
+            182630112,
+            182630124
+          ],
+          "segments": 2
+        },
+        "Travessa Emílio": {
+          "highway": "residential",
+          "osm_ids": [
+            182630113
+          ],
+          "segments": 1
+        },
+        "Rua Nossa Senhora das Graças": {
+          "highway": "residential",
+          "osm_ids": [
+            182630114
+          ],
+          "segments": 1
+        },
+        "Rua Doutor Waldir Cabral": {
+          "highway": "residential",
+          "osm_ids": [
+            182630116
+          ],
+          "segments": 1
+        },
+        "Travessa Deolinda Cruz": {
+          "highway": "residential",
+          "osm_ids": [
+            182630117,
+            952073856,
+            952073857
+          ],
+          "segments": 3
+        },
+        "Travessa Antenor Bessa": {
+          "highway": "residential",
+          "osm_ids": [
+            182630118
+          ],
+          "segments": 1
+        },
+        "Rua E": {
+          "highway": "residential",
+          "osm_ids": [
+            182630119,
+            182630381,
+            955125755
+          ],
+          "segments": 3
+        },
+        "Vila Santa Maria": {
+          "highway": "residential",
+          "osm_ids": [
+            182630120
+          ],
+          "segments": 1
+        },
+        "Travessa São Patrício": {
+          "highway": "residential",
+          "osm_ids": [
+            182630121
+          ],
+          "segments": 1
+        },
+        "Rua Doutor Beltrão": {
+          "highway": "residential",
+          "osm_ids": [
+            182630122,
+            785117600,
+            785117601
+          ],
+          "segments": 3
+        },
+        "Rua Pedro Alberto Grip": {
+          "highway": "residential",
+          "osm_ids": [
+            182630126,
+            970532416
+          ],
+          "segments": 2
+        },
+        "Rua Santos Moreira": {
+          "highway": "residential",
+          "osm_ids": [
+            182630127,
+            785117603
+          ],
+          "segments": 2
+        },
+        "Travessa Maria Carlota": {
+          "highway": "residential",
+          "osm_ids": [
+            182630128
+          ],
+          "segments": 1
+        },
+        "Rua Nossa Senhora Nazaré": {
+          "highway": "residential",
+          "osm_ids": [
+            182630375
+          ],
+          "segments": 1
+        },
+        "Rua Doutor Eduardo Chead Kraichete": {
+          "highway": "residential",
+          "osm_ids": [
+            182630379,
+            1024971725
+          ],
+          "segments": 2
+        },
+        "Rua Doutor Paulo Pimentel": {
+          "highway": "residential",
+          "osm_ids": [
+            182630380
+          ],
+          "segments": 1
+        },
+        "Travessa Martins Teixeira": {
+          "highway": "residential",
+          "osm_ids": [
+            182630385
+          ],
+          "segments": 1
+        },
+        "Rua Coronel Sebastião Dantas": {
+          "highway": "residential",
+          "osm_ids": [
+            182630386
+          ],
+          "segments": 1
+        },
+        "Rua Doutor Almir Madeira": {
+          "highway": "residential",
+          "osm_ids": [
+            182630387
+          ],
+          "segments": 1
+        },
+        "Estrada Alarico de Souza": {
+          "highway": "residential",
+          "osm_ids": [
+            241866925,
+            259219381
+          ],
+          "segments": 2
+        },
+        "Travessa Brandão": {
+          "highway": "residential",
+          "osm_ids": [
+            257068286
+          ],
+          "segments": 1
+        },
+        "Travessa Paulo Antunes": {
+          "highway": "residential",
+          "osm_ids": [
+            257068288
+          ],
+          "segments": 1
+        },
+        "Rua Doutor Otávio Lengruber": {
+          "highway": "residential",
+          "osm_ids": [
+            257070648
+          ],
+          "segments": 1
+        },
+        "Rua C": {
+          "highway": "residential",
+          "osm_ids": [
+            257070649
+          ],
+          "segments": 1
+        },
+        "Travessa Desembargador Dinis do Vale": {
+          "highway": "residential",
+          "osm_ids": [
+            257070650
+          ],
+          "segments": 1
+        },
+        "Travessa Elzir de Almeida Brandão": {
+          "highway": "residential",
+          "osm_ids": [
+            257074008,
+            785117602
+          ],
+          "segments": 2
+        },
+        "Travessa José Ferreira": {
+          "highway": "residential",
+          "osm_ids": [
+            591832950
+          ],
+          "segments": 1
+        },
+        "Rua Desembargador Aires Itabaiana": {
+          "highway": "residential",
+          "osm_ids": [
+            591832951
+          ],
+          "segments": 1
+        }
+      }
+    },
+    "caveats": [
+      "OSM coverage/accuracy in this exact neighbourhood was NOT field-verified by this pipeline; it is only as good as current OpenStreetMap volunteer mapping.",
+      "The 'block' classification does not distinguish real buildings from empty lots, plazas, or vegetation - it only means 'not within a mapped street's buffer'.",
+      "Diagonal/rasterized streets can appear jagged at 10m resolution; this is expected at this scale and can be smoothed at render time if desired.",
+      "Never re-host Google Maps/Earth imagery; this file contains no imagery, only derived OSM geometry, which is safe to redistribute under ODbL with attribution."
+    ]
+  },
+  "grid": {
+    "rows": [
+      "##########################################..############.#######............#########",
+      "...######################################.#############.####################..#######",
+      "##...###################################..############.#######################.######",
+      "........###.........###################..############.#########################.#####",
+      "########...#########..###############..#############.##########################.#####",
+      "######################..####.........###########...###########################.####..",
+      "########################....#################################################.###..##",
+      "############################################################################.###..###",
+      "###########################################################################.##..#####",
+      "###########################################################################...#######",
+      "############################################################################.########",
+      "############################################################################...######",
+      "###############################################################################..####",
+      "#################################################################################.###",
+      "#################################################################################.###",
+      "#############################.###.#########.#####################################.###",
+      "#############################.##.#########..#####################################....",
+      "############################.###.#########.##########.###############################",
+      "###############.############.###.###..####.###########.##############################",
+      "##########...##.############.##.####.#####.############.#############################",
+      "##############..###########.###.####.#####.############.#############################",
+      "##############.############.###.####.#####.########..###.############################",
+      "#########.####.#...#######..##.####.#####.########.#...#..###########################",
+      "########..###..###########.###.####.#####.#######.#####....##########################",
+      "###########....###########.###.####.#####.#######.######...##########################",
+      "#############.#.....#####.###.####.#####.#######.######.###....##....################",
+      "############.#######......###.####.#####.#######.######.#######..####....############",
+      "....##..####.############......###.#####.#######.######.#############################",
+      "##########...##################.....###..######.#######.#############################",
+      "###########.###...###########.#.####.....######.######..#############################",
+      "#####.#####.################.##.#########......#........##########.##################",
+      "#######...#...##############.#################...######.##########.##################",
+      "##########.###....#########..#.###############.######....########.######...##########",
+      "##########.#######.....#######.##############.####..####..#######.......#############",
+      "...#######..#########.#.....#################.############.......####################",
+      "######..#.##..#######.####.##.#.......#######.#################..####################",
+      "#########.###..######.#######.##.#####.#####.##################..####################",
+      "#########.#####..########.###....#####.#####.########################################",
+      "########.########.####.....####.###########.#######.#################################",
+      "########.###########..#####..##.###########.#######.###########.#####################",
+      "########.####################..#...##.#####.#######.###########.#####################",
+      "#######.######################...########LLL######.############.#####################",
+      "#######.########################..#######LLL######.###########.######################",
+      "..#####.#################...######.######LLL#####..###########.######################",
+      "#...##.####################........######.....##..############.######################",
+      "###....##########################.#######.####...############.#######################",
+      "####....#########################.#######.####################..#####################",
+      "####.##...#######################.######.###############...#####....#################",
+      "#####.###...#####################.######.###############.##...###.#.....#############",
+      "#####.#####...###################.######.###############.#####....######....#########",
+      "#####.######.....################.#####.################....#.###.##########.....####",
+      "#####.######.##........##########.#####.###############.####..##.####################",
+      "#####.######.########..........##.#####.###############...###.##.####################",
+      "#####.######.########.#######...........###############.##...###.####################",
+      "####.#######.########.############.##............#####.#####.##.#####################",
+      "###..#######.########.############.###.#####.#............##.##.#####################",
+      "###.##.......########.############.###.#####.##########.............#################",
+      "###.##.#####.#####....############.###.####.###########.####.##.#...............#####",
+      "###.##.#####.########.############.####.###.###########.####.##.############.........",
+      "###.########.########.#############.###.###.###########.####.###.###################.",
+      "###.########.########.....#########.###.###.###########.####.###.##################.#",
+      ".##.########.########.####.....###..###.###.........###.####.###.##################.#",
+      "#.........##.########.############.####.###.###########.####.###.##################.#",
+      "####.###.#...............#########.####.###.###########.####.####..################.#",
+      "####.###.############.###......##.######.##.##########.#####.######.....###########.#",
+      "####.###.###########.############..#####.##........###..###..###########........###.#",
+      "####.###.###########.##############.####.#.############....#############.#######.....",
+      "####.###.###########.##############.####.#.#############################.##########.#",
+      "....#.##.############.....#########.####.#.......#######################.#########.##",
+      "#.#######.###########.####..#######.####.###############################.############",
+      "#.#######.##################.#########################################..#############",
+      "#.####.##.##################.########################################################",
+      "#.####.###############.##############################################################",
+      "#.####.##############################################################################",
+      "#.####.#####################.########################################################",
+      "##.#####################.###.########################################################",
+      "##.###################..#####..######################################################",
+      "##.###############.##################################################################",
+      "##.#############...##################################################################",
+      "##.############.#####################################################################",
+      "##.############.##.##################################################################",
+      "##.###############.##################################################################",
+      "##.###############.##################################################################",
+      "##.##################################################################################",
+      "##.##################################################################################"
+    ]
+  }
+}

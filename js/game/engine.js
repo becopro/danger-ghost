@@ -3528,6 +3528,54 @@
 				map.loadLevel(g_currentLevel); SetGameState(G_PLAY);
 			}
 
+			// --- OVERWORLD <-> EPISÓDIO 1 (02/09/2026) ---
+			// Costura entre o overworld isométrico (js/game/overworld.js, motor separado) e o
+			// Episódio 1 (esta engine). Regra de ouro: nada aqui pode mudar o que já acontecia
+			// DENTRO do Episódio 1 (ResetGame/StartCutscene continuam exatamente como eram) — só
+			// decide QUANDO entrar/sair dele. window.__dgReturnToOverworld começa false (nunca
+			// declarado = undefined = falsy) e só vira true dentro de EnterEpisode1FromOverworld();
+			// é o que diferencia "cheguei aqui pela torre do overworld" (deve voltar pro overworld
+			// no fim) de "cheguei aqui pelo caminho legado direto" (deve continuar exatamente como
+			// no v1.0 — ResetGame() reiniciando no lugar, sem overworld nenhum). Serve também como
+			// forma de testar paridade com v1.0: sem overworld.js carregado (window.ActivateOverworld
+			// indefinido) OU chamando StartCutscene()/ResetGame() direto pelo console sem passar por
+			// EnterEpisode1FromOverworld(), o fluxo é idêntico ao de antes desta integração.
+			function GetOverworldSpawnPos() {
+				// Fallback: posição fixa da torre (sempre existe, definida pelo motor do overworld).
+				var fallback = (window.OverworldTowerGridPos) || { gridX: 0, gridY: 0 };
+				// Preferência: última posição salva do jogador no banco (server/db.js já devolve
+				// overworldGridX/overworldGridY em loadOrCreatePlayer()/login; completeCloudLogin()
+				// (js/web2/auth.js) grava o playerData inteiro — overworldGridX/Y incluídos — em
+				// localStorage.dg_cloud_profile). null/ausente (conta nova, nunca esteve no overworld)
+				// cai no fallback da torre, como o comentário do próprio db.js já documenta.
+				try {
+					var raw = localStorage.getItem('dg_cloud_profile');
+					if (raw) {
+						var profile = JSON.parse(raw);
+						if (Number.isInteger(profile.overworldGridX) && Number.isInteger(profile.overworldGridY)) {
+							return { gridX: profile.overworldGridX, gridY: profile.overworldGridY };
+						}
+					}
+				} catch (e) {}
+				return fallback;
+			}
+
+			// Contrato do motor do overworld (js/game/overworld.js): ele chama esta função quando o
+			// jogador entra na área da torre. Reaproveita o caminho EXATO que hoje já inicia o
+			// Episódio 1 a partir do menu/SPACE (StartCutscene() sem argumentos = fase 1, sem
+			// preservar score) — não reimplementa a inicialização da fase.
+			function EnterEpisode1FromOverworld() {
+				if (typeof window.DeactivateOverworld === 'function') window.DeactivateOverworld();
+				// Game_Step (loop deste engine) se desligou sozinho (parou de chamar
+				// requestAnimationFrame) enquanto o overworld estava ativo — ver guarda no topo
+				// de Game_Step. window.OverworldState.isActive já é false aqui (DeactivateOverworld
+				// acabou de rodar), então religar o loop agora é seguro: a próxima chamada já passa
+				// direto pela guarda e volta a rodar Logic/Render normalmente.
+				requestAnimationFrame(Game_Step);
+				window.__dgReturnToOverworld = true;
+				StartCutscene();
+			}
+
 			// --- INITIALIZATION ---
 			var map = new Initialize_Map_Array();
 			var DeSoGhost = new c_DeSoGhost(48, 150);
@@ -3821,6 +3869,18 @@ var g_binaryBits = [];
 			var g_physicsAccumulator = 0;
 
 			function Game_Step(currentTime) {
+				// 02/09/2026: overworld ativo -> este loop se desliga (não chama
+				// requestAnimationFrame de novo), em vez de só pular o desenho. Skill
+				// isometric-canvas-rendering §4: "cancelAnimationFrame o loop que está saindo
+				// antes de iniciar o que está entrando, não só parar de chamar as funções de
+				// desenho enquanto o loop continua tiquetaqueando". EnterEpisode1FromOverworld()
+				// (acima) chama requestAnimationFrame(Game_Step) de novo pra reativar este loop
+				// quando volta pro Episódio 1 — sem isso, o jogo ficaria travado depois da
+				// primeira visita ao overworld. Nenhuma lógica interna do Episódio 1 muda aqui,
+				// só a decisão de ligar/desligar o loop inteiro.
+				if (window.OverworldState && window.OverworldState.isActive) {
+					return;
+				}
 				if (!g_lastTime) g_lastTime = currentTime;
 				var dt = currentTime - g_lastTime;
 				g_lastTime = currentTime;
@@ -4031,7 +4091,18 @@ var g_binaryBits = [];
 						// Visibilidade de loginButtonsContainer não é mais decidida aqui manualmente
 						// (22/08/2026) — StartCutscene() -> SetGameState() já chama
 						// UpdateLoginButtonsVisibility() (js/web2/auth.js), única fonte de verdade.
-						StartCutscene();
+						// 02/09/2026: tela inicial agora é o overworld isométrico, não mais direto o
+						// Episódio 1 — SPACE logado ativa o overworld na última posição salva (ou na
+						// torre, ver GetOverworldSpawnPos()) em vez de StartCutscene(). Guard de
+						// função (window.ActivateOverworld) preserva o comportamento antigo se
+						// overworld.js ainda não tiver carregado — é também como testar paridade com
+						// v1.0 sem esse arquivo presente.
+						if (typeof window.ActivateOverworld === 'function') {
+							var _owSpawn = GetOverworldSpawnPos();
+							window.ActivateOverworld(_owSpawn.gridX, _owSpawn.gridY);
+						} else {
+							StartCutscene();
+						}
 					} else if (g_gameState == G_CUTSCENE) {
 						EndCutscene();
 					} else if (g_gameState == G_END_CUTSCENE) {
@@ -4042,10 +4113,39 @@ var g_binaryBits = [];
 					} else if (g_gameState == G_PAUSE) {
 						SetGameState(G_PLAY);
 						g_levelStartTime += (Date.now() - g_pauseStartTime);
-					} else if (g_gameState == G_WIN) { 
-						ResetGame(); 
+					} else if (g_gameState == G_WIN) {
+						// 02/09/2026: tela de vitória (comportamento antigo — score, painel, "PRESS
+						// SPACE" — 100% inalterado, ver SetGameState(G_WIN)/DrawWinScreen) continua
+						// exatamente igual. Só o destino do SPACE muda, e só se esta run veio do
+						// overworld: window.__dgReturnToOverworld só é true dentro de
+						// EnterEpisode1FromOverworld() (ver acima). Sem overworld ativo nesta run
+						// (fluxo direto/legado, ou overworld.js não carregado), ResetGame() roda
+						// exatamente como sempre — reinício do v1.0, sem regressão.
+						if (window.__dgReturnToOverworld && typeof window.ActivateOverworld === 'function' && window.OverworldTowerGridPos) {
+							// SetGameState(G_START) ANTES de ativar o overworld: sem isso, #winPanel
+							// (painel HTML, não canvas) continua com display:block por cima do
+							// overworld — SetGameState() é a única coisa que esconde esse painel (ela
+							// checa g_gameState == G_WIN), e ActivateOverworld() não mexe em
+							// g_gameState (são duas máquinas de estado separadas). Achado testando o
+							// fluxo completo ao vivo (painel de vitória ficava grudado por cima do
+							// overworld até esse fix). SaveScore() já rodou quando G_WIN começou (ver
+							// SetGameState), não repete aqui.
+							SetGameState(G_START);
+							window.ActivateOverworld(window.OverworldTowerGridPos.gridX, window.OverworldTowerGridPos.gridY);
+						} else {
+							ResetGame();
+						}
 					} else if (g_gameState == G_GAMEOVER) {
-						ResetGame();
+						// Mesma regra da tela de vitória, acima — tela/score/painel de Game Over
+						// continuam idênticos, só o destino do SPACE muda quando a run veio do overworld.
+						if (window.__dgReturnToOverworld && typeof window.ActivateOverworld === 'function' && window.OverworldTowerGridPos) {
+							// Mesmo motivo do branch G_WIN acima: sem isso, #gameOverPanel fica
+							// grudado por cima do overworld (achado testando ao vivo).
+							SetGameState(G_START);
+							window.ActivateOverworld(window.OverworldTowerGridPos.gridX, window.OverworldTowerGridPos.gridY);
+						} else {
+							ResetGame();
+						}
 					}
 				}
 				if (e.keyCode == 80) { // P (Passwords)
@@ -4781,6 +4881,12 @@ var g_binaryBits = [];
 			});
 
 			window.DrawWinScreen = DrawWinScreen;
+
+			// Costura overworld <-> Episódio 1 (02/09/2026) — ver bloco de comentário logo após
+			// ResetGame() para o raciocínio completo. Exposto ao window pro motor do overworld
+			// (js/game/overworld.js) chamar quando o jogador entra na área da torre.
+			window.EnterEpisode1FromOverworld = EnterEpisode1FromOverworld;
+			window.GetOverworldSpawnPos = GetOverworldSpawnPos;
 			})(); // Fecha IIFE Caixa Preta
 		
 

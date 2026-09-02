@@ -72,6 +72,19 @@ function ensureTableReady() {
         `)).then(() => pool.query(`
             ALTER TABLE players ADD COLUMN IF NOT EXISTS total_lives_collected INTEGER DEFAULT 0
         `)).then(() => pool.query(`
+            -- Overworld isométrico de Niterói (02/09/2026, tarefa do backend-architect): última
+            -- posição de grid conhecida do jogador no mapa aberto. Igual ghostdex_progress/favorites
+            -- acima, é por CONTA (não por personagem/fantasma) — o overworld é compartilhado entre
+            -- todos os fantasmas de uma conta, não uma instância de combate por personagem. NULL nos
+            -- dois = jogador nunca esteve no overworld ainda; o cliente usa a posição da torre
+            -- (window.OverworldTowerGridPos) como spawn padrão nesse caso — decisão e implementação
+            -- do agente de Transição, não deste servidor. Nunca gravadas a cada movimento (ver
+            -- overworld_move/saveOverworldPosition mais abaixo) — só em lote, para não sobrecarregar
+            -- o Postgres com um UPDATE por tick de jogador.
+            ALTER TABLE players ADD COLUMN IF NOT EXISTS overworld_grid_x INTEGER
+        `)).then(() => pool.query(`
+            ALTER TABLE players ADD COLUMN IF NOT EXISTS overworld_grid_y INTEGER
+        `)).then(() => pool.query(`
             CREATE TABLE IF NOT EXISTS characters (
                 email TEXT NOT NULL REFERENCES players(email) ON DELETE CASCADE,
                 character_id TEXT NOT NULL,
@@ -686,7 +699,8 @@ async function loadPlayerByEmail(email) {
     await ensureTableReady();
     const { rows } = await pool.query(
         `SELECT email, name, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills",
-            ghostdex_progress AS "ghostdexProgress", favorites, avatar_url AS "avatarUrl", gallery_urls AS "galleryUrls"
+            ghostdex_progress AS "ghostdexProgress", favorites, avatar_url AS "avatarUrl", gallery_urls AS "galleryUrls",
+            overworld_grid_x AS "overworldGridX", overworld_grid_y AS "overworldGridY"
          FROM players WHERE email = $1`,
         [email]
     );
@@ -732,7 +746,8 @@ async function loginPlayer(email, password) {
 
     const { rows } = await pool.query(
         `SELECT email, name, password, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills",
-            ghostdex_progress AS "ghostdexProgress", favorites, avatar_url AS "avatarUrl", gallery_urls AS "galleryUrls"
+            ghostdex_progress AS "ghostdexProgress", favorites, avatar_url AS "avatarUrl", gallery_urls AS "galleryUrls",
+            overworld_grid_x AS "overworldGridX", overworld_grid_y AS "overworldGridY"
          FROM players WHERE email = $1`,
         [email]
     );
@@ -771,6 +786,7 @@ async function createPlayer(email, profileName, password) {
     return {
         email, name: defaultName, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0, 0, 0, 0],
         ghostdexProgress: {}, favorites: [], avatarUrl: null, galleryUrls: [],
+        overworldGridX: null, overworldGridY: null, // conta nova: nunca esteve no overworld, cliente usa a torre como spawn
         characters: [] // conta nova de verdade: nenhum fantasma no banco ainda — o jogador forja o
                         // primeiro (30/08/2026: não existe mais criação automática de um "Ghost
                         // #001" nem adoção de personagens que só existiam no localStorage).
@@ -870,6 +886,23 @@ async function savePlayerProgress(email, data) {
             data.favorites ? JSON.stringify(data.favorites) : null,
             email
         ]
+    );
+    return result.rowCount;
+}
+
+// Persiste a última posição de grid do overworld isométrico (02/09/2026). Deliberadamente
+// separada de savePlayerProgress/sanitizePlayerProgressPayload: aquela é disparada pelo cliente a
+// cada save_game_state (evento relativamente raro, snapshot completo de personagem) e passa pelo
+// pipeline inteiro de sanitização de payload solto; esta é chamada pelo servidor em lote (batch
+// periódico, ver server/index.js) a partir de coordenadas que JÁ foram validadas contra
+// OVERWORLD_GRID_BOUNDS no momento em que chegaram via overworld_move — validar de novo aqui
+// seria redundante. gridX/gridY sempre chegam juntos (nunca um só) por construção do chamador, daí
+// não precisar de COALESCE como savePlayerProgress precisa para campos opcionais.
+async function saveOverworldPosition(email, gridX, gridY) {
+    await ensureTableReady();
+    const result = await pool.query(
+        `UPDATE players SET overworld_grid_x = $1, overworld_grid_y = $2, updated_at = now() WHERE email = $3`,
+        [gridX, gridY, email]
     );
     return result.rowCount;
 }
@@ -1341,6 +1374,7 @@ module.exports = {
     loadOrCreatePlayer,
     loadPlayerByEmail,
     savePlayerProgress,
+    saveOverworldPosition,
     loadCharacters,
     saveCharacters,
     deleteCharacter,

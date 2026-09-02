@@ -506,7 +506,15 @@ window.PlayAsGhost = function(ghostId) {
     // SelectCharacterToPlay usaria se estivesse chamando StartCutscene ela mesma.
     if (typeof window.g_gameState !== 'undefined') {
         if (window.g_gameState === 0) { // G_START
-            if (typeof window.StartCutscene === "function") {
+            // 02/09/2026: tela inicial agora é o overworld isométrico (ver mesma mudança em
+            // js/game/engine.js e SelectCharacterToPlay em js/web2/game_core.js) — quando
+            // window.ActivateOverworld existe, ativa o overworld na posição salva/torre em vez
+            // de ir direto pro Episódio 1. Guard preserva o comportamento antigo (StartCutscene
+            // direto) se overworld.js não estiver carregado.
+            if (typeof window.ActivateOverworld === "function") {
+                var _owSpawnPAG = (typeof window.GetOverworldSpawnPos === "function") ? window.GetOverworldSpawnPos() : (window.OverworldTowerGridPos || { gridX: 0, gridY: 0 });
+                window.ActivateOverworld(_owSpawnPAG.gridX, _owSpawnPAG.gridY);
+            } else if (typeof window.StartCutscene === "function") {
                 var ownChar = localChars.find(function(c) { return c.characterId === charId; });
                 var startLevel = (ownChar && ownChar.worldLevel) ? ownChar.worldLevel : 1;
                 window.StartCutscene(startLevel, false);

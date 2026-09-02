@@ -47,11 +47,20 @@ window.ConnectToServer = function() {
     socket.on('connect', () => {
         console.log("[Network] Socket connected:", socket.id);
         window.NetworkState.connected = true;
-        
+
         var baseName = (localStorage.getItem('playerName') || 'Ghost').replace(/\s*\(#\w+\)\s*$/, '').trim();
         var ghostId = window.g_currentPlayerGhost;
         var nameToSend = ghostId ? (baseName + ' (#' + ghostId + ')') : baseName;
         socket.emit('join_game', { playerName: nameToSend });
+
+        // Overworld (02/09/2026): join_game recria players[socket.id] do zero no
+        // servidor (novo socket.id numa reconexão, ver comentário em server/index.js
+        // sobre o reset defensivo). Sem isto, um jogador que reconecta PARADO no
+        // overworld (tile igual ao de antes da queda) nunca reemite overworld_move
+        // -- o loop de emissão abaixo só manda quando o tile muda -- e ficava
+        // invisível pros outros até se mexer de novo. Zera a chave de dedup pra
+        // forçar um overworld_move novo no próximo tick do poll, se ainda ativo.
+        g_lastOverworldEmitKey = null;
         
         var btn = document.getElementById("btnNavLogin");
         if (btn) btn.innerText = "ONLINE";
@@ -112,6 +121,21 @@ window.ConnectToServer = function() {
         delete window.NetworkState.playerNames[id];
     });
 
+    // Overworld isométrico (02/09/2026) — recebe o broadcast periódico do servidor
+    // (server/index.js, setInterval a OVERWORLD_TICK_RATE) e preenche
+    // window.OverworldOtherPlayers, o único ponto de contrato que js/game/overworld.js
+    // já lê (render() -> "var others = window.OverworldOtherPlayers"). Faltava esta
+    // ponta no cliente: o servidor emitia e o renderer já sabia ler, mas nada
+    // conectava os dois — achado revisando o contrato de verdade nos dois lados, não
+    // confiando nos relatos de cada agente. Filtra o próprio jogador pelo e-mail
+    // (GetCurrentPlayerEmail(), js/web2/profile.js) porque o payload do servidor não
+    // inclui socket id, só email/name/avatarUrl/gridX/gridY.
+    socket.on('overworld_players_update', (data) => {
+        var selfEmail = (typeof GetCurrentPlayerEmail === 'function') ? GetCurrentPlayerEmail() : null;
+        var list = (data && Array.isArray(data.players)) ? data.players : [];
+        window.OverworldOtherPlayers = selfEmail ? list.filter(function (p) { return p && p.email !== selfEmail; }) : list;
+    });
+
     socket.on('disconnect', () => {
         console.log("[Network] Disconnected");
         window.NetworkState.connected = false;
@@ -164,6 +188,33 @@ setInterval(function() {
         }
     }
 }, 100);
+
+// Overworld isométrico (02/09/2026) — metade que faltava do lado do emissor: envia
+// overworld_move só quando o tile realmente muda (mesmo espírito de dedup do loop de
+// emitPlayerMove acima, "só manda se mudou"), e overworld_leave exatamente na
+// transição isActive true->false (Deactivate/EnterEpisode1FromOverworld em
+// js/game/engine.js), sem exigir que overworld.js saiba nada de socket.io — ele só
+// expõe window.OverworldState (contrato já existente), este loop é que observa.
+// 150ms casa com o próprio stepIntervalMs de movimento em tiles do overworld.js —
+// não precisa ser mais rápido, o jogador nunca anda mais que 1 tile nesse intervalo.
+var g_lastOverworldActive = false;
+var g_lastOverworldEmitKey = null;
+setInterval(function() {
+    if (!window.NetworkState || !window.NetworkState.connected || !window.NetworkState.socket) return;
+    var ow = window.OverworldState;
+    if (!ow) return;
+    if (ow.isActive) {
+        var key = ow.playerGridX + '_' + ow.playerGridY;
+        if (key !== g_lastOverworldEmitKey) {
+            g_lastOverworldEmitKey = key;
+            window.NetworkState.socket.emit('overworld_move', { gridX: ow.playerGridX, gridY: ow.playerGridY });
+        }
+    } else if (g_lastOverworldActive) {
+        window.NetworkState.socket.emit('overworld_leave');
+        g_lastOverworldEmitKey = null;
+    }
+    g_lastOverworldActive = ow.isActive;
+}, 150);
 
 document.addEventListener("DOMContentLoaded", function() {
     window.ConnectToServer();

@@ -24,7 +24,7 @@ const io = new Server(server, {
     cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-const { loginPlayer, createPlayer, loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveCharacters, deleteCharacter, updateProfile, postDiaryEntry, getDiaryEntries, searchPlayers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends, getPlayerProfile, incrementPlayerStat, checkAndUnlockBadges, getBadgeCatalog, getUnlockedBadgeIds, submitBadgeProgress } = require('./db');
+const { loginPlayer, createPlayer, loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveOverworldPosition, saveCharacters, deleteCharacter, updateProfile, postDiaryEntry, getDiaryEntries, searchPlayers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends, getPlayerProfile, incrementPlayerStat, checkAndUnlockBadges, getBadgeCatalog, getUnlockedBadgeIds, submitBadgeProgress } = require('./db');
 const { OAuth2Client } = require('google-auth-library');
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -55,6 +55,40 @@ function buildAuthSuccessPayload(email, playerData) {
 
 const players = {};
 const TICK_RATE = 30;
+
+// Overworld isométrico de Niterói (02/09/2026, tarefa do backend-architect). Reaproveita
+// EXATAMENTE o padrão já existente de player_move/sync_state acima (ver
+// .claude/skills/isometric-canvas-rendering/SKILL.md): overworld_move só atualiza
+// players[socket.id] em memória (sem broadcast direto no handler), um setInterval separado manda
+// o dicionário pra todo mundo. Duas decisões deliberadas, documentadas aqui:
+//
+// 1) Broadcast em interval PRÓPRIO (OVERWORLD_TICK_RATE), não o mesmo TICK_RATE=30 do sync_state
+//    de combate side-view: aquele é pixel-a-pixel (posição fina, precisa de 30Hz pra não
+//    engasgar visualmente numa perseguição/luta); o overworld é grid-a-grid (tile discreto,
+//    85x85) — 30Hz de broadcast pra uma posição que só muda em passos de tile inteiro é banda
+//    desperdiçada. 10Hz é suave o bastante pro cliente interpolar entre tiles sem parecer
+//    "teleporte".
+// 2) Grid 85x85 (0-84 em cada eixo, ver briefing da tarefa) — mesmo padrão de faixa plausível já
+//    usado em NUMERIC_BOUNDS (server/db.js), só que aqui exige INTEIRO (tile de grid não existe
+//    fracionado, diferente de xp/score que aceitam DOUBLE PRECISION).
+const OVERWORLD_TICK_RATE = 10;
+const OVERWORLD_GRID_MIN = 0;
+const OVERWORLD_GRID_MAX = 84;
+
+function isPlausibleGridCoord(value) {
+    return Number.isInteger(value) && value >= OVERWORLD_GRID_MIN && value <= OVERWORLD_GRID_MAX;
+}
+
+// Persistência em lote (não a cada movimento — instrução explícita da tarefa, seria caro demais
+// contra o Postgres). Não existe hoje nenhum "timing de save de personagem" periódico do SERVIDOR
+// pra reaproveitar (save_game_state é sempre disparado pelo CLIENTE, nunca por um setInterval
+// daqui) — então esta é uma escolha nova, documentada: 30s é o meio-termo entre "o processo pode
+// cair sem um disconnect limpo e a posição salva fica só até 30s desatualizada" e "não vira um
+// UPDATE por jogador ativo a cada poucos segundos". Só grava quem tem overworldDirty=true (setado
+// em overworld_move, limpo aqui), pra não reescrever a mesma posição toda vez que um jogador fica
+// parado. disconnect (mais abaixo) faz um flush imediato, fora deste ciclo, pra não esperar até
+// 30s numa desconexão normal.
+const OVERWORLD_PERSIST_INTERVAL_MS = 30 * 1000;
 
 // Garante que players[socketId] existe antes de gravar a identidade autenticada nele (achado
 // 23/08/2026, análise profunda do login pedida pelo usuário, reproduzido de verdade): os quatro
@@ -161,7 +195,16 @@ io.on('connection', (socket) => {
             y: existing.y !== undefined ? existing.y : 150,
             isFacingRight: existing.isFacingRight !== undefined ? existing.isFacingRight : true,
             level: existing.level || '1',
-            hp: existing.hp !== undefined ? existing.hp : 100
+            hp: existing.hp !== undefined ? existing.hp : 100,
+            // Reset defensivo (02/09/2026, feature overworld): join_game já é o evento existente que
+            // o cliente reemite ao entrar/voltar pro contexto side-view (troca de fantasma, etc — ver
+            // comentário acima). Trata isso como sinal de "não está mais no overworld agora" pra não
+            // deixar o jogador aparecendo pra sempre em overworld_players_update depois que ele entrou
+            // em combate — não apaga overworldGridX/Y (última posição continua válida pra quando ele
+            // voltar), só a flag de "ativo agora". O agente de Transição pode (e deveria) chamar o
+            // evento overworld_leave explicitamente também, ver socket.on('overworld_leave') abaixo —
+            // este reset aqui é só uma rede de segurança, não o mecanismo principal.
+            overworldActive: false
         };
 
         console.log('[Socket] Player joined: ' + playerName + ' (' + socket.id + ')');
@@ -183,6 +226,38 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Overworld isométrico (02/09/2026): mesmo padrão de player_move (side-view) acima — só
+    // atualiza players[socket.id] em memória, sem broadcast aqui dentro (o setInterval separado,
+    // OVERWORLD_TICK_RATE, cuida disso). Diferente de player_move, EXIGE sessão autenticada
+    // (players[socket.id].email) porque a posição vai ser persistida contra uma conta real no
+    // Postgres — um jogador anônimo (que player_move aceita) não tem onde persistir.
+    socket.on('overworld_move', (data) => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            return; // silencioso — mesmo espírito de save_game_state/update_profile pra evento de alta frequência sem sessão
+        }
+        if (!data || !isPlausibleGridCoord(data.gridX) || !isPlausibleGridCoord(data.gridY)) {
+            return; // fora da faixa 0-84 ou não-inteiro: rejeita em silêncio, mesmo padrão de NUMERIC_BOUNDS (db.js)
+        }
+        if (playerSession.overworldGridX !== data.gridX || playerSession.overworldGridY !== data.gridY) {
+            playerSession.overworldDirty = true; // só marca "precisa persistir" se a posição de fato mudou
+        }
+        playerSession.overworldGridX = data.gridX;
+        playerSession.overworldGridY = data.gridY;
+        playerSession.overworldActive = true;
+    });
+
+    // Sinal explícito de "saí do overworld" (02/09/2026) — complemento de overworld_move, pro
+    // agente de Transição chamar ao entrar na torre/combate side-view, sem depender só do reset
+    // defensivo em join_game (ver comentário lá). Não apaga overworldGridX/Y (a última posição
+    // continua sendo a correta pra quando o jogador voltar) nem mexe em nada além da flag — não
+    // precisa nem persistir aqui, o valor já salvo (ou o próximo ciclo do batch/disconnect) cobre.
+    socket.on('overworld_leave', () => {
+        if (players[socket.id]) {
+            players[socket.id].overworldActive = false;
+        }
+    });
+
     socket.on('player_attack', (data) => {
         socket.broadcast.emit('player_attacked', {
             id: socket.id,
@@ -199,6 +274,16 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('[Socket] Player disconnected: ' + socket.id);
         if (players[socket.id]) {
+            const p = players[socket.id];
+            // Flush imediato da posição do overworld (02/09/2026) — não espera o ciclo de
+            // OVERWORLD_PERSIST_INTERVAL_MS (até 30s) numa desconexão normal. Incondicional (não
+            // checa overworldDirty) porque é barato — no máximo um UPDATE por desconexão, nunca por
+            // tick — e garante que o valor salvo está sempre atualizado quando o jogador reconecta.
+            if (p.email && Number.isInteger(p.overworldGridX) && Number.isInteger(p.overworldGridY)) {
+                saveOverworldPosition(p.email, p.overworldGridX, p.overworldGridY).catch((error) => {
+                    console.error(`[Overworld] Erro ao persistir posição de ${p.email} na desconexão:`, error);
+                });
+            }
             const name = players[socket.id].name;
             delete players[socket.id];
             io.emit('player_left', socket.id);
@@ -235,6 +320,7 @@ io.on('connection', (socket) => {
 
             ensurePlayerRecord(socket.id).email = email;
             players[socket.id].name = result.data.name;
+            players[socket.id].avatarUrl = result.data.avatarUrl || null; // usado pelo payload de overworld_players_update
             socket.emit('auth_google_success', buildAuthSuccessPayload(email, result.data));
         } catch (error) {
             console.error('[Auth] Error processing Google Token:', error);
@@ -262,6 +348,7 @@ io.on('connection', (socket) => {
             console.log(`[DB] Player ${email} loaded. Level: ${playerData.level}`);
             ensurePlayerRecord(socket.id).email = email;
             players[socket.id].name = playerData.name;
+            players[socket.id].avatarUrl = playerData.avatarUrl || null; // usado pelo payload de overworld_players_update
             socket.emit('cloud_save_success', buildAuthSuccessPayload(email, playerData));
         } catch (error) {
             console.error('[CloudSave] Error processing login:', error);
@@ -289,6 +376,7 @@ io.on('connection', (socket) => {
             console.log(`[DB] Player ${email} created. Level: ${playerData.level}`);
             ensurePlayerRecord(socket.id).email = email;
             players[socket.id].name = playerData.name;
+            players[socket.id].avatarUrl = playerData.avatarUrl || null; // usado pelo payload de overworld_players_update
             socket.emit('cloud_save_success', buildAuthSuccessPayload(email, playerData));
         } catch (error) {
             console.error('[CloudSave] Error processing signup:', error);
@@ -325,6 +413,7 @@ io.on('connection', (socket) => {
             console.log(`[Auth] Login automático por sessão para: ${email}`);
             ensurePlayerRecord(socket.id).email = email;
             players[socket.id].name = playerData.name;
+            players[socket.id].avatarUrl = playerData.avatarUrl || null; // usado pelo payload de overworld_players_update
             socket.emit('session_login_success', buildAuthSuccessPayload(email, playerData));
         } catch (error) {
             console.error('[Auth] Erro no login por sessão:', error);
@@ -451,6 +540,10 @@ io.on('connection', (socket) => {
             try {
                 const updated = await updateProfile(playerSession.email, data);
                 if (updated && updated.name) players[socket.id].name = updated.name;
+                // Mantém o avatarUrl em memória sincronizado (02/09/2026) — players[socket.id].avatarUrl
+                // só existe pra alimentar overworld_players_update; sem isso, trocar de avatar no meio
+                // da sessão deixaria o overworld mostrando a imagem antiga até reconectar.
+                if (updated && updated.avatarUrl !== undefined) players[socket.id].avatarUrl = updated.avatarUrl;
                 console.log(`[DB] Profile updated for ${playerSession.email}`);
                 socket.emit('profile_updated', updated);
             } catch (error) {
@@ -778,6 +871,54 @@ setInterval(() => {
         });
     }
 }, 1000 / TICK_RATE);
+
+// Broadcast periódico do overworld isométrico (02/09/2026) — mesmo padrão do sync_state acima
+// (dicionário inteiro pra todo mundo, sem rooms/culling, ver isometric-canvas-rendering/SKILL.md),
+// só que em OVERWORLD_TICK_RATE (10Hz, não os 30Hz do combate side-view — motivo documentado na
+// declaração da constante lá em cima) e filtrando só quem está ativo no overworld agora
+// (overworldActive, setado por overworld_move / limpo por overworld_leave, join_game e disconnect).
+//
+// lastOverworldBroadcastCount existe pra cobrir a transição "tinha gente -> não tem mais ninguém"
+// (achado testando de verdade com 2 contas, ver e2e-db-verification): sem isso, o "if length > 0"
+// simplesmente para de emitir no instante em que o ÚLTIMO jogador ativo sai do overworld (leave ou
+// disconnect), e quem estava vendo esse jogador (ex: o B do teste) nunca recebe a lista vazia —
+// fica com um "fantasma" preso na última posição conhecida pra sempre, porque não existe mais
+// nenhum tick seguinte que os avise da saída. Guardando quantos jogadores entraram no ÚLTIMO
+// broadcast, ainda emitimos MAIS UMA VEZ (com a lista vazia) exatamente na transição pra zero —
+// depois disso, com os dois lados em zero, volta a pular ticks normalmente (mesma economia de
+// banda de antes enquanto ninguém está no overworld).
+let lastOverworldBroadcastCount = 0;
+setInterval(() => {
+    const overworldPlayers = Object.values(players).filter((p) => p.overworldActive && p.email);
+    if (overworldPlayers.length > 0 || lastOverworldBroadcastCount > 0) {
+        io.emit('overworld_players_update', {
+            players: overworldPlayers.map((p) => ({
+                email: p.email,
+                name: p.name,
+                avatarUrl: p.avatarUrl || null,
+                gridX: p.overworldGridX,
+                gridY: p.overworldGridY
+            }))
+        });
+        lastOverworldBroadcastCount = overworldPlayers.length;
+    }
+}, 1000 / OVERWORLD_TICK_RATE);
+
+// Persistência em lote da posição do overworld (02/09/2026) — ver comentário completo na
+// declaração de OVERWORLD_PERSIST_INTERVAL_MS lá em cima. Só grava quem tem overworldDirty=true;
+// limpa a flag ANTES do await pra não perder um movimento que chegue durante a escrita (mesmo
+// UPDATE reaplicado no próximo ciclo em caso de erro, ver catch abaixo).
+setInterval(() => {
+    Object.values(players).forEach((p) => {
+        if (p.email && p.overworldDirty && Number.isInteger(p.overworldGridX) && Number.isInteger(p.overworldGridY)) {
+            p.overworldDirty = false;
+            saveOverworldPosition(p.email, p.overworldGridX, p.overworldGridY).catch((error) => {
+                console.error(`[Overworld] Erro ao persistir posição de ${p.email}:`, error);
+                p.overworldDirty = true; // tenta de novo no próximo ciclo em vez de perder o dado silenciosamente
+            });
+        }
+    });
+}, OVERWORLD_PERSIST_INTERVAL_MS);
 
 // ============================================================================
 // Upload de imagem de perfil (avatar/galeria) — 29/08/2026, decisão de
@@ -1131,7 +1272,7 @@ app.post('/api/upload-profile-image', allowUploadCors, parseUploadBody, async (r
 // (incluindo tudo sob /server/...) cai no 404 padrão do Express, porque nenhuma rota casa com ele.
 const FRONTEND_ROOT = path.join(__dirname, '../');
 
-const PUBLIC_FRONTEND_DIRS = ['js', 'css', 'assets', 'assets2', 'UI', 'Ghosts'];
+const PUBLIC_FRONTEND_DIRS = ['js', 'css', 'assets', 'assets2', 'UI', 'Ghosts', 'data'];
 PUBLIC_FRONTEND_DIRS.forEach((dir) => {
     app.use('/' + dir, express.static(path.join(FRONTEND_ROOT, dir)));
 });

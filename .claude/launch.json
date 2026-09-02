@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["http-server", "-p", "8080", "-c-1"],
       "port": 8080
+    },
+    {
+      "name": "danger-ghost-backend",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server/index.js"],
+      "port": 3000
     }
   ]
 }
