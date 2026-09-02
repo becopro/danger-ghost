@@ -1118,8 +1118,11 @@
 					if (DeSoGhost.alive && !DeSoGhost.ghostMode && DeSoGhost.phantomFormTimer <= 0) {
 						if (this.xPos < DeSoGhost.xPos + 24 && this.xPos + this.width > DeSoGhost.xPos &&
 							this.yPos < DeSoGhost.yPos + 24 && this.yPos + this.height > DeSoGhost.yPos) {
-							DeSoGhost.alive = false;
-							if (window.emitBossCollision) window.emitBossCollision();
+							// 02/09/2026: era DeSoGhost.alive = false direto (morte instantânea).
+							// Espelhado do site — agora passa pela Vitalidade, só mata de verdade
+							// quando ela zera (takeDamage). emitBossCollision sempre disparava aqui,
+							// mantido incondicional (2º arg true).
+							DeSoGhost.takeDamage(1, true);
 						}
 					}
 				};
@@ -1143,6 +1146,16 @@
 				this.isLevelingUpAnim = 0;
 				this.skillCooldowns = [0, 0, 0, 0];
 				this.phantomFormTimer = 0;
+
+				// Vitalidade (02/09/2026, espelhado do site): buffer de dano ANTES de custar uma
+				// "life" inteira. Não substitui "lives", coexiste como camada nova por cima: um hit
+				// agora tira 1 ponto de Vitalidade em vez de matar na hora; só quando ela chega a 0
+				// é que dispara a morte de verdade (this.alive=false) que já existia, que por sua
+				// vez continua custando 1 "life" em respawn(), exatamente como antes.
+				this.maxVitality = 3;
+				this.vitality = this.maxVitality;
+				this.vitalityDisplayed = this.maxVitality; // barra "fantasma": segue vitality com atraso suave (chip damage)
+				this.vitalityFlashTimer = 0; // frames restantes do flash de "acabou de tomar dano"
 
 				this.draw = function () {
 					if (this.alive) {
@@ -1226,6 +1239,25 @@
 					}
 				};
 
+				// Aplica dano de Vitalidade (espelhado do site, 02/09/2026). Substitui os antigos
+				// "this.alive = false" diretos nos pontos de contato com inimigo/chefe, projétil
+				// inimigo e tiles de fogo/água — agora só mata de verdade (this.alive=false, o que
+				// já disparava a animação de explosão e, depois, respawn()) quando a Vitalidade
+				// chega a 0. emitsBossCollision replica exatamente o comportamento antigo em cada
+				// chamador (alguns emitiam esse evento de rede em todo hit, outros só quando o alvo
+				// era o "boss original" da fase).
+				this.takeDamage = function (amount, emitsBossCollision) {
+					if (!this.alive) return;
+					if (this.ghostMode || this.phantomFormTimer > 0) return; // já imune hoje nesses estados
+					this.vitality -= (amount || 1);
+					this.vitalityFlashTimer = 14;
+					if (this.vitality <= 0) {
+						this.vitality = 0;
+						this.alive = false;
+						if (emitsBossCollision && window.emitBossCollision) window.emitBossCollision();
+					}
+				};
+
 				this.respawn = function () {
 					var loss = this.pendingLivesLoss || 1;
 					if (this.lives <= 0) {
@@ -1255,10 +1287,26 @@
 					// Clampa as vidas atuais pelo teto dinâmico de Vitalidade (sem bônus de ressurreição no respawn)
 					var maxLivesCap = GhostRPG.getMaxLivesCap();
 					this.lives = Math.max(0, Math.min(maxLivesCap, this.lives));
+
+					// Nova vida cheia começa com Vitalidade cheia (sem dano herdado da tentativa anterior).
+					this.vitality = this.maxVitality;
+					this.vitalityDisplayed = this.maxVitality;
+					this.vitalityFlashTimer = 0;
 				};
 
 				this.move = function () {
 					if (!this.alive) return;
+
+					// Timers da barra de Vitalidade (espelhado do site, 02/09/2026): flash de dano
+					// recente conta regressiva por frame; a barra "fantasma" (vitalityDisplayed)
+					// persegue o valor real (vitality) devagar, criando o efeito "chip damage" (a
+					// parte perdida esvazia suave em vez de sumir na hora).
+					if (this.vitalityFlashTimer > 0) this.vitalityFlashTimer--;
+					if (this.vitalityDisplayed > this.vitality) {
+						this.vitalityDisplayed = Math.max(this.vitality, this.vitalityDisplayed - 0.04);
+					} else if (this.vitalityDisplayed < this.vitality) {
+						this.vitalityDisplayed = this.vitality; // curou/reviveu: acompanha na hora, sem "fantasma" pra cima
+					}
 
 					// Update skill cooldowns
 					for (var s = 0; s < 4; s++) {
@@ -1330,12 +1378,11 @@
 										// ou não, ainda foi um pisão de verdade.
 										if (window.BadgeTracker) window.BadgeTracker.bump('boss_stomp_count');
 									} else if (!self.ghostMode && self.phantomFormTimer <= 0) { // Immune during Phantom Form
-										if (boss && boss.isOriginal) {
-											if (window.emitBossCollision) window.emitBossCollision();
-											self.alive = false;
-										} else {
-											self.alive = false;
-										}
+										// 02/09/2026: encostar no chefe sem pisar em cima (não-stomp) agora
+										// tira 1 Vitalidade em vez de matar na hora (espelhado do site).
+										// emitBossCollision só disparava pra boss.isOriginal antes
+										// (preservado no 2º arg de takeDamage).
+										self.takeDamage(1, !!(boss && boss.isOriginal));
 									} else if (self.phantomFormTimer > 0 && window.BadgeTracker) {
 										// BADGE HOOK ("Reflexos do Além"): encostou num chefe que mataria fora
 										// do Phantom Form — mesma contagem de esquiva do fogo/água (rising
@@ -1372,12 +1419,9 @@
 								}
 								if (window.BadgeTracker) window.BadgeTracker.bump('boss_stomp_count');
 							} else if (!this.ghostMode && this.phantomFormTimer <= 0) { // Immune during Phantom Form
-								if (g_boss && g_boss.isOriginal) {
-									if (window.emitBossCollision) window.emitBossCollision();
-									this.alive = false;
-								} else {
-									this.alive = false;
-								}
+								// 02/09/2026: mesma troca do bloco g_bosses acima, versão singleton
+								// (g_boss), espelhada do site.
+								this.takeDamage(1, !!(g_boss && g_boss.isOriginal));
 							} else if (this.phantomFormTimer > 0 && window.BadgeTracker) {
 								if (!this._btWasTouchingSingletonBoss) {
 									window.BadgeTracker.bump('phantom_hazard_survive_count');
@@ -1486,6 +1530,17 @@
 
 					if (cb >= 11) { this.alive = false; return; }
 
+					// 02/09/2026: guarda de 1 hit de fogo/água POR FRAME (espelhado do site). O loop
+					// abaixo roda 2x (canto esquerdo cl, canto direito cr) e cada passada checa ct E
+					// cb — quando o jogador está num poço de lava largo/alto o suficiente pra tocar em
+					// mais de um desses 4 pontos ao mesmo tempo, SEM esta guarda this.takeDamage()
+					// dispararia até 4x no mesmo frame, zerando a barra inteira de Vitalidade de uma
+					// vez (o código antigo só fazia this.alive=false, então disparar 4x era
+					// inofensivo — matar 4x = matar 1x; com Vitalidade em pontos discretos, não é
+					// mais o caso). hazardHitThisFrame garante no máximo 1 ponto de Vitalidade perdido
+					// por frame parado/passando por fogo ou água.
+					var hazardHitThisFrame = false;
+
 					var nodes = [cl, cr];
 					for (var i = 0; i < nodes.length; i++) {
 						var c = nodes[i];
@@ -1519,8 +1574,12 @@
 							this.jumpsPerformed = 0;
 						}
 						if (this.phantomFormTimer <= 0) {
-							if (ct >= 0 && ct < 11 && (map.bitmap[ct][c] == 5 || map.bitmap[ct][c] == 6)) this.alive = false;
-							if (cb >= 0 && cb < 11 && (map.bitmap[cb][c] == 5 || map.bitmap[cb][c] == 6)) this.alive = false;
+							// 02/09/2026: tile de fogo/água agora tira 1 Vitalidade em vez de matar na
+							// hora (espelhado do site; nunca emitia emitBossCollision, então segue sem
+							// emitir aqui também). hazardHitThisFrame (declarado antes do loop) trava em
+							// no máximo 1 chamada de takeDamage por frame.
+							if (!hazardHitThisFrame && ct >= 0 && ct < 11 && (map.bitmap[ct][c] == 5 || map.bitmap[ct][c] == 6)) { this.takeDamage(1, false); hazardHitThisFrame = true; }
+							if (!hazardHitThisFrame && cb >= 0 && cb < 11 && (map.bitmap[cb][c] == 5 || map.bitmap[cb][c] == 6)) { this.takeDamage(1, false); hazardHitThisFrame = true; }
 						} else if (window.BadgeTracker) {
 							// BADGE HOOK ("Reflexos do Além" — reinterpretação honesta: o jogo não tem
 							// "dash", esse é o mecanismo real mais próximo de uma esquiva). Só entra
@@ -1926,8 +1985,10 @@
 							if (p.x + p.width/2 > DeSoGhost.xPos && p.x - p.width/2 < DeSoGhost.xPos + 24 &&
 								p.y + p.height/2 > DeSoGhost.yPos && p.y - p.height/2 < DeSoGhost.yPos + 24) {
 								if (!DeSoGhost.ghostMode && DeSoGhost.phantomFormTimer <= 0) {
-									DeSoGhost.alive = false;
-									if (window.emitBossCollision) window.emitBossCollision();
+									// 02/09/2026: projétil inimigo agora tira 1 Vitalidade em vez de matar
+									// na hora (espelhado do site); emitBossCollision seguia disparando
+									// sempre aqui (mantido).
+									DeSoGhost.takeDamage(1, true);
 								}
 								var _fx = createExplosionEffect(p.x, p.y, "#FF3366", 6); if (_fx) g_visualEffects.push(_fx);
 								g_projectiles.splice(i, 1);
@@ -2224,6 +2285,75 @@
 				g_ctx.moveTo(0, g_canvas.height - 35);
 				g_ctx.lineTo(g_canvas.width, g_canvas.height - 35);
 				g_ctx.stroke();
+
+				// ==== Barra de Vitalidade (HP do jogador, 02/09/2026, espelhado do site) ====
+				// Mesma técnica visual e os mesmos 3 estados (cheia/dano recente com barra
+				// "fantasma"/crítica pulsando) do site — ver Print_HUD() em js/game/engine.js do
+				// site pro comentário completo da técnica. DUAS diferenças deliberadas: Y e X.
+				//
+				// Y: no site a barra fica na faixa inferior de 35px, junto com nome/vidas/mana/
+				// skills. Aqui essa faixa já está mais cheia (nome, vidas, MANA, 4 slots de magia)
+				// então a barra mobile sobe pro canto superior, logo abaixo do SCORE (y=20).
+				//
+				// X: medido ao vivo (DevTools + getBoundingClientRect, viewport 375x812) servindo
+				// www/ num navegador comum — NÃO o APK/Capacitor real. Nesse layout "responsive"
+				// (fora de body.is-mobile-app; ver #mobileControlsContainer / .gb-dpad / .gb-actions
+				// em css/style.css), o D-pad e os botões de ação ficam com position:absolute dentro
+				// de um container cuja altura real (100% de #fullscreenGameArea) acaba MUITO maior
+				// que a viewport visível — então "bottom:20px" desses grupos não pousa perto do
+				// rodapé da tela como seria de esperar, e sim perto do TOPO, sobrepondo direto
+				// o canvas inteiro (confirmado: coluna esquerda do D-pad em x:20-85px de tela cobre
+				// y:110-370px de tela — ou seja, a altura INTEIRA do canvas ali, não só o rodapé).
+				// Column esquerda (D-pad) e direita (ações) ocupam, em pixels de canvas (lógicos,
+				// 640 de largura): ~0-135 e ~559-640. x=10 (mesmo X do site) cai direto embaixo do
+				// D-pad em qualquer Y — por isso a barra NÃO pode só subir pro topo, tinha que
+				// também sair da coluna esquerda. vitBarX=150 fica dentro da faixa central livre
+				// (~135 a ~559) com folga. Isso é uma esquisitice de CSS do layout "responsive" que
+				// também tampa parte do SCORE (x=10) e do nome do Ghost ativo (canto direito) —
+				// preexistente, fora do escopo desta tarefa, sinalizado à parte. No APK real
+				// (body.is-mobile-app) o D-pad fica numa faixa inteiramente separada ABAIXO do
+				// canvas — lá nenhuma posição X ou Y dentro do canvas colide com os controles.
+				// Rótulo abreviado pra "VIT" (em vez de "VITALITY") por ser mobile, tela menor.
+				if (typeof DeSoGhost !== 'undefined' && DeSoGhost) {
+					var vitBarX = 150, vitBarY = 26, vitBarW = 130, vitBarH = 7;
+					var maxVit = DeSoGhost.maxVitality > 0 ? DeSoGhost.maxVitality : 3;
+					var curVit = Math.max(0, DeSoGhost.vitality || 0);
+					var dispVit = DeSoGhost.vitalityDisplayed !== undefined ? DeSoGhost.vitalityDisplayed : curVit;
+					var vitPct = Math.max(0, Math.min(1, curVit / maxVit));
+					var vitDispPct = Math.max(0, Math.min(1, dispVit / maxVit));
+					var vitCritical = vitPct > 0 && vitPct <= 0.34;
+
+					g_ctx.fillStyle = "#000000";
+					g_ctx.fillRect(vitBarX, vitBarY, vitBarW, vitBarH);
+					g_ctx.fillStyle = "#8B0000";
+					g_ctx.fillRect(vitBarX + 1, vitBarY + 1, vitBarW - 2, vitBarH - 2);
+
+					// Barra "fantasma": sobra clara entre o valor exibido (atraso suave) e o real, só
+					// aparece na fração de segundo em que os dois divergem (acabou de tomar dano).
+					if (vitDispPct > vitPct) {
+						g_ctx.fillStyle = "rgba(255, 210, 60, 0.85)";
+						g_ctx.fillRect(vitBarX + 1, vitBarY + 1, Math.floor(vitDispPct * (vitBarW - 2)), vitBarH - 2);
+					}
+
+					var vitFillColor = "#00FF00";
+					if (vitCritical) {
+						var pulse = (Math.sin(Date.now() / 130) + 1) / 2; // 0..1
+						vitFillColor = "rgb(" + Math.floor(200 + pulse * 55) + ",30,30)";
+					}
+					g_ctx.fillStyle = vitFillColor;
+					g_ctx.fillRect(vitBarX + 1, vitBarY + 1, Math.floor(vitPct * (vitBarW - 2)), vitBarH - 2);
+
+					// Flash branco de "acabou de tomar dano" por cima de tudo, só por algumas frames.
+					if (DeSoGhost.vitalityFlashTimer > 0) {
+						g_ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+						g_ctx.fillRect(vitBarX, vitBarY, vitBarW, vitBarH);
+					}
+
+					g_ctx.font = "bold 8px 'Courier New'";
+					g_ctx.fillStyle = vitCritical ? "#FF5555" : "#FFFFFF";
+					g_ctx.textAlign = "left";
+					g_ctx.fillText("VIT", vitBarX + vitBarW + 5, vitBarY + vitBarH);
+				}
 
 				g_ctx.font = "bold 18px 'Courier New'"; g_ctx.fillStyle = "#FF00FF";
 				
@@ -3344,6 +3474,10 @@
 				DeSoGhost.lives = 3; DeSoGhost.alive = true;
 				DeSoGhost.collectedLives = 0;
 				DeSoGhost.collectedBlueDiamonds = 0;
+				// Jogo novo (ou reinício após Game Over) também começa com Vitalidade cheia (espelhado do site).
+				DeSoGhost.vitality = DeSoGhost.maxVitality || 3;
+				DeSoGhost.vitalityDisplayed = DeSoGhost.vitality;
+				DeSoGhost.vitalityFlashTimer = 0;
 
 				DeSoGhost.xPos = 48; DeSoGhost.yPos = 150;
 				DeSoGhost.jumpNum = 0; DeSoGhost.jumpCounter = 0;
