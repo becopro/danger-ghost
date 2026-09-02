@@ -1675,6 +1675,20 @@
 										if (this.collectedBlueDiamonds % 3 === 0) {
 											SpawnBossAtRandomLocation("demon_fly");
 										}
+										// SICK CROW (02/09/2026): novo gatilho a pedido do usuário. O antigo
+										// spawn de "crow" vinha do pickup de vida extra (this.collectedLives % 3,
+										// removido no commit c0c0f69 quando esse pickup virou Elixir) e ficou sem
+										// nenhum gatilho. Reaproveita o MESMO contador de diamante azul que já
+										// disparava demon_fly acima, mas com sua própria condição (% 4, a cada 4
+										// diamantes) -- checagem independente, não substitui nem é sobrescrita
+										// pela do demon_fly (as duas rodam sempre que este `else if (tile == 8)`
+										// executa; em múltiplos de 12 os dois bosses são chamados no mesmo frame).
+										// Argumento "crow" passado explícito mesmo sendo o default de
+										// SpawnBossAtRandomLocation(bossType) (ver bossType = bossType || "crow"
+										// mais abaixo), pra não depender de um default implícito na leitura futura.
+										if (this.collectedBlueDiamonds % 4 === 0) {
+											SpawnBossAtRandomLocation("crow");
+										}
 									}
 
 									else if (tile == 9) { AddScore(150); }
