@@ -1681,17 +1681,30 @@
 									else if (tile == 10) { AddScore(150); }
 									else if (tile == 11) { AddScore(150); }
 									else if (tile == 12) {
-										var maxLivesCap = GhostRPG.getMaxLivesCap();
-										if (this.lives < maxLivesCap) {
-											this.lives++;
-										}
-										AddScore(666);
-										this.collectedLives = (this.collectedLives || 0) + 1;
-										if (this.collectedLives % 5 === 0) {
-											window.SpawnNativeGhosts(1);
-										}
-										if (this.collectedLives % 3 === 0) {
-											SpawnBossAtRandomLocation();
+										// ELIXIR (02/09/2026): reinterpretação a pedido do usuário do antigo pickup
+										// "vida extra" (mesmo tile/sprite de fantasmazinho, this.collectedLives).
+										// Comportamento antigo (this.lives++, AddScore(666), spawn de inimigo/boss a
+										// cada 3-5 coletados) foi REMOVIDO por completo, não mantido em paralelo --
+										// era pontuação/progressão ligada ao sistema antigo de "lives" discretas: o
+										// usuário está reaproveitando o item pra curar a barra de Vitalidade nova
+										// (ver this.takeDamage/this.maxVitality acima), não pedindo os dois efeitos
+										// juntos. Confirmado antes de remover: nenhum BadgeTracker hook nem
+										// socket 'increment_stat' tipo 'life' dependia deste tile (a coluna
+										// total_lives_collected em server/db.js existe mas nunca era emitida daqui).
+										// this.collectedLives fica declarado (constructor/resetToDefault) só por
+										// enquanto mais nada o lê, sem motivo pra remover a variável em si.
+										if (this.vitality < this.maxVitality) {
+											// Vitalidade não cheia: cura total até o máximo (leitura mais natural de
+											// "elixir" -- não fração parcial). Atualiza vitalityDisplayed junto pra
+											// a barra "fantasma" não ficar um frame atrasada mostrando dano velho.
+											this.vitality = this.maxVitality;
+											this.vitalityDisplayed = this.maxVitality;
+											this.vitalityFlashTimer = 0;
+										} else if (window.AddInventoryItem) {
+											// Vitalidade já cheia: não se perde -- vai pra BAG como consumível
+											// empilhável (mesmo padrão do "ghost_spell"/Fireball, ver tile 24
+											// abaixo), pra equipar depois e usar sob demanda apertando "1".
+											window.AddInventoryItem("elixir", "Elixir", "🧪", "Consumable. Fully restores Vitality when collected or used. Equip to use later by pressing '1'.", 1);
 										}
 									}
 									else if (tile == 23) {
@@ -2536,30 +2549,35 @@
 					g_ctx.fillText(slotKeys[i], sX + slotSize/2, sY - 6);
 				}
 
-				// Draw Fireball Spell HUD Slot if equipped
+				// Draw Slot "1" HUD -- Fireball Spell OR Elixir, o que estiver equipado (slot
+				// compartilhado, 02/09/2026: mesmo padrão visual de feedback que os slots V/F/E/R
+				// acima, adaptado pro slot numérico único em vez de reescrever do zero).
 				var eq = window.GetEquipmentState ? window.GetEquipmentState() : {};
-				var equippedSpell = eq.spell || 
-									(eq.mainhand && eq.mainhand.id === "ghost_spell" ? eq.mainhand : null) || 
+				var equippedSpell = eq.spell ||
+									(eq.mainhand && eq.mainhand.id === "ghost_spell" ? eq.mainhand : null) ||
 									(eq.offhand && eq.offhand.id === "ghost_spell" ? eq.offhand : null);
+				var equippedElixir = (eq.mainhand && eq.mainhand.id === "elixir" ? eq.mainhand : null) ||
+									(eq.offhand && eq.offhand.id === "elixir" ? eq.offhand : null);
+				var slot1Item = equippedElixir || equippedSpell;
 
-				if (equippedSpell) {
+				if (slot1Item) {
 					var fbX = slotsStartX - slotSize - 25;
 					var fbY = hudCenterY - slotSize / 2;
 
 					g_ctx.fillStyle = "rgba(17, 17, 24, 0.9)";
 					g_ctx.fillRect(fbX, fbY, slotSize, slotSize);
 
-					g_ctx.strokeStyle = "#FF00FF";
+					g_ctx.strokeStyle = equippedElixir ? "#00FF88" : "#FF00FF";
 					g_ctx.lineWidth = 1.5;
 					g_ctx.strokeRect(fbX, fbY, slotSize, slotSize);
 
 					g_ctx.font = "14px 'Segoe UI', sans-serif";
-					g_ctx.fillText("🔥", fbX + slotSize/2, fbY + slotSize/2 + 2);
+					g_ctx.fillText(equippedElixir ? "🧪" : "🔥", fbX + slotSize/2, fbY + slotSize/2 + 2);
 
 					// Counter (abaixo)
 					g_ctx.font = "bold 10px 'Segoe UI', sans-serif";
 					g_ctx.fillStyle = "#00FFFF";
-					g_ctx.fillText("x" + equippedSpell.count, fbX + slotSize/2, fbY + slotSize + 8);
+					g_ctx.fillText("x" + slot1Item.count, fbX + slotSize/2, fbY + slotSize + 8);
 
 					// Hotkey (acima)
 					g_ctx.fillStyle = "#FF00FF";
@@ -3846,13 +3864,34 @@ var g_binaryBits = [];
 				if (e.keyCode == 84 && !g_isFast) { // T (Fast Forward)
 					g_isFast = true;
 				}
-				if (e.keyCode == 49 && !e.repeat) { // 1 (Cast Equipped Spell)
+				if (e.keyCode == 49 && !e.repeat) { // 1 (Cast Equipped Spell OR use Elixir -- slot compartilhado)
 					if (g_gameState === G_PLAY && !DeSoGhost.dead) {
 						var eq = window.GetEquipmentState ? window.GetEquipmentState() : {};
-						var equippedSpell = eq.spell || 
-											(eq.mainhand && eq.mainhand.id === "ghost_spell" ? eq.mainhand : null) || 
+						var equippedSpell = eq.spell ||
+											(eq.mainhand && eq.mainhand.id === "ghost_spell" ? eq.mainhand : null) ||
 											(eq.offhand && eq.offhand.id === "ghost_spell" ? eq.offhand : null);
-						if (equippedSpell && equippedSpell.count > 0) {
+						// Elixir (02/09/2026): "equipar" um elixir significa deixá-lo posicionado no
+						// slot "1" pra consumir sob demanda -- não é um buff permanente, é o mesmo
+						// consumível da coleta direta, só adiado. Disputa o MESMO slot mainhand/offhand
+						// que a Fireball (equipItem() manda os dois pra mainhand por padrão), então só
+						// um dos dois fica equipado por vez; se por algum motivo raro os dois
+						// estiverem equipados ao mesmo tempo (um em cada mão), Elixir tem prioridade
+						// aqui porque curar é a ação mais "de emergência" das duas.
+						var equippedElixir = (eq.mainhand && eq.mainhand.id === "elixir" ? eq.mainhand : null) ||
+											(eq.offhand && eq.offhand.id === "elixir" ? eq.offhand : null);
+
+						if (equippedElixir && equippedElixir.count > 0) {
+							if (DeSoGhost.vitality < DeSoGhost.maxVitality) {
+								DeSoGhost.vitality = DeSoGhost.maxVitality;
+								DeSoGhost.vitalityDisplayed = DeSoGhost.maxVitality;
+								DeSoGhost.vitalityFlashTimer = 0;
+								if (window.ConsumeElixir) {
+									window.ConsumeElixir();
+								}
+							}
+							// Vitalidade já cheia: não consome a carga à toa (evita desperdiçar o item
+							// só porque o jogador apertou "1" sem precisar).
+						} else if (equippedSpell && equippedSpell.count > 0) {
 							var speed = 3.5;
 							var isLeft = DeSoGhost.face !== 1;
 							var vx = isLeft ? -speed : speed;

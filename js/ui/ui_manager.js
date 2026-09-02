@@ -237,7 +237,7 @@ function UpdateNavbarBag() {
                 }
 
                 var actionBtn = "";
-                if (selectedItem.slot || selectedItem.id === "ghost_helmet" || selectedItem.id === "ghost_spell") {
+                if (selectedItem.slot || selectedItem.id === "ghost_helmet" || selectedItem.id === "ghost_spell" || selectedItem.id === "elixir") {
                     actionBtn = "<button onclick=\"EquipBagItem('" + escapeHTML(selectedItem.id) + "')\" class='bag-equip-btn' style='padding: 6px; margin: 0; font-size: 11px; flex: 1;'>EQUIP</button>";
                 }
                 actionBtn += "<button onclick=\"DiscardBagItem('" + escapeHTML(selectedItem.id) + "')\" class='bag-discard-btn' style='padding: 6px; margin: 0; font-size: 11px; background: rgba(255, 51, 102, 0.2); border: 1.5px solid #FF3366; color: #FF3366; cursor: pointer; border-radius: 4px; font-family: var(--font-title); font-weight: bold; text-shadow: 0 0 4px #FF3366; box-shadow: 0 0 8px rgba(255, 51, 102, 0.25); transition: all 0.2s ease-in-out; flex: 1;' onmouseover=\"this.style.background='rgba(255, 51, 102, 0.4)'; this.style.boxShadow='0 0 12px #FF3366';\" onmouseout=\"this.style.background='rgba(255, 51, 102, 0.2)'; this.style.boxShadow='0 0 8px rgba(255, 51, 102, 0.25)';\">DISCARD</button>";
