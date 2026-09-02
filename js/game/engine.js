@@ -1126,8 +1126,10 @@
 					if (DeSoGhost.alive && !DeSoGhost.ghostMode && DeSoGhost.phantomFormTimer <= 0) {
 						if (this.xPos < DeSoGhost.xPos + 24 && this.xPos + this.width > DeSoGhost.xPos &&
 							this.yPos < DeSoGhost.yPos + 24 && this.yPos + this.height > DeSoGhost.yPos) {
-							DeSoGhost.alive = false;
-							if (window.emitBossCollision) window.emitBossCollision();
+							// 02/09/2026: era DeSoGhost.alive = false direto (morte instantânea). Agora
+							// passa pela Vitalidade — só mata de verdade quando ela zera (takeDamage).
+							// emitBossCollision sempre disparava aqui, mantido incondicional (2º arg true).
+							DeSoGhost.takeDamage(1, true);
 						}
 					}
 				};
@@ -1151,6 +1153,22 @@
 				this.isLevelingUpAnim = 0;
 				this.skillCooldowns = [0, 0, 0, 0];
 				this.phantomFormTimer = 0;
+
+				// Vitalidade (02/09/2026): buffer de dano ANTES de custar uma "life" inteira.
+				// Antes disto, TODO dano (contato com inimigo/chefe, projétil inimigo, fogo, água)
+				// matava na hora (this.alive=false direto) — o único "HP" que existia era o contador
+				// discreto de tentativas (this.lives, ver respawn() abaixo), sem nenhum HP parcial.
+				// Vitalidade não substitui "lives", coexiste como camada nova por cima: um hit agora
+				// tira 1 ponto de Vitalidade em vez de matar na hora; só quando ela chega a 0 é que
+				// dispara a morte de verdade (this.alive=false) que já existia — que por sua vez
+				// continua custando 1 "life" em respawn(), exatamente como antes. Fixo em 3, sem
+				// escalar com o atributo RPG "vit": "vit" já tem papel definido hoje via
+				// GhostRPG.getMaxLivesCap() (aumenta o TETO de lives carregáveis) — usá-lo aqui
+				// também faria o mesmo ponto de atributo comprar dois bônus ao mesmo tempo.
+				this.maxVitality = 3;
+				this.vitality = this.maxVitality;
+				this.vitalityDisplayed = this.maxVitality; // barra "fantasma": segue vitality com atraso suave (chip damage)
+				this.vitalityFlashTimer = 0; // frames restantes do flash de "acabou de tomar dano"
 
 				this.draw = function () {
 					if (this.alive) {
@@ -1234,6 +1252,24 @@
 					}
 				};
 
+				// Aplica dano de Vitalidade. Substitui os antigos "this.alive = false" diretos nos
+				// pontos de contato com inimigo/chefe, projétil inimigo e tiles de fogo/água — agora
+				// só mata de verdade (this.alive=false, o que já disparava a animação de explosão e,
+				// depois, respawn()) quando a Vitalidade chega a 0. emitsBossCollision replica
+				// exatamente o comportamento antigo em cada chamador (alguns emitiam esse evento de
+				// rede em todo hit, outros só quando o alvo era o "boss original" da fase).
+				this.takeDamage = function (amount, emitsBossCollision) {
+					if (!this.alive) return;
+					if (this.ghostMode || this.phantomFormTimer > 0) return; // já imune hoje nesses estados
+					this.vitality -= (amount || 1);
+					this.vitalityFlashTimer = 14;
+					if (this.vitality <= 0) {
+						this.vitality = 0;
+						this.alive = false;
+						if (emitsBossCollision && window.emitBossCollision) window.emitBossCollision();
+					}
+				};
+
 				this.respawn = function () {
 					var loss = this.pendingLivesLoss || 1;
 					if (this.lives <= 0) {
@@ -1254,19 +1290,39 @@
 					this.alive = true; this.xPos = 48; this.yPos = 150;
 					explosionFrame = 0; map_offset = 0;
 					map.loadLevel(g_currentLevel);
-					// BADGE HOOK ("Sem um Arranhão"): morrer é a ÚNICA forma de "dano" que este jogo
-					// tem (não existe barra de HP parcial) — respawn() só roda depois de this.alive
-					// virar false, então esta É a marca de "essa tentativa de fase não foi limpa".
-					// Fica true até a próxima fase de verdade (nextLevel()/prevLevel() resetam).
+					// BADGE HOOK ("Sem um Arranhão"): respawn() só roda depois de this.alive virar
+					// false, ou seja, depois que a Vitalidade zerou (ver this.takeDamage acima) — então
+					// esta É a marca de "essa tentativa de fase não foi limpa", mesmo agora que existe
+					// HP parcial (Vitalidade) entre um hit e a morte de verdade. Fica true até a
+					// próxima fase de verdade (nextLevel()/prevLevel() resetam).
 					this._btDied = true;
 
-					// Clampa as vidas atuais pelo teto dinâmico de Vitalidade (sem bônus de ressurreição no respawn)
+					// 02/09/2026: renomeado de "teto de Vitalidade" (nome antigo do comentário) pra
+					// "teto de lives" — GhostRPG.getMaxLivesCap() sempre limitou o contador discreto
+					// de tentativas (this.lives), nunca teve relação com a barra de Vitalidade nova
+					// (this.vitality, HP parcial). Nomes parecidos, sistemas diferentes; ver comentário
+					// em this.maxVitality (constructor) pra a decisão completa.
 					var maxLivesCap = GhostRPG.getMaxLivesCap();
 					this.lives = Math.max(0, Math.min(maxLivesCap, this.lives));
+
+					// Nova vida cheia começa com Vitalidade cheia (sem dano herdado da tentativa anterior).
+					this.vitality = this.maxVitality;
+					this.vitalityDisplayed = this.maxVitality;
+					this.vitalityFlashTimer = 0;
 				};
 
 				this.move = function () {
 					if (!this.alive) return;
+
+					// Timers da barra de Vitalidade: flash de dano recente conta regressiva por frame;
+					// a barra "fantasma" (vitalityDisplayed) persegue o valor real (vitality) devagar,
+					// criando o efeito "chip damage" (a parte perdida esvazia suave em vez de sumir na hora).
+					if (this.vitalityFlashTimer > 0) this.vitalityFlashTimer--;
+					if (this.vitalityDisplayed > this.vitality) {
+						this.vitalityDisplayed = Math.max(this.vitality, this.vitalityDisplayed - 0.04);
+					} else if (this.vitalityDisplayed < this.vitality) {
+						this.vitalityDisplayed = this.vitality; // curou/reviveu: acompanha na hora, sem "fantasma" pra cima
+					}
 
 					// Update skill cooldowns
 					for (var s = 0; s < 4; s++) {
@@ -1338,12 +1394,10 @@
 										// ou não, ainda foi um pisão de verdade.
 										if (window.BadgeTracker) window.BadgeTracker.bump('boss_stomp_count');
 									} else if (!self.ghostMode && self.phantomFormTimer <= 0) { // Immune during Phantom Form
-										if (boss && boss.isOriginal) {
-											if (window.emitBossCollision) window.emitBossCollision();
-											self.alive = false;
-										} else {
-											self.alive = false;
-										}
+										// 02/09/2026: encostar no chefe sem pisar em cima (não-stomp) agora tira
+										// 1 Vitalidade em vez de matar na hora. emitBossCollision só disparava
+										// pra boss.isOriginal antes (preservado no 2º arg de takeDamage).
+										self.takeDamage(1, !!(boss && boss.isOriginal));
 									} else if (self.phantomFormTimer > 0 && window.BadgeTracker) {
 										// BADGE HOOK ("Reflexos do Além"): encostou num chefe que mataria fora
 										// do Phantom Form — mesma contagem de esquiva do fogo/água (rising
@@ -1380,12 +1434,8 @@
 								}
 								if (window.BadgeTracker) window.BadgeTracker.bump('boss_stomp_count');
 							} else if (!this.ghostMode && this.phantomFormTimer <= 0) { // Immune during Phantom Form
-								if (g_boss && g_boss.isOriginal) {
-									if (window.emitBossCollision) window.emitBossCollision();
-									this.alive = false;
-								} else {
-									this.alive = false;
-								}
+								// 02/09/2026: mesma troca do bloco g_bosses acima, versão singleton (g_boss).
+								this.takeDamage(1, !!(g_boss && g_boss.isOriginal));
 							} else if (this.phantomFormTimer > 0 && window.BadgeTracker) {
 								if (!this._btWasTouchingSingletonBoss) {
 									window.BadgeTracker.bump('phantom_hazard_survive_count');
@@ -1492,7 +1542,22 @@
 					var cl = determinePos(this.xPos + 4), cr = determinePos(this.xPos + 20);
 					var ct = determinePos(this.yPos), cb = determinePos(this.yPos + 23);
 
+					// 02/09/2026: decisão deliberada — cair fora do mapa NÃO passa pela Vitalidade,
+					// continua matando na hora igual sempre matou. Não é "dano" (contato/fogo/água/
+					// chefe, a lista que a Vitalidade cobre), é queda no vazio — convenção clássica de
+					// plataforma (morte instantânea por cair fora, tipo poço sem fundo).
 					if (cb >= 11) { this.alive = false; return; }
+
+					// 02/09/2026: guarda de 1 hit de fogo/água POR FRAME. O loop abaixo roda 2x
+					// (canto esquerdo cl, canto direito cr) e cada passada checa ct E cb — quando o
+					// jogador está num poço de lava largo/alto o suficiente pra tocar em mais de um
+					// desses 4 pontos ao mesmo tempo, SEM esta guarda this.takeDamage() dispararia até
+					// 4x no mesmo frame (o código original só fazia this.alive=false ali, então
+					// disparar 4x era inofensivo — matar 4x = matar 1x. Com Vitalidade em pontos
+					// discretos, 4 chamadas no mesmo frame zerariam a barra inteira de uma vez, o que
+					// destruiria o propósito do buffer). hazardHitThisFrame garante no máximo 1 ponto
+					// de Vitalidade perdido por frame parado/passando por fogo ou água.
+					var hazardHitThisFrame = false;
 
 					var nodes = [cl, cr];
 					for (var i = 0; i < nodes.length; i++) {
@@ -1527,8 +1592,13 @@
 							this.jumpsPerformed = 0;
 						}
 						if (this.phantomFormTimer <= 0) {
-							if (ct >= 0 && ct < 11 && (map.bitmap[ct][c] == 5 || map.bitmap[ct][c] == 6)) this.alive = false;
-							if (cb >= 0 && cb < 11 && (map.bitmap[cb][c] == 5 || map.bitmap[cb][c] == 6)) this.alive = false;
+							// 02/09/2026: tile de fogo/água agora tira 1 Vitalidade em vez de matar na
+							// hora (nunca emitia emitBossCollision, então segue sem emitir aqui também).
+							// hazardHitThisFrame (declarado antes do loop) trava em no máximo 1 chamada
+							// de takeDamage por frame, mesmo com os 2 corpos (cl/cr) x 2 linhas (ct/cb)
+							// deste loop podendo, sozinhos, bater em fogo/água até 4x no mesmo frame.
+							if (!hazardHitThisFrame && ct >= 0 && ct < 11 && (map.bitmap[ct][c] == 5 || map.bitmap[ct][c] == 6)) { this.takeDamage(1, false); hazardHitThisFrame = true; }
+							if (!hazardHitThisFrame && cb >= 0 && cb < 11 && (map.bitmap[cb][c] == 5 || map.bitmap[cb][c] == 6)) { this.takeDamage(1, false); hazardHitThisFrame = true; }
 						} else if (window.BadgeTracker) {
 							// BADGE HOOK ("Reflexos do Além" — reinterpretação honesta: o jogo não tem
 							// "dash", esse é o mecanismo real mais próximo de uma esquiva). Só entra
@@ -1934,8 +2004,9 @@
 							if (p.x + p.width/2 > DeSoGhost.xPos && p.x - p.width/2 < DeSoGhost.xPos + 24 &&
 								p.y + p.height/2 > DeSoGhost.yPos && p.y - p.height/2 < DeSoGhost.yPos + 24) {
 								if (!DeSoGhost.ghostMode && DeSoGhost.phantomFormTimer <= 0) {
-									DeSoGhost.alive = false;
-									if (window.emitBossCollision) window.emitBossCollision();
+									// 02/09/2026: projétil inimigo agora tira 1 Vitalidade em vez de matar
+									// na hora; emitBossCollision seguia disparando sempre aqui (mantido).
+									DeSoGhost.takeDamage(1, true);
 								}
 								var _fx = createExplosionEffect(p.x, p.y, "#FF3366", 6); if (_fx) g_visualEffects.push(_fx);
 								g_projectiles.splice(i, 1);
@@ -2232,6 +2303,57 @@
 				g_ctx.moveTo(0, g_canvas.height - 35);
 				g_ctx.lineTo(g_canvas.width, g_canvas.height - 35);
 				g_ctx.stroke();
+
+				// ==== Barra de Vitalidade (HP do jogador, 02/09/2026) ====
+				// Mesma técnica visual das barras de HP dos inimigos (ver c_Boss.draw(), ~linha 1010):
+				// fundo preto (borda) -> preenchimento vermelho escuro (vazio) -> preenchimento verde
+				// (atual) por cima, os três como fillRect concêntricos. Fica em HUD fixa (não segue o
+				// sprite no mundo, ao contrário da barra de inimigo) porque precisa do rótulo "VITALITY"
+				// sempre legível — o sprite do jogador é 24x24px, não cabe texto nenhum do lado dele.
+				// 3 estados: cheia (verde parado), dano recente (flash branco + barra "fantasma" clara
+				// que esvazia suave até o valor real — efeito "chip damage"), crítica (<=34%: preenchimento
+				// pulsa entre vermelho e vermelho-claro via Date.now(), mesmo idioma de pulso já usado em
+				// outros lugares do HUD, ex. flash do Level Up e do boss em Phantom Form).
+				if (typeof DeSoGhost !== 'undefined' && DeSoGhost) {
+					var vitBarX = 10, vitBarY = g_canvas.height - 34, vitBarW = 130, vitBarH = 8;
+					var maxVit = DeSoGhost.maxVitality > 0 ? DeSoGhost.maxVitality : 3;
+					var curVit = Math.max(0, DeSoGhost.vitality || 0);
+					var dispVit = DeSoGhost.vitalityDisplayed !== undefined ? DeSoGhost.vitalityDisplayed : curVit;
+					var vitPct = Math.max(0, Math.min(1, curVit / maxVit));
+					var vitDispPct = Math.max(0, Math.min(1, dispVit / maxVit));
+					var vitCritical = vitPct > 0 && vitPct <= 0.34;
+
+					g_ctx.fillStyle = "#000000";
+					g_ctx.fillRect(vitBarX, vitBarY, vitBarW, vitBarH);
+					g_ctx.fillStyle = "#8B0000";
+					g_ctx.fillRect(vitBarX + 1, vitBarY + 1, vitBarW - 2, vitBarH - 2);
+
+					// Barra "fantasma": sobra clara entre o valor exibido (atraso suave) e o real, só
+					// aparece na fração de segundo em que os dois divergem (acabou de tomar dano).
+					if (vitDispPct > vitPct) {
+						g_ctx.fillStyle = "rgba(255, 210, 60, 0.85)";
+						g_ctx.fillRect(vitBarX + 1, vitBarY + 1, Math.floor(vitDispPct * (vitBarW - 2)), vitBarH - 2);
+					}
+
+					var vitFillColor = "#00FF00";
+					if (vitCritical) {
+						var pulse = (Math.sin(Date.now() / 130) + 1) / 2; // 0..1
+						vitFillColor = "rgb(" + Math.floor(200 + pulse * 55) + ",30,30)";
+					}
+					g_ctx.fillStyle = vitFillColor;
+					g_ctx.fillRect(vitBarX + 1, vitBarY + 1, Math.floor(vitPct * (vitBarW - 2)), vitBarH - 2);
+
+					// Flash branco de "acabou de tomar dano" por cima de tudo, só por algumas frames.
+					if (DeSoGhost.vitalityFlashTimer > 0) {
+						g_ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+						g_ctx.fillRect(vitBarX, vitBarY, vitBarW, vitBarH);
+					}
+
+					g_ctx.font = "bold 9px 'Courier New'";
+					g_ctx.fillStyle = vitCritical ? "#FF5555" : "#FFFFFF";
+					g_ctx.textAlign = "left";
+					g_ctx.fillText("VITALITY", vitBarX + vitBarW + 6, vitBarY + vitBarH);
+				}
 
 				g_ctx.font = "bold 18px 'Courier New'"; g_ctx.fillStyle = "#FF00FF";
 				
@@ -3352,6 +3474,10 @@
 				DeSoGhost.lives = 3; DeSoGhost.alive = true;
 				DeSoGhost.collectedLives = 0;
 				DeSoGhost.collectedBlueDiamonds = 0;
+				// Jogo novo (ou reinício após Game Over) também começa com Vitalidade cheia.
+				DeSoGhost.vitality = DeSoGhost.maxVitality || 3;
+				DeSoGhost.vitalityDisplayed = DeSoGhost.vitality;
+				DeSoGhost.vitalityFlashTimer = 0;
 
 				DeSoGhost.xPos = 48; DeSoGhost.yPos = 150;
 				DeSoGhost.jumpNum = 0; DeSoGhost.jumpCounter = 0;
