@@ -116,10 +116,11 @@
 //    "episode_entry" (computePoiBounds()), em vez de escanear o grid procurando
 //    'L'. Confirmado que os números batem exatamente com o que já existia
 //    (globalCol=42/globalRow=42, footprint 3x3 -> mesmo minRow/maxRow/minCol/
-//    maxCol que a varredura antiga encontrava) — este estágio ainda roda em
-//    grid local 0-84 (globalCol/globalRow do POI SÃO col/row locais por
-//    enquanto; a migração de verdade pra coordenadas globais de cidade é o
-//    Estágio 3 do plano, não este arquivo). Consumido por
+//    maxCol que a varredura antiga encontrava) — quando este bloco foi escrito o
+//    módulo ainda rodava em grid local 0-84; a migração pra coordenadas globais
+//    de cidade é o Estágio 3, concluído depois (ver bloco de atualização mais
+//    abaixo — S.playerCol/Row, isWalkable() e o loop de render() já leem/geram
+//    coordenada global hoje). Consumido por
 //    js/web2/game_core.js:549, js/game/ghostdex_ui.js:515 e js/game/engine.js
 //    (spawn padrão e retorno do Episódio 1 na morte/vitória/porta manual) —
 //    nenhum desses três arquivos precisou mudar.
@@ -138,6 +139,48 @@
 //    Beltrão' — mesmo conteúdo, fonte diferente. TOWER_HEIGHT (extrusão em Z,
 //    puramente visual) e o restante do item 2 da nota acima (nomes de rua por
 //    CÉLULA ainda não existem no dado) continuam válidos, sem mudança.
+// ============================================================================
+//
+// ATUALIZAÇÃO 03/09/2026 (Estágio 3 do plano crystalline-launching-goose.md) —
+// migração pra coordenadas globais, ainda um chunk só. Deliberadamente invisível
+// pro jogador (mesmo spawn, mesma torre, mesma câmera) — é realinhamento de
+// contrato interno, não uma feature nova. Três decisões documentadas aqui:
+//
+// 1) GRID_URL trocado de 'data/niteroi_overworld_grid.json' (legado, Estágio 1)
+//    pra 'data/overworld/chunks/0_0.json' (gerado no Estágio 4). Confirmado
+//    byte-a-byte que `grid.rows` dos dois arquivos é idêntico — a única diferença
+//    real é que o chunk carrega `_meta.grid.chunkOriginGlobalCol/Row` (0,0), que é
+//    o dado que faltava pra este módulo saber onde o chunk carregado fica na
+//    cidade inteira. O arquivo legado não foi apagado (fora de escopo deste
+//    estágio; pode ficar como histórico/fallback de outro consumidor não
+//    rastreado), só parou de ser lido por este módulo.
+//
+// 2) S.playerCol/playerRow (e toda variável derivada: playerDrawCol/Row,
+//    playerPrevCol/Row) DEIXAM DE SER LOCAIS (0-84) e passam a representar
+//    coordenada GLOBAL de tile na cidade inteira — mesmo espaço que pois.json já
+//    usava desde o Estágio 2. Duas funções novas fazem a ponte entre esse espaço
+//    global e o array local `S.rows` que continua sendo o único jeito de ler o
+//    conteúdo de um chunk: globalToLocalCol/Row (global -> índice em S.rows) e
+//    localToGlobalCol/Row (o inverso), ambas logo acima de isWalkable() — ver ali
+//    pra detalhe. `isWalkable()` passou a receber coordenada GLOBAL e converter
+//    internamente antes de indexar S.rows; o loop de culling em render() itera em
+//    local (pra bater com os índices de S.rows) mas empurra pra `drawables` a
+//    coordenada GLOBAL de cada tile (via localToGlobalCol/Row), pra ficar no MESMO
+//    espaço que o jogador (S.playerDrawCol/Row) e os POIs (poi.globalCol/globalRow)
+//    já usam em gridToScreen()/isInsidePoiFootprint() — sem essa unificação, a
+//    projeção de tela e a checagem de footprint de POI ficariam comparando
+//    coordenadas de dois sistemas diferentes assim que um segundo chunk (offset
+//    != 0,0) entrasse em jogo no Estágio 5.
+//
+// 3) POR QUE ISSO NÃO MUDA NADA NA TELA: com um único chunk carregado, o chunk
+//    (0,0), `chunkOriginGlobalCol/Row = 0,0` (ver manifest.json) — então
+//    global = local + 0 em todo lugar, numericamente idêntico ao comportamento de
+//    antes. O ganho deste estágio é só arquitetural: preparação pro Estágio 5
+//    (streaming de múltiplos chunks, cada um com seu próprio offset != 0,0), que
+//    depende de todo o pipeline col/row já tratar posição como global em vez de
+//    reintroduzir a mesma migração sob pressão depois. `server/index.js` também
+//    mudou (`OVERWORLD_GRID_MIN/MAX`, ver comentário lá) — bound provisório mais
+//    largo, não a validação real por chunk (isso é Estágio 6, via manifest.json).
 // ============================================================================
 
 (function () {
@@ -158,7 +201,15 @@
     var CAMERA_HALF_LIFE_S = 0.1;
     var CAMERA_LERP_K = Math.pow(0.5, 1 / CAMERA_HALF_LIFE_S); // k tal que k^CAMERA_HALF_LIFE_S = 0.5
 
-    var GRID_URL = 'data/niteroi_overworld_grid.json';
+    // Estágio 3 do plano (coordenadas globais) — troca o arquivo legado
+    // 'data/niteroi_overworld_grid.json' pelo chunk real 'data/overworld/chunks/0_0.json'
+    // gerado no Estágio 4. Confirmado byte-a-byte antes da troca (script Node ad-hoc): os
+    // dois têm EXATAMENTE o mesmo `grid.rows` — a única diferença é que o chunk ganha
+    // `_meta.grid.chunkOriginGlobalCol/Row` (0,0), que é precisamente o dado que faltava
+    // pra este módulo converter local<->global (ver loadGrid() e as funções
+    // localToGlobalCol/Row/globalToLocalCol/Row logo abaixo de isWalkable()). Zero mudança
+    // de comportamento observável: mesmo grid, mesma torre, mesmo spawn.
+    var GRID_URL = 'data/overworld/chunks/0_0.json';
     // Estágio 2 do plano de overworld expansível (POI data-driven) — ver
     // C:\Users\Klara\.claude\plans\crystalline-launching-goose.md §4. Carregado em
     // paralelo ao grid no boot (loadPois(), abaixo de loadGrid()); os dois precisam
@@ -180,8 +231,26 @@
         loaded: false,          // true quando grid E pois terminaram de carregar (finalizeLoadIfReady)
         pendingActivate: null, // {x,y} se ActivateOverworld foi chamado antes do fetch terminar
 
-        playerCol: 0,        // LÓGICO/autoritativo — inteiro. Única fonte pra isWalkable()/
-        playerRow: 0,        // checkPoiInteractions() (ver tryMove()). NUNCA leia playerDrawCol/Row pra isso.
+        // Estágio 3 (plano crystalline-launching-goose.md §1) — origem global do ÚNICO
+        // chunk hoje carregado, lida de data._meta.grid.chunkOriginGlobalCol/Row em
+        // loadGrid() (chunk (0,0) => sempre 0,0 nesta rodada). Junto com S.dim, define a
+        // janela [chunkOriginGlobalCol, chunkOriginGlobalCol+S.dim) que este único chunk
+        // cobre em coordenadas globais — ver localToGlobalCol/Row/globalToLocalCol/Row
+        // logo abaixo de isWalkable(). Default 0/0 aqui é só defensivo (chunk sem esse
+        // campo no _meta) — nunca fica sem valor depois que loadGrid() resolve.
+        chunkOriginGlobalCol: 0,
+        chunkOriginGlobalRow: 0,
+
+        // GLOBAIS desde o Estágio 3 (antes eram locais ao único arquivo de grid, 0-84) —
+        // toda a cidade compartilha o mesmo sistema de coordenadas, não só este chunk.
+        // Continuam sendo a fonte LÓGICA/autoritativa (inteiros) pra isWalkable()/
+        // checkPoiInteractions() (ver tryMove()) — NUNCA leia playerDrawCol/Row pra isso.
+        // Numericamente idênticas às antigas coordenadas locais enquanto só o chunk (0,0)
+        // existir (chunkOriginGlobalCol/Row = 0,0) — a partir do Estágio 5 (streaming de
+        // múltiplos chunks) deixam de coincidir por acidente e passam a depender de
+        // verdade da conversão local<->global.
+        playerCol: 0,
+        playerRow: 0,
 
         // ---- Estágio 1 (câmera lerp + movimento interpolado) — só visual -------
         // playerPrevCol/Row = tile de onde o passo lógico atual partiu; junto com
@@ -289,6 +358,11 @@
     }
 
     // ---- Contrato público (preenchido incrementalmente abaixo) -------------
+    // playerGridX/Y são GLOBAIS desde o Estágio 3 (mesmo valor de S.playerCol/Row,
+    // espelhado em syncPublicState()) — contrato de campo/nome não mudou pros
+    // consumidores (js/game/network.js manda isso pro servidor via overworld_move
+    // sem interpretar o número; server/index.js só valida faixa, ver
+    // OVERWORLD_GRID_MIN/MAX), só o SIGNIFICADO do valor.
     window.OverworldState = { playerGridX: 0, playerGridY: 0, isActive: false };
     window.OverworldTowerGridPos = null;
 
@@ -307,6 +381,14 @@
                 // _meta, pra nunca dessincronizar se o grid for regenerado em outro tamanho.
                 S.rows = data.grid.rows;
                 S.dim = S.rows.length;
+                // Estágio 3 — origem global do chunk, lida do próprio arquivo (nunca
+                // hardcoded aqui: chunks futuros do Estágio 5 vão trazer offsets != 0,0,
+                // e este módulo não deve saber de antemão qual chunk está carregando).
+                // Fallback 0/0 só cobre um chunk antigo/malformado sem o campo — nunca
+                // deveria disparar contra os arquivos reais de data/overworld/chunks/.
+                var meta = data._meta && data._meta.grid;
+                S.chunkOriginGlobalCol = (meta && typeof meta.chunkOriginGlobalCol === 'number') ? meta.chunkOriginGlobalCol : 0;
+                S.chunkOriginGlobalRow = (meta && typeof meta.chunkOriginGlobalRow === 'number') ? meta.chunkOriginGlobalRow : 0;
                 S.gridLoaded = true;
                 finalizeLoadIfReady();
             })
@@ -359,10 +441,13 @@
 
     // Estágio 2 — substitui a antiga computeLandmarkBounds() (que varria o grid
     // procurando 'L'). Leitura direta do POI carregado: cada POI ganha um retângulo
-    // de footprint em coordenadas de grid — ainda LOCAL (0-84) neste estágio, porque
-    // globalCol/globalRow do POI equivalem a col/row local enquanto só existir o
-    // chunk (0,0) (ver plano, "Estágio 2 ainda em grid local"; Estágio 3 é quem migra
-    // isso pra coordenadas globais de verdade). window.OverworldTowerGridPos continua
+    // de footprint em coordenadas GLOBAIS (poi.globalCol/globalRow, tratados como já
+    // estando no espaço certo desde que pois.json foi escrito no Estágio 2 — ver plano
+    // §4). Estágio 3 (concluído) migrou S.playerCol/Row e o grid pra esse mesmo espaço
+    // global (ver globalToLocalCol/Row/localToGlobalCol/Row acima de isWalkable()), então
+    // esta função em si não precisou mudar — já lia poi.globalCol/globalRow direto, sem
+    // nenhuma conversão local no meio. Numericamente idêntico a antes enquanto só existir
+    // o chunk (0,0) (origem global 0,0). window.OverworldTowerGridPos continua
     // vindo do POI cujo interaction.kind é "episode_entry" — mesmo contrato de antes,
     // consumido por js/web2/game_core.js:549, js/game/ghostdex_ui.js:515 e
     // js/game/engine.js (spawn/retorno do Episódio 1).
@@ -410,10 +495,30 @@
         window.OverworldTowerGridPos = { gridX: S.entryPoi._bounds.centerCol, gridY: S.entryPoi._bounds.centerRow };
     }
 
-    function isWalkable(col, row) {
+    // Estágio 3 — conversão local<->global. Local = índice dentro de S.rows (0..S.dim-1,
+    // o único sistema de coordenadas que existia antes deste estágio); global = coordenada
+    // de tile na cidade inteira (o que S.playerCol/Row, POIs e a rede agora usam). Com um
+    // único chunk carregado, chunkOriginGlobalCol/Row = 0,0 (ver manifest.json, chunk 0_0),
+    // então as duas funções são a identidade na prática hoje — mas todo código abaixo passa
+    // por elas mesmo assim, em vez de presumir "global == local", porque essa é exatamente a
+    // costura que o Estágio 5 (streaming de múltiplos chunks, cada um com seu próprio
+    // offset) precisa encontrar já pronta.
+    function globalToLocalCol(globalCol) { return globalCol - S.chunkOriginGlobalCol; }
+    function globalToLocalRow(globalRow) { return globalRow - S.chunkOriginGlobalRow; }
+    function localToGlobalCol(localCol) { return S.chunkOriginGlobalCol + localCol; }
+    function localToGlobalRow(localRow) { return S.chunkOriginGlobalRow + localRow; }
+
+    // col/row aqui são GLOBAIS (Estágio 3) — convertidos pra local antes de indexar
+    // S.rows. Fora da faixa do único chunk carregado = não-andável, mesmo comportamento
+    // observável de antes (que bloqueava nas bordas do grid local 0-84; a diferença é só
+    // que agora a checagem é "fora do chunk carregado", não "fora do grid" — preparação
+    // pro Estágio 5, que vai trocar isto por "fora da janela 3x3 de chunks carregados").
+    function isWalkable(globalCol, globalRow) {
         if (!S.rows) return false;
-        if (row < 0 || row >= S.dim || col < 0 || col >= S.dim) return false;
-        return S.rows[row][col] !== '#';
+        var localCol = globalToLocalCol(globalCol);
+        var localRow = globalToLocalRow(globalRow);
+        if (localRow < 0 || localRow >= S.dim || localCol < 0 || localCol >= S.dim) return false;
+        return S.rows[localRow][localCol] !== '#';
     }
 
     // Substitui a antiga isInsideLandmark(col,row) (que só conhecia a torre). Agora
@@ -940,20 +1045,29 @@
         var rowSpan = Math.ceil((canvas.height / 2) / HALF_H) + 3;
         var R = colSpan + rowSpan;
 
-        var minRow = Math.max(0, S.playerRow - R);
-        var maxRow = Math.min(S.dim - 1, S.playerRow + R);
-        var minCol = Math.max(0, S.playerCol - R);
-        var maxCol = Math.min(S.dim - 1, S.playerCol + R);
+        // Estágio 3 — S.playerRow/Col são GLOBAIS; convertidos pra LOCAL aqui só pra
+        // limitar o laço aos índices reais de S.rows (0..S.dim-1, o único chunk
+        // carregado). Cada tile visitado é convertido de volta pra GLOBAL (via
+        // localToGlobalCol/Row) antes de entrar em `drawables`, pra ficar no mesmo
+        // espaço de coordenadas que o jogador/POIs — ver bloco de atualização
+        // 03/09/2026 no topo do arquivo.
+        var playerLocalCol = globalToLocalCol(S.playerCol);
+        var playerLocalRow = globalToLocalRow(S.playerRow);
+        var minRowLocal = Math.max(0, playerLocalRow - R);
+        var maxRowLocal = Math.min(S.dim - 1, playerLocalRow + R);
+        var minColLocal = Math.max(0, playerLocalCol - R);
+        var maxColLocal = Math.min(S.dim - 1, playerLocalCol + R);
 
         var drawables = [];
-        for (var r = minRow; r <= maxRow; r++) {
+        for (var r = minRowLocal; r <= maxRowLocal; r++) {
             var rowStr = S.rows[r];
-            for (var c = minCol; c <= maxCol; c++) {
+            for (var c = minColLocal; c <= maxColLocal; c++) {
                 var ch = rowStr[c];
                 // Prédios desativados (item 1 da nota de arquitetura no topo do arquivo) —
                 // célula '#' nem entra no array de depth-sort, só 'street'/'landmark' desenham.
                 if (ch === '#') continue;
-                drawables.push({ key: r + c, type: 'tile', row: r, col: c, ch: ch });
+                var gRow = localToGlobalRow(r), gCol = localToGlobalCol(c);
+                drawables.push({ key: gRow + gCol, type: 'tile', row: gRow, col: gCol, ch: ch });
             }
         }
 
@@ -1065,7 +1179,7 @@
     }
 
     function tryMove(dc, dr, now) {
-        var nc = S.playerCol + dc, nr = S.playerRow + dr;
+        var nc = S.playerCol + dc, nr = S.playerRow + dr; // GLOBAL desde o Estágio 3 — isWalkable() converte pra local internamente.
         if (!isWalkable(nc, nr)) return false; // bloqueia contra 'block', permite 'street'/'landmark' — LÓGICO, decide antes de qualquer coisa visual existir pra este passo.
         // Estágio 1: guarda de onde o passo lógico partiu — origem do lerp visual
         // (playerDrawCol/Row, calculado em render()) até o novo playerCol/Row, ao

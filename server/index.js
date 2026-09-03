@@ -71,9 +71,32 @@ const TICK_RATE = 30;
 // 2) Grid 85x85 (0-84 em cada eixo, ver briefing da tarefa) — mesmo padrão de faixa plausível já
 //    usado em NUMERIC_BOUNDS (server/db.js), só que aqui exige INTEIRO (tile de grid não existe
 //    fracionado, diferente de xp/score que aceitam DOUBLE PRECISION).
+//
+// ATUALIZAÇÃO 03/09/2026 (Estágio 3 do plano crystalline-launching-goose.md, overworld
+// expansível) — bounds 0-84 acima eram do MODELO ANTIGO (grid local a um único arquivo).
+// js/game/overworld.js migrou pra coordenadas GLOBAIS de cidade neste estágio (col/row que
+// o cliente manda em overworld_move deixam de ser "posição dentro do arquivo" e passam a
+// ser "posição na cidade inteira"); 0-84 rejeitaria em silêncio qualquer chunk que não seja
+// o (0,0) assim que o Estágio 5 (streaming de múltiplos chunks) começar a rodar. Isso NÃO É
+// "sem validação" — é um bound PROVISÓRIO mais largo, escolhido com escala real, não um
+// número arbitrário:
+//   - Niterói (a cidade inteira que este overworld representa, ver manifest.json/plano §4)
+//     tem uma extensão real de aproximadamente 20km na maior dimensão. Com
+//     tile_size_m=10 (data/overworld/manifest.json), isso equivale a ~2000 tiles a partir
+//     da origem (Rua Doutor Beltrão, chunk 0,0) em qualquer direção.
+//   - chunkX/chunkY são assinados por design (plano §1: bairros a noroeste/sudoeste da
+//     origem exigem offset negativo) — o bound abaixo é SIMÉTRICO (permite negativo) por
+//     esse motivo, mesmo que nenhum chunk com offset negativo exista ainda.
+//   - Ainda REJEITA valores implausíveis (ex.: um cliente forjado mandando 999999999) —
+//     continua sendo proteção anti-cheat de verdade, só que dimensionada pra cidade
+//     inteira em vez de um único arquivo de 850m.
+// NÃO é a validação final: a validação real (coordenada cai dentro de algum chunk que de
+// fato existe em manifest.json, carregado pelo servidor no boot) é trabalho do Estágio 6,
+// ainda não implementado — isto aqui é só uma rede de segurança mais larga pra não quebrar
+// nada enquanto isso não chega, não um substituto dela.
 const OVERWORLD_TICK_RATE = 10;
-const OVERWORLD_GRID_MIN = 0;
-const OVERWORLD_GRID_MAX = 84;
+const OVERWORLD_GRID_MIN = -2000;
+const OVERWORLD_GRID_MAX = 2000;
 
 function isPlausibleGridCoord(value) {
     return Number.isInteger(value) && value >= OVERWORLD_GRID_MIN && value <= OVERWORLD_GRID_MAX;
