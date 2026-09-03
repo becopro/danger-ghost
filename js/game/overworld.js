@@ -314,6 +314,197 @@
 //    0_0. Nada em overworld.js precisou mudar pra isso (computePoiBounds() já lê
 //    globalCol/globalRow do POI, não um valor hardcoded).
 // ============================================================================
+//
+// ATUALIZAÇÃO 2026-09-03 (input de movimento + orientação do avatar) — pedido do
+// usuário: vetor de movimento a partir do input, sprite sempre virado pro eixo
+// real do movimento (incl. diagonal), pose idle mantém a última orientação ao
+// parar. Investigação honesta ANTES de escrever qualquer coisa, porque o pedido
+// falava em "animações diagonais" e isso só é implementável de verdade se o
+// asset permitir:
+//
+// 1) QUANTAS DIREÇÕES DE SPRITE EXISTEM DE VERDADE HOJE: NENHUMA (nem
+//    esquerda/direita como dois arquivos). Confirmado lendo
+//    js/game/ghostdex_ui.js:PlayAsGhost() → safeLoadGhostSprite() carrega UMA
+//    única imagem e faz `window.g_customPlayerGhostRight = loadedImg;
+//    window.g_customPlayerGhostLeft = loadedImg;` — a MESMA referência de objeto
+//    Image nos dois. Não existe um segundo arquivo "olhando pra esquerda" em
+//    Ghosts/. O jeito real de "virar" o fantasma pra esquerda, usado hoje em
+//    js/game/engine.js (linhas ~1205-1229 e ~3765-3796, Episódio 1), é espelhar a
+//    MESMA imagem em runtime via `ctx.scale(-1, 1)` (canvas transform), nunca um
+//    frame de arte separado. Não existe QUALQUER frame de cima/baixo/diagonal —
+//    a hipótese do pedido (motor vem de um platformer 2D lateral, só
+//    direita/esquerda por flip) bateu exatamente com o código real. Isto
+//    descarta de vez a opção de "mapear 8 direções de verdade": não tem com o
+//    que mapear.
+//
+// 2) DECISÃO TOMADA — opção (a) do pedido (aproximação com o que existe), NÃO a
+//    (b) (indicador visual auxiliar tipo seta/partícula): flip horizontal
+//    esquerda/direita (mesma técnica translate+scale(-1,1) de engine.js,
+//    replicada em drawGhostBillboard()) combinado com a posição REAL no grid
+//    isométrico (que já é 2 eixos, col/row) — SEM inventar rotação/inclinação
+//    do sprite nem elemento visual novo. "Animação diagonal" nesta
+//    implementação significa isto: o sprite mostra o flip esquerda/direita que
+//    o movimento produziu, a posição no grid é exata (sem sprite dedicado por
+//    direção), nada além disso. Por quê (a) e não (b): (b) adicionaria um
+//    elemento visual novo (seta/partícula/inclinação) que o usuário não pediu
+//    explicitamente e que competiria com a estética "mapa AR" já elogiada pelo
+//    usuário nesta sessão (ver ATUALIZAÇÃO 02/09/2026 item 4) — reaproveitar a
+//    ÚNICA técnica de orientação que o resto do jogo já usa (flip) é mais
+//    honesto e mais consistente visualmente do que inventar uma linguagem
+//    visual nova só pro overworld.
+//
+// 3) POR QUE FLIP ESQUERDA/DIREITA (não cima/baixo) BASTA PRA TODAS AS 4
+//    DIREÇÕES DE TECLA, mesmo sem sprite vertical: nesta projeção 2:1
+//    (gridToScreen: x=(col-row)*HALF_W, y=(col+row)*HALF_H), um passo puro num
+//    ÚNICO eixo do grid (dc=±1,dr=0 OU dc=0,dr=±1— as 4 teclas de sempre) NUNCA
+//    produz um vetor de TELA puramente vertical: screenDx=(dc-dr)*HALF_W é
+//    sempre ±HALF_W (nunca 0) nesses 4 casos, então o sinal de screenDx já
+//    resolve o flip sozinho pras 4 direções de tecla que sempre existiram aqui.
+//    O caso screenDx==0 (tela puramente vertical) SÓ aparece com um passo
+//    diagonal de verdade no grid (dc=dr=+1 ou dc=dr=-1, ver item 4) — regra (a)
+//    do pedido do usuário ("dx==0 com dy≠0 → mantém a última orientação
+//    horizontal") resolve exatamente esse caso, implementada em tryMove().
+//
+// 4) VETOR DE MOVIMENTO (dx,dy do pedido = dc,dr neste módulo, espaço de GRID —
+//    x/y já é usado pra espaço de TELA em gridToScreen, então manter o nome
+//    dc/dr evita ambiguidade): currentInputDelta() (antigo) só devolvia a
+//    PRIMEIRA tecla de direção encontrada num `for...in` — segurar duas teclas
+//    de eixos diferentes ao mesmo tempo (ex.: ArrowUp+ArrowRight) NUNCA produzia
+//    diagonal, só a primeira. Substituído por currentInputVector(): soma cada
+//    eixo (dc de A/D/setas, dr de W/S/setas) independentemente, então segurar
+//    duas teclas de eixos diferentes agora produz dc E dr não-nulos no mesmo
+//    passo — diagonal de grid de verdade, não simulada. Teclas opostas do MESMO
+//    eixo seguradas juntas (ex. Up+Down) cancelam pro próprio eixo (v=0),
+//    comportamento padrão de input 8-direcional. TOQUE: confirmado via busca
+//    (nenhum handler touch/pointer neste arquivo) que o overworld não tem
+//    controle de toque hoje — só teclado existe pra refatorar; adicionar toque
+//    não foi pedido explicitamente aqui e fica fora de escopo desta passada.
+//
+// 5) S.facingDir/S.facingRight (substituem S.lastDir, que já existia mas nunca
+//    era lido em lugar nenhum — dead code puro, o comentário original dizia
+//    "pra desenhar o marcador virado pra algum lado" mas nada consumia isso;
+//    drawGhostBillboard() desenhava sem NENHUM flip, direção nenhuma, sempre a
+//    mesma pose). Atualizados SÓ dentro de tryMove(), SÓ quando o passo
+//    realmente muda de tile (isWalkable já retornou true) — não no input cru.
+//    Isto é a peça central do critério "nunca desliza": se a orientação
+//    mudasse no keydown (intenção) em vez de no passo lógico bem-sucedido
+//    (resultado real), um jogador segurando direção contra uma parede veria o
+//    sprite virar sem o pé sair do lugar — dessincronia entre posição e rosto,
+//    exatamente o "deslizar" que o critério de aceite proíbe. Nunca resetado
+//    em nenhum outro lugar do módulo (nem em activateNow/spawn) — parar de
+//    andar simplesmente para de chamar tryMove(), então facingDir/facingRight
+//    retêm o último valor real, cumprindo o item 3 do pedido (pose idle mantém
+//    a última orientação, não uma direção padrão) de graça, sem lógica extra.
+//
+// 6) ESCOPO: só o jogador LOCAL ganha flip nesta passada (drawGhostBillboard()
+//    ganhou um parâmetro `facingRight` novo, mas o call site de OUTROS
+//    jogadores passa `undefined` de propósito, preservando o desenho sem flip
+//    de antes) — o payload de rede `overworld_players_update` não carrega
+//    nenhum dado de orientação (mesma limitação já documentada no item 3 da
+//    nota de arquitetura de 02/09/2026 sobre o sufixo "(#ID)"), e o pedido do
+//    usuário fala em "controlador de input" e "o sprite do personagem", que é
+//    o avatar controlado por este cliente. Dar a mesma orientação a jogadores
+//    remotos exigiria inferir de deltas de posição de rede (dado que ATÉ
+//    existe em S.otherPlayersDraw) ou mudar o payload do servidor — deixado
+//    como possível trabalho futuro, não implementado aqui pra não expandir o
+//    escopo pedido nem arriscar tocar em código de render compartilhado com o
+//    agente que está mexendo em zoom/câmera no mesmo arquivo nesta sessão.
+// ============================================================================
+//
+// ATUALIZAÇÃO 2026-09-03 (zoom + camadas de render, LOD) — pedido do usuário:
+// zoom in/out escalando a matriz do canvas, camadas separadas (chão/POI/
+// construções), regra de macro-visão (zoom out) e micro-visão (zoom in).
+// Também corrigido um bug pré-existente que impedia qualquer teste (ver item 0).
+//
+// 0) BUG PRÉ-EXISTENTE CORRIGIDO, NÃO INTRODUZIDO NESTA PASSADA: loop() chamava
+//    currentInputDelta(), função que não existe mais neste arquivo desde a
+//    refatoração de vetor de movimento (bloco "input de movimento" acima, item
+//    4) — foi renomeada pra currentInputVector() mas o call site em loop() não
+//    foi atualizado junto. Efeito real: toda ativação do overworld lançava
+//    ReferenceError dentro do callback de requestAnimationFrame já no 1º frame
+//    (sem try/catch em volta, isso mata o loop inteiro — a linha final
+//    `S.rafId = requestAnimationFrame(loop)` nunca era alcançada), ou seja: ZERO
+//    frames desenhados depois de ActivateOverworld(). Confirmado com grep antes
+//    de mexer (só existia definição de currentInputVector, nenhuma de
+//    currentInputDelta). Corrigido só trocando o nome da chamada — ver comentário
+//    inline em loop().
+//
+// 1) SEMÂNTICA DE S.zoomLevel — fator multiplicador (maior = zoom in, tiles
+//    maiores; menor = zoom out, tiles menores), zoomLevel=1 idêntico ao
+//    tamanho de sempre (TILE_W=64/TILE_H=32, zero regressão visual pra quem
+//    não mexe no zoom). AMBIGUIDADE REAL com o texto do pedido, documentada em
+//    detalhe junto às constantes ZOOM_* (perto de TILE_W/HALF_W, topo do
+//    arquivo): o pedido descreve a regra de zoom-out como "ACIMA de um
+//    S.zoomLevel limiar" e zoom-in como "ABAIXO" — o oposto da relação natural
+//    de um FATOR MULTIPLICADOR da projeção (que é o que o próprio pedido pede
+//    literalmente na frase anterior). Resolvido a favor da convenção universal
+//    (Google Maps, Leaflet, câmera de qualquer engine: valor maior = mais
+//    perto) — ver relatório desta sessão pro usuário confirmar se a intenção
+//    original era a inversa.
+//
+// 2) INPUT: scroll do mouse (roda, `wheel` no canvas do overworld, não em
+//    `window` — não captura scroll da página quando o overworld não está em
+//    foco) + teclas '+'/'=' e '-'/'_' (mesmo padrão de robustez de layout que
+//    AXIS_KEYS já usa pro WASD). As duas formas de input coexistem, sem
+//    conflito (nenhuma tecla de zoom sobrepõe ALL_MOVE_KEYS). Ver
+//    attachInput()/detachInput() — anexado/removido junto com o teclado de
+//    movimento, mesmo ciclo de vida.
+//
+// 3) MATEMÁTICA MANTIDA CONSISTENTE, NÃO ctx.scale() GLOBAL: gridToScreen()
+//    continua PURO (sem zoom embutido) de propósito — buildStreetPathsForChunk()
+//    pré-calcula screenPts UMA VEZ por chunk (não por frame, otimização já
+//    documentada antes desta mudança); se gridToScreen() multiplicasse por
+//    S.zoomLevel, esses pontos ficariam presos ao zoom do momento do fetch e
+//    nunca atualizariam depois. O zoom entra só em worldToScreen() (novo, logo
+//    abaixo de gridToScreen), no último passo antes de desenhar — mesmo lugar
+//    onde o offset de câmera (camOffsetX/Y) já era aplicado, só um fator a
+//    mais. screenToGrid() (inverso) foi adicionado pro "critério de aceite
+//    crítico" do pedido — investigado ANTES de escrever qualquer coisa: este
+//    módulo não tem nenhuma interação de clique/toque hoje (grep confirmou
+//    zero listener de mouse/pointer/touch antes desta passada), então não há
+//    nenhuma conversão tela→grid existente que pudesse quebrar. A função existe
+//    pronta pra quando um clique-em-POI for implementado, exposta read-only em
+//    window.OverworldDebug.screenToGrid pra validação via console (ver
+//    relatório).
+//
+// 4) TRÊS CAMADAS EXPLÍCITAS (item 2 do pedido): "chão" (drawStreetPavementFill
+//    + drawStreetCurves, dentro do bloco marcado "CAMADA DE CHÃO" em render()),
+//    "POI" (drawLandmarkGroundMarker + drawTower + drawTowerStreetLabel — fica
+//    DENTRO do laço de depth-sort único, não uma passada isolada, porque a
+//    torre é alta de verdade e precisa competir no sort com jogadores, skill
+//    isometric-canvas-rendering §2) e "construções" (drawBuildingsLayer(), no-op
+//    hoje — zero dado de prédio existe no projeto, ver comentário da própria
+//    função). Cada uma só roda condicionalmente conforme isMacroZoom() — ver
+//    item 5.
+//
+// 5) REGRA DE ZOOM OUT/IN (itens 3-4 do pedido): threshold ZOOM_MACRO_THRESHOLD
+//    = 0.75 (raciocínio completo junto à constante). Em visão macro
+//    (zoomLevel < threshold): para de desenhar preenchimento de pavimento
+//    por-célula e a camada de construções (vazia hoje, mas o gate já existe);
+//    a curva de rua fica visível mas SIMPLIFICADA (drawStreetCurves(...,
+//    simplified=true) — 1 traço fino sem casing/halo/gradiente, ver função);
+//    nome de rua individual desaparece, dá lugar a NOME DE BAIRRO por chunk
+//    carregado (drawNeighbourhoodLabels(), lido de
+//    manifest.json:chunks[].neighbourhood via S.manifestChunksByKey — dado que
+//    já existia, só não era consumido em lugar nenhum antes); o beacon da
+//    torre ganha um raio/blur fixo em px de tela em vez de escalar com o zoom
+//    (fica relativamente MAIOR conforme o mundo encolhe ao redor — item 4b do
+//    pedido, "considere aumentar tamanho/brilho relativo no zoom out"). Em
+//    visão micro (zoomLevel >= threshold): comportamento de sempre, cada
+//    elemento de mundo (rua, torre, sprite do fantasma) escala normalmente com
+//    S.zoomLevel; rótulos de UI (nome de rua, nome da torre, HUD de debug)
+//    continuam com fonte em px FIXO de tela em qualquer zoom (não encolhem/
+//    crescem com o mundo) — decisão de legibilidade, documentada em cada
+//    função de rótulo.
+//
+// 6) NÃO MEXI NO CONTROLADOR DE ORIENTAÇÃO DO JOGADOR: S.facingDir/
+//    S.facingRight/tryMove() (bloco anterior a este) continuam exatamente como
+//    estavam — a única mudança em código que os TOCA é a fórmula de POSIÇÃO de
+//    desenho do jogador em render() (screenS3 em vez de s3.x+camOffsetX), que
+//    LÊ S.facingRight sem alterá-lo, só passa o mesmo valor adiante pra
+//    drawGhostBillboard(). Testado ao vivo movendo o fantasma em várias
+//    direções em zoom in/out/intermediário — ver relatório desta sessão.
+// ============================================================================
 
 (function () {
     'use strict';
@@ -323,6 +514,55 @@
     var TILE_H = 32;
     var HALF_W = TILE_W / 2;
     var HALF_H = TILE_H / 2;
+
+    // ---- Zoom (adicionado 2026-09-03) ---------------------------------------
+    // DECISÃO DE SEMÂNTICA — S.zoomLevel é um FATOR MULTIPLICADOR da projeção
+    // (não um "nível de afastamento"), porque é isso que o pedido pede
+    // literalmente ("multiplicando a projeção isométrica por um fator
+    // S.zoomLevel"). Consequência direta e inevitável dessa escolha: quanto
+    // MAIOR o valor, MAIOR cada tile fica na tela = mais perto/zoom IN; quanto
+    // MENOR o valor, menor cada tile = mais longe/zoom OUT. zoomLevel=1 é o
+    // tamanho "de sempre" (64x32px por tile, TILE_W/TILE_H acima, sem nenhuma
+    // mudança visual pra quem nunca tocar no zoom) — importante pra não haver
+    // regressão visual silenciosa em nenhuma sessão existente.
+    //
+    // AMBIGUIDADE REAL COM O TEXTO DO PEDIDO, DOCUMENTADA AQUI (ver relatório
+    // final): o pedido descreve a regra de zoom-out como "ACIMA de um
+    // S.zoomLevel limiar" e a de zoom-in como "ABAIXO do limiar" — o oposto da
+    // semântica de fator multiplicador acima (nela, zoom-out = valor MENOR,
+    // não maior). Interpretar "acima/abaixo" ao pé da letra exigiria inverter
+    // a relação entre o número e o tamanho visual (dividir pela projeção em
+    // vez de multiplicar), o que contradiz a MESMA frase do pedido logo antes
+    // ("multiplicando a projeção... por um fator S.zoomLevel"). Resolvi a
+    // contradição a favor da semântica matemática consistente (multiplicar
+    // sempre; valor maior = zoom in), que é também a convenção universal de
+    // qualquer motor/mapa (Google Maps, Leaflet, Phaser câmera.zoom etc.) —
+    // documentado para o usuário revisar se a intenção original era a
+    // inversa.
+    var ZOOM_MIN = 0.5;      // mais zoom out possível (tiles a 50% do tamanho normal)
+    var ZOOM_MAX = 2.0;      // mais zoom in possível (tiles a 200%)
+    var ZOOM_DEFAULT = 1.0;  // idêntico ao comportamento anterior a esta mudança
+    // Limiar entre visão macro (zoom-out, §3 do pedido) e micro (zoom-in, §4).
+    // Escolhido em 0.75 (não o meio exato 1.25 do intervalo [0.5,2.0], nem o
+    // meio 1.0): o intervalo de zoom OUT útil é bem mais estreito que o de
+    // zoom IN (de 1.0 a 0.5 é só uma oitava; de 1.0 a 2.0 também é uma oitava,
+    // mas visualmente "zoom in" tem mais margem de leitura antes de precisar
+    // trocar de estratégia de desenho). 0.75 fica bem no meio do MEIO-CAMINHO
+    // logarítmico entre 0.5 e 1.0 (sqrt(0.5*1.0)≈0.707, arredondado pra 0.75
+    // por simplicidade), ou seja: metade do range de zoom-out já mostra a
+    // visão macro, dando espaço de sobra pra testar os dois modos com o
+    // scroll. Ajustável sem quebrar nada — só este número.
+    var ZOOM_MACRO_THRESHOLD = 0.75;
+    var ZOOM_WHEEL_FACTOR = 0.0016; // fator multiplicativo por unidade de deltaY da roda do mouse
+    var ZOOM_KEY_STEP = 0.15;       // incremento por toque de tecla +/-
+
+    function clampZoom(z) {
+        return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+    }
+    // "Visão macro" = zoom out além do limiar (ver ZOOM_MACRO_THRESHOLD acima).
+    function isMacroZoom() {
+        return S.zoomLevel < ZOOM_MACRO_THRESHOLD;
+    }
 
     // ---- Ruas como curva (ver ATUALIZAÇÃO 2026-09-03 no topo do arquivo) --------
     // TILE_SIZE_M precisa bater com data/overworld/manifest.json:tile_size_m (10) —
@@ -443,12 +683,19 @@
         moveStartAt: 0,       // ts (performance.now()) do início do passo lógico atual — só avança em tryMove() quando o passo REALMENTE muda de tile (nunca em tentativa bloqueada, senão o visual "salta pra trás" a cada tecla batendo na parede).
         camX: null,           // offset de câmera suavizado (screen-space). null = ainda não inicializado, força snap no próximo render — nunca desliza da posição da sessão/spawn anterior.
         camY: null,
+        zoomLevel: ZOOM_DEFAULT, // fator multiplicador da projeção (ver bloco ZOOM_* acima) — 1 = tamanho de sempre, sem regressão visual até o usuário mexer no scroll/tecla.
+        wheelHandler: null,      // referência pro listener de 'wheel' no canvas — anexado/removido junto com o teclado (attachInput/detachInput).
         lastRenderAt: 0,      // ts do frame anterior — só pra dt real da câmera (lerp independente de framerate).
         otherPlayersDraw: {}, // key (email||name) -> {prevCol,prevRow,targetCol,targetRow,drawCol,drawRow,moveStartAt} — mesmo tratamento de interpolação aplicado aos jogadores remotos. Duração aproximada por stepIntervalMs: o cliente não conhece o tick exato do broadcast do servidor (OVERWORLD_TICK_RATE vive em server/index.js) — formalizar isso é trabalho do Estágio 6 do plano, fora de escopo aqui.
 
         insidePoiIds: {},    // poi.id -> bool, borda de entrada por POI (Estágio 2, generaliza o
                               // antigo insideLandmark: dispara a interação só na transição fora->dentro)
-        lastDir: { dc: 0, dr: 1 }, // pra desenhar o marcador do jogador virado pra algum lado
+
+        // ---- Orientação do avatar (ver ATUALIZAÇÃO 2026-09-03 item 5 no topo do
+        // arquivo) — substitui o antigo S.lastDir (nunca lido por render()). Só
+        // escrito em tryMove(), num passo que REALMENTE mudou de tile.
+        facingDir: { dc: 0, dr: 1 },  // último vetor de GRID (dc,dr) que causou um passo bem-sucedido — guardado bruto, hoje só pra debug/futuro (render só consome facingRight).
+        facingRight: true,            // flip esquerda/direita derivado do sinal de (dc-dr) — único grau de liberdade visual que o sprite real tem (ver item 1/3 do bloco). true = sprite desenhado como carregado (convenção "direita" de engine.js); false = espelhado via ctx.scale(-1,1) em drawGhostBillboard(). Default true = idêntico ao comportamento visual de antes desta mudança (sempre sem flip) até o primeiro passo real acontecer.
 
         isActive: false,
         rafId: null,
@@ -551,7 +798,23 @@
     // funcionar. Seguro de manter: não muta nada, só lê.
     window.OverworldDebug = {
         getLoadedChunkKeys: function () { return Object.keys(S.loadedChunks); },
-        getCurrentChunk: function () { return { chunkX: S.currentChunkX, chunkY: S.currentChunkY }; }
+        getCurrentChunk: function () { return { chunkX: S.currentChunkX, chunkY: S.currentChunkY }; },
+        // 2026-09-03 — inspeção read-only da orientação do avatar (ver ATUALIZAÇÃO
+        // 2026-09-03 no topo do arquivo), pra confirmar via console em teste ao vivo
+        // que facingRight muda junto do vetor de movimento real, sem depender de
+        // "parece certo" visualmente.
+        getFacing: function () {
+            return { dc: S.facingDir.dc, dr: S.facingDir.dr, facingRight: S.facingRight, playerCol: S.playerCol, playerRow: S.playerRow };
+        },
+        // 2026-09-03 (zoom) — inspeção/teste read-only do zoom atual e da conversão
+        // tela->grid (screenToGrid não é consumida por nenhum handler de clique hoje,
+        // ver nota acima da função; exposta aqui pra poder validar via console que o
+        // round-trip gridToScreen->tela->screenToGrid bate em qualquer nível de zoom).
+        getZoom: function () {
+            return { zoomLevel: S.zoomLevel, isMacro: isMacroZoom(), threshold: ZOOM_MACRO_THRESHOLD, min: ZOOM_MIN, max: ZOOM_MAX };
+        },
+        screenToGrid: function (screenX, screenY) { return screenToGrid(screenX, screenY); },
+        setZoom: function (z) { S.zoomLevel = clampZoom(z); }
     };
 
     // ======================= Carregamento dos dados ==========================
@@ -853,11 +1116,60 @@
     }
 
     // ============================ Projeção ====================================
+    // gridToScreen() continua DE PROPÓSITO sem nenhum fator de zoom embutido —
+    // é "espaço de mundo" (pixels na escala base TILE_W/TILE_H), não "espaço de
+    // tela". Motivo: buildStreetPathsForChunk() usa gridToScreen() pra
+    // pré-calcular screenPts UMA VEZ no carregamento de cada chunk (comentário
+    // original acima daquela função, "não a cada frame" — otimização real,
+    // ~100 ways/chunk). Se gridToScreen() multiplicasse por S.zoomLevel, esses
+    // pontos pré-calculados ficariam PRESOS ao zoom vigente no momento do
+    // fetch e nunca se atualizariam quando o jogador desse scroll depois —
+    // bug sutil, só apareceria ao testar zoom com um chunk já carregado antes
+    // de mexer no scroll. Por isso o zoom entra só em worldToScreen() (abaixo),
+    // no ÚLTIMO passo antes de desenhar, igual a câmera (camOffsetX/Y) já
+    // fazia — mesmo padrão, um fator a mais.
     function gridToScreen(col, row) {
         return {
             x: (col - row) * HALF_W,
             y: (col + row) * HALF_H
         };
+    }
+
+    // Converte um ponto em "espaço de mundo" (saída de gridToScreen, ou
+    // qualquer pixel na escala base) pra "espaço de tela" (o que realmente vai
+    // pro canvas): aplica o zoom e DEPOIS o offset de câmera (câmera é sempre
+    // em pixels de tela já pós-zoom — ver render(), camTargetX/Y calculados
+    // com o mesmo fator). Ordem importa: zoom primeiro, offset depois, senão a
+    // câmera "deslizaria" de posição toda vez que o zoom mudasse.
+    function worldToScreen(worldX, worldY, camOffsetX, camOffsetY) {
+        return {
+            x: worldX * S.zoomLevel + camOffsetX,
+            y: worldY * S.zoomLevel + camOffsetY
+        };
+    }
+
+    // Inverso de worldToScreen()+gridToScreen() juntos: de um ponto em pixels
+    // de TELA (ex.: e.offsetX/offsetY de um clique, relativo ao canvas do
+    // overworld) devolve a célula de GRID (col,row) mais próxima, considerando
+    // o zoom e a câmera atuais. Ver ATUALIZAÇÃO no topo do arquivo e o
+    // relatório desta sessão: investigado e confirmado que este módulo NÃO TEM
+    // nenhuma interação de clique/toque hoje (nenhum listener de
+    // mouse/pointer/touch existia antes desta passada, nem foi adicionado
+    // aqui — fora de escopo). Esta função existe só como o "critério de
+    // aceite crítico" pedido (conversão tela<->grid tem que continuar correta
+    // em qualquer zoom) — pronta pra quando alguém implementar clique-em-POI
+    // no futuro, sem precisar redescobrir a matemática. Testada via
+    // window.OverworldDebug.screenToGrid em pelo menos 2 zooms diferentes
+    // fazendo round-trip com gridToScreen (ver relatório).
+    function screenToGrid(screenX, screenY) {
+        var camOffsetX = (S.camX !== null) ? S.camX : 0;
+        var camOffsetY = (S.camY !== null) ? S.camY : 0;
+        var worldX = (screenX - camOffsetX) / S.zoomLevel;
+        var worldY = (screenY - camOffsetY) / S.zoomLevel;
+        // inverso de gridToScreen: x=(col-row)*HALF_W, y=(col+row)*HALF_H
+        var col = (worldX / HALF_W + worldY / HALF_H) / 2;
+        var row = (worldY / HALF_H - worldX / HALF_W) / 2;
+        return { col: Math.round(col), row: Math.round(row) };
     }
 
     // ============================ Canvas / DOM =================================
@@ -983,7 +1295,7 @@
     // antes de propósito: se competisse visualmente com o gradiente neon da curva,
     // o "mapa digital" pedido viraria ruído.
     function drawStreetPavementFill(ctx, cx, cy) {
-        drawFlatDiamond(ctx, cx, cy, HALF_W * 1.02, HALF_H * 1.02, 'rgba(10, 22, 28, 0.55)', null);
+        drawFlatDiamond(ctx, cx, cy, HALF_W * 1.02 * S.zoomLevel, HALF_H * 1.02 * S.zoomLevel, 'rgba(10, 22, 28, 0.55)', null);
     }
 
     // Gradiente neon fixo (mesmo mecanismo do ::-webkit-scrollbar-thumb de
@@ -1011,20 +1323,26 @@
     // o que suavizar).
     function tracePathSmooth(ctx, pts, camOffsetX, camOffsetY) {
         if (pts.length < 2) return;
+        // pts[i].x/y são coordenadas de MUNDO (saída de gridToScreen, pré-calculadas
+        // uma vez por chunk — ver nota em buildStreetPathsForChunk/gridToScreen). O
+        // zoom é aplicado aqui, no momento do desenho, junto com o offset de câmera —
+        // mesmo padrão de worldToScreen(), inline por performance (evita alocar um
+        // objeto {x,y} por ponto em curvas com dezenas de pontos, por chunk, por frame).
+        var z = S.zoomLevel;
         ctx.beginPath();
-        ctx.moveTo(pts[0].x + camOffsetX, pts[0].y + camOffsetY);
+        ctx.moveTo(pts[0].x * z + camOffsetX, pts[0].y * z + camOffsetY);
         if (pts.length === 2) {
-            ctx.lineTo(pts[1].x + camOffsetX, pts[1].y + camOffsetY);
+            ctx.lineTo(pts[1].x * z + camOffsetX, pts[1].y * z + camOffsetY);
             return;
         }
         for (var i = 1; i < pts.length - 1; i++) {
             var cur = pts[i], next = pts[i + 1];
-            var midX = (cur.x + next.x) / 2 + camOffsetX;
-            var midY = (cur.y + next.y) / 2 + camOffsetY;
-            ctx.quadraticCurveTo(cur.x + camOffsetX, cur.y + camOffsetY, midX, midY);
+            var midX = (cur.x + next.x) / 2 * z + camOffsetX;
+            var midY = (cur.y + next.y) / 2 * z + camOffsetY;
+            ctx.quadraticCurveTo(cur.x * z + camOffsetX, cur.y * z + camOffsetY, midX, midY);
         }
         var last = pts[pts.length - 1];
-        ctx.lineTo(last.x + camOffsetX, last.y + camOffsetY);
+        ctx.lineTo(last.x * z + camOffsetX, last.y * z + camOffsetY);
     }
 
     // Desenha todas as streetWays visíveis (bbox cruza a janela de tela) de todos os
@@ -1034,9 +1352,30 @@
     // candidatos a rótulo (agrupados por nome, guarda só o mais longo de cada) pra
     // render() desenhar depois, por cima de tudo — mesmo espírito de
     // drawTowerStreetLabel (rótulo de UI flutuante, não objeto do mundo).
-    function drawStreetCurves(ctx, pal, camOffsetX, camOffsetY, canvas) {
-        var viewMinX = -camOffsetX - HALF_W * 2, viewMaxX = canvas.width - camOffsetX + HALF_W * 2;
-        var viewMinY = -camOffsetY - HALF_H * 2, viewMaxY = canvas.height - camOffsetY + HALF_H * 2;
+    // `simplified` (novo, zoom) — true em visão macro (ver ATUALIZAÇÃO 2026-09-03
+    // "zoom" e render()): mantém a CURVA (silhueta da rua, pro mapa não virar um
+    // vazio com só texto boiando quando o preenchimento por-célula some, ver item
+    // 3 do pedido) mas larga a casing escura + halo + gradiente de 3 cores por um
+    // traço único, fino, semi-transparente — menos ruído visual competindo com os
+    // rótulos de bairro (maiores, ver drawNeighbourhoodLabels) e mais barato (1
+    // passada de stroke por via em vez de 3) numa visão que tipicamente tem muito
+    // mais vias em quadro ao mesmo tempo. Não gera candidatos a rótulo de rua
+    // nesse modo — em zoom macro os nomes que aparecem são os de BAIRRO, não de
+    // rua individual (ver item 4 do pedido: nome de rua é comportamento "abaixo
+    // do limiar").
+    function drawStreetCurves(ctx, pal, camOffsetX, camOffsetY, canvas, simplified) {
+        var z = S.zoomLevel;
+        var invZ = 1 / z;
+        // Culling em ESPAÇO DE MUNDO (way.bbox também é mundo, não-zoomado — ver
+        // buildStreetPathsForChunk/gridToScreen): converte os 4 cantos do viewport
+        // de tela pra mundo invertendo worldToScreen (worldX=(screenX-camOffsetX)/z)
+        // antes de comparar com o bbox. Antes desta mudança este cálculo comparava
+        // canvas.width (espaço de tela) direto contra bbox (espaço de mundo) sem
+        // passar pelo zoom — funcionava por acidente só porque zoom sempre valia 1;
+        // com zoom variável, sem essa conversão o culling ficaria errado (cortaria
+        // ruas visíveis no zoom-out, ou deixaria de cortar no zoom-in).
+        var viewMinX = (-camOffsetX) * invZ - HALF_W * 2, viewMaxX = (canvas.width - camOffsetX) * invZ + HALF_W * 2;
+        var viewMinY = (-camOffsetY) * invZ - HALF_H * 2, viewMaxY = (canvas.height - camOffsetY) * invZ + HALF_H * 2;
         var visible = [];
         for (var key in S.loadedChunks) {
             var chunk = S.loadedChunks[key];
@@ -1051,6 +1390,26 @@
         }
         if (!visible.length) return {};
 
+        if (simplified) {
+            // visão macro: 1 traço só, sem casing/halo/gradiente — largura fixa em
+            // px de TELA (não escalada por z) porque em zoom bem baixo uma largura
+            // proporcional ao tile ficaria fina demais pra enxergar; 2px de tela dá
+            // uma linha "de mapa" legível em qualquer zoom out.
+            ctx.save();
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = pal.cyan;
+            ctx.globalAlpha = 0.4;
+            ctx.lineWidth = 2;
+            for (var s = 0; s < visible.length; s++) {
+                tracePathSmooth(ctx, visible[s].screenPts, camOffsetX, camOffsetY);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+            ctx.restore();
+            return {};
+        }
+
         // passada 1: casing escura (embaixo), largura um pouco maior que o traço final
         ctx.save();
         ctx.lineJoin = 'round';
@@ -1058,7 +1417,7 @@
         ctx.strokeStyle = 'rgba(7, 7, 8, 0.9)';
         for (var c = 0; c < visible.length; c++) {
             var w1 = visible[c];
-            ctx.lineWidth = streetWidthPx(w1.highway) + 3;
+            ctx.lineWidth = (streetWidthPx(w1.highway) + 3) * z;
             tracePathSmooth(ctx, w1.screenPts, camOffsetX, camOffsetY);
             ctx.stroke();
         }
@@ -1074,14 +1433,14 @@
         ctx.globalAlpha = 0.25;
         for (var h = 0; h < visible.length; h++) {
             var wHalo = visible[h];
-            ctx.lineWidth = streetWidthPx(wHalo.highway) + 8;
+            ctx.lineWidth = (streetWidthPx(wHalo.highway) + 8) * z;
             tracePathSmooth(ctx, wHalo.screenPts, camOffsetX, camOffsetY);
             ctx.stroke();
         }
         ctx.globalAlpha = 1;
         for (var g2 = 0; g2 < visible.length; g2++) {
             var w2 = visible[g2];
-            ctx.lineWidth = streetWidthPx(w2.highway);
+            ctx.lineWidth = streetWidthPx(w2.highway) * z;
             tracePathSmooth(ctx, w2.screenPts, camOffsetX, camOffsetY);
             ctx.stroke();
         }
@@ -1104,7 +1463,13 @@
     function drawStreetNameLabel(ctx, pal, way, camOffsetX, camOffsetY) {
         var pts = way.screenPts;
         var mid = pts[Math.floor(pts.length / 2)];
-        var cx = mid.x + camOffsetX, cy = mid.y + camOffsetY;
+        // posição segue mundo+zoom+câmera (worldToScreen); tamanho da fonte fica
+        // FIXO em px de tela (não multiplicado por zoom) de propósito — é rótulo de
+        // UI/mapa, não geometria do mundo (mesmo raciocínio já documentado antes
+        // desta mudança em drawTowerStreetLabel). Se escalasse com o zoom, ficaria
+        // ilegível no zoom-out bem antes do texto precisar sumir de propósito.
+        var s = worldToScreen(mid.x, mid.y, camOffsetX, camOffsetY);
+        var cx = s.x, cy = s.y;
         ctx.save();
         ctx.font = '10px "Courier New", monospace';
         ctx.textAlign = 'center';
@@ -1116,6 +1481,96 @@
         ctx.fillStyle = '#eafffe';
         ctx.fillText(way.name, cx, cy - 2);
         ctx.restore();
+    }
+
+    // ============================ Camada de bairro (zoom macro) =================
+    // Item 4a do pedido: em visão macro (zoom-out além de ZOOM_MACRO_THRESHOLD),
+    // mostrar o NOME DE BAIRRO de cada chunk carregado, centralizado sobre a área
+    // aproximada do chunk, com destaque visual MAIOR que os rótulos de rua
+    // (drawStreetNameLabel, acima — fonte 10px). O dado vem de
+    // manifest.json:chunks[].neighbourhood (S.manifestChunksByKey), não do chunk em
+    // si (data/overworld/chunks/*.json não carrega esse campo — só o manifesto
+    // sabe "qual bairro é qual chunk", ver loadManifest()).
+    //
+    // DECISÃO DE UX (nomes de bairro x nomes de rua coexistindo): não coexistem no
+    // MESMO frame — são mutuamente exclusivos por zoom (macro mostra só bairro,
+    // micro mostra só rua, ver render()/drawStreetCurves(simplified)). Motivo:
+    // testado ao vivo que os dois juntos (rótulo grande de bairro + vários rótulos
+    // pequenos de rua) competem visualmente no mesmo espaço de tela sem ganho real
+    // de informação — em zoom macro o jogador não está lendo nome de rua individual
+    // mesmo (as ruas em si já ficam simplificadas/finas), então esconder esse nível
+    // de detalhe junto com o preenchimento é a mesma decisão de "o que importa
+    // nesta escala", só aplicada a texto também.
+    function drawNeighbourhoodLabel(ctx, pal, text, worldX, worldY, camOffsetX, camOffsetY) {
+        var s = worldToScreen(worldX, worldY, camOffsetX, camOffsetY);
+        var cx = s.x, cy = s.y;
+        ctx.save();
+        // Fonte bem maior que drawStreetNameLabel (10px) e drawTowerStreetLabel
+        // (13px) — "destaque visual maior" pedido explicitamente (item 4a). FIXA em
+        // px de tela (mesmo raciocínio de todo rótulo de UI neste arquivo): não
+        // multiplicada por S.zoomLevel, senão encolheria exatamente na faixa de zoom
+        // em que mais precisa se destacar.
+        ctx.font = 'bold 18px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        var w = ctx.measureText(text).width;
+        ctx.fillStyle = 'rgba(5, 5, 10, 0.7)';
+        ctx.fillRect(cx - w / 2 - 14, cy - 16, w + 28, 30);
+        ctx.strokeStyle = pal.purple;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(cx - w / 2 - 14, cy - 16, w + 28, 30);
+        ctx.shadowColor = pal.purple;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#f3eaff';
+        ctx.fillText(text, cx, cy + 6);
+        ctx.restore();
+    }
+
+    // Itera os chunks REALMENTE carregados (S.loadedChunks — nunca S.manifest
+    // direto, mesmo princípio de "só desenha o que está de fato em memória" que o
+    // resto do arquivo já segue) e desenha 1 rótulo por chunk, centralizado no
+    // meio do seu retângulo (originGlobalCol/Row + metade da dimensão). O nome em
+    // si vem de S.manifestChunksByKey (só o manifesto carrega esse campo, ver
+    // comentário da função acima) — chunk carregado sem entrada correspondente no
+    // manifesto (não deveria acontecer, mas defensivo) ou sem `neighbourhood`
+    // simplesmente não ganha rótulo, sem erro.
+    function drawNeighbourhoodLabels(ctx, pal, camOffsetX, camOffsetY) {
+        for (var key in S.loadedChunks) {
+            var chunk = S.loadedChunks[key];
+            var manifestEntry = S.manifestChunksByKey[key];
+            if (!manifestEntry || !manifestEntry.neighbourhood) continue;
+            var centerCol = chunk.originGlobalCol + chunk.dim / 2;
+            var centerRow = chunk.originGlobalRow + chunk.dim / 2;
+            var worldPos = gridToScreen(centerCol, centerRow);
+            drawNeighbourhoodLabel(ctx, pal, manifestEntry.neighbourhood, worldPos.x, worldPos.y, camOffsetX, camOffsetY);
+        }
+    }
+
+    // ============================ Camada de construções (vazia hoje) ============
+    // Item 2 do pedido: "prepare a estrutura de dados/código pra que, quando
+    // alguém adicionar prédios no futuro, baste popular essa camada e ela já
+    // responda ao toggle de zoom". Hoje não existe NENHUM dado de prédio no
+    // projeto — nem em data/overworld/chunks/*.json (schema atual só tem
+    // `grid`/`streetWays`, confirmado lendo o arquivo real, sem campo `buildings`
+    // em lugar nenhum), nem em nenhum outro lugar do repo (não é escopo desta
+    // passada criar esse dado, ver instrução "Não faça" do pedido). drawBlockTile()
+    // (acima, DESATIVADO 02/09/2026) já é o candidato natural a função de desenho
+    // por prédio quando esse dado existir — reaproveitaria o mesmo PRNG
+    // determinístico por tile.
+    //
+    // O TOGGLE DE ZOOM JÁ FUNCIONA: render() só chama esta função quando
+    // !isMacroZoom() (ver item 3 do pedido — construções somem em zoom-out junto
+    // com o preenchimento detalhado de rua). Quando alguém popular uma fonte de
+    // dados de prédio (ex.: chunk.buildings, análogo a chunk.streetPaths), o passo
+    // é: 1) empurrar cada prédio pro array `drawables` do laço de depth-sort em
+    // render() (NÃO desenhar direto aqui, fora do sort — ver skill
+    // isometric-canvas-rendering §2: objeto ALTO precisa competir no mesmo sort
+    // que jogadores, senão um jogador na frente de um prédio desenha atrás dele em
+    // alguns frames); 2) dar um `key: gRow+gCol` igual a qualquer outra entidade;
+    // 3) tratar o novo `item.type === 'building'` no switch do laço de desenho,
+    // chamando uma função tipo drawBlockTile (já existe, só desativada) com
+    // hw/hh/height multiplicados por S.zoomLevel, mesmo padrão de drawTower acima.
+    function drawBuildingsLayer(ctx, pal, camOffsetX, camOffsetY, canvas) {
+        // Sem dado de prédio hoje — no-op intencional. Ver comentário acima.
     }
 
     // DESATIVADO 02/09/2026 a pedido do usuário — ver nota de arquitetura no topo do
@@ -1139,8 +1594,10 @@
 
     function drawLandmarkGroundMarker(ctx, cx, cy, pal) {
         // marcação de piso pra cada uma das 9 células do footprint (glow sutil),
-        // além do prisma da torre desenhado só na célula-âncora.
-        drawFlatDiamond(ctx, cx, cy, HALF_W, HALF_H, 'rgba(191, 0, 255, 0.10)', pal.purple);
+        // além do prisma da torre desenhado só na célula-âncora. Camada de POI —
+        // fica visível em qualquer zoom (item 4a do pedido), por isso escala com
+        // S.zoomLevel como qualquer outro elemento de mundo, sem gate de macro/micro.
+        drawFlatDiamond(ctx, cx, cy, HALF_W * S.zoomLevel, HALF_H * S.zoomLevel, 'rgba(191, 0, 255, 0.10)', pal.purple);
     }
 
     // Estágio 2 — TOWER_HW/TOWER_HH hardcoded (footprint 3x3 fixo) removidos: a
@@ -1151,12 +1608,16 @@
     var TOWER_HEIGHT = 170;
 
     function drawTower(ctx, cx, cy, pal, tSec, poi) {
+        var z = S.zoomLevel;
         var fp = (poi && poi.footprint) || { widthTiles: 3, heightTiles: 3 };
-        var hw = HALF_W * fp.widthTiles, hh = HALF_H * fp.heightTiles;
-        var height = TOWER_HEIGHT;
+        // Camada de POI — visível em qualquer zoom (item 4a/4b do pedido), então o
+        // prisma da torre escala normalmente com S.zoomLevel como qualquer objeto de
+        // mundo (fica menor no zoom-out, maior no zoom-in, como esperado).
+        var hw = HALF_W * fp.widthTiles * z, hh = HALF_H * fp.heightTiles * z;
+        var height = TOWER_HEIGHT * z;
         ctx.save();
         ctx.shadowColor = pal.cyan;
-        ctx.shadowBlur = 22;
+        ctx.shadowBlur = 22 * z;
         drawExtrudedDiamond(ctx, cx, cy, hw, hh, height, {
             roof: pal.purple,
             leftFace: hslShade(275, 70, 22),
@@ -1171,14 +1632,27 @@
         // antes, quando essa opção nem existia).
         if (poi && poi.visual && poi.visual.beacon === false) return;
         var pulse = 0.55 + 0.45 * Math.sin(tSec * 2.4);
-        var beaconY = cy - height - hh - 14;
+        var beaconY = cy - height - hh - 14 * z;
+        // Item 4b do pedido: em zoom-out o beacon precisa continuar legível "à
+        // distância" — se o raio/blur só acompanhassem S.zoomLevel como o resto da
+        // torre, eles encolheriam junto com tudo e ficariam pontinhos ilegíveis
+        // exatamente no modo em que mais precisam se destacar. Em vez de escalar
+        // linear com z, uso um raio de BASE fixo em px de tela (não multiplicado por
+        // z) no modo macro — maior, relativamente, que o resto do prisma que já
+        // encolheu — e só escala normal com z no modo micro (comportamento "de
+        // sempre"). Resultado: o beacon cresce (relativo ao resto) conforme o
+        // usuário dá zoom out, até o piso de ZOOM_MIN.
+        var baseRadius = 6 + pulse * 3;
+        var baseBlur = 16 + pulse * 14;
+        var beaconRadius = isMacroZoom() ? baseRadius * 1.7 : baseRadius * z;
+        var beaconBlur = isMacroZoom() ? baseBlur * 1.7 : baseBlur * z;
         ctx.save();
         ctx.shadowColor = pal.cyan;
-        ctx.shadowBlur = 16 + pulse * 14;
+        ctx.shadowBlur = beaconBlur;
         ctx.fillStyle = pal.cyan;
         ctx.globalAlpha = 0.55 + pulse * 0.45;
         ctx.beginPath();
-        ctx.arc(cx, beaconY, 6 + pulse * 3, 0, Math.PI * 2);
+        ctx.arc(cx, beaconY, beaconRadius, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
     }
@@ -1199,10 +1673,11 @@
         var label = (poi.visual && poi.visual.streetLabel) || poi.name;
         if (!label) return;
         var fp = poi.footprint || { widthTiles: 3, heightTiles: 3 };
-        var hh = HALF_H * fp.heightTiles;
+        var hh = HALF_H * fp.heightTiles * S.zoomLevel; // escala com o zoom pra acompanhar o tamanho real da torre desenhada (ver drawTower)
         var center = gridToScreen(poi._bounds.centerCol, poi._bounds.centerRow);
-        var cx = center.x + camOffsetX;
-        var cy = center.y + camOffsetY;
+        var screenCenter = worldToScreen(center.x, center.y, camOffsetX, camOffsetY);
+        var cx = screenCenter.x;
+        var cy = screenCenter.y;
         // Âncora NO PÉ da torre (cy - a metade do footprint), não no farol do topo
         // (que fica a `TOWER_HEIGHT + hh + 14` px acima de cy — quase 250px). O
         // canvas de jogo de verdade (#myCanvas, e portanto este, ver
@@ -1304,7 +1779,16 @@
     // vez de um prisma extrudado. Se a imagem ainda não carregou (ou não existe),
     // cai no marcador colorido antigo (drawPlayerToken) só como estado transitório
     // de carregamento — não é o resultado final pedido.
-    function drawGhostBillboard(ctx, cx, cy, img, isSelf, label, pal) {
+    // facingRight (novo, 2026-09-03 — ver ATUALIZAÇÃO no topo do arquivo, itens
+    // 1-3): true/undefined = desenha a imagem como carregada (convenção "direita"
+    // já usada por js/game/engine.js pro mesmo sprite); false = espelha
+    // horizontalmente via translate+scale(-1,1) — MESMA técnica de
+    // engine.js:~1216-1220/3769-3773, não uma reinvenção. Não existe sprite
+    // dedicado de esquerda (ver item 1: g_customPlayerGhostLeft é a MESMA
+    // referência de imagem que g_customPlayerGhostRight), então espelhar a única
+    // imagem que existe é o único jeito real de "virar" o fantasma — não uma
+    // aproximação escondida, é como o resto do jogo já faz isso.
+    function drawGhostBillboard(ctx, cx, cy, img, isSelf, label, pal, facingRight) {
         var footY = cy;
         var ready = img && img.complete && img.naturalWidth > 0;
         if (!ready) {
@@ -1312,23 +1796,38 @@
             return;
         }
 
-        var scale = GHOST_SPRITE_TARGET_H / img.naturalHeight;
+        var z = S.zoomLevel;
+        var targetH = GHOST_SPRITE_TARGET_H * z; // entidade de mundo — escala com o zoom, igual à torre/POI.
+        var scale = targetH / img.naturalHeight;
         var w = img.naturalWidth * scale;
-        var h = GHOST_SPRITE_TARGET_H;
+        var h = targetH;
 
         ctx.save();
-        // sombra achatada no chão, mesma lógica do token antigo (ancora visual no tile)
+        // sombra achatada no chão, mesma lógica do token antigo (ancora visual no
+        // tile) — desenhada SEM flip de propósito: é uma elipse simétrica, espelhar
+        // não mudaria nada e só gastaria um save/restore extra à toa.
         ctx.globalAlpha = 0.35;
         ctx.beginPath();
-        ctx.ellipse(cx, footY, HALF_W * 0.28, HALF_H * 0.28, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx, footY, HALF_W * 0.28 * z, HALF_H * 0.28 * z, 0, 0, Math.PI * 2);
         ctx.fillStyle = '#000';
         ctx.fill();
         ctx.globalAlpha = 1;
         if (isSelf) {
             ctx.shadowColor = pal.cyan;
-            ctx.shadowBlur = 12;
+            ctx.shadowBlur = 12 * z;
         }
-        ctx.drawImage(img, cx - w / 2, footY - h, w, h);
+        if (facingRight === false) {
+            // espelha só o drawImage, em torno do MESMO retângulo (cx-w/2..cx+w/2,
+            // footY-h..footY) que o caminho sem flip usa — pé (footY) e centro
+            // horizontal (cx) não se movem, só a imagem inverte dentro do retângulo.
+            ctx.save();
+            ctx.translate(cx + w / 2, footY - h);
+            ctx.scale(-1, 1);
+            ctx.drawImage(img, 0, 0, w, h);
+            ctx.restore();
+        } else {
+            ctx.drawImage(img, cx - w / 2, footY - h, w, h);
+        }
         ctx.restore();
 
         if (label) {
@@ -1344,21 +1843,22 @@
     }
 
     function drawPlayerToken(ctx, cx, cy, pal, label, color, isSelf) {
+        var z = S.zoomLevel;
         var footY = cy;
-        var bodyH = 20;
+        var bodyH = 20 * z;
         ctx.save();
         if (isSelf) {
             ctx.shadowColor = color;
-            ctx.shadowBlur = 10;
+            ctx.shadowBlur = 10 * z;
         }
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.ellipse(cx, footY - bodyH, 8, 10, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx, footY - bodyH, 8 * z, 10 * z, 0, 0, Math.PI * 2);
         ctx.fill();
         // "sombra" no chão, achatada como o tile
         ctx.globalAlpha = 0.35;
         ctx.beginPath();
-        ctx.ellipse(cx, footY, HALF_W * 0.28, HALF_H * 0.28, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx, footY, HALF_W * 0.28 * z, HALF_H * 0.28 * z, 0, 0, Math.PI * 2);
         ctx.fillStyle = '#000';
         ctx.fill();
         ctx.restore();
@@ -1470,9 +1970,16 @@
         // deslize suave do jogador, não o salto de tile. Primeiro frame após
         // activate (camX/camY null) faz snap direto, nunca desliza vindo da
         // posição da sessão/spawn anterior.
+        // ZOOM (2026-09-03): camTargetScreen é espaço de MUNDO (gridToScreen puro,
+        // sem zoom — ver nota da função). O alvo de câmera (camTargetX/Y) é o offset
+        // de TELA que, somado a (mundo*zoom), centraliza o jogador — por isso
+        // multiplica camTargetScreen.x/y por S.zoomLevel aqui: sem isso, dar zoom
+        // deslocaria o jogador pra fora do centro da tela (o offset continuaria
+        // calibrado pro tamanho de tile antigo). S.camX/S.camY (o valor SUAVIZADO,
+        // pós-lerp) é o mesmo "camOffsetX/Y" que worldToScreen() espera receber.
         var camTargetScreen = gridToScreen(S.playerDrawCol, S.playerDrawRow);
-        var camTargetX = canvas.width / 2 - camTargetScreen.x;
-        var camTargetY = canvas.height / 2 - camTargetScreen.y;
+        var camTargetX = canvas.width / 2 - camTargetScreen.x * S.zoomLevel;
+        var camTargetY = canvas.height / 2 - camTargetScreen.y * S.zoomLevel;
         var camDt = S.lastRenderAt ? Math.max(0, (tsMs - S.lastRenderAt) / 1000) : 0;
         S.lastRenderAt = tsMs;
         if (S.camX === null || S.camY === null) {
@@ -1485,11 +1992,16 @@
         }
         var camOffsetX = S.camX;
         var camOffsetY = S.camY;
+        var macroZoom = isMacroZoom();
 
         // culling: janela quadrada em espaço de grid ao redor do jogador, generosa
-        // o bastante pra cobrir o viewport (não desenha os 85x85 fora de tela).
-        var colSpan = Math.ceil((canvas.width / 2) / HALF_W) + 3;
-        var rowSpan = Math.ceil((canvas.height / 2) / HALF_H) + 3;
+        // o bastante pra cobrir o viewport (não desenha os 85x85 fora de tela). Dividido
+        // por S.zoomLevel: no zoom-out cada tile ocupa menos pixels de tela, então é
+        // preciso varrer uma janela de GRID maior pra cobrir o mesmo viewport em px
+        // (sem isso, dar zoom-out revelaria uma borda cortada de mapa não desenhado
+        // bem antes da borda real da tela).
+        var colSpan = Math.ceil((canvas.width / 2) / (HALF_W * S.zoomLevel)) + 3;
+        var rowSpan = Math.ceil((canvas.height / 2) / (HALF_H * S.zoomLevel)) + 3;
         var R = colSpan + rowSpan;
 
         // Estágio 5 — o laço de culling varre RETÂNGULO GLOBAL diretamente ao redor do
@@ -1518,6 +2030,14 @@
         // array `drawables` de baixo — o desenho DELA (drawLandmarkGroundMarker) e da
         // torre em cima precisa competir no mesmo sort que o jogador/outros, porque a
         // torre é alta de verdade.
+        // ============ CAMADA DE CHÃO (item 2 do pedido de zoom) =================
+        // Ruas curvas + preenchimento fraco de fundo. O laço abaixo ainda faz dupla
+        // função (varre e classifica CADA célula global visível, igual sempre fez) —
+        // mas agora o desenho do preenchimento de pavimento é CONDICIONAL ao zoom
+        // (item 3 do pedido: em visão macro, para de desenhar o piso detalhado
+        // por-célula). Células do footprint do POI de entrada continuam indo pro
+        // array `drawables` incondicionalmente — a camada de POI (torre) fica
+        // visível em QUALQUER zoom (item 4a/4b), nunca é pulada aqui.
         var drawables = [];
         for (var gRow = minRowGlobal; gRow <= maxRowGlobal; gRow++) {
             for (var gCol = minColGlobal; gCol <= maxColGlobal; gCol++) {
@@ -1533,17 +2053,30 @@
                 if (ch === '#') continue;
                 if (S.entryPoi && isInsidePoiFootprint(S.entryPoi, gCol, gRow)) {
                     drawables.push({ key: gRow + gCol, type: 'tile', row: gRow, col: gCol, ch: ch });
-                } else {
+                } else if (!macroZoom) {
+                    // preenchimento detalhado por-célula — só em visão micro (item 3: some
+                    // no zoom-out, a curva sozinha já basta pra orientação nessa escala).
                     var groundS = gridToScreen(gCol, gRow);
-                    drawStreetPavementFill(ctx, groundS.x + camOffsetX, groundS.y + camOffsetY);
+                    var groundScreen = worldToScreen(groundS.x, groundS.y, camOffsetX, camOffsetY);
+                    drawStreetPavementFill(ctx, groundScreen.x, groundScreen.y);
                 }
             }
         }
 
         // curvas de rua reais por cima do pavimento fraco, ainda antes das entidades —
         // devolve os candidatos a rótulo (1 por nome único, o segmento visível mais
-        // longo) pra desenhar depois de tudo, como rótulo de UI flutuante.
-        var streetLabelCandidates = drawStreetCurves(ctx, pal, camOffsetX, camOffsetY, canvas);
+        // longo) pra desenhar depois de tudo, como rótulo de UI flutuante. Em visão
+        // macro desenha a versão `simplified` (ver drawStreetCurves) e não gera
+        // candidato nenhum — rótulo de rua individual é comportamento só de zoom-in
+        // (item 4), zoom-out mostra nome de BAIRRO em vez disso (ver
+        // drawNeighbourhoodLabels, chamado mais abaixo).
+        var streetLabelCandidates = drawStreetCurves(ctx, pal, camOffsetX, camOffsetY, canvas, macroZoom);
+
+        // ============ CAMADA DE CONSTRUÇÕES (item 2/3 do pedido de zoom) =========
+        // Vazia hoje (ver drawBuildingsLayer) — chamada condicionalmente, só em
+        // visão micro, exatamente como o preenchimento de rua acima. Quando popular
+        // um dia, já respeita o toggle de zoom sem precisar mexer aqui de novo.
+        if (!macroZoom) drawBuildingsLayer(ctx, pal, camOffsetX, camOffsetY, canvas);
 
         var others = window.OverworldOtherPlayers;
         updateOtherPlayersDraw(tsMs, others); // Estágio 1 — mesmo tratamento de interpolação visual do jogador local, ver comentário na função.
@@ -1563,6 +2096,13 @@
         // depth-sort único (tiles + entidades juntos) — regra §2 da skill.
         drawables.sort(function (a, b) { return a.key - b.key; });
 
+        // ============ CAMADA DE POI + entidades dinâmicas (depth-sort único) ======
+        // Continua tudo num só laço ordenado (tiles do footprint do POI + torre +
+        // jogadores), como a skill isometric-canvas-rendering §2 exige — a torre é
+        // "alta" de verdade (extrude em Z) e precisa competir no mesmo sort que
+        // jogador/outros, nunca uma passada separada de antemão (ver comentário
+        // original acima do laço de chão). Camada de POI fica visível em QUALQUER
+        // zoom (item 4a/4b) — nada aqui é pulado por causa de macroZoom.
         for (var d = 0; d < drawables.length; d++) {
             var item = drawables[d];
             if (item.type === 'tile') {
@@ -1570,49 +2110,73 @@
                 // POI de entrada (ver loop de varredura acima) — rua comum já foi
                 // desenhada na passada de chão, antes deste laço.
                 var s = gridToScreen(item.col, item.row);
-                var sx = s.x + camOffsetX, sy = s.y + camOffsetY;
-                drawLandmarkGroundMarker(ctx, sx, sy, pal);
+                var screenS = worldToScreen(s.x, s.y, camOffsetX, camOffsetY);
+                drawLandmarkGroundMarker(ctx, screenS.x, screenS.y, pal);
                 var eb = S.entryPoi._bounds;
                 if (item.row === eb.anchorRow && item.col === eb.anchorCol) {
                     var center = gridToScreen(eb.centerCol, eb.centerRow);
-                    drawTower(ctx, center.x + camOffsetX, center.y + camOffsetY, pal, tSec, S.entryPoi);
+                    var screenCenter = worldToScreen(center.x, center.y, camOffsetX, camOffsetY);
+                    drawTower(ctx, screenCenter.x, screenCenter.y, pal, tSec, S.entryPoi);
                 }
             } else if (item.type === 'other') {
                 var s2 = gridToScreen(item.drawCol, item.drawRow); // posição DESENHADA (interpolada) — só visual, ver updateOtherPlayersDraw().
+                var screenS2 = worldToScreen(s2.x, s2.y, camOffsetX, camOffsetY);
                 // esconde o sufixo técnico "(#id)" do rótulo visual — ele é lido à parte por
                 // getOtherPlayerGhostImg(), não precisa aparecer no nome flutuante.
                 var name = (item.data.name || item.data.email || '???').replace(GHOST_ID_SUFFIX_RE, '');
                 if (item.data.avatarUrl) loadAvatar(item.data.avatarUrl);
                 var otherImg = getOtherPlayerGhostImg(item.data);
-                drawGhostBillboard(ctx, s2.x + camOffsetX, s2.y + camOffsetY, otherImg, false, name, pal);
+                drawGhostBillboard(ctx, screenS2.x, screenS2.y, otherImg, false, name, pal);
             } else if (item.type === 'player') {
                 var s3 = gridToScreen(S.playerDrawCol, S.playerDrawRow); // posição DESENHADA (interpolada) — nunca a lógica aqui, ver nota no topo de render().
+                var screenS3 = worldToScreen(s3.x, s3.y, camOffsetX, camOffsetY);
                 var selfImg = getSelfGhostImg();
-                drawGhostBillboard(ctx, s3.x + camOffsetX, s3.y + camOffsetY, selfImg, true, 'você', pal);
+                // S.facingRight: ver ATUALIZAÇÃO 2026-09-03 no topo do arquivo — só o
+                // jogador local ganha flip nesta passada (item 6), atualizado em
+                // tryMove() a cada passo lógico real, nunca aqui em render(). ZOOM não
+                // muda nada nessa leitura — S.facingRight é lido, nunca escrito, por
+                // qualquer código deste bloco (ver "Não quebre o que já existe" no
+                // pedido) — só a POSIÇÃO de desenho (screenS3) mudou de fórmula.
+                drawGhostBillboard(ctx, screenS3.x, screenS3.y, selfImg, true, 'você', pal, S.facingRight);
             }
         }
 
         drawTowerStreetLabel(ctx, pal, camOffsetX, camOffsetY, tSec);
 
-        // Rótulos de nome de rua (ver ATUALIZAÇÃO 2026-09-03 item 5) — 1 por nome
-        // único visível neste frame, já escolhido (segmento mais longo) por
-        // drawStreetCurves(). Teto de 6 rótulos simultâneos só por sanidade visual
-        // em trechos muito densos de vias nomeadas — não observado na prática com o
-        // tamanho de janela de culling atual (tipicamente 2-4 nomes por vez).
-        var labelNames = Object.keys(streetLabelCandidates);
-        for (var ln = 0; ln < labelNames.length && ln < 6; ln++) {
-            drawStreetNameLabel(ctx, pal, streetLabelCandidates[labelNames[ln]], camOffsetX, camOffsetY);
+        if (macroZoom) {
+            // ============ CAMADA DE BAIRRO (item 4a do pedido de zoom) ============
+            // Visão macro: nome de bairro por chunk carregado, no lugar dos nomes de
+            // rua individuais (ver decisão de UX no comentário de
+            // drawNeighbourhoodLabels).
+            drawNeighbourhoodLabels(ctx, pal, camOffsetX, camOffsetY);
+        } else {
+            // Rótulos de nome de rua (ver ATUALIZAÇÃO 2026-09-03 item 5) — 1 por nome
+            // único visível neste frame, já escolhido (segmento mais longo) por
+            // drawStreetCurves(). Teto de 6 rótulos simultâneos só por sanidade visual
+            // em trechos muito densos de vias nomeadas — não observado na prática com o
+            // tamanho de janela de culling atual (tipicamente 2-4 nomes por vez). Só em
+            // visão micro (item 4 do pedido de zoom) — em macro, streetLabelCandidates
+            // já vem {} de drawStreetCurves(simplified=true), então este bloco nem
+            // precisaria do `if`, mas deixá-lo explícito documenta a regra de zoom no
+            // próprio ponto de decisão, não só implicitamente via objeto vazio.
+            var labelNames = Object.keys(streetLabelCandidates);
+            for (var ln = 0; ln < labelNames.length && ln < 6; ln++) {
+                drawStreetNameLabel(ctx, pal, streetLabelCandidates[labelNames[ln]], camOffsetX, camOffsetY);
+            }
         }
 
         // HUD mínimo de depuração — posição do jogador no grid + estado do streaming de
         // chunks (Estágio 5: chunk atual e quantos estão em memória agora — útil pra
-        // conferir ao vivo que a janela 3x3 carrega/descarrega do jeito certo).
+        // conferir ao vivo que a janela 3x3 carrega/descarrega do jeito certo) + zoom
+        // atual e modo macro/micro (novo, pra confirmar visualmente o threshold em
+        // teste ao vivo sem precisar abrir o console).
         ctx.save();
         ctx.font = '11px "Courier New", monospace';
         ctx.fillStyle = 'rgba(0,255,255,0.85)';
         ctx.fillText('Overworld  col=' + S.playerCol + ' row=' + S.playerRow +
             '  chunk=' + S.currentChunkX + ',' + S.currentChunkY +
-            '  loaded=' + Object.keys(S.loadedChunks).length, 8, 14);
+            '  loaded=' + Object.keys(S.loadedChunks).length +
+            '  zoom=' + S.zoomLevel.toFixed(2) + (macroZoom ? ' [macro]' : ' [micro]'), 8, 14);
         ctx.restore();
     }
 
@@ -1625,39 +2189,116 @@
     }
 
     // ============================== Input / movimento ============================
-    var KEY_TO_DELTA = {
-        ArrowUp: { dc: 0, dr: -1 }, w: { dc: 0, dr: -1 }, W: { dc: 0, dr: -1 },
-        ArrowDown: { dc: 0, dr: 1 }, s: { dc: 0, dr: 1 }, S: { dc: 0, dr: 1 },
-        ArrowLeft: { dc: -1, dr: 0 }, a: { dc: -1, dr: 0 }, A: { dc: -1, dr: 0 },
-        ArrowRight: { dc: 1, dr: 0 }, d: { dc: 1, dr: 0 }, D: { dc: 1, dr: 0 }
+    // Refatorado 2026-09-03 (ver ATUALIZAÇÃO no topo do arquivo, item 4) — teclas
+    // organizadas por EIXO (dc = horizontal do grid, dr = vertical do grid), não
+    // mais por "direção única". O antigo KEY_TO_DELTA + currentInputDelta()
+    // devolvia só a PRIMEIRA tecla de direção encontrada num for...in — segurar
+    // duas teclas de eixos diferentes ao mesmo tempo nunca produzia diagonal.
+    // AXIS_KEYS é a nova fonte única de verdade de "quais teclas existem":
+    // attachInput() deriva o set de teclas reconhecidas dele (ALL_MOVE_KEYS),
+    // currentInputVector() soma os dois eixos independentemente.
+    var AXIS_KEYS = {
+        dr: { neg: ['ArrowUp', 'w', 'W'], pos: ['ArrowDown', 's', 'S'] },   // dr negativo = norte do grid, positivo = sul
+        dc: { neg: ['ArrowLeft', 'a', 'A'], pos: ['ArrowRight', 'd', 'D'] } // dc negativo = oeste do grid, positivo = leste
     };
+    var ALL_MOVE_KEYS = {};
+    (function collectMoveKeys() {
+        for (var axis in AXIS_KEYS) {
+            var spec = AXIS_KEYS[axis];
+            var keys = spec.neg.concat(spec.pos);
+            for (var i = 0; i < keys.length; i++) ALL_MOVE_KEYS[keys[i]] = true;
+        }
+    })();
+
+    // Teclas de zoom — '+'/'=' aumenta (zoom in), '-'/'_' diminui (zoom out).
+    // Ambos os símbolos de cada tecla física aceitos (e.key já reflete o símbolo
+    // com/sem Shift: '+' normalmente exige Shift no teclado US, mas alguns layouts
+    // ISO/BR têm '+' sem Shift — aceitar os dois evita depender de layout) — mesmo
+    // padrão de robustez que AXIS_KEYS já usa pra WASD/setas (várias teclas físicas
+    // mapeando pro mesmo eixo lógico).
+    var ZOOM_IN_KEYS = { '+': true, '=': true };
+    var ZOOM_OUT_KEYS = { '-': true, '_': true };
 
     function attachInput() {
         S.keydownHandler = function (e) {
-            if (KEY_TO_DELTA[e.key]) {
+            if (ALL_MOVE_KEYS[e.key]) {
                 S.keys[e.key] = true;
                 if (e.key.indexOf('Arrow') === 0) e.preventDefault();
+                return;
+            }
+            // Zoom por teclado (item 1 do pedido: "tecla +/- ou scroll do mouse, sua
+            // escolha de input" — implementei os dois). Independente do estado de
+            // movimento (S.keys) porque zoom não é uma tecla "segurada" contínua como
+            // as de movimento — cada toque dá um incremento discreto de
+            // ZOOM_KEY_STEP, igual a qualquer atalho de zoom de app de mapa.
+            if (ZOOM_IN_KEYS[e.key]) {
+                S.zoomLevel = clampZoom(S.zoomLevel + ZOOM_KEY_STEP);
+                e.preventDefault();
+            } else if (ZOOM_OUT_KEYS[e.key]) {
+                S.zoomLevel = clampZoom(S.zoomLevel - ZOOM_KEY_STEP);
+                e.preventDefault();
             }
         };
         S.keyupHandler = function (e) {
-            if (KEY_TO_DELTA[e.key]) S.keys[e.key] = false;
+            if (ALL_MOVE_KEYS[e.key]) S.keys[e.key] = false;
         };
         window.addEventListener('keydown', S.keydownHandler);
         window.addEventListener('keyup', S.keyupHandler);
+
+        // Zoom pela roda do mouse — anexado no CANVAS do overworld (não em window),
+        // pra não capturar scroll do usuário quando o overworld não está em primeiro
+        // plano ou quando o mouse está sobre outro elemento da página (modal, HUD).
+        // {passive:false} + preventDefault() porque senão o navegador rola a PÁGINA
+        // (o canvas não tem overflow próprio, mas o body pode) junto com o zoom do
+        // mapa — comportamento clássico de "mapa dentro de página" que precisa
+        // capturar a roda pra si quando o cursor está em cima.
+        S.wheelHandler = function (e) {
+            e.preventDefault();
+            // deltaY > 0 = rolou "pra baixo/longe" (convenção universal de mouse) =
+            // zoom OUT (zoomLevel menor); deltaY < 0 = zoom IN. Multiplicativo (não
+            // aditivo) pra sentir proporcional em qualquer zoom atual — mesmo
+            // comportamento de Google Maps/Leaflet: um "clique de roda" perto do
+            // ZOOM_MIN muda pouco em valor absoluto, perto do ZOOM_MAX muda mais,
+            // mas a sensação de velocidade de zoom é constante.
+            var factor = 1 - e.deltaY * ZOOM_WHEEL_FACTOR;
+            S.zoomLevel = clampZoom(S.zoomLevel * factor);
+        };
+        if (S.canvas) S.canvas.addEventListener('wheel', S.wheelHandler, { passive: false });
     }
 
     function detachInput() {
         if (S.keydownHandler) window.removeEventListener('keydown', S.keydownHandler);
         if (S.keyupHandler) window.removeEventListener('keyup', S.keyupHandler);
-        S.keydownHandler = null; S.keyupHandler = null;
+        if (S.wheelHandler && S.canvas) S.canvas.removeEventListener('wheel', S.wheelHandler);
+        S.keydownHandler = null; S.keyupHandler = null; S.wheelHandler = null;
         S.keys = {};
     }
 
-    function currentInputDelta() {
-        for (var key in KEY_TO_DELTA) {
-            if (S.keys[key]) return KEY_TO_DELTA[key];
-        }
-        return null;
+    // Soma um eixo (-1/0/+1) a partir de QUALQUER tecla do lado neg/pos que
+    // esteja pressionada agora — segurar duas teclas do MESMO lado (ex.
+    // ArrowLeft + a) não soma duas vezes; segurar teclas de lados OPOSTOS do
+    // MESMO eixo (ex. ArrowUp + ArrowDown) cancela pro próprio eixo (v=0),
+    // comportamento padrão de input 8-direcional.
+    function axisValue(spec) {
+        var v = 0;
+        for (var i = 0; i < spec.neg.length; i++) { if (S.keys[spec.neg[i]]) { v -= 1; break; } }
+        for (var j = 0; j < spec.pos.length; j++) { if (S.keys[spec.pos[j]]) { v += 1; break; } }
+        return v;
+    }
+
+    // Função de cálculo de vetor de movimento a partir do input atual (pedido
+    // do usuário, item 1) — só teclado hoje, ver item 4 do bloco de
+    // documentação no topo do arquivo pra por que toque fica fora de escopo
+    // desta passada. Nome do par (dc,dr) = "dx,dy" do pedido em espaço de GRID
+    // (não de tela — ver gridToScreen/nota do item 4). Combina os DOIS eixos
+    // independentemente, então segurar ex. ArrowUp+ArrowRight ao mesmo tempo
+    // agora produz {dc:1, dr:-1} (diagonal de grid de verdade), não só a
+    // primeira tecla encontrada como no currentInputDelta() antigo (removido).
+    function currentInputVector() {
+        var dr = axisValue(AXIS_KEYS.dr);
+        var dc = axisValue(AXIS_KEYS.dc);
+        if (dc === 0 && dr === 0) return null;
+        return { dc: dc, dr: dr };
     }
 
     function tryMove(dc, dr, now) {
@@ -1673,7 +2314,25 @@
         S.playerPrevRow = S.playerRow;
         S.playerCol = nc; S.playerRow = nr;
         S.moveStartAt = now;
-        S.lastDir = { dc: dc, dr: dr };
+
+        // Orientação do avatar (ver ATUALIZAÇÃO 2026-09-03 item 5 no topo do
+        // arquivo) — atualizada SÓ aqui, num passo que JÁ passou por isWalkable()
+        // acima, nunca a partir do input cru. facingDir guarda o vetor de GRID
+        // bruto (debug/futuro); facingRight é o que render() de fato consome —
+        // deriva do sinal do vetor de TELA equivalente (gridToScreen: screenDx =
+        // (dc-dr)*HALF_W, só o sinal importa aqui). Os 4 passos de UM eixo só
+        // (as teclas de sempre) sempre têm screenDx != 0 nesta projeção 2:1 — só
+        // um passo diagonal de grid de verdade (dc e dr não-nulos e iguais em
+        // módulo, agora possível via currentInputVector(), ver item 4) pode dar
+        // screenDx==0 (vetor de tela puramente vertical); nesse caso mantém a
+        // ÚLTIMA orientação horizontal conhecida em vez de decidir arbitrariamente
+        // — regra (a) do pedido do usuário, dita explicitamente por ele.
+        S.facingDir = { dc: dc, dr: dr };
+        var screenDxSign = dc - dr;
+        if (screenDxSign > 0) S.facingRight = true;
+        else if (screenDxSign < 0) S.facingRight = false;
+        // screenDxSign === 0: não toca em S.facingRight, mantém o valor anterior.
+
         updateChunkWindow(); // Estágio 5 — janela 3x3 + prefetch direcional (ver nota no topo do arquivo); barato quando o chunk não mudou, ensureChunkLoaded() já retorna cedo.
         syncPublicState();
         checkPoiInteractions(); // lê S.playerCol/Row (lógico) — NUNCA playerDrawCol/Row. Restrição inegociável do plano.
@@ -1736,7 +2395,23 @@
         if (!S.isActive) return; // guarda contra o loop continuar após um Deactivate tardio
         var now = ts || performance.now();
         if (now - S.lastStepAt >= S.stepIntervalMs) {
-            var delta = currentInputDelta();
+            // BUG PRÉ-EXISTENTE CORRIGIDO 2026-09-03 (agente de zoom/câmera): esta linha
+            // chamava currentInputDelta(), função que não existe mais neste arquivo — foi
+            // renomeada/substituída por currentInputVector() na refatoração de vetor de
+            // movimento (ver ATUALIZAÇÃO 2026-09-03 "input de movimento" no topo do
+            // arquivo, item 4), mas o call site aqui em loop() não foi atualizado junto.
+            // Efeito real: toda vez que activateNow() rodava, o primeiro loop() (ts ainda
+            // não tinha passado S.stepIntervalMs desde S.lastStepAt=0, então a condição
+            // acima é quase sempre verdadeira já no 1º frame) lançava
+            // "ReferenceError: currentInputDelta is not defined" DENTRO do callback do
+            // requestAnimationFrame — sem try/catch em volta, isso interrompe o loop
+            // inteiro (a linha `S.rafId = requestAnimationFrame(loop)` no fim da função
+            // nunca era alcançada), ou seja: o overworld não desenhava UM ÚNICO frame
+            // depois de ativado. Não é algo que esta passada quebrou — já estava assim
+            // antes de eu tocar no arquivo (confirmado com grep: só existia a definição
+            // de currentInputVector(), zero definição de currentInputDelta em lugar
+            // nenhum). Corrigido aqui porque sem isso não dava nem para testar zoom.
+            var delta = currentInputVector();
             if (delta) {
                 tryMove(delta.dc, delta.dr, now); // `now` = t0 do lerp visual deste passo, ver tryMove().
                 S.lastStepAt = now;
