@@ -182,6 +182,57 @@
 //    mudou (`OVERWORLD_GRID_MIN/MAX`, ver comentário lá) — bound provisório mais
 //    largo, não a validação real por chunk (isso é Estágio 6, via manifest.json).
 // ============================================================================
+//
+// ATUALIZAÇÃO 03/09/2026 (Estágio 5 do plano crystalline-launching-goose.md) —
+// streaming de chunks sob demanda. Troca o único GRID_URL fixo por um sistema de
+// cache de chunks carregados (S.loadedChunks, chave "chunkX_chunkY"), alimentado
+// por data/overworld/manifest.json (novo MANIFEST_URL, primeiro fetch do boot).
+// Quatro decisões documentadas aqui:
+//
+// 1) MANIFEST SUBSTITUI GRID_URL COMO FONTE DE "O QUE EXISTE": loadGrid()/GRID_URL
+//    (Estágio 3, um chunk fixo) saem; loadManifest() lê manifest.json uma vez no
+//    boot e monta S.manifestChunksByKey ("cx_cy" -> {file, originGlobalCol/Row,
+//    ...}), o único lugar que sabe "quais chunks existem e onde buscar cada um".
+//    S.loaded (gate de ActivateOverworld) agora depende de manifest+pois, NÃO mais
+//    do grid em si — os chunks de tile passam a carregar sob demanda depois que o
+//    overworld já está "pronto" (metadado pequeno primeiro, conteúdo pesado
+//    depois, sob demanda — mesma filosofia de qualquer streaming de mundo aberto).
+//
+// 2) JANELA 3x3 SEMPRE MANTIDA = PREFETCH DIRECIONAL DE GRAÇA: updateChunkWindow()
+//    roda a cada passo lógico bem-sucedido (tryMove()), não só quando o chunk atual
+//    muda — recalcula chunkX/chunkY do jogador (Math.floor(globalCol/chunkDimTiles)),
+//    garante que os 9 chunks da vizinhança (Chebyshev <=1) estejam carregados
+//    (ensureChunkLoaded, no-op se já carregado/carregando) e descarrega da memória
+//    tudo que caiu fora dessa janela. Isso já cobre o pedido explícito do plano de
+//    "prefetch por direção" sem nenhuma lógica extra de "olhar pra frente": como o
+//    jogador só anda 1 tile por passo (150ms) e a janela inclui TODOS os 8 vizinhos
+//    do chunk atual o tempo todo (não só o vizinho na direção do movimento), o
+//    chunk pro qual o jogador está indo já foi disparado pra carregar assim que ele
+//    entrou no chunk ATUAL — ~85 passos (12,75s) de antecedência antes de cruzar a
+//    próxima borda, tempo de sobra pra um fetch de ~23KB terminar. Mais robusto que
+//    só pré-carregar na direção do movimento: também cobre mudança de direção ou
+//    andar para trás, sem precisar re-disparar nada.
+//
+// 3) BURACO NO MAPA = BLOQUEADO, NUNCA UNDEFINED: isWalkable(globalCol, globalRow)
+//    resolve (chunkX, chunkY) a partir da coordenada global, procura em
+//    S.loadedChunks — chunk ausente (fora do manifesto OU ainda no meio do fetch OU
+//    descartado por sair da janela) retorna false (bloqueado). Mesmo princípio já
+//    valia no Estágio 3 (fora do único chunk = bloqueado); a diferença é que agora
+//    "fora" pode significar tanto "fora da cidade gerada" quanto "dentro da cidade
+//    mas ainda buscando os bytes" — o jogador nunca percebe a diferença, só não
+//    consegue andar pra lá até o chunk resolver (ou nunca, se for um buraco real).
+//
+// 4) render() ITERA EM ESPAÇO GLOBAL DIRETO, SEM CLAMP A UM S.dim ÚNICO: o laço de
+//    culling (antes limitado a [0, S.dim-1] de um único S.rows) agora varre o
+//    retângulo de tiles GLOBAIS ao redor do jogador e, pra cada célula, resolve o
+//    chunk dono via chunkXYForGlobal + S.loadedChunks, pulando silenciosamente
+//    células cujo chunk não está carregado (mesmo "buraco" do item 3 — só não
+//    desenha nada ali, sem erro). S.rows/S.dim/globalToLocalCol/Row/
+//    localToGlobalCol/Row (Estágio 3) saem por completo — cada chunk carrega seu
+//    próprio originGlobalCol/Row dentro do objeto guardado em S.loadedChunks, então
+//    a conversão local<->global agora é por-chunk, não mais um único par global pro
+//    módulo inteiro.
+// ============================================================================
 
 (function () {
     'use strict';
@@ -201,54 +252,64 @@
     var CAMERA_HALF_LIFE_S = 0.1;
     var CAMERA_LERP_K = Math.pow(0.5, 1 / CAMERA_HALF_LIFE_S); // k tal que k^CAMERA_HALF_LIFE_S = 0.5
 
-    // Estágio 3 do plano (coordenadas globais) — troca o arquivo legado
-    // 'data/niteroi_overworld_grid.json' pelo chunk real 'data/overworld/chunks/0_0.json'
-    // gerado no Estágio 4. Confirmado byte-a-byte antes da troca (script Node ad-hoc): os
-    // dois têm EXATAMENTE o mesmo `grid.rows` — a única diferença é que o chunk ganha
-    // `_meta.grid.chunkOriginGlobalCol/Row` (0,0), que é precisamente o dado que faltava
-    // pra este módulo converter local<->global (ver loadGrid() e as funções
-    // localToGlobalCol/Row/globalToLocalCol/Row logo abaixo de isWalkable()). Zero mudança
-    // de comportamento observável: mesmo grid, mesma torre, mesmo spawn.
-    var GRID_URL = 'data/overworld/chunks/0_0.json';
+    // Estágio 5 do plano (streaming de chunks) — substitui o GRID_URL fixo do Estágio 3
+    // ('data/overworld/chunks/0_0.json', um chunk só) por um fetch de metadado primeiro:
+    // manifest.json lista todo chunk que existe hoje (0_0, 1_0, 0_1 — ver
+    // data/overworld/manifest.json) + a dimensão compartilhada (chunk_dim_tiles). Os
+    // arquivos de chunk em si (data/overworld/chunks/{chunkX}_{chunkY}.json) só são
+    // buscados sob demanda depois, via ensureChunkLoaded() — ver bloco de atualização
+    // 03/09/2026 (Estágio 5) no topo do arquivo.
+    var MANIFEST_URL = 'data/overworld/manifest.json';
     // Estágio 2 do plano de overworld expansível (POI data-driven) — ver
     // C:\Users\Klara\.claude\plans\crystalline-launching-goose.md §4. Carregado em
-    // paralelo ao grid no boot (loadPois(), abaixo de loadGrid()); os dois precisam
-    // terminar antes do overworld ser considerado "pronto" — ver finalizeLoadIfReady().
+    // paralelo ao manifesto no boot (loadPois(), abaixo de loadManifest()); os dois
+    // precisam terminar antes do overworld ser considerado "pronto" — ver
+    // finalizeLoadIfReady(). pois.json continua um arquivo ÚNICO (não por chunk, item 5
+    // do pedido do Estágio 5) — não muda neste estágio.
     var POI_URL = 'data/overworld/pois.json';
 
     // ---- Estado interno (fechado neste módulo — nada aqui vaza pra window
     // além dos 4 pontos de contrato pedidos) --------------------------------
     var S = {
-        rows: null,          // array de strings, rows[row][col]
-        dim: 0,              // 85
-        gridLoaded: false,
+        // ---- Estágio 5 (streaming de chunks) -------------------------------
+        manifest: null,           // data/overworld/manifest.json cru (loadManifest)
+        manifestLoaded: false,
+        chunkDimTiles: 85,        // manifest.chunk_dim_tiles — default defensivo, sempre
+                                   // sobrescrito por loadManifest() com o valor real do arquivo
+        manifestChunksByKey: {},  // "chunkX_chunkY" -> entrada do manifesto {file,
+                                   // originGlobalCol, originGlobalRow, ...} — a ÚNICA fonte
+                                   // de "quais chunks existem e onde buscar cada um" (ver
+                                   // ensureChunkLoaded). Chave ausente = buraco esperado no
+                                   // mapa da cidade (bairro ainda não gerado), não um erro.
+        loadedChunks: {},         // "chunkX_chunkY" -> {rows, dim, originGlobalCol,
+                                   // originGlobalRow, chunkX, chunkY} — cache dos chunks
+                                   // atualmente em memória (janela 3x3, ver updateChunkWindow).
+                                   // isWalkable()/render() SÓ leem daqui, nunca de S.manifest.
+        loadingChunks: {},        // "chunkX_chunkY" -> true enquanto o fetch está em voo —
+                                   // guarda contra disparar o mesmo fetch duas vezes por causa
+                                   // de dois updateChunkWindow() consecutivos antes do 1º resolver.
+        currentChunkX: null,      // chunk (chunkX,chunkY) que contém S.playerCol/Row agora —
+        currentChunkY: null,      // null até a 1ª chamada de updateChunkWindow() (no activateNow).
+
         pois: null,             // array de POIs de data/overworld/pois.json (loadPois) — cada
                                  // item ganha um `_bounds` calculado em computePoiBounds()
         poisLoaded: false,
         entryPoi: null,         // POI com interaction.kind === 'episode_entry' — fonte de
                                  // window.OverworldTowerGridPos (Estágio 2, substitui o antigo
                                  // S.landmark calculado varrendo 'L' no grid)
-        loaded: false,          // true quando grid E pois terminaram de carregar (finalizeLoadIfReady)
+        loaded: false,          // true quando manifest E pois terminaram de carregar
+                                 // (finalizeLoadIfReady) — Estágio 5: NÃO espera mais nenhum
+                                 // chunk de tile em si, só o metadado (manifest) + POIs. Os
+                                 // chunks de tile carregam sob demanda depois disso (ver
+                                 // activateNow -> updateChunkWindow).
         pendingActivate: null, // {x,y} se ActivateOverworld foi chamado antes do fetch terminar
 
-        // Estágio 3 (plano crystalline-launching-goose.md §1) — origem global do ÚNICO
-        // chunk hoje carregado, lida de data._meta.grid.chunkOriginGlobalCol/Row em
-        // loadGrid() (chunk (0,0) => sempre 0,0 nesta rodada). Junto com S.dim, define a
-        // janela [chunkOriginGlobalCol, chunkOriginGlobalCol+S.dim) que este único chunk
-        // cobre em coordenadas globais — ver localToGlobalCol/Row/globalToLocalCol/Row
-        // logo abaixo de isWalkable(). Default 0/0 aqui é só defensivo (chunk sem esse
-        // campo no _meta) — nunca fica sem valor depois que loadGrid() resolve.
-        chunkOriginGlobalCol: 0,
-        chunkOriginGlobalRow: 0,
-
-        // GLOBAIS desde o Estágio 3 (antes eram locais ao único arquivo de grid, 0-84) —
-        // toda a cidade compartilha o mesmo sistema de coordenadas, não só este chunk.
-        // Continuam sendo a fonte LÓGICA/autoritativa (inteiros) pra isWalkable()/
+        // GLOBAIS desde o Estágio 3 — toda a cidade compartilha o mesmo sistema de
+        // coordenadas. Fonte LÓGICA/autoritativa (inteiros) pra isWalkable()/
         // checkPoiInteractions() (ver tryMove()) — NUNCA leia playerDrawCol/Row pra isso.
-        // Numericamente idênticas às antigas coordenadas locais enquanto só o chunk (0,0)
-        // existir (chunkOriginGlobalCol/Row = 0,0) — a partir do Estágio 5 (streaming de
-        // múltiplos chunks) deixam de coincidir por acidente e passam a depender de
-        // verdade da conversão local<->global.
+        // Estágio 5: cada chunk carrega seu PRÓPRIO originGlobalCol/Row (dentro do objeto
+        // guardado em S.loadedChunks) — não existe mais um único par global pro módulo
+        // inteiro (S.chunkOriginGlobalCol/Row do Estágio 3 saiu; ver chunkXYForGlobal).
         playerCol: 0,
         playerRow: 0,
 
@@ -366,40 +427,53 @@
     window.OverworldState = { playerGridX: 0, playerGridY: 0, isActive: false };
     window.OverworldTowerGridPos = null;
 
+    // Estágio 5 — hook de depuração READ-ONLY (não é um dos 4 pontos de contrato
+    // originais, é só o único jeito de inspecionar S.loadedChunks/currentChunk de fora
+    // do closure sem expor o estado inteiro em `window`). Usado pra verificar de verdade
+    // a janela 3x3/descarga de chunks (heap, chunks carregados) em vez de só "parecer"
+    // funcionar. Seguro de manter: não muta nada, só lê.
+    window.OverworldDebug = {
+        getLoadedChunkKeys: function () { return Object.keys(S.loadedChunks); },
+        getCurrentChunk: function () { return { chunkX: S.currentChunkX, chunkY: S.currentChunkY }; }
+    };
+
     // ======================= Carregamento dos dados ==========================
-    function loadGrid() {
-        fetch(GRID_URL)
+    // Estágio 5 — substitui o antigo loadGrid() (fetch fixo de um único chunk).
+    // manifest.json é o novo primeiro fetch do boot: metadado pequeno (quais chunks
+    // existem, onde buscar cada um, dimensão em tiles) — os chunks de tile em si
+    // carregam sob demanda depois, via ensureChunkLoaded()/updateChunkWindow(), não
+    // mais aqui.
+    function loadManifest() {
+        fetch(MANIFEST_URL)
             .then(function (r) {
-                if (!r.ok) throw new Error('HTTP ' + r.status + ' ao buscar ' + GRID_URL);
+                if (!r.ok) throw new Error('HTTP ' + r.status + ' ao buscar ' + MANIFEST_URL);
                 return r.json();
             })
             .then(function (data) {
-                // Nota: `dimensions`/`legend`/`encoding` descritivos vivem em `data._meta.grid`
-                // (metadados sobre o arquivo); os dados de jogo de verdade são `data.grid.rows`
-                // (array de strings) — os dois `grid` são objetos irmãos diferentes, não aninhados
-                // um dentro do outro. Deriva `dim` do array real em vez de reler o número do
-                // _meta, pra nunca dessincronizar se o grid for regenerado em outro tamanho.
-                S.rows = data.grid.rows;
-                S.dim = S.rows.length;
-                // Estágio 3 — origem global do chunk, lida do próprio arquivo (nunca
-                // hardcoded aqui: chunks futuros do Estágio 5 vão trazer offsets != 0,0,
-                // e este módulo não deve saber de antemão qual chunk está carregando).
-                // Fallback 0/0 só cobre um chunk antigo/malformado sem o campo — nunca
-                // deveria disparar contra os arquivos reais de data/overworld/chunks/.
-                var meta = data._meta && data._meta.grid;
-                S.chunkOriginGlobalCol = (meta && typeof meta.chunkOriginGlobalCol === 'number') ? meta.chunkOriginGlobalCol : 0;
-                S.chunkOriginGlobalRow = (meta && typeof meta.chunkOriginGlobalRow === 'number') ? meta.chunkOriginGlobalRow : 0;
-                S.gridLoaded = true;
+                S.manifest = data;
+                S.chunkDimTiles = (data && typeof data.chunk_dim_tiles === 'number') ? data.chunk_dim_tiles : 85;
+                S.manifestChunksByKey = {};
+                var chunks = (data && Array.isArray(data.chunks)) ? data.chunks : [];
+                for (var i = 0; i < chunks.length; i++) {
+                    var c = chunks[i];
+                    if (!c || typeof c.chunkX !== 'number' || typeof c.chunkY !== 'number' || !c.file) {
+                        console.warn('[Overworld] entrada inválida no manifesto, ignorada:', c);
+                        continue;
+                    }
+                    S.manifestChunksByKey[chunkKey(c.chunkX, c.chunkY)] = c;
+                }
+                S.manifestLoaded = true;
                 finalizeLoadIfReady();
             })
             .catch(function (err) {
-                console.error('[Overworld] falha ao carregar ' + GRID_URL + ':', err);
+                console.error('[Overworld] falha ao carregar ' + MANIFEST_URL + ':', err);
             });
     }
 
     // Estágio 2 (POI data-driven) — data/overworld/pois.json substitui a antiga
     // varredura de 'L' no grid como fonte da torre/landmarks. Carregado em paralelo
-    // a loadGrid(); os dois convergem em finalizeLoadIfReady().
+    // a loadManifest() (Estágio 5, antes era loadGrid()); os dois convergem em
+    // finalizeLoadIfReady().
     function loadPois() {
         fetch(POI_URL)
             .then(function (r) {
@@ -428,10 +502,11 @@
     // computePoiBounds() precisa só dos POIs, mas render()/isWalkable() precisam do
     // grid, então nenhum dos dois pode faltar.
     function finalizeLoadIfReady() {
-        if (!S.gridLoaded || !S.poisLoaded) return;
+        if (!S.manifestLoaded || !S.poisLoaded) return;
         computePoiBounds();
         S.loaded = true;
-        console.log('[Overworld] grid carregado (' + S.dim + 'x' + S.dim + '), ' + S.pois.length + ' POI(s). Torre em', window.OverworldTowerGridPos);
+        var chunkCount = Object.keys(S.manifestChunksByKey).length;
+        console.log('[Overworld] manifesto carregado (' + chunkCount + ' chunk(s) no mapa, ' + S.chunkDimTiles + 'x' + S.chunkDimTiles + ' tiles cada), ' + S.pois.length + ' POI(s). Torre em', window.OverworldTowerGridPos);
         if (S.pendingActivate) {
             var p = S.pendingActivate;
             S.pendingActivate = null;
@@ -495,30 +570,120 @@
         window.OverworldTowerGridPos = { gridX: S.entryPoi._bounds.centerCol, gridY: S.entryPoi._bounds.centerRow };
     }
 
-    // Estágio 3 — conversão local<->global. Local = índice dentro de S.rows (0..S.dim-1,
-    // o único sistema de coordenadas que existia antes deste estágio); global = coordenada
-    // de tile na cidade inteira (o que S.playerCol/Row, POIs e a rede agora usam). Com um
-    // único chunk carregado, chunkOriginGlobalCol/Row = 0,0 (ver manifest.json, chunk 0_0),
-    // então as duas funções são a identidade na prática hoje — mas todo código abaixo passa
-    // por elas mesmo assim, em vez de presumir "global == local", porque essa é exatamente a
-    // costura que o Estágio 5 (streaming de múltiplos chunks, cada um com seu próprio
-    // offset) precisa encontrar já pronta.
-    function globalToLocalCol(globalCol) { return globalCol - S.chunkOriginGlobalCol; }
-    function globalToLocalRow(globalRow) { return globalRow - S.chunkOriginGlobalRow; }
-    function localToGlobalCol(localCol) { return S.chunkOriginGlobalCol + localCol; }
-    function localToGlobalRow(localRow) { return S.chunkOriginGlobalRow + localRow; }
+    // Estágio 5 — chave de S.loadedChunks/S.manifestChunksByKey/S.loadingChunks, sempre
+    // "chunkX_chunkY" (inteiros com sinal, ver plano §1 — bairros a noroeste/sudoeste da
+    // origem exigem chunkX/chunkY negativos; '-1_0' nunca colide com outra combinação
+    // porque '-' só aparece como prefixo de sinal, formato inequívoco).
+    function chunkKey(chunkX, chunkY) { return chunkX + '_' + chunkY; }
 
-    // col/row aqui são GLOBAIS (Estágio 3) — convertidos pra local antes de indexar
-    // S.rows. Fora da faixa do único chunk carregado = não-andável, mesmo comportamento
-    // observável de antes (que bloqueava nas bordas do grid local 0-84; a diferença é só
-    // que agora a checagem é "fora do chunk carregado", não "fora do grid" — preparação
-    // pro Estágio 5, que vai trocar isto por "fora da janela 3x3 de chunks carregados").
+    // Resolve em qual chunk uma coordenada GLOBAL cai. Math.floor (não |0 nem truncamento)
+    // é obrigatório aqui: precisa arredondar pra -infinito em coordenadas negativas (ex.:
+    // globalCol=-1 tem que cair no chunkX=-1, não no chunkX=0) — Math.floor já faz isso
+    // certo por definição em JS.
+    function chunkXYForGlobal(globalCol, globalRow) {
+        return {
+            chunkX: Math.floor(globalCol / S.chunkDimTiles),
+            chunkY: Math.floor(globalRow / S.chunkDimTiles)
+        };
+    }
+
+    // Garante que o chunk (chunkX,chunkY) esteja em S.loadedChunks, disparando o fetch se
+    // ainda não estiver carregado nem em voo. No-op silencioso (nem loga) se o chunk não
+    // existe no manifesto — isso é um BURACO ESPERADO no mapa da cidade (bairro ainda não
+    // gerado pelo Estágio 4), não um erro; ver isWalkable()/render() pra como o resto do
+    // módulo trata um chunk ausente (bloqueado / não desenhado, nunca undefined vazando
+    // pra lógica de colisão).
+    function ensureChunkLoaded(chunkX, chunkY) {
+        var key = chunkKey(chunkX, chunkY);
+        if (S.loadedChunks[key] || S.loadingChunks[key]) return;
+        var manifestEntry = S.manifestChunksByKey[key];
+        if (!manifestEntry) return; // buraco esperado — nada pra buscar ainda
+
+        S.loadingChunks[key] = true;
+        fetch(manifestEntry.file)
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status + ' ao buscar ' + manifestEntry.file);
+                return r.json();
+            })
+            .then(function (data) {
+                delete S.loadingChunks[key];
+                // O jogador pode ter saído da janela 3x3 deste chunk enquanto o fetch
+                // estava em voo (ex.: mudou de direção perto de uma costura mais rápido
+                // que a latência do fetch) — descarta em vez de guardar, senão
+                // S.loadedChunks cresceria sem limite a cada oscilação de borda (o
+                // próprio teste de heap do plano existe pra pegar exatamente isso).
+                if (!isChunkInCurrentWindow(chunkX, chunkY)) return;
+                var rows = data.grid.rows;
+                var meta = data._meta && data._meta.grid;
+                var originCol = (meta && typeof meta.chunkOriginGlobalCol === 'number') ? meta.chunkOriginGlobalCol : (manifestEntry.originGlobalCol || 0);
+                var originRow = (meta && typeof meta.chunkOriginGlobalRow === 'number') ? meta.chunkOriginGlobalRow : (manifestEntry.originGlobalRow || 0);
+                S.loadedChunks[key] = {
+                    rows: rows,
+                    dim: rows.length,
+                    originGlobalCol: originCol,
+                    originGlobalRow: originRow,
+                    chunkX: chunkX,
+                    chunkY: chunkY
+                };
+            })
+            .catch(function (err) {
+                delete S.loadingChunks[key];
+                console.error('[Overworld] falha ao carregar chunk ' + key + ' (' + manifestEntry.file + '):', err);
+                // sem retry explícito aqui: a próxima updateChunkWindow() (próximo passo
+                // lógico) tenta de novo sozinha, porque nem loadingChunks nem loadedChunks
+                // ficaram marcados — auto-recuperação de um blip de rede transitório.
+            });
+    }
+
+    function isChunkInCurrentWindow(chunkX, chunkY) {
+        if (S.currentChunkX === null || S.currentChunkY === null) return false;
+        return Math.abs(chunkX - S.currentChunkX) <= 1 && Math.abs(chunkY - S.currentChunkY) <= 1;
+    }
+
+    // Janela 3x3 (plano §2) + prefetch direcional (plano §3) NUM SÓ MECANISMO — ver nota de
+    // arquitetura no topo do arquivo (Estágio 5, item 2) pra por que manter os 9 vizinhos do
+    // chunk atual SEMPRE carregados já cobre "antecipar na direção do movimento" sem lógica
+    // extra: o jogador só anda 1 tile por passo, e o vizinho na direção que ele for andar
+    // sempre já é um dos 8 vizinhos do chunk ATUAL (carregado desde que ele entrou nele).
+    // Chamada a cada passo lógico bem-sucedido (tryMove()) — barata mesmo assim (~9
+    // lookups em hashtable) quando o chunk não mudou, porque ensureChunkLoaded() já
+    // retorna cedo pra tudo que já está carregado/em voo.
+    function updateChunkWindow() {
+        var cxy = chunkXYForGlobal(S.playerCol, S.playerRow);
+        S.currentChunkX = cxy.chunkX;
+        S.currentChunkY = cxy.chunkY;
+
+        var neededKeys = {};
+        for (var dx = -1; dx <= 1; dx++) {
+            for (var dy = -1; dy <= 1; dy++) {
+                var ncx = cxy.chunkX + dx, ncy = cxy.chunkY + dy;
+                neededKeys[chunkKey(ncx, ncy)] = true;
+                ensureChunkLoaded(ncx, ncy);
+            }
+        }
+        // descarrega da memória tudo que saiu da janela 3x3 (plano §2) — o teste de heap
+        // do plano (ida-e-volta entre chunks várias vezes, checando performance.memory)
+        // é exatamente pra confirmar que isto de fato acontece, não só "parece" acontecer.
+        for (var k in S.loadedChunks) {
+            if (!neededKeys[k]) delete S.loadedChunks[k];
+        }
+    }
+
+    // col/row aqui são GLOBAIS. Resolve (chunkX,chunkY) a partir da coordenada global,
+    // procura o chunk em S.loadedChunks (nunca em S.manifest — só chunk REALMENTE em
+    // memória conta) e indexa dentro dele. Chunk ausente (fora do manifesto = buraco real
+    // no mapa da cidade, OU dentro do manifesto mas ainda buscando os bytes, OU descartado
+    // por estar fora da janela 3x3) = bloqueado por padrão, nos três casos — o jogador
+    // nunca anda pra uma célula cujo dado ele não tem, mesmo que essa célula "exista" no
+    // manifesto mas ainda não tenha chegado.
     function isWalkable(globalCol, globalRow) {
-        if (!S.rows) return false;
-        var localCol = globalToLocalCol(globalCol);
-        var localRow = globalToLocalRow(globalRow);
-        if (localRow < 0 || localRow >= S.dim || localCol < 0 || localCol >= S.dim) return false;
-        return S.rows[localRow][localCol] !== '#';
+        var cxy = chunkXYForGlobal(globalCol, globalRow);
+        var chunk = S.loadedChunks[chunkKey(cxy.chunkX, cxy.chunkY)];
+        if (!chunk) return false;
+        var localCol = globalCol - chunk.originGlobalCol;
+        var localRow = globalRow - chunk.originGlobalRow;
+        if (localRow < 0 || localRow >= chunk.dim || localCol < 0 || localCol >= chunk.dim) return false;
+        return chunk.rows[localRow][localCol] !== '#';
     }
 
     // Substitui a antiga isInsideLandmark(col,row) (que só conhecia a torre). Agora
@@ -998,7 +1163,7 @@
     // ============================== Frame de render =============================
     function render(tsMs) {
         var ctx = S.ctx, canvas = S.canvas;
-        if (!ctx || !S.rows) return;
+        if (!ctx) return;
         var pal = readPalette();
         var tSec = tsMs / 1000;
 
@@ -1045,28 +1210,34 @@
         var rowSpan = Math.ceil((canvas.height / 2) / HALF_H) + 3;
         var R = colSpan + rowSpan;
 
-        // Estágio 3 — S.playerRow/Col são GLOBAIS; convertidos pra LOCAL aqui só pra
-        // limitar o laço aos índices reais de S.rows (0..S.dim-1, o único chunk
-        // carregado). Cada tile visitado é convertido de volta pra GLOBAL (via
-        // localToGlobalCol/Row) antes de entrar em `drawables`, pra ficar no mesmo
-        // espaço de coordenadas que o jogador/POIs — ver bloco de atualização
-        // 03/09/2026 no topo do arquivo.
-        var playerLocalCol = globalToLocalCol(S.playerCol);
-        var playerLocalRow = globalToLocalRow(S.playerRow);
-        var minRowLocal = Math.max(0, playerLocalRow - R);
-        var maxRowLocal = Math.min(S.dim - 1, playerLocalRow + R);
-        var minColLocal = Math.max(0, playerLocalCol - R);
-        var maxColLocal = Math.min(S.dim - 1, playerLocalCol + R);
+        // Estágio 5 — o laço de culling varre RETÂNGULO GLOBAL diretamente ao redor do
+        // jogador (não mais clampado a [0, S.dim-1] de um único S.rows, que só existia
+        // enquanto havia exatamente 1 chunk). Pra cada célula GLOBAL, resolve o chunk dono
+        // via chunkXYForGlobal + S.loadedChunks e indexa dentro dele; célula cujo chunk não
+        // está carregado (buraco no mapa da cidade, ou chunk ainda buscando os bytes) é
+        // simplesmente pulada — mesmo tratamento "bloqueado, nunca undefined" de
+        // isWalkable(), aplicado aqui ao desenho: nada é desenhado ali, sem erro no
+        // console. Cada célula usa o `dim`/origem do PRÓPRIO chunk (nunca um S.dim global,
+        // que não existe mais), então chunks de tamanhos diferentes no futuro também
+        // funcionariam sem mudança aqui.
+        var minRowGlobal = S.playerRow - R;
+        var maxRowGlobal = S.playerRow + R;
+        var minColGlobal = S.playerCol - R;
+        var maxColGlobal = S.playerCol + R;
 
         var drawables = [];
-        for (var r = minRowLocal; r <= maxRowLocal; r++) {
-            var rowStr = S.rows[r];
-            for (var c = minColLocal; c <= maxColLocal; c++) {
-                var ch = rowStr[c];
+        for (var gRow = minRowGlobal; gRow <= maxRowGlobal; gRow++) {
+            for (var gCol = minColGlobal; gCol <= maxColGlobal; gCol++) {
+                var cellCxy = chunkXYForGlobal(gCol, gRow);
+                var cellChunk = S.loadedChunks[chunkKey(cellCxy.chunkX, cellCxy.chunkY)];
+                if (!cellChunk) continue; // buraco no mapa / chunk ainda não carregado — nada desenhado aqui
+                var cellLocalRow = gRow - cellChunk.originGlobalRow;
+                var cellLocalCol = gCol - cellChunk.originGlobalCol;
+                if (cellLocalRow < 0 || cellLocalRow >= cellChunk.dim || cellLocalCol < 0 || cellLocalCol >= cellChunk.dim) continue;
+                var ch = cellChunk.rows[cellLocalRow][cellLocalCol];
                 // Prédios desativados (item 1 da nota de arquitetura no topo do arquivo) —
                 // célula '#' nem entra no array de depth-sort, só 'street'/'landmark' desenham.
                 if (ch === '#') continue;
-                var gRow = localToGlobalRow(r), gCol = localToGlobalCol(c);
                 drawables.push({ key: gRow + gCol, type: 'tile', row: gRow, col: gCol, ch: ch });
             }
         }
@@ -1126,11 +1297,15 @@
 
         drawTowerStreetLabel(ctx, pal, camOffsetX, camOffsetY, tSec);
 
-        // HUD mínimo de depuração — posição do jogador no grid.
+        // HUD mínimo de depuração — posição do jogador no grid + estado do streaming de
+        // chunks (Estágio 5: chunk atual e quantos estão em memória agora — útil pra
+        // conferir ao vivo que a janela 3x3 carrega/descarrega do jeito certo).
         ctx.save();
         ctx.font = '11px "Courier New", monospace';
         ctx.fillStyle = 'rgba(0,255,255,0.85)';
-        ctx.fillText('Overworld  col=' + S.playerCol + ' row=' + S.playerRow, 8, 14);
+        ctx.fillText('Overworld  col=' + S.playerCol + ' row=' + S.playerRow +
+            '  chunk=' + S.currentChunkX + ',' + S.currentChunkY +
+            '  loaded=' + Object.keys(S.loadedChunks).length, 8, 14);
         ctx.restore();
     }
 
@@ -1192,6 +1367,7 @@
         S.playerCol = nc; S.playerRow = nr;
         S.moveStartAt = now;
         S.lastDir = { dc: dc, dr: dr };
+        updateChunkWindow(); // Estágio 5 — janela 3x3 + prefetch direcional (ver nota no topo do arquivo); barato quando o chunk não mudou, ensureChunkLoaded() já retorna cedo.
         syncPublicState();
         checkPoiInteractions(); // lê S.playerCol/Row (lógico) — NUNCA playerDrawCol/Row. Restrição inegociável do plano.
         return true;
@@ -1277,6 +1453,11 @@
             S.playerCol = window.OverworldTowerGridPos.gridX;
             S.playerRow = window.OverworldTowerGridPos.gridY + 2;
         }
+        // Estágio 5 — dispara o carregamento da janela 3x3 ao redor do spawn ANTES do
+        // primeiro loop/render. Não é estritamente necessário (render()/isWalkable() já
+        // tratam chunk ausente como buraco/bloqueado, não quebrariam sem isto), mas evita
+        // 1-2 frames à toa com o chão vazio antes do chunk (0,0) chegar.
+        updateChunkWindow();
         // Inicializa o estado "dentro do POI" pra posição de spawn SEM disparar (mesmo
         // espírito do antigo `S.insideLandmark = isInsideLandmark(...)` — só registra
         // onde o jogador já está; checkPoiInteractions() é quem dispara, só em
@@ -1353,7 +1534,7 @@
     // ============================== Boot ==============================
     function init() {
         ensureCanvas();
-        loadGrid();
+        loadManifest();
         loadPois();
     }
 
