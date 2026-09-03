@@ -43,6 +43,66 @@
 // desenhar — mas cabe ao agente de Transição garantir que `Game_Step` também
 // pare antes de chamar `ActivateOverworld()` de volta.
 // ============================================================================
+//
+// ATUALIZAÇÃO 02/09/2026 (tarde) — simplificação visual + fantasma jogável real,
+// pedido do usuário com referência de estilo (mapa AR escuro, ruas brancas sobre
+// fundo preto, nome de rua flutuando). Três decisões de arquitetura tomadas aqui,
+// documentadas porque mudam o contrato visual/de dados deste módulo:
+//
+// 1) PRÉDIOS DESATIVADOS, NÃO REMOVIDOS: `drawBlockTile()` continua existindo
+//    (o PRNG determinístico por tile pode servir pra outra coisa depois — cor de
+//    piso, densidade de encontro aleatório etc.), mas o laço de render() não a
+//    chama mais e as células '#' nem entram no array `drawables` (ver loop de
+//    varredura em render()). Só 'street' e 'L' (landmark) desenham algo agora.
+//
+// 2) NOME DE RUA POR CÉLULA — INVESTIGADO, NÃO EXISTE NO DADO ATUAL: conferido
+//    `data/niteroi_overworld_grid.json` inteiro via script Node antes de escrever
+//    qualquer código aqui. `_meta.extraction_stats.named_streets_found` é só uma
+//    lista AGREGADA (nome → lista de osm_ids), sem NENHUM vínculo célula→nome no
+//    `grid.rows` em si (cada célula só carrega '.', '#' ou 'L', nada de nome).
+//    Também procurei por um cache da resposta bruta do Overpass (`tools/`,
+//    `scripts/`, qualquer `*cache*`/`*overpass*` no repo) pra reabrir e associar
+//    cada `way` nomeado às células que ele cobre, como a skill `osm-to-game-grid`
+//    documenta — NÃO existe nenhum cache em disco; `_meta.data_source` só grava as
+//    STRINGS das queries Overpass já executadas (reproduzíveis, mas exigiriam
+//    rodar a API ao vivo de novo e escrever um script de rasterização de nome por
+//    célula, um trabalho de pipeline de dados, não de renderer — fora do escopo
+//    desta passada). Dado isso, a decisão foi pelo caminho honesto mínimo: mostrar
+//    só o nome da rua da própria torre ("Rua Doutor Beltrão", fixo, perto dela —
+//    ver `drawTowerStreetLabel()`). Os outros ~38 nomes de `named_streets_found`
+//    ficam como PENDÊNCIA DOCUMENTADA: precisam de um novo passo de build (fora
+//    deste arquivo) que re-consulte Overpass preservando os `way` geometrando cada
+//    rua e rasterize um `streetName` por célula, do mesmo jeito que a
+//    classificação walkable/blocked já faz hoje pro campo `street`/`block`.
+//
+// 3) SPRITE DO FANTASMA ATIVO REAPROVEITADO, NÃO É MARCADOR GENÉRICO: o próprio
+//    jogador agora desenha `window.g_customPlayerGhostRight` — a MESMA referência
+//    de imagem que `js/game/engine.js` usa pra desenhar o jogador no Episódio 1
+//    (confirmado lendo engine.js ~linha 1186-1190: `isRightReady`/`curRight` usam
+//    exatamente essa variável). Ela é populada por
+//    `window.PlayAsGhost()`/`safeLoadGhostSprite()` em js/game/ghostdex_ui.js. Como
+//    nem todo caminho de entrada passa por ali antes de chegar no overworld (login
+//    automático/retomada de sessão em js/web2/auth.js seta só
+//    `window.g_currentPlayerGhost`, sem carregar a imagem), este módulo tem um
+//    fallback PRÓPRIO que carrega o mesmo arquivo pelo mesmo ID e com o mesmo
+//    esquema de caminhos (`Ghosts/#<id>.png` etc.) — nunca inventa outro sprite,
+//    só cobre a lacuna de carregamento. Ver `getSelfGhostImg()`/`loadGhostSpriteById()`.
+//    PRA OUTROS JOGADORES (`window.OverworldOtherPlayers`): o payload de hoje
+//    (evento `overworld_players_update`, `server/index.js`) é
+//    `{email, name, avatarUrl, gridX, gridY}` — SEM nenhum campo dedicado de "qual
+//    fantasma esse jogador está jogando" (conferido lendo o handler no servidor
+//    linha a linha). O ID do fantasma ativo VAZA dentro do próprio `name` como
+//    sufixo `(#ID)` — `js/game/ghostdex_ui.js:PlayAsGhost()` monta
+//    `taggedName = baseName + ' (#' + ghostId + ')'` antes de emitir `join_game`,
+//    e o servidor ecoa esse `name` de volta sem alterar. Este módulo usa esse
+//    sufixo como heurística (`getOtherPlayerGhostImg()`) porque é dado real já
+//    trafegando na rede, não um palpite — mas é um acoplamento frágil (nome de
+//    exibição virando transporte de dado). LIMITAÇÃO DOCUMENTADA: se o backend
+//    adicionar um campo `ghostId` de verdade ao payload, trocar pra ele e apagar o
+//    regex. Quando o sufixo não existe/não bate (nome legado, jogador anônimo),
+//    cai no marcador genérico antigo (`drawPlayerToken`) só pra esse jogador — não
+//    inventa um sprite definitivo sem dado real.
+// ============================================================================
 
 (function () {
     'use strict';
@@ -331,13 +391,17 @@
         }
     }
 
-    function drawFlatDiamond(ctx, cx, cy, hw, hh, fill, stroke) {
+    function diamondPath(ctx, cx, cy, hw, hh) {
         ctx.beginPath();
         ctx.moveTo(cx, cy - hh);
         ctx.lineTo(cx + hw, cy);
         ctx.lineTo(cx, cy + hh);
         ctx.lineTo(cx - hw, cy);
         ctx.closePath();
+    }
+
+    function drawFlatDiamond(ctx, cx, cy, hw, hh, fill, stroke) {
+        diamondPath(ctx, cx, cy, hw, hh);
         ctx.fillStyle = fill;
         ctx.fill();
         if (stroke) {
@@ -352,18 +416,29 @@
     }
 
     function drawStreetTile(ctx, cx, cy, pal) {
-        // asfalto acinzentado com contorno neon sutil (tom ciano baixa opacidade),
-        // reaproveitando --surface-dark como base — sem cor nova.
-        drawFlatDiamond(ctx, cx, cy, HALF_W, HALF_H, pal.surfaceDark, 'rgba(0, 255, 255, 0.18)');
-        // leve linha central sugerindo guia de meio-fio, só decorativa
-        ctx.strokeStyle = 'rgba(0, 255, 255, 0.10)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(cx - HALF_W * 0.5, cy - HALF_H * 0.5);
-        ctx.lineTo(cx + HALF_W * 0.5, cy + HALF_H * 0.5);
+        // Paleta 02/09/2026 — referência de estilo pedida: mapa AR escuro, fundo preto,
+        // ruas claras/brancas com brilho neon sutil (não os ícones do app de referência,
+        // só a estética). Fundo já vem quase preto do clear do frame (pal.bgDark); aqui
+        // só a rua em si, num cinza bem claro quase branco com halo ciano.
+        //
+        // Não usa ctx.shadowBlur por tile: isso roda em centenas de tiles/frame (ver
+        // culling em render()) e shadowBlur é caro o bastante no Canvas 2D pra derrubar
+        // o frame rate nessa escala. O "glow" é simulado sem blur de verdade: um contorno
+        // externo largo e fraco (halo) desenhado ANTES do preenchimento da rua, seguido
+        // do preenchimento claro com um contorno interno fino e mais forte por cima —
+        // ambos são só stroke/fill normais, sem custo de blur.
+        diamondPath(ctx, cx, cy, HALF_W * 1.08, HALF_H * 1.08);
+        ctx.strokeStyle = 'rgba(120, 245, 255, 0.16)';
+        ctx.lineWidth = 4;
         ctx.stroke();
+
+        drawFlatDiamond(ctx, cx, cy, HALF_W, HALF_H, 'hsla(195, 25%, 86%, 0.92)', 'rgba(180, 250, 255, 0.55)');
     }
 
+    // DESATIVADO 02/09/2026 a pedido do usuário — ver nota de arquitetura no topo do
+    // arquivo (item 1). Função mantida (não apagada) porque o PRNG determinístico por
+    // tile pode servir pra outra coisa no futuro; render() não chama mais isto e
+    // células '#' nem entram no array `drawables` (ver loop de varredura em render()).
     function drawBlockTile(ctx, cx, cy, col, row) {
         var rng = rngForTile(col, row);
         var hue = BUILDING_HUES[Math.floor(rng() * BUILDING_HUES.length)];
@@ -385,9 +460,15 @@
         drawFlatDiamond(ctx, cx, cy, HALF_W, HALF_H, 'rgba(191, 0, 255, 0.10)', pal.purple);
     }
 
+    // Extraído pra constantes (em vez de literais dentro de drawTower) porque
+    // drawTowerStreetLabel() precisa das MESMAS medidas pra flutuar o nome da rua
+    // acima do farol, sem duplicar números que poderiam dessincronizar.
+    var TOWER_HW = HALF_W * 3, TOWER_HH = HALF_H * 3; // footprint 3x3
+    var TOWER_HEIGHT = 170;
+
     function drawTower(ctx, cx, cy, pal, tSec) {
-        var hw = HALF_W * 3, hh = HALF_H * 3; // footprint 3x3
-        var height = 170;
+        var hw = TOWER_HW, hh = TOWER_HH;
+        var height = TOWER_HEIGHT;
         ctx.save();
         ctx.shadowColor = pal.cyan;
         ctx.shadowBlur = 22;
@@ -412,6 +493,159 @@
         ctx.arc(cx, beaconY, 6 + pulse * 3, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
+    }
+
+    // Nome de rua flutuando perto da torre — item 3 do pedido do usuário ("nome de
+    // local flutuando" na referência de estilo). Só a rua da própria torre (Rua
+    // Doutor Beltrão); ver nota de arquitetura no topo do arquivo (item 2) pra por
+    // que as outras ruas do grid não têm rótulo ainda. Desenhada UMA VEZ por frame
+    // (não por tile, diferente das ruas) — chamada direto de render(), depois do
+    // laço de depth-sort, então sempre fica por cima de tudo, como uma etiqueta de
+    // UI flutuante e não um objeto do mundo isométrico.
+    function drawTowerStreetLabel(ctx, pal, camOffsetX, camOffsetY, tSec) {
+        if (!S.landmark) return;
+        var center = gridToScreen(S.landmark.centerCol, S.landmark.centerRow);
+        var cx = center.x + camOffsetX;
+        var cy = center.y + camOffsetY;
+        // Âncora NO PÉ da torre (cy - a metade do footprint), não no farol do topo
+        // (que fica a `TOWER_HEIGHT + TOWER_HH + 14` px acima de cy — quase 250px).
+        // O canvas de jogo de verdade (#myCanvas, e portanto este, ver
+        // resizeCanvasToContainer) roda a 640x300px — testado ao vivo: com o rótulo
+        // ancorado no farol, ele só cabia na tela com a câmera ~10 tiles longe da
+        // torre; ancorado perto do pé (como uma placa na entrada, não uma bandeira
+        // no topo) fica visível sempre que a própria torre está em quadro, que é
+        // exatamente o "perto da torre" pedido.
+        var bob = Math.sin(tSec * 1.6) * 3; // leve flutuação vertical, reforça a leitura "flutuando"
+        var y = cy - TOWER_HH - 45 + bob;
+        var label = 'Rua Doutor Beltrão';
+
+        ctx.save();
+        ctx.font = 'bold 13px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        var w = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(5, 5, 8, 0.6)';
+        ctx.fillRect(cx - w / 2 - 10, y - 15, w + 20, 21);
+        ctx.shadowColor = pal.cyan;
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = '#eafffe';
+        ctx.fillText(label, cx, y);
+        ctx.restore();
+    }
+
+    // ============================ Sprite do fantasma ativo ======================
+    // Ver item 3 da nota de arquitetura no topo do arquivo — resumo: reaproveita
+    // window.g_customPlayerGhostRight (mesma referência que engine.js usa no
+    // Episódio 1) para o próprio jogador; pra outros jogadores, tenta extrair o ID
+    // do fantasma do sufixo "(#ID)" já embutido em `name` pelo servidor.
+    var GHOST_SPRITE_TARGET_H = 46; // altura alvo do sprite reduzido no grid isométrico (px)
+
+    function ghostSpritePaths(id) {
+        // MESMO esquema de caminhos que js/game/ghostdex_ui.js:safeLoadGhostSprite usa
+        // (não inventado aqui) — Ghosts/#<id>.png é o formato real dos assets (ver
+        // pasta Ghosts/), os outros dois são fallback pro mesmo padrão usado lá.
+        return [
+            'Ghosts/%23' + id + '.png',
+            'Ghosts/' + id + '.png',
+            'assets/sprites/ghost_' + id + '_r.webp'
+        ];
+    }
+
+    // Carrega (com cache local, chave 'ghost:<id>') o sprite de um fantasma pelo ID,
+    // tentando os caminhos em ordem até um carregar. Retorna imediatamente um
+    // <img> "placeholder" (ainda sem naturalWidth) na primeira chamada — quem chama
+    // isso deve checar `.complete && .naturalWidth > 0` antes de desenhar (ver
+    // drawGhostBillboard, que cai no marcador genérico enquanto isso não é true).
+    function loadGhostSpriteById(id) {
+        var key = 'ghost:' + id;
+        var cached = S.avatarImgCache[key];
+        if (cached) return cached;
+
+        var placeholder = new Image();
+        S.avatarImgCache[key] = placeholder;
+
+        var paths = ghostSpritePaths(id);
+        var idx = 0;
+        function tryNext() {
+            if (idx >= paths.length) return; // esgotou os 3 caminhos — fica no placeholder (fallback pro token genérico)
+            var img = new Image();
+            img.onload = function () {
+                if (img.naturalWidth > 0) S.avatarImgCache[key] = img;
+            };
+            img.onerror = function () {
+                idx++;
+                tryNext();
+            };
+            img.src = paths[idx];
+        }
+        tryNext();
+        return placeholder;
+    }
+
+    // Sprite do PRÓPRIO jogador — prioriza a referência já carregada pelo resto do
+    // jogo (window.g_customPlayerGhostRight, populada por PlayAsGhost); só recorre
+    // ao carregamento próprio se essa referência ainda não existir/não estiver
+    // pronta (ex.: entrada via auto-login, ver nota de arquitetura item 3).
+    function getSelfGhostImg() {
+        var shared = window.g_customPlayerGhostRight;
+        if (shared && shared.complete && shared.naturalWidth > 0) return shared;
+        var id = window.g_currentPlayerGhost;
+        if (id) return loadGhostSpriteById(id);
+        return null;
+    }
+
+    // Sprite de OUTRO jogador — heurística documentada no topo do arquivo (item 3):
+    // extrai o ID do sufixo "(#ID)" do `name` ecoado pelo servidor. Sem sufixo
+    // reconhecível, retorna null (drawGhostBillboard cai no marcador genérico só
+    // pra esse jogador, sem inventar sprite).
+    var GHOST_ID_SUFFIX_RE = /\(#([^)]+)\)\s*$/;
+    function getOtherPlayerGhostImg(p) {
+        var m = p && p.name ? GHOST_ID_SUFFIX_RE.exec(p.name) : null;
+        return m ? loadGhostSpriteById(m[1]) : null;
+    }
+
+    // Desenha o fantasma (imagem real, reduzida) ancorado nos "pés" (footY = cy, o
+    // mesmo ponto usado pro depth-sort) — mesmo princípio de ancoragem de sprite
+    // alto da skill isometric-canvas-rendering §2, só que aplicado a um bitmap em
+    // vez de um prisma extrudado. Se a imagem ainda não carregou (ou não existe),
+    // cai no marcador colorido antigo (drawPlayerToken) só como estado transitório
+    // de carregamento — não é o resultado final pedido.
+    function drawGhostBillboard(ctx, cx, cy, img, isSelf, label, pal) {
+        var footY = cy;
+        var ready = img && img.complete && img.naturalWidth > 0;
+        if (!ready) {
+            drawPlayerToken(ctx, cx, cy, pal, label, isSelf ? pal.cyan : pal.magenta, isSelf);
+            return;
+        }
+
+        var scale = GHOST_SPRITE_TARGET_H / img.naturalHeight;
+        var w = img.naturalWidth * scale;
+        var h = GHOST_SPRITE_TARGET_H;
+
+        ctx.save();
+        // sombra achatada no chão, mesma lógica do token antigo (ancora visual no tile)
+        ctx.globalAlpha = 0.35;
+        ctx.beginPath();
+        ctx.ellipse(cx, footY, HALF_W * 0.28, HALF_H * 0.28, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#000';
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        if (isSelf) {
+            ctx.shadowColor = pal.cyan;
+            ctx.shadowBlur = 12;
+        }
+        ctx.drawImage(img, cx - w / 2, footY - h, w, h);
+        ctx.restore();
+
+        if (label) {
+            ctx.save();
+            ctx.font = '10px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#fff';
+            ctx.shadowColor = '#000';
+            ctx.shadowBlur = 3;
+            ctx.fillText(label, cx, footY - h - 6);
+            ctx.restore();
+        }
     }
 
     function drawPlayerToken(ctx, cx, cy, pal, label, color, isSelf) {
@@ -475,7 +709,11 @@
         for (var r = minRow; r <= maxRow; r++) {
             var rowStr = S.rows[r];
             for (var c = minCol; c <= maxCol; c++) {
-                drawables.push({ key: r + c, type: 'tile', row: r, col: c, ch: rowStr[c] });
+                var ch = rowStr[c];
+                // Prédios desativados (item 1 da nota de arquitetura no topo do arquivo) —
+                // célula '#' nem entra no array de depth-sort, só 'street'/'landmark' desenham.
+                if (ch === '#') continue;
+                drawables.push({ key: r + c, type: 'tile', row: r, col: c, ch: ch });
             }
         }
 
@@ -498,27 +736,33 @@
             if (item.type === 'tile') {
                 var s = gridToScreen(item.col, item.row);
                 var sx = s.x + camOffsetX, sy = s.y + camOffsetY;
-                if (item.ch === '#') {
-                    drawBlockTile(ctx, sx, sy, item.col, item.row);
-                } else if (item.ch === 'L') {
+                if (item.ch === 'L') {
                     drawLandmarkGroundMarker(ctx, sx, sy, pal);
                     if (S.landmark && item.row === S.landmark.anchorRow && item.col === S.landmark.anchorCol) {
                         var center = gridToScreen(S.landmark.centerCol, S.landmark.centerRow);
                         drawTower(ctx, center.x + camOffsetX, center.y + camOffsetY, pal, tSec);
                     }
                 } else {
+                    // única alternativa possível aqui é 'street' — '#' (block) já foi filtrado
+                    // antes de entrar em `drawables`, ver loop de varredura acima.
                     drawStreetTile(ctx, sx, sy, pal);
                 }
             } else if (item.type === 'other') {
                 var s2 = gridToScreen(item.data.gridX, item.data.gridY);
-                var name = item.data.name || item.data.email || '???';
+                // esconde o sufixo técnico "(#id)" do rótulo visual — ele é lido à parte por
+                // getOtherPlayerGhostImg(), não precisa aparecer no nome flutuante.
+                var name = (item.data.name || item.data.email || '???').replace(GHOST_ID_SUFFIX_RE, '');
                 if (item.data.avatarUrl) loadAvatar(item.data.avatarUrl);
-                drawPlayerToken(ctx, s2.x + camOffsetX, s2.y + camOffsetY, pal, name, pal.magenta, false);
+                var otherImg = getOtherPlayerGhostImg(item.data);
+                drawGhostBillboard(ctx, s2.x + camOffsetX, s2.y + camOffsetY, otherImg, false, name, pal);
             } else if (item.type === 'player') {
                 var s3 = gridToScreen(S.playerCol, S.playerRow);
-                drawPlayerToken(ctx, s3.x + camOffsetX, s3.y + camOffsetY, pal, 'você', pal.cyan, true);
+                var selfImg = getSelfGhostImg();
+                drawGhostBillboard(ctx, s3.x + camOffsetX, s3.y + camOffsetY, selfImg, true, 'você', pal);
             }
         }
+
+        drawTowerStreetLabel(ctx, pal, camOffsetX, camOffsetY, tSec);
 
         // HUD mínimo de depuração — posição do jogador no grid.
         ctx.save();
