@@ -16,6 +16,9 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs'); // 03/09/2026 (Estágio 6, backend-architect): leitura síncrona do manifest.json
+// do overworld no boot — dado estático pequeno (poucos KB), lido uma única vez ao subir o processo,
+// não em request/tick nenhum, então fs.readFileSync aqui não bloqueia nada em produção.
 
 const app = express();
 const server = http.createServer(app);
@@ -94,12 +97,77 @@ const TICK_RATE = 30;
 // fato existe em manifest.json, carregado pelo servidor no boot) é trabalho do Estágio 6,
 // ainda não implementado — isto aqui é só uma rede de segurança mais larga pra não quebrar
 // nada enquanto isso não chega, não um substituto dela.
+//
+// ATUALIZAÇÃO 03/09/2026 (Estágio 6, backend-architect, implementado): a validação final chegou —
+// ver validOverworldChunks/isChunkKnownOrAdjacent() logo abaixo, carregados de manifest.json no
+// boot. O bound -2000/2000 NÃO foi removido (a própria seção 5 do plano diz "além do range check
+// numérico que já existe" — não "no lugar dele"): ele continua sendo a primeira triagem barata
+// (rejeita Infinity/NaN/valores absurdamente grandes antes de qualquer Math.floor ou lookup em
+// Set), e isChunkKnownOrAdjacent() é a segunda camada, mais estrita, que checa contra os chunks
+// que de fato existem.
 const OVERWORLD_TICK_RATE = 10;
 const OVERWORLD_GRID_MIN = -2000;
 const OVERWORLD_GRID_MAX = 2000;
 
 function isPlausibleGridCoord(value) {
     return Number.isInteger(value) && value >= OVERWORLD_GRID_MIN && value <= OVERWORLD_GRID_MAX;
+}
+
+// Manifesto do overworld (Estágio 6) — lido uma vez no boot, não a cada overworld_move. Caminho
+// relativo a partir de server/index.js (este arquivo): server/ -> .. -> data/overworld/manifest.json
+// (confirmado lendo a árvore real de data/overworld/ antes de escrever isto, não presumido).
+// validOverworldChunks guarda só a CHAVE "chunkX_chunkY" de cada chunk existente — checagem O(1) por
+// movimento, sem varrer o array a cada evento. OVERWORLD_CHUNK_DIM_TILES vem do próprio manifesto
+// (chunk_dim_tiles=85 hoje) em vez de hardcoded aqui, pra nunca dessincronizar do valor real usado
+// pra gerar os chunks — se o manifesto mudar de escala no futuro, este valor acompanha sozinho.
+const OVERWORLD_MANIFEST_PATH = path.join(__dirname, '..', 'data', 'overworld', 'manifest.json');
+let OVERWORLD_CHUNK_DIM_TILES = 85; // fallback só usado se a leitura do manifesto falhar (ver catch abaixo)
+const validOverworldChunks = new Set();
+try {
+    const overworldManifest = JSON.parse(fs.readFileSync(OVERWORLD_MANIFEST_PATH, 'utf8'));
+    if (Number.isInteger(overworldManifest.chunk_dim_tiles) && overworldManifest.chunk_dim_tiles > 0) {
+        OVERWORLD_CHUNK_DIM_TILES = overworldManifest.chunk_dim_tiles;
+    }
+    (overworldManifest.chunks || []).forEach((chunk) => {
+        if (Number.isInteger(chunk.chunkX) && Number.isInteger(chunk.chunkY)) {
+            validOverworldChunks.add(chunk.chunkX + '_' + chunk.chunkY);
+        }
+    });
+    console.log(`[Overworld] manifest.json carregado: ${validOverworldChunks.size} chunk(s) válido(s), chunk_dim_tiles=${OVERWORLD_CHUNK_DIM_TILES}.`);
+} catch (err) {
+    // Falha de boot (arquivo ausente/corrompido) não derruba o servidor inteiro — mas com o Set
+    // vazio, isChunkKnownOrAdjacent() abaixo rejeita QUALQUER posição (nenhum chunk é "conhecido"),
+    // então overworld_move fica efetivamente desligado até isso ser corrigido. Log alto propositalmente
+    // ruidoso: isto não pode passar despercebido em produção.
+    console.error('[Overworld] FALHA ao carregar manifest.json no boot — todo overworld_move será rejeitado até isso ser corrigido:', err.message);
+}
+
+// Zona = chunk (plano §5, Estágio 6). "ow_{chunkX}_{chunkY}" é o nome da room do socket.io.
+function getOverworldZoneId(chunkX, chunkY) {
+    return 'ow_' + chunkX + '_' + chunkY;
+}
+
+// Critério de folga documentado aqui (plano §5, item 5): o chunk calculado é aceito se ELE MESMO
+// existe no manifesto OU se está a distância de Chebyshev <= 1 (qualquer um dos 8 vizinhos,
+// incluindo diagonais) de algum chunk que existe — varrendo os 9 candidatos (o próprio + 8
+// vizinhos) contra validOverworldChunks cobre as duas condições numa só checagem, já que "o
+// próprio existe" é só o caso dx=0,dy=0 dentro do mesmo laço. Motivo da folga: o cliente
+// (Estágio 5, streaming de chunks) já trata client-side um jogador perto da borda de uma região
+// ainda não gerada, mas o servidor não pode confiar cegamente nisso — sem esta folga, um jogador
+// legítimo andando na borda exata de um chunk gerado em direção a um vizinho ainda não gerado seria
+// travado (overworld_move rejeitado) assim que o pé encostasse na borda, antes mesmo do cliente
+// terminar de decidir o que fazer. Com a folga, o servidor aceita esse passo (o chunk vizinho "não
+// existe" mas está a 1 de distância de um que existe) — quem decide se há o que renderizar ali é o
+// cliente; o servidor só garante que não é um salto implausível pra longe de qualquer área real.
+function isChunkKnownOrAdjacent(chunkX, chunkY) {
+    for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+            if (validOverworldChunks.has((chunkX + dx) + '_' + (chunkY + dy))) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 // Persistência em lote (não a cada movimento — instrução explícita da tarefa, seria caro demais
@@ -227,6 +295,15 @@ io.on('connection', (socket) => {
             // voltar), só a flag de "ativo agora". O agente de Transição pode (e deveria) chamar o
             // evento overworld_leave explicitamente também, ver socket.on('overworld_leave') abaixo —
             // este reset aqui é só uma rede de segurança, não o mecanismo principal.
+            //
+            // NOTA (Estágio 6, 03/09/2026): este reset NÃO chama socket.leave() da room do chunk —
+            // só apaga a flag. Deliberado: overworldZoneId permanece correto (a última room em que o
+            // socket realmente está), então se overworld_move disparar de novo depois mudando de
+            // chunk, o join/leave de lá compara contra esse valor e corrige a room sozinho; se disparar
+            // no MESMO chunk, o socket já está na room certa, nada a fazer. Enquanto fica "preso" nessa
+            // room sem estar ativo, o merge de vizinhança do broadcast (setInterval mais abaixo) filtra
+            // por overworldActive antes de incluir alguém no payload — então a membership residual na
+            // room nunca vaza pra outro jogador ver um "fantasma" inativo.
             overworldActive: false
         };
 
@@ -260,14 +337,42 @@ io.on('connection', (socket) => {
             return; // silencioso — mesmo espírito de save_game_state/update_profile pra evento de alta frequência sem sessão
         }
         if (!data || !isPlausibleGridCoord(data.gridX) || !isPlausibleGridCoord(data.gridY)) {
-            return; // fora da faixa 0-84 ou não-inteiro: rejeita em silêncio, mesmo padrão de NUMERIC_BOUNDS (db.js)
+            return; // fora da faixa -2000/2000 ou não-inteiro: rejeita em silêncio, mesmo padrão de NUMERIC_BOUNDS (db.js)
         }
+
+        // Estágio 6: chunk da posição GLOBAL recebida (85 = chunk_dim_tiles, lido do manifesto, não
+        // hardcoded — ver OVERWORLD_CHUNK_DIM_TILES). Math.floor (não truncamento) é obrigatório aqui
+        // porque chunkX/chunkY são assinados (plano §1) — pra gridX=-1, floor(-1/85)=-1 (chunk correto,
+        // à esquerda da origem), enquanto truncamento daria 0 (chunk errado, começaria a origem).
+        const chunkX = Math.floor(data.gridX / OVERWORLD_CHUNK_DIM_TILES);
+        const chunkY = Math.floor(data.gridY / OVERWORLD_CHUNK_DIM_TILES);
+        if (!isChunkKnownOrAdjacent(chunkX, chunkY)) {
+            return; // chunk implausível: nem existe no manifesto, nem é vizinho (folga de 1) de um que existe
+        }
+
         if (playerSession.overworldGridX !== data.gridX || playerSession.overworldGridY !== data.gridY) {
             playerSession.overworldDirty = true; // só marca "precisa persistir" se a posição de fato mudou
         }
         playerSession.overworldGridX = data.gridX;
         playerSession.overworldGridY = data.gridY;
         playerSession.overworldActive = true;
+        playerSession.overworldChunkX = chunkX;
+        playerSession.overworldChunkY = chunkY;
+
+        // Join/leave de room (Estágio 6) — EXATAMENTE 1 room por jogador, nunca 9 (ver plano §5 e o
+        // comentário grande no broadcast mais abaixo pro motivo: o cliente, js/game/network.js:136,
+        // faz SUBSTITUIÇÃO da lista a cada overworld_players_update recebido, não merge — se o socket
+        // estivesse em 9 rooms, 9 emits fragmentados no mesmo tick se sobrescreveriam um ao outro no
+        // cliente, causando jogadores "piscando"). Só troca de room quando o CHUNK muda (não a cada
+        // tile), já que zoneId é derivado 1:1 de chunkX/chunkY.
+        const zoneId = getOverworldZoneId(chunkX, chunkY);
+        if (playerSession.overworldZoneId !== zoneId) {
+            if (playerSession.overworldZoneId) {
+                socket.leave(playerSession.overworldZoneId);
+            }
+            socket.join(zoneId);
+            playerSession.overworldZoneId = zoneId;
+        }
     });
 
     // Sinal explícito de "saí do overworld" (02/09/2026) — complemento de overworld_move, pro
@@ -275,9 +380,22 @@ io.on('connection', (socket) => {
     // defensivo em join_game (ver comentário lá). Não apaga overworldGridX/Y (a última posição
     // continua sendo a correta pra quando o jogador voltar) nem mexe em nada além da flag — não
     // precisa nem persistir aqui, o valor já salvo (ou o próximo ciclo do batch/disconnect) cobre.
+    //
+    // ATUALIZAÇÃO 03/09/2026 (Estágio 6): agora também sai da room do chunk atual (socket.leave) e
+    // limpa overworldZoneId — sem isso, o socket continuaria fisicamente na room do socket.io mesmo
+    // marcado como "inativo", e ficaria contando como membro da room pro merge de vizinhança no
+    // broadcast (mais abaixo) até o próximo overworld_move mudar de chunk. O merge já filtra por
+    // overworldActive como segunda camada de defesa (join_game faz um reset só da flag, sem
+    // socket.leave() — ver comentário em join_game), mas aqui, no caminho explícito de saída, o
+    // correto é limpar os dois: flag E membership da room, não só a flag.
     socket.on('overworld_leave', () => {
-        if (players[socket.id]) {
-            players[socket.id].overworldActive = false;
+        const playerSession = players[socket.id];
+        if (playerSession) {
+            playerSession.overworldActive = false;
+            if (playerSession.overworldZoneId) {
+                socket.leave(playerSession.overworldZoneId);
+                playerSession.overworldZoneId = null;
+            }
         }
     });
 
@@ -895,36 +1013,86 @@ setInterval(() => {
     }
 }, 1000 / TICK_RATE);
 
-// Broadcast periódico do overworld isométrico (02/09/2026) — mesmo padrão do sync_state acima
-// (dicionário inteiro pra todo mundo, sem rooms/culling, ver isometric-canvas-rendering/SKILL.md),
-// só que em OVERWORLD_TICK_RATE (10Hz, não os 30Hz do combate side-view — motivo documentado na
-// declaração da constante lá em cima) e filtrando só quem está ativo no overworld agora
-// (overworldActive, setado por overworld_move / limpo por overworld_leave, join_game e disconnect).
+// Broadcast periódico do overworld isométrico (02/09/2026, reescrito 03/09/2026 no Estágio 6) — em
+// OVERWORLD_TICK_RATE (10Hz, não os 30Hz do combate side-view — motivo documentado na declaração da
+// constante lá em cima).
 //
-// lastOverworldBroadcastCount existe pra cobrir a transição "tinha gente -> não tem mais ninguém"
-// (achado testando de verdade com 2 contas, ver e2e-db-verification): sem isso, o "if length > 0"
-// simplesmente para de emitir no instante em que o ÚLTIMO jogador ativo sai do overworld (leave ou
-// disconnect), e quem estava vendo esse jogador (ex: o B do teste) nunca recebe a lista vazia —
-// fica com um "fantasma" preso na última posição conhecida pra sempre, porque não existe mais
-// nenhum tick seguinte que os avise da saída. Guardando quantos jogadores entraram no ÚLTIMO
-// broadcast, ainda emitimos MAIS UMA VEZ (com a lista vazia) exatamente na transição pra zero —
-// depois disso, com os dois lados em zero, volta a pular ticks normalmente (mesma economia de
-// banda de antes enquanto ninguém está no overworld).
-let lastOverworldBroadcastCount = 0;
+// ATÉ O ESTÁGIO 5: io.emit() global — todo jogador ativo no overworld recebia a posição de TODO
+// outro jogador ativo, sem nenhum filtro de proximidade (ok pra 1 chunk só; não escala pra cidade
+// inteira). ESTÁGIO 6 (aqui): substituído por 1 emissão por CHUNK OCUPADO, cada uma só pra room de
+// origem (io.to(zoneId), nunca io.emit global), com o payload mesclado da vizinhança 3×3 desse
+// chunk. Cada jogador está em EXATAMENTE 1 room (ow_{chunkX}_{chunkY}, ver overworld_move acima) —
+// nunca em 9 — porque o cliente (js/game/network.js:136) faz SUBSTITUIÇÃO da lista a cada
+// overworld_players_update recebido, não merge; um jogador em 9 rooms receberia até 9 mensagens
+// fragmentadas por tick, cada uma sobrescrevendo a anterior, causando jogadores "piscando" na tela
+// (bug real, encontrado por revisão de arquitetura antes deste código ser escrito — ver plano
+// crystalline-launching-goose.md §5).
+//
+// Chunks ocupados são derivados de `players` (não de uma varredura de todas as rooms possíveis —
+// instrução explícita da tarefa): só chunks com pelo menos 1 socket overworldActive contam. Pra
+// cada um, os 9 candidatos da vizinhança (o próprio + 8 vizinhos) são consultados via
+// io.sockets.adapter.rooms.get('ow_'+cx+'_'+cy) — API nativa do socket.io, devolve o Set de
+// socket.id daquela room ou undefined se a room não existe/está vazia; nenhum Set/Map paralelo de
+// rastreamento é mantido só pra isso.
+//
+// Note a ausência de um "lastOverworldBroadcastCount" (existia na versão pré-Estágio-6, ver commit
+// 73e0bf4): não é mais necessário. Antes, era preciso um flag pra emitir MAIS UMA VEZ com lista
+// vazia na transição "tinha gente -> zero", senão o último destinatário global ficava com um
+// "fantasma" preso pra sempre (não existiria mais nenhum tick seguinte que o avisasse). Agora, como
+// cada chunk ocupado é recalculado do zero A CADA TICK direto de `players`/rooms atuais (sem
+// nenhum estado acumulado do tick anterior), a remoção de um jogador da vizinhança aparece
+// automaticamente no PRÓXIMO tick pra quem ainda está olhando pra aquele chunk — não existe
+// "última lista" pra ficar desatualizada. Só para de emitir pra um chunk quando NINGUÉM mais está
+// nele (não há mais destinatário ali mesmo, então não há quem ficaria com um fantasma).
 setInterval(() => {
-    const overworldPlayers = Object.values(players).filter((p) => p.overworldActive && p.email);
-    if (overworldPlayers.length > 0 || lastOverworldBroadcastCount > 0) {
-        io.emit('overworld_players_update', {
-            players: overworldPlayers.map((p) => ({
-                email: p.email,
-                name: p.name,
-                avatarUrl: p.avatarUrl || null,
-                gridX: p.overworldGridX,
-                gridY: p.overworldGridY
-            }))
+    // 1) Chunks ocupados: Map<zoneId, {chunkX, chunkY}>, um registro por chunk (não por jogador) —
+    // vários jogadores no mesmo chunk colapsam na mesma entrada.
+    const occupiedZones = new Map();
+    Object.values(players).forEach((p) => {
+        if (p.overworldActive && p.email && p.overworldZoneId &&
+            Number.isInteger(p.overworldChunkX) && Number.isInteger(p.overworldChunkY)) {
+            occupiedZones.set(p.overworldZoneId, { chunkX: p.overworldChunkX, chunkY: p.overworldChunkY });
+        }
+    });
+
+    occupiedZones.forEach((chunk, zoneId) => {
+        // 2) Merge da vizinhança 3×3 — chave por socket.id (Map, não array) só pra garantir que um
+        // mesmo socket nunca entra duas vezes no payload; na prática nunca duplica de verdade (cada
+        // socket está em exatamente 1 das 9 rooms candidatas), isto é só defesa barata.
+        const merged = new Map();
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                const neighbourZoneId = getOverworldZoneId(chunk.chunkX + dx, chunk.chunkY + dy);
+                const room = io.sockets.adapter.rooms.get(neighbourZoneId);
+                if (!room) continue; // room não existe (nenhum chunk lá) ou está vazia agora
+                room.forEach((socketId) => {
+                    const p = players[socketId];
+                    // Filtro por overworldActive é OBRIGATÓRIO aqui, não redundante: um socket pode
+                    // continuar fisicamente numa room mesmo marcado inativo (join_game faz reset só
+                    // da flag, sem socket.leave() — ver comentário lá) até o próximo overworld_move
+                    // corrigir a membership. Sem este filtro, esse jogador "fantasma" vazaria pro
+                    // payload de quem está por perto mesmo sem estar mais realmente no overworld.
+                    if (p && p.overworldActive && p.email &&
+                        Number.isInteger(p.overworldGridX) && Number.isInteger(p.overworldGridY)) {
+                        merged.set(socketId, {
+                            email: p.email,
+                            name: p.name,
+                            avatarUrl: p.avatarUrl || null,
+                            gridX: p.overworldGridX,
+                            gridY: p.overworldGridY
+                        });
+                    }
+                });
+            }
+        }
+
+        // 3) UMA emissão, só pra room de origem (não pras 9 vizinhas) — quem está nas rooms vizinhas
+        // recebe o PRÓPRIO payload mesclado quando for a vez delas no forEach acima, cada uma com sua
+        // própria vizinhança 3×3 (não a mesma lista replicada 9x).
+        io.to(zoneId).emit('overworld_players_update', {
+            players: Array.from(merged.values())
         });
-        lastOverworldBroadcastCount = overworldPlayers.length;
-    }
+    });
 }, 1000 / OVERWORLD_TICK_RATE);
 
 // Persistência em lote da posição do overworld (02/09/2026) — ver comentário completo na
