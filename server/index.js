@@ -7,7 +7,11 @@
 // nada, pra sempre, com zero erro visível. Ver diagnóstico logo após a leitura de supabaseservicerolekey.
 let dotenvLoadResult = null;
 try {
-    dotenvLoadResult = require('dotenv').config();
+    // quiet: true suprime o log de boot do dotenv (que inclui "tips" promocionais aleatórios
+    // impressos no console de produção, um deles apontando pra um domínio de terceiros não
+    // relacionado ao dotenvx.com oficial — ver investigação de 03/09/2026). Não afeta
+    // dotenvLoadResult.error/.parsed, usados abaixo para diagnóstico real.
+    dotenvLoadResult = require('dotenv').config({ quiet: true });
 } catch (err) {
     // dotenv é opcional se as variáveis de ambiente já vierem injetadas pelo PM2/OS
 }
