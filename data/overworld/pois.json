@@ -10,7 +10,12 @@
       "defaultSpawn": { "globalCol": 42, "globalRow": 41, "_note": "Celula de rua exatamente adjacente a porta (ver _position_note acima) - usada por overworld.js:activateNow() como fallback quando ActivateOverworld() e chamado sem coordenada explicita. O antigo fallback fixo 'centro da torre + 2 linhas ao sul' pressupunha uma porta ao SUL, que so valia pra posicao antiga (42/42); a porta desta posicao (40/40) fica a LESTE, entao esse heuristico fixo deixaria o jogador nascendo em cima de bloco. Se a torre for reposicionada de novo no futuro, atualize este campo junto (ou apague-o pra cair de volta no heuristico antigo, que so funciona se a nova porta continuar ao sul)." },
       "footprint": { "widthTiles": 3, "heightTiles": 3 },
       "interaction": { "kind": "episode_entry", "episodeId": "episode_1", "triggerOn": "enter" },
-      "visual": { "streetLabel": "Rua Doutor Beltrão", "beacon": true }
+      "visual": {
+        "streetLabel": "Rua Doutor Beltrão",
+        "beacon": true,
+        "orientationDeg": 20.13,
+        "_orientationNote": "Adicionado 03/09/2026 (Problema 2 - torre paralela a rua). Derivado dos dados reais, nao um numero magico: em data/overworld/chunks/0_0.json:streetWays, o way osmId=182630122 ('Rua Doutor Beltrao') segmento pontos[0]->[1] (col,row fracionario local do chunk 0_0, origem 0,0 = global) - de [46.138,30.71] a [41.273,43.985] - e o segmento de rua geometricamente mais proximo tanto do centro da torre (globalCol/globalRow 40/40, dist=2.566 tiles) quanto da celula-porta do footprint (globalCol/globalRow 42/41, dist=0.345 tiles, praticamente em cima dela - ver _position_note acima). Angulo do segmento em espaco de GRID: atan2(dRow,dCol)=atan2(13.275,-4.865)=110.13 graus. Como o footprint da torre e um QUADRADO (3x3), rotacionar por 110.13 produz o MESMO retangulo desenhado que rotacionar por 110.13-90=20.13 (so troca qual lado do quadrado conta como largura vs profundidade - visualmente identico) - normalizado para o intervalo [-45,45] por clareza. Consumido por js/game/overworld.js:computeFootprintCornersScreen()/drawTower() - a rotacao acontece em espaco de GRID antes da projecao isometrica (nao em espaco de tela), porque a projecao 2:1 nao e uma rotacao pura (col/row mapeiam para direcoes nao-perpendiculares em tela)."
+      }
     }
   ]
 }

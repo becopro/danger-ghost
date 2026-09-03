@@ -505,6 +505,136 @@
 //    drawGhostBillboard(). Testado ao vivo movendo o fantasma em várias
 //    direções em zoom in/out/intermediário — ver relatório desta sessão.
 // ============================================================================
+//
+// ATUALIZAÇÃO 2026-09-03 (correção de flip + movimento contínuo em rua) — dois
+// bugs/pedidos reais do usuário testados ao vivo. Documentado aqui porque os
+// dois mexem exatamente no bloco que a nota anterior (item 6, acima) disse que
+// NÃO seria tocado — mudou porque agora é este agente, com escopo explícito do
+// usuário pra corrigir o flip e reescrever o controlador de movimento.
+//
+// 1) FLIP INVERTIDO — CAUSA RAIZ ENCONTRADA EM engine.js, NÃO NESTE ARQUIVO:
+//    a suposição do bloco anterior (item 1, nota de 02/09) de que a pose CRUA
+//    (sem espelhar) do sprite já é "direita" estava errada. Lido
+//    js/game/engine.js:c_DeSoGhost.draw() linha a linha (~1214-1230): quando
+//    this.face==1 (setado por moveRight, ~linha 1469 = jogador indo pra
+//    DIREITA) e o sprite custom está pronto, o código ESPELHA (translate +
+//    scale(-1,1)) antes de desenhar; quando face==2 (moveLeft = ESQUERDA),
+//    desenha sem espelhar. Ou seja, pra este sprite específico (arquivo único
+//    Ghosts/#id.png, sem uma segunda arte "olhando pro outro lado" — mesma
+//    conclusão já registrada no item 1 da nota de 02/09), a pose crua já
+//    OLHA PRA ESQUERDA; espelhar é que produz "direita". tryMove() setava
+//    S.facingRight=true (sem espelhar) pro passo que anda pra DIREITA na tela
+//    — exatamente o oposto do que engine.js já faz pro mesmo sprite. Corrigido
+//    invertendo qual sinal produz true/false (função nova
+//    updateFacingFromMoveVector(), ver comentário ali pro raciocínio completo)
+//    — a técnica de desenho em si (drawGhostBillboard, translate+scale(-1,1))
+//    já replicava certo o mesmo mecanismo de engine.js e não mudou.
+//
+// 2) MOVIMENTO CONTÍNUO EM RUA, RESTRITO A 2 DIREÇÕES — pedido do usuário:
+//    numa rua (qualquer ângulo real, não só horizontal/vertical), o input
+//    relevante colapsa pro par frente/trás ao longo do caminho local, e o
+//    personagem desliza fluido (sem saltar de tile em tile) nessa direção.
+//    Fora de rua, mantém o tryMove() discreto de sempre (150ms/tile) — sem
+//    mudança nenhuma nesse caminho, só deixou de ser chamado incondicionalmente
+//    a cada tick e passou a ser chamado pela nova updateMovement() só quando o
+//    jogador NÃO está perto de nenhuma streetWay.
+//
+//    a) DADO: buildStreetPathsForChunk() ganhou dois campos novos por way —
+//       `gridPts` (os mesmos pontos de `screenPts`, mas em espaço col/row
+//       GLOBAL fracionário, não em pixel de tela) e `gridBbox` (bounding box
+//       nesse mesmo espaço, pra descartar rápido ways longe do jogador antes
+//       do loop caro ponto-a-ponto). `screenPts`/`bbox`/`name`/`highway`/
+//       `lengthPx` (consumidos pela camada de render/rótulo) não mudaram nem
+//       de valor nem de posição no objeto — adição pura, sem risco pro código
+//       de desenho de rua/zoom que já lê essas ways.
+//
+//    b) "SOBRE UMA RUA" = a projeção ortogonal da posição atual do jogador
+//       (S.playerDrawCol/Row, a posição VISUAL — não a lógica arredondada,
+//       pra não haver um degrau de tolerância na fronteira de tile) sobre o
+//       segmento mais próximo de QUALQUER streetWay carregada fica a
+//       <= STREET_SNAP_RADIUS_TILES tiles de distância (findNearestStreetPoint()).
+//       Valor escolhido: 1.1 tiles. Raciocínio: a nota de 03/09 (item 3, acima)
+//       já documenta que o raster andável/bloqueado sofreu fechamento de gap
+//       diagonal — algumas células ficam "1 passo da geometria real, não
+//       sobre ela". Um raio menor que ~1 deixaria essas células promovidas
+//       fora do modo contínuo (o jogador "cairia" pro modo discreto bem no
+//       meio de uma rua real); 1.1 cobre esse caso com uma margem pequena sem
+//       ficar tão largo a ponto de duas ruas paralelas próximas (ou uma rua e
+//       uma calçada) colidirem no mesmo raio de captura.
+//
+//    c) TANGENTE E PROJEÇÃO: findNearestStreetPoint() devolve a tangente
+//       UNITÁRIA (dCol,dRow normalizado) do segmento mais próximo. A cada
+//       frame com input ativo, o vetor de input (currentInputVector(), já
+//       existia) é NORMALIZADO (unitário mesmo na diagonal, dc/dr divididos
+//       por hypot(dc,dr)) e projetado nessa tangente via produto escalar — o
+//       resultado é o COSSENO do ângulo entre os dois, em [-1,1]. CORRIGIDO
+//       EM TESTE AO VIVO (2026-09-03): a primeira versão usava só o SINAL
+//       desse produto (velocidade PLENA sempre que não-zero) — bug real,
+//       porque ruas de dado OSM real quase nunca são perfeitamente
+//       horizontais/verticais (ex.: "Rua Waldir Cabral" é 176°, só 4° fora do
+//       horizontal), então ATÉ UM INPUT ORTOGONAL (ArrowUp numa rua
+//       quase-horizontal) tinha um produto escalar pequeno mas não-zero, e
+//       disparava velocidade PLENA — o oposto de "cima/baixo não fazem nada
+//       útil" pedido pelo usuário. Corrigido escalando a velocidade pelo
+//       PRÓPRIO valor do cosseno (updateMovement(), não só pelo sinal): input
+//       alinhado com a rua anda a velocidade plena (cosseno~1), input
+//       perpendicular anda a ~0 (resíduo do desalinhamento real da rua,
+//       imperceptível), ângulos intermediários andam proporcionalmente mais
+//       devagar — |produto| <= STREET_INPUT_EPS ainda é o corte de "parado
+//       de vez" (evita ruído de ponto-flutuante exatamente na ortogonalidade
+//       matemática). Continua sendo o mecanismo inteiro de "só 2 direções"
+//       sem nenhum código que "saiba" se a rua é horizontal/vertical/
+//       diagonal — o mesmo cálculo funciona idêntico em qualquer ângulo real.
+//
+//    d) AVANÇO CONTÍNUO: S.playerContCol/Row (novo, float) é a posição
+//       "verdadeira" enquanto S.onStreet===true, avançada por
+//       tangente * (cosseno de alinhamento) * velocidade * dt a cada frame
+//       (não mais em saltos de S.stepIntervalMs). Velocidade DE PICO (quando
+//       o input está perfeitamente alinhado com a rua):
+//       STREET_SPEED_TILES_PER_SEC = 1000/S.stepIntervalMs (~6.67 tiles/s) —
+//       deliberadamente a MESMA velocidade média do sistema antigo (1
+//       tile/150ms), só contínua em vez de discreta; documentado aqui em vez
+//       de inventar um número novo porque preserva a sensação de ritmo já
+//       testada/aprovada nesta sessão sem introduzir uma segunda constante de
+//       velocidade pra manter em sincronia com a primeira. A cada avanço,
+//       arredonda pra célula de grid
+//       mais próxima e chama isWalkable() ANTES de commitar o passo — recusa
+//       o avanço (posição contínua não muda) se a célula arredondada for
+//       bloqueada, preservando colisão contra bloco mesmo em movimento
+//       fracionário. S.playerCol/Row (a posição LÓGICA/autoritativa, mandada
+//       pro servidor) só é reescrita quando o arredondamento da posição
+//       contínua realmente MUDA de célula — nesse instante, dispara
+//       updateChunkWindow()/syncPublicState()/checkPoiInteractions(), MESMO
+//       trio que tryMove() já disparava, então streaming de chunk, POI/torre
+//       e o payload de rede continuam funcionando sem nenhuma mudança nesses
+//       três sistemas (só um novo call site chamando as mesmas funções).
+//
+//    e) TRANSIÇÃO SEM SALTO ENTRE OS DOIS MODOS: entrando no modo contínuo,
+//       S.playerContCol/Row é ancorado na posição VISUAL atual (não numa
+//       projeção exata sobre a linha, que puxaria o jogador lateralmente de
+//       forma perceptível); saindo do modo contínuo, o sistema de lerp antigo
+//       (S.playerPrevCol/Row + S.moveStartAt, consumido em render()) é
+//       resetado pra origem==destino==posição atual, então o próximo passo
+//       discreto começa sem nenhum salto visual. render() só executa o lerp
+//       antigo quando !S.onStreet — quando S.onStreet, a posição desenhada já
+//       foi escrita direto por updateMovement(), render() não sobrescreve.
+//
+//    f) ORIENTAÇÃO DO SPRITE TAMBÉM NO MODO CONTÍNUO: tryMove() nunca é
+//       chamado enquanto o jogador segue uma rua, então a lógica de flip
+//       (item 1 acima) precisava ser acessível dali também — extraída pra
+//       updateFacingFromMoveVector(dc,dr), chamada tanto por tryMove() (passo
+//       de grid inteiro) quanto por updateMovement() (direção contínua da
+//       tangente * sinal do avanço), mesma regra "só atualiza quando o passo
+//       realmente aconteceu" nos dois casos.
+//
+//    g) NÃO MUDOU: isWalkable(), checkPoiInteractions(), updateChunkWindow(),
+//       syncPublicState(), o payload de rede (window.OverworldState, lido por
+//       js/game/network.js), zoom/câmera/HUD/rótulos, e o tryMove() discreto
+//       em si (só ganhou uma chamada a updateFacingFromMoveVector() no lugar
+//       do cálculo inline de antes — mesmo resultado, só compartilhado com o
+//       modo contínuo). Ver relatório desta sessão pra resultado de cada teste
+//       ao vivo (a-f pedidos pelo usuário).
+// ============================================================================
 
 (function () {
     'use strict';
@@ -615,7 +745,7 @@
     // disco/servidor. Mesma lógica de version-bump manual que overworld.js?v=N já
     // usa — sobe este número sempre que os dados de data/overworld/ mudarem de
     // verdade (regeração de chunk, reposição de POI etc.).
-    var OVERWORLD_DATA_VERSION = 3;
+    var OVERWORLD_DATA_VERSION = 4; // bump 2026-09-03 (sessão de correção Problema 1/2): pois.json ganhou visual.orientationDeg (torre rotacionada) — mesma prática documentada acima (cache heurístico do http-server sem query string própria já mordeu uma sessão anterior).
     var MANIFEST_URL = 'data/overworld/manifest.json?v=' + OVERWORLD_DATA_VERSION;
     // Estágio 2 do plano de overworld expansível (POI data-driven) — ver
     // C:\Users\Klara\.claude\plans\crystalline-launching-goose.md §4. Carregado em
@@ -695,13 +825,22 @@
         // arquivo) — substitui o antigo S.lastDir (nunca lido por render()). Só
         // escrito em tryMove(), num passo que REALMENTE mudou de tile.
         facingDir: { dc: 0, dr: 1 },  // último vetor de GRID (dc,dr) que causou um passo bem-sucedido — guardado bruto, hoje só pra debug/futuro (render só consome facingRight).
-        facingRight: true,            // flip esquerda/direita derivado do sinal de (dc-dr) — único grau de liberdade visual que o sprite real tem (ver item 1/3 do bloco). true = sprite desenhado como carregado (convenção "direita" de engine.js); false = espelhado via ctx.scale(-1,1) em drawGhostBillboard(). Default true = idêntico ao comportamento visual de antes desta mudança (sempre sem flip) até o primeiro passo real acontecer.
+        facingRight: true,            // flip esquerda/direita — ver updateFacingFromMoveVector() pro sentido real (CORRIGIDO 2026-09-03: true = SEM espelhar, que pra este sprite é a pose "olhando pra esquerda"; false = espelhado = "direita". Ver ATUALIZAÇÃO 2026-09-03 "correção de flip" no topo do arquivo). Default true = idêntico ao comportamento visual de antes de QUALQUER flip existir (sempre sem espelhar) até o primeiro passo real acontecer — não muda o que aparece na tela no instante do spawn, só o que passa a acontecer a partir do primeiro passo.
+
+        // ---- Movimento contínuo em rua (ver ATUALIZAÇÃO 2026-09-03 "movimento
+        // contínuo em rua" no topo do arquivo) ------------------------------
+        onStreet: false,        // true enquanto o jogador está a <= STREET_SNAP_RADIUS_TILES de alguma streetWay — alterna o modo de updateMovement()/render() entre contínuo (rua) e discreto (tryMove(), fora de rua). Nunca lido por isWalkable/rede/POI — só pelo controlador de movimento e por render() (pra saber se pula o lerp antigo).
+        playerContCol: 0,       // posição contínua (float) autoritativa ENQUANTO onStreet===true — avançada por tangente*direção*velocidade*dt em updateMovement(). Fora de rua, não é lida (o sistema discreto de sempre manda); reancorada na posição visual atual sempre que o jogador ENTRA no modo contínuo, pra nunca saltar.
+        playerContRow: 0,
+        lastMoveAt: 0,          // ts (performance.now()) do loop() anterior — só pra dt real do avanço contínuo (independente de framerate, mesmo raciocínio de CAMERA_LERP_K/lastRenderAt, mas um relógio PRÓPRIO do controlador de movimento, não compartilhado com a câmera).
 
         isActive: false,
         rafId: null,
 
         canvas: null,
         ctx: null,
+        zoomInBtn: null,   // Problema 3 (2026-09-03) — controles de zoom clicáveis, ver ensureZoomControls().
+        zoomOutBtn: null,
 
         keys: {},          // teclas pressionadas agora
         lastStepAt: 0,
@@ -805,6 +944,23 @@
         // "parece certo" visualmente.
         getFacing: function () {
             return { dc: S.facingDir.dc, dr: S.facingDir.dr, facingRight: S.facingRight, playerCol: S.playerCol, playerRow: S.playerRow };
+        },
+        // 2026-09-03 (movimento contínuo em rua) — inspeção read-only do modo de
+        // movimento atual, pra confirmar via console em teste ao vivo que
+        // S.onStreet/posição contínua mudam do jeito certo ao entrar/sair de uma
+        // rua, sem depender só de "parece certo" visualmente. Mesmo espírito de
+        // getFacing/getZoom acima (só leitura, não muta nada).
+        getMovementMode: function () {
+            var nearest = findNearestStreetPoint(S.playerDrawCol, S.playerDrawRow);
+            return {
+                onStreet: S.onStreet,
+                playerContCol: S.playerContCol,
+                playerContRow: S.playerContRow,
+                playerCol: S.playerCol,
+                playerRow: S.playerRow,
+                nearestStreetDist: nearest ? nearest.dist : null,
+                snapRadiusTiles: STREET_SNAP_RADIUS_TILES
+            };
         },
         // 2026-09-03 (zoom) — inspeção/teste read-only do zoom atual e da conversão
         // tela->grid (screenToGrid não é consumida por nenhum handler de clique hoje,
@@ -974,6 +1130,14 @@
     // `lengthPx` (soma das distâncias entre pontos consecutivos em tela) só serve pra
     // escolher, entre vários segmentos do MESMO nome visíveis num frame, qual deles
     // ganha o rótulo (o mais longo) — ver render()/drawStreetCurves().
+    //
+    // CAMPOS NOVOS 2026-09-03 (movimento contínuo em rua, ver ATUALIZAÇÃO no topo do
+    // arquivo): `gridPts` (mesmos pontos de `screenPts`, mas em espaço col/row GLOBAL
+    // fracionário — o espaço que findNearestStreetPoint()/updateMovement() precisam
+    // pra achar tangente local, não pixel de tela) e `gridBbox` (bbox nesse mesmo
+    // espaço, pra descartar rápido ways longe do jogador). Adição pura — nenhum campo
+    // consumido pelo desenho de rua/zoom (screenPts/bbox/name/highway/lengthPx) mudou
+    // de forma ou de valor.
     function buildStreetPathsForChunk(streetWays, originGlobalCol, originGlobalRow) {
         if (!Array.isArray(streetWays)) return [];
         var out = [];
@@ -981,11 +1145,16 @@
             var w = streetWays[i];
             if (!w || !Array.isArray(w.points) || w.points.length < 2) continue;
             var screenPts = new Array(w.points.length);
+            var gridPts = new Array(w.points.length);
             var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            var minCol = Infinity, maxCol = -Infinity, minRow = Infinity, maxRow = -Infinity;
             var lengthPx = 0;
             for (var p = 0; p < w.points.length; p++) {
                 var globalCol = originGlobalCol + w.points[p][0];
                 var globalRow = originGlobalRow + w.points[p][1];
+                gridPts[p] = { col: globalCol, row: globalRow };
+                if (globalCol < minCol) minCol = globalCol; if (globalCol > maxCol) maxCol = globalCol;
+                if (globalRow < minRow) minRow = globalRow; if (globalRow > maxRow) maxRow = globalRow;
                 var s = gridToScreen(globalCol, globalRow);
                 screenPts[p] = s;
                 if (s.x < minX) minX = s.x; if (s.x > maxX) maxX = s.x;
@@ -996,6 +1165,8 @@
                 name: w.name || null,
                 highway: w.highway,
                 screenPts: screenPts,
+                gridPts: gridPts,
+                gridBbox: { minCol: minCol, maxCol: maxCol, minRow: minRow, maxRow: maxRow },
                 bbox: { minX: minX, maxX: maxX, minY: minY, maxY: maxY },
                 lengthPx: lengthPx
             });
@@ -1115,6 +1286,34 @@
         return row >= b.minRow && row <= b.maxRow && col >= b.minCol && col <= b.maxCol;
     }
 
+    // CORREÇÃO 2026-09-03 (achada em teste ao vivo, ver ATUALIZAÇÃO "movimento
+    // contínuo em rua" no topo do arquivo) — distância (0 se já dentro) do ponto
+    // (col,row) até o footprint de POI mais próximo, usada por updateMovement()
+    // pra decidir se a restrição "só 2 direções" da rua deve ser IGNORADA perto de
+    // um POI. Achado real: pois.json:defaultSpawn (42,41, ao lado da porta da
+    // torre) fica a nearestStreetDist=0.34 tiles da própria rua — bem DENTRO do
+    // raio de captura (STREET_SNAP_RADIUS_TILES=1.1) — mas a 1 tile exato da borda
+    // do footprint da torre (col42, footprint até col41). Testado ao vivo: um
+    // jogador parado no spawn, seguindo só a tangente da rua (quase N-S ali),
+    // NUNCA consegue dar o passo puramente lateral (oeste) que a porta exige —
+    // trava, sem conseguir entrar na torre. Sem isto, "os últimos passos até a
+    // porta... mantenha o movimento livre" (pedido explícito do usuário) fica
+    // quebrado bem no ÚNICO lugar em que isso importa de verdade.
+    function nearestPoiFootprintDist(col, row) {
+        if (!S.pois) return Infinity;
+        var best = Infinity;
+        for (var i = 0; i < S.pois.length; i++) {
+            var poi = S.pois[i];
+            var b = poi && poi._bounds;
+            if (!b) continue;
+            var dc = Math.max(b.minCol - col, 0, col - b.maxCol);
+            var dr = Math.max(b.minRow - row, 0, row - b.maxRow);
+            var d = Math.sqrt(dc * dc + dr * dr); // 0 se (col,row) já está dentro do footprint
+            if (d < best) best = d;
+        }
+        return best;
+    }
+
     // ============================ Projeção ====================================
     // gridToScreen() continua DE PROPÓSITO sem nenhum fator de zoom embutido —
     // é "espaço de mundo" (pixels na escala base TILE_W/TILE_H), não "espaço de
@@ -1191,7 +1390,101 @@
         S.canvas = canvas;
         S.ctx = canvas.getContext('2d');
         resizeCanvasToContainer();
+        ensureZoomControls();
         return canvas;
+    }
+
+    // ============================ Controles de Zoom (UI) ========================
+    // Problema 3 (2026-09-03) — a LÓGICA de zoom já existia inteira (S.zoomLevel,
+    // clampZoom(), ZOOM_KEY_STEP, scroll do mouse e teclas +/-/- em attachInput(), ver
+    // bloco de constantes ZOOM_* no topo do arquivo) — o que faltava era um controle
+    // CLICÁVEL de verdade na tela: nem todo dispositivo de entrada tem scroll de mouse
+    // confortável, e o overworld não tem NENHUM handler de toque hoje (confirmado por
+    // grep antes desta passada, mesma lacuna já documentada no bloco "input de
+    // movimento" no topo do arquivo) — um botão físico também é o único caminho de
+    // zoom que já funciona pronto se/quando suporte a toque for adicionado depois. Os
+    // dois handlers abaixo só CHAMAM clampZoom(S.zoomLevel ± ZOOM_KEY_STEP) — o MESMO
+    // incremento e os MESMOS limites [ZOOM_MIN,ZOOM_MAX] que as teclas +/- já usam
+    // (ver attachInput()) — nenhuma lógica de zoom nova foi escrita aqui.
+    //
+    // Criados em runtime (mesmo padrão do próprio canvas do overworld — ver
+    // ensureCanvas() acima e a nota de arquitetura no topo do arquivo, item 2: "zero
+    // edição em index.html/engine.js") — inseridos dentro do MESMO .canvas-container
+    // (que já é position:relative, empilha outros elementos absolutos por cima do
+    // myCanvas: cutsceneGif, gameScreenModeBtn, muteBtn). Escondidos por padrão
+    // (display:none, mesmo estado inicial do próprio canvas do overworld) e só
+    // aparecem/funcionam junto com ele — activateNow()/DeactivateOverworld() alternam
+    // os três (canvas + 2 botões) juntos, porque zoom só faz sentido dentro do
+    // overworld (o Episódio 1 usa g_ctx/myCanvas direto, sem noção de zoom).
+    //
+    // POSIÇÃO: canto SUPERIOR ESQUERDO do canvas (top:10px/left:10px, empilhados) —
+    // deliberadamente do lado OPOSTO de #gameScreenModeBtn/#muteBtn (ambos top-right,
+    // ver index.html) pra não competir com eles, e longe do D-pad
+    // (#mobileControlsContainer só ocupa espaço quando visível — abaixo de 768px de
+    // largura, ver css/style.css — e nesse ponto vira position:static ABAIXO do
+    // canvas inteiro, nunca sobrepondo o canto superior). z-index 60: acima do canvas
+    // do overworld (zIndex '50', ver ensureCanvas) pra ser clicável, abaixo de
+    // modais/HUD reais (.overlay-panel=100, #gameScreenModeBtn=1000) pra nunca tampar
+    // um painel aberto por cima.
+    var ZOOM_BTN_CSS_BASE = 'position:absolute; width:32px; height:32px; z-index:60; ' +
+        'background: rgba(13, 13, 16, 0.85); border: 1.5px solid var(--cyan-neon); ' +
+        'color: var(--cyan-neon); cursor: pointer; border-radius: 4px; ' +
+        'box-shadow: 0 0 10px rgba(0, 255, 255, 0.25); font-family: "Courier New", monospace; ' +
+        'font-size: 18px; font-weight: bold; line-height: 1; padding: 0; ' +
+        'align-items: center; justify-content: center; transition: all 0.15s ease-in-out;';
+
+    // Mesmo padrão hover que gameScreenModeBtn/muteBtn já usam em index.html (inline
+    // onmouseover/onmouseout) — replicado via addEventListener aqui porque este botão
+    // é criado em JS, não HTML, mas o resultado visual é idêntico (mesma paleta
+    // neon/glassmorphism do resto do HUD).
+    function styleZoomBtnHover(btn) {
+        btn.addEventListener('mouseover', function () {
+            btn.style.background = 'var(--cyan-neon)';
+            btn.style.color = '#000';
+            btn.style.boxShadow = '0 0 15px var(--cyan-neon)';
+        });
+        btn.addEventListener('mouseout', function () {
+            btn.style.background = 'rgba(13, 13, 16, 0.85)';
+            btn.style.color = 'var(--cyan-neon)';
+            btn.style.boxShadow = '0 0 10px rgba(0, 255, 255, 0.25)';
+        });
+    }
+
+    function ensureZoomControls() {
+        if (S.zoomInBtn && S.zoomOutBtn) return;
+        var container = S.canvas && S.canvas.parentElement;
+        if (!container) return;
+
+        var inBtn = document.createElement('button');
+        inBtn.id = 'overworldZoomInBtn';
+        inBtn.type = 'button';
+        inBtn.title = 'Zoom in (tecla +)';
+        inBtn.textContent = '+';
+        inBtn.style.cssText = ZOOM_BTN_CSS_BASE + ' top:10px; left:10px; display:none;';
+        styleZoomBtnHover(inBtn);
+        inBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            // MESMA lógica de attachInput() pra tecla '+'/'=' — só reusada aqui via clique.
+            S.zoomLevel = clampZoom(S.zoomLevel + ZOOM_KEY_STEP);
+        });
+
+        var outBtn = document.createElement('button');
+        outBtn.id = 'overworldZoomOutBtn';
+        outBtn.type = 'button';
+        outBtn.title = 'Zoom out (tecla -)';
+        outBtn.textContent = String.fromCharCode(8722); // '−' (minus sign) — mais legível que hífen no tamanho do botão
+        outBtn.style.cssText = ZOOM_BTN_CSS_BASE + ' top:48px; left:10px; display:none;';
+        styleZoomBtnHover(outBtn);
+        outBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            // MESMA lógica de attachInput() pra tecla '-'/'_' — só reusada aqui via clique.
+            S.zoomLevel = clampZoom(S.zoomLevel - ZOOM_KEY_STEP);
+        });
+
+        container.appendChild(inBtn);
+        container.appendChild(outBtn);
+        S.zoomInBtn = inBtn;
+        S.zoomOutBtn = outBtn;
     }
 
     // Alinha o canvas do overworld exatamente sobre o retângulo de #myCanvas — NÃO usa
@@ -1227,11 +1520,18 @@
     // teto), usado tanto pros prédios genéricos (1 tile) quanto pra torre
     // (footprint 3x3, halfW/halfH maiores). cx,cy = centro da base do prisma
     // (pé, no nível do chão) já em coordenadas de tela, com a câmera aplicada.
-    function drawExtrudedDiamond(ctx, cx, cy, hw, hh, height, colors) {
-        var T = { x: cx, y: cy - hh };
-        var R = { x: cx + hw, y: cy };
-        var B = { x: cx, y: cy + hh };
-        var L = { x: cx - hw, y: cy };
+    // Estágio "torre paralela à rua" (Problema 2, 2026-09-03) — generalização: o desenho
+    // de fato (as 2 paredes + teto) agora vive aqui, recebendo os 4 CANTOS da base já em
+    // coordenadas de tela (T=canto mais longe da câmera, R/L=cantos laterais, B=canto mais
+    // perto da câmera — mesma convenção/ordem que o antigo cálculo T/R/B/L de
+    // drawExtrudedDiamond usava, só que agora aceita cantos arbitrários em vez de só um
+    // diamante eixo-alinhado a partir de cx,cy,hw,hh). drawExtrudedDiamond (abaixo) vira um
+    // wrapper fino que calcula os 4 cantos do jeito ANTIGO (eixo-alinhado) e delega pra cá —
+    // drawBlockTile (prédio genérico, hoje desativado) continua chamando-a sem saber da
+    // mudança, comportamento idêntico a antes. drawTower (mais abaixo) passa cantos
+    // ROTACIONADOS quando o POI tem visual.orientationDeg (ver computeFootprintCornersScreen).
+    function drawExtrudedFootprint(ctx, corners, height, colors) {
+        var T = corners.T, R = corners.R, B = corners.B, L = corners.L;
         var Tt = { x: T.x, y: T.y - height };
         var Rt = { x: R.x, y: R.y - height };
         var Bt = { x: B.x, y: B.y - height };
@@ -1259,6 +1559,22 @@
             ctx.lineWidth = colors.roofStrokeWidth || 1;
             ctx.stroke();
         }
+    }
+
+    // Desenha um "prisma" isométrico eixo-alinhado (base em diamante + duas paredes
+    // visíveis + teto), usado pros prédios genéricos (1 tile, drawBlockTile — hoje
+    // desativado). cx,cy = centro da base do prisma (pé, no nível do chão) já em
+    // coordenadas de tela, com a câmera aplicada. Wrapper fino sobre
+    // drawExtrudedFootprint (ver acima) — calcula os 4 cantos do diamante do jeito
+    // eixo-alinhado de sempre, comportamento 100% idêntico a antes desta refatoração.
+    function drawExtrudedDiamond(ctx, cx, cy, hw, hh, height, colors) {
+        var corners = {
+            T: { x: cx, y: cy - hh },
+            R: { x: cx + hw, y: cy },
+            B: { x: cx, y: cy + hh },
+            L: { x: cx - hw, y: cy }
+        };
+        drawExtrudedFootprint(ctx, corners, height, colors);
     }
 
     function diamondPath(ctx, cx, cy, hw, hh) {
@@ -1607,18 +1923,99 @@
     // schema de footprint (que só descreve o retângulo em tiles no chão).
     var TOWER_HEIGHT = 170;
 
-    function drawTower(ctx, cx, cy, pal, tSec, poi) {
+    // Problema 2 (2026-09-03) — "torre deve ficar paralela à rua". Investigado ao vivo
+    // ANTES de escrever qualquer rotação: qual rua de verdade fica mais perto da torre?
+    // tools/build-overworld-grid.js:findTowerSpot() carve a "porta" da torre encostando
+    // na célula de rua globalRow=41/globalCol=42 (ver pois.json:_position_note); rodando
+    // um script Node contra data/overworld/chunks/0_0.json:streetWays (nearest-segment,
+    // point-to-segment distance — a MESMA função ptSegDist que o build script já usa pra
+    // rasterizar) contra os 3 `way` de "Rua Doutor Beltrão", o segmento
+    // osmId=182630122 pontos[0]->[1] (col,row FRACIONÁRIO local do chunk 0_0 = global,
+    // origem 0,0) — de [46.138,30.71] a [41.273,43.985] — é o mais próximo tanto do
+    // centro da torre (dist=2.566 tiles) quanto da célula-porta 42/41 (dist=0.345 tiles,
+    // praticamente em cima). Nenhum outro segmento de nenhuma rua chega perto disso.
+    // Ângulo do segmento em espaço de GRID: atan2(dRow,dCol) = atan2(13.275,-4.865) =
+    // 110.13°. Como o footprint é um QUADRADO (3x3), rotacionar por 110.13° produz o
+    // MESMO retângulo desenhado que rotacionar por 110.13-90=20.13° (só troca qual lado
+    // do quadrado é "largura" vs "profundidade" — visualmente idêntico) — normalizado
+    // pra [-45°,45°] por clareza (menor rotação visual equivalente). Resultado:
+    // orientationDeg=20.13, GRAVADO EM data/overworld/pois.json (visual.orientationDeg),
+    // não um número mágico só aqui no código — decisão de DADO, como pedido. Ver
+    // computeFootprintCornersScreen() abaixo pra como esse ângulo vira geometria de tela.
+    var DEG2RAD = Math.PI / 180;
+
+    // Gira o retângulo do footprint (widthTiles x heightTiles, em espaço de GRID) por
+    // angleDeg ao redor do centro (centerCol,centerRow) e projeta os 4 cantos já
+    // rotacionados pra tela (gridToScreen + worldToScreen, mesma pipeline de qualquer
+    // outro ponto do mundo — nada de atalho em espaço de tela aqui, PORQUE a projeção
+    // isométrica 2:1 não é uma rotação pura: os eixos col/row mapeiam pra direções NÃO
+    // perpendiculares em tela, então "girar em tela" e "girar em grid" dão resultados
+    // diferentes — o pedido é a torre ficar paralela à rua no MUNDO, então a rotação
+    // acontece em espaço de GRID, antes da projeção, nunca depois). angleDeg=0 reduz
+    // EXATAMENTE ao retângulo eixo-alinhado de sempre (cosT=1,sinT=0 -> dCol=u,dRow=v),
+    // então qualquer POI futuro sem visual.orientationDeg (default 0 em drawTower)
+    // continua com o comportamento visual de antes, sem regressão.
+    // Os 4 cantos voltam ORDENADOS por profundidade (T=mais longe da câmera, B=mais
+    // perto, L/R=os dois do meio ordenados por X de tela) — mesma convenção de
+    // T/R/B/L que drawExtrudedFootprint já espera, generalizada pra um retângulo
+    // rotacionado em vez de só o diamante eixo-alinhado.
+    function computeFootprintCornersScreen(centerCol, centerRow, widthTiles, heightTiles, angleDeg, camOffsetX, camOffsetY) {
+        var halfW = widthTiles / 2, halfH = heightTiles / 2;
+        var theta = (angleDeg || 0) * DEG2RAD;
+        var cosT = Math.cos(theta), sinT = Math.sin(theta);
+        var localCorners = [
+            { u: -halfW, v: -halfH },
+            { u: halfW, v: -halfH },
+            { u: halfW, v: halfH },
+            { u: -halfW, v: halfH }
+        ];
+        var pts = [];
+        for (var i = 0; i < localCorners.length; i++) {
+            var lc = localCorners[i];
+            var dCol = lc.u * cosT - lc.v * sinT;
+            var dRow = lc.u * sinT + lc.v * cosT;
+            var gCol = centerCol + dCol, gRow = centerRow + dRow;
+            var g = gridToScreen(gCol, gRow);
+            var s = worldToScreen(g.x, g.y, camOffsetX, camOffsetY);
+            s.depthKey = gCol + gRow; // mesma regra de profundidade da skill isometric-canvas-rendering §2
+            pts.push(s);
+        }
+        pts.sort(function (a, b) { return a.depthKey - b.depthKey; });
+        var T = pts[0], B = pts[3];
+        var mid = [pts[1], pts[2]].sort(function (a, b) { return a.x - b.x; });
+        return { T: T, R: mid[1], B: B, L: mid[0] };
+    }
+
+    function drawTower(ctx, cx, cy, pal, tSec, poi, camOffsetX, camOffsetY) {
         var z = S.zoomLevel;
         var fp = (poi && poi.footprint) || { widthTiles: 3, heightTiles: 3 };
-        // Camada de POI — visível em qualquer zoom (item 4a/4b do pedido), então o
-        // prisma da torre escala normalmente com S.zoomLevel como qualquer objeto de
-        // mundo (fica menor no zoom-out, maior no zoom-in, como esperado).
-        var hw = HALF_W * fp.widthTiles * z, hh = HALF_H * fp.heightTiles * z;
+        var angleDeg = (poi && poi.visual && typeof poi.visual.orientationDeg === 'number') ? poi.visual.orientationDeg : 0;
         var height = TOWER_HEIGHT * z;
+        // Camada de POI — visível em qualquer zoom (item 4a/4b do pedido de zoom), então o
+        // prisma da torre escala normalmente com S.zoomLevel como qualquer objeto de
+        // mundo (fica menor no zoom-out, maior no zoom-in, como esperado). hh (usado pro
+        // farol logo abaixo) vem da metade vertical de tela real dos cantos calculados —
+        // no caso eixo-alinhado (angleDeg=0) isso é numericamente idêntico ao antigo
+        // HALF_H*fp.heightTiles*z (mesmo valor, só derivado dos cantos em vez de
+        // hardcoded), então zero regressão pra qualquer POI sem orientationDeg.
+        var corners;
+        if (angleDeg !== 0 && poi && poi._bounds) {
+            corners = computeFootprintCornersScreen(poi._bounds.centerCol, poi._bounds.centerRow, fp.widthTiles, fp.heightTiles, angleDeg, camOffsetX, camOffsetY);
+        } else {
+            var hw = HALF_W * fp.widthTiles * z, hhAxis = HALF_H * fp.heightTiles * z;
+            corners = {
+                T: { x: cx, y: cy - hhAxis },
+                R: { x: cx + hw, y: cy },
+                B: { x: cx, y: cy + hhAxis },
+                L: { x: cx - hw, y: cy }
+            };
+        }
+        var hh = Math.abs(corners.B.y - corners.T.y) / 2; // meia-altura de TELA real do prisma, rotacionado ou não — ver farol abaixo.
+        cx = (corners.T.x + corners.R.x + corners.B.x + corners.L.x) / 4; // recentraliza cx pro farol a partir dos cantos reais (bate com o cx recebido no caso eixo-alinhado; some qualquer arredondamento no caso rotacionado).
         ctx.save();
         ctx.shadowColor = pal.cyan;
         ctx.shadowBlur = 22 * z;
-        drawExtrudedDiamond(ctx, cx, cy, hw, hh, height, {
+        drawExtrudedFootprint(ctx, corners, height, {
             roof: pal.purple,
             leftFace: hslShade(275, 70, 22),
             rightFace: hslShade(275, 70, 14),
@@ -1957,11 +2354,21 @@
         // (playerCol/Row) ao longo de S.stepIntervalMs. RESTRIÇÃO INEGOCIÁVEL do
         // plano: isto é só visual — isWalkable()/checkPoiInteractions() (tryMove())
         // NUNCA leem playerDrawCol/Row, só a posição lógica inteira.
-        var pt = S.stepIntervalMs > 0
-            ? Math.min(1, Math.max(0, (tsMs - S.moveStartAt) / S.stepIntervalMs))
-            : 1;
-        S.playerDrawCol = S.playerPrevCol + (S.playerCol - S.playerPrevCol) * pt;
-        S.playerDrawRow = S.playerPrevRow + (S.playerRow - S.playerPrevRow) * pt;
+        //
+        // 2026-09-03 (movimento contínuo em rua) — este lerp discreto (tile a tile
+        // a cada S.stepIntervalMs) só roda quando !S.onStreet. Enquanto o jogador
+        // segue uma rua, updateMovement() (chamada em loop(), ANTES de render())
+        // já escreveu S.playerDrawCol/Row direto a partir da posição contínua
+        // (S.playerContCol/Row) — sobrescrever aqui com o lerp antigo produziria
+        // um movimento "step-y" de novo, exatamente o que o pedido pediu pra
+        // eliminar na rua. Ver ATUALIZAÇÃO 2026-09-03 no topo do arquivo, item 2e.
+        if (!S.onStreet) {
+            var pt = S.stepIntervalMs > 0
+                ? Math.min(1, Math.max(0, (tsMs - S.moveStartAt) / S.stepIntervalMs))
+                : 1;
+            S.playerDrawCol = S.playerPrevCol + (S.playerCol - S.playerPrevCol) * pt;
+            S.playerDrawRow = S.playerPrevRow + (S.playerRow - S.playerPrevRow) * pt;
+        }
 
         // Câmera: lerp exponencial independente de framerate —
         // camera += (alvo-camera) * (1 - k^dt), NÃO um fator fixo por frame
@@ -2116,7 +2523,7 @@
                 if (item.row === eb.anchorRow && item.col === eb.anchorCol) {
                     var center = gridToScreen(eb.centerCol, eb.centerRow);
                     var screenCenter = worldToScreen(center.x, center.y, camOffsetX, camOffsetY);
-                    drawTower(ctx, screenCenter.x, screenCenter.y, pal, tSec, S.entryPoi);
+                    drawTower(ctx, screenCenter.x, screenCenter.y, pal, tSec, S.entryPoi, camOffsetX, camOffsetY);
                 }
             } else if (item.type === 'other') {
                 var s2 = gridToScreen(item.drawCol, item.drawRow); // posição DESENHADA (interpolada) — só visual, ver updateOtherPlayersDraw().
@@ -2301,6 +2708,114 @@
         return { dc: dc, dr: dr };
     }
 
+    // ==================== Movimento contínuo em rua (2026-09-03) ================
+    // Ver ATUALIZAÇÃO 2026-09-03 "movimento contínuo em rua" no topo do arquivo pro
+    // raciocínio completo de cada constante/decisão abaixo.
+    var STREET_SNAP_RADIUS_TILES = 1.1; // tolerância pra considerar o jogador "sobre uma rua" — cobre células promovidas pelo fechamento de gap diagonal do pipeline (ficam ~1 tile da geometria real, ver nota de 03/09 sobre streetWays).
+    var STREET_INPUT_EPS = 1e-6;        // zona-morta pro produto escalar input·tangente — evita ruído de ponto-flutuante decidir avançar/recuar quando o input é matematicamente ortogonal à rua (ex.: rua a 45°, input na outra diagonal).
+    // CORREÇÃO 2026-09-03 (achada em teste ao vivo, não fazia parte do design original
+    // — ver nearestPoiFootprintDist() acima e ATUALIZAÇÃO no topo do arquivo): raio de
+    // override — perto de QUALQUER POI (footprint da torre incluído), a restrição "só
+    // 2 direções" da rua é ignorada e o movimento cai pro tryMove() livre de sempre,
+    // MESMO que o jogador esteja geometricamente perto o bastante de uma streetWay pra
+    // contar como "on-street" por distância. 1.5 tiles escolhido por cobrir com folga o
+    // caso medido ao vivo (pois.json:defaultSpawn fica a exatamente 1.0 tile da borda
+    // do footprint da torre) sem abrir uma zona de exclusão grande demais ao redor de
+    // POIs menores no futuro.
+    var POI_FOOTPRINT_OVERRIDE_TILES = 1.5;
+
+    // Acha o ponto mais próximo, entre TODAS as streetWays de TODOS os chunks
+    // carregados, da posição (col,row) dada (espaço GLOBAL fracionário — mesmo
+    // espaço de way.gridPts). Devolve null se nenhum chunk carregado tem
+    // streetPaths, ou {dist, tangentCol, tangentRow} (tangente já normalizada,
+    // sinal = ordem dos pontos na polilinha original, só usada via produto
+    // escalar em updateMovement() — o sinal absoluto não importa, só a
+    // consistência local ponto-a-ponto, que a geometria real já garante).
+    // Culling por gridBbox (expandido pela tolerância) antes do loop caro
+    // ponto-a-ponto — barato mesmo rodando todo frame (~100 ways/chunk carregado,
+    // a maioria descartada pelo bbox antes de entrar no laço de segmentos).
+    function findNearestStreetPoint(col, row) {
+        var tol = STREET_SNAP_RADIUS_TILES;
+        var best = null;
+        for (var key in S.loadedChunks) {
+            var chunk = S.loadedChunks[key];
+            var paths = chunk.streetPaths;
+            if (!paths) continue;
+            for (var i = 0; i < paths.length; i++) {
+                var way = paths[i];
+                var gp = way.gridPts;
+                if (!gp || gp.length < 2) continue;
+                var gb = way.gridBbox;
+                if (gb && (col < gb.minCol - tol || col > gb.maxCol + tol ||
+                    row < gb.minRow - tol || row > gb.maxRow + tol)) continue;
+                for (var s = 0; s < gp.length - 1; s++) {
+                    var ax = gp[s].col, ay = gp[s].row, bx = gp[s + 1].col, by = gp[s + 1].row;
+                    var vx = bx - ax, vy = by - ay;
+                    var lenSq = vx * vx + vy * vy;
+                    if (lenSq < 1e-9) continue; // segmento degenerado (dois pontos iguais) — pula
+                    var t = ((col - ax) * vx + (row - ay) * vy) / lenSq;
+                    if (t < 0) t = 0; else if (t > 1) t = 1;
+                    var px = ax + vx * t, py = ay + vy * t;
+                    var dx = col - px, dy = row - py;
+                    var distSq = dx * dx + dy * dy;
+                    if (best === null || distSq < best.distSq) {
+                        var segLen = Math.sqrt(lenSq);
+                        best = {
+                            distSq: distSq,
+                            dist: Math.sqrt(distSq),
+                            tangentCol: vx / segLen,
+                            tangentRow: vy / segLen
+                        };
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    // ============================ Orientação do avatar (flip) ===================
+    // CORREÇÃO 2026-09-03 — o flip estava ESPELHADO NA DIREÇÃO ERRADA (pedido do
+    // usuário: "o personagem fica virado pro lado errado quando anda, espelhe
+    // isso"). Causa raiz encontrada em js/game/engine.js (NÃO neste arquivo) —
+    // a única outra referência real de como window.g_customPlayerGhostRight (o
+    // MESMO arquivo de imagem usado aqui e no Episódio 1) já é orientado no
+    // jogo. Lido c_DeSoGhost.draw() linha a linha (~1214-1230 de engine.js):
+    // `this.face` vale 1 quando o jogador anda pra DIREITA (moveRight ->
+    // this.face=1, ~linha 1469) e 2 quando anda pra ESQUERDA (moveLeft ->
+    // this.face=2, ~linha 1468). E o desenho faz exatamente o OPOSTO do que
+    // este arquivo presumia antes: com face==1 (direita) e o sprite custom
+    // pronto, engine.js ESPELHA (translate + scale(-1,1)) antes de desenhar
+    // curRight; com face==2 (esquerda), desenha curRight SEM espelhar, como
+    // veio do arquivo. Ou seja: pra este sprite (arte de fantasma num único
+    // arquivo, sem uma segunda arte "olhando pro outro lado" — mesma conclusão
+    // já registrada na nota de 02/09 sobre g_customPlayerGhostLeft ser a MESMA
+    // referência), a pose CRUA (sem transform) já olha pra ESQUERDA — é preciso
+    // espelhar pra fazer o fantasma olhar pra direita, não o contrário. Esta
+    // função antes fazia o inverso disso (screenDx>0 = tela pra direita = SEM
+    // espelhar); corrigido invertendo qual sinal produz true/false. A técnica
+    // de espelhamento em si (drawGhostBillboard, translate+scale(-1,1) em torno
+    // do mesmo retângulo) já replicava certo o mecanismo de engine.js e não
+    // mudou.
+    //
+    // dc,dr = vetor de GRID do passo — um passo de grid inteiro (tryMove) ou a
+    // direção de avanço contínuo numa rua (tangente*sinal, ver updateMovement()
+    // abaixo). screenDx = (dc-dr)*HALF_W (gridToScreen) — só o SINAL importa,
+    // então a mesma função serve pros dois casos (passo inteiro ou fração de
+    // tile por frame). Chamada SÓ quando quem invocou já confirmou que o
+    // personagem de fato avançou (isWalkable() já passou) — nunca a partir do
+    // input cru, mesma regra de sempre ("nunca desliza": orientação só muda
+    // quando o pé sai do lugar de verdade).
+    function updateFacingFromMoveVector(dc, dr) {
+        S.facingDir = { dc: dc, dr: dr };
+        var screenDxSign = dc - dr;
+        if (screenDxSign > STREET_INPUT_EPS) S.facingRight = false;      // tela pra DIREITA -> precisa espelhar (pose crua olha pra esquerda)
+        else if (screenDxSign < -STREET_INPUT_EPS) S.facingRight = true; // tela pra ESQUERDA -> pose crua já serve, sem espelhar
+        // |screenDxSign| ~ 0: passo diagonal de grid com projeção em tela
+        // puramente vertical — não toca em S.facingRight, mantém a última
+        // orientação horizontal conhecida (regra (a) do pedido original do
+        // usuário, ver nota de 02/09 "input de movimento" item 3).
+    }
+
     function tryMove(dc, dr, now) {
         var nc = S.playerCol + dc, nr = S.playerRow + dr; // GLOBAL desde o Estágio 3 — isWalkable() converte pra local internamente.
         if (!isWalkable(nc, nr)) return false; // bloqueia contra 'block', permite 'street'/'landmark' — LÓGICO, decide antes de qualquer coisa visual existir pra este passo.
@@ -2315,28 +2830,143 @@
         S.playerCol = nc; S.playerRow = nr;
         S.moveStartAt = now;
 
-        // Orientação do avatar (ver ATUALIZAÇÃO 2026-09-03 item 5 no topo do
-        // arquivo) — atualizada SÓ aqui, num passo que JÁ passou por isWalkable()
-        // acima, nunca a partir do input cru. facingDir guarda o vetor de GRID
-        // bruto (debug/futuro); facingRight é o que render() de fato consome —
-        // deriva do sinal do vetor de TELA equivalente (gridToScreen: screenDx =
-        // (dc-dr)*HALF_W, só o sinal importa aqui). Os 4 passos de UM eixo só
-        // (as teclas de sempre) sempre têm screenDx != 0 nesta projeção 2:1 — só
-        // um passo diagonal de grid de verdade (dc e dr não-nulos e iguais em
-        // módulo, agora possível via currentInputVector(), ver item 4) pode dar
-        // screenDx==0 (vetor de tela puramente vertical); nesse caso mantém a
-        // ÚLTIMA orientação horizontal conhecida em vez de decidir arbitrariamente
-        // — regra (a) do pedido do usuário, dita explicitamente por ele.
-        S.facingDir = { dc: dc, dr: dr };
-        var screenDxSign = dc - dr;
-        if (screenDxSign > 0) S.facingRight = true;
-        else if (screenDxSign < 0) S.facingRight = false;
-        // screenDxSign === 0: não toca em S.facingRight, mantém o valor anterior.
+        // Orientação do avatar — ver updateFacingFromMoveVector() (função extraída
+        // 2026-09-03, ver ATUALIZAÇÃO "correção de flip" no topo do arquivo pro
+        // raciocínio completo/correção do sinal). Chamada SÓ aqui, num passo que
+        // JÁ passou por isWalkable() acima, nunca a partir do input cru.
+        updateFacingFromMoveVector(dc, dr);
 
         updateChunkWindow(); // Estágio 5 — janela 3x3 + prefetch direcional (ver nota no topo do arquivo); barato quando o chunk não mudou, ensureChunkLoaded() já retorna cedo.
         syncPublicState();
         checkPoiInteractions(); // lê S.playerCol/Row (lógico) — NUNCA playerDrawCol/Row. Restrição inegociável do plano.
         return true;
+    }
+
+    // ============================ updateMovement() ===============================
+    // Controlador de movimento por frame — chamado por loop(), ANTES de render().
+    // Decide a cada frame se o jogador está "sobre uma rua" (findNearestStreetPoint()
+    // <= STREET_SNAP_RADIUS_TILES da posição VISUAL atual) e alterna entre dois modos
+    // — ver ATUALIZAÇÃO 2026-09-03 "movimento contínuo em rua" no topo do arquivo pro
+    // desenho completo:
+    //   - SOBRE RUA: avança S.playerContCol/Row continuamente (por dt real, não em
+    //     saltos de S.stepIntervalMs), projetando o input na tangente local do
+    //     segmento mais próximo — só a componente ao longo do caminho importa (a
+    //     ortogonal é ignorada de propósito, é isso que implementa "só 2 direções").
+    //   - FORA DE RUA: delega pro tryMove() discreto de sempre, gated pelo mesmo
+    //     S.stepIntervalMs de sempre — ZERO mudança nesse caminho.
+    // dtSec = delta de tempo real desde a última chamada (S.lastMoveAt, relógio
+    // PRÓPRIO deste controlador — não o mesmo S.lastRenderAt que a câmera usa em
+    // render(), pra não acoplar os dois sistemas).
+    function updateMovement(now, dtSec) {
+        var delta = currentInputVector();
+        var testCol = (typeof S.playerDrawCol === 'number') ? S.playerDrawCol : S.playerCol;
+        var testRow = (typeof S.playerDrawRow === 'number') ? S.playerDrawRow : S.playerRow;
+        var nearest = findNearestStreetPoint(testCol, testRow);
+        // CORREÇÃO 2026-09-03 (achada em teste ao vivo — ver nearestPoiFootprintDist()
+        // e POI_FOOTPRINT_OVERRIDE_TILES acima): perto de um POI, o movimento livre de
+        // sempre tem prioridade sobre o seguimento de rua, mesmo dentro do raio de
+        // captura da rua — sem isto, o passo lateral pra dentro da porta da torre fica
+        // geometricamente inatingível a partir do spawn padrão.
+        var onStreetNow = !!nearest && nearest.dist <= STREET_SNAP_RADIUS_TILES &&
+            nearestPoiFootprintDist(testCol, testRow) > POI_FOOTPRINT_OVERRIDE_TILES;
+
+        if (onStreetNow) {
+            if (!S.onStreet) {
+                // Entrando no modo contínuo agora — ancora na posição VISUAL atual
+                // (não numa projeção exata sobre a linha, que puxaria o jogador
+                // lateralmente de forma perceptível no instante da transição).
+                S.playerContCol = testCol;
+                S.playerContRow = testRow;
+            }
+            S.onStreet = true;
+
+            if (delta) {
+                // CORREÇÃO 2026-09-03 (achada em teste ao vivo — ver ATUALIZAÇÃO no topo
+                // do arquivo item 2c/2d): a primeira versão disto usava só o SINAL do
+                // produto escalar bruto (delta·tangente) pra decidir avançar/recuar, mas
+                // aplicava velocidade MÁXIMA sempre que o sinal desse não-zero — e como
+                // ruas reais (dado OSM) quase nunca são perfeitamente horizontais/
+                // verticais (ex.: "Rua Waldir Cabral" é 176°, só 4° fora do horizontal,
+                // não 180° exato), isso fazia ATÉ UM INPUT ORTOGONAL (ex.: ArrowUp numa
+                // rua quase-horizontal) disparar velocidade PLENA na direção da rua —
+                // exatamente o oposto de "cima/baixo não fazem nada útil" pedido pelo
+                // usuário. Corrigido normalizando o vetor de input (unitário mesmo na
+                // diagonal) ANTES do produto escalar — o resultado é o COSSENO do ângulo
+                // entre input e tangente, em [-1,1] — e escalando a velocidade por esse
+                // valor (não só pelo sinal). Efeito real: input alinhado com a rua anda
+                // a velocidade PLENA (cosseno ~1); input perpendicular anda a ~0 (cosseno
+                // ~0, só o resíduo do desalinhamento real da rua, imperceptível); ângulos
+                // intermediários (ex. diagonal real vs input cardinal) andam
+                // proporcionalmente mais devagar — é literalmente "projetar o vetor de
+                // input na tangente" como pedido, não uma aproximação por sinal.
+                var inLen = Math.hypot(delta.dc, delta.dr); // 1 pra input cardinal, sqrt(2) pra diagonal (2 teclas de eixos diferentes)
+                var normDc = delta.dc / inLen, normDr = delta.dr / inLen;
+                var dot = normDc * nearest.tangentCol + normDr * nearest.tangentRow; // cosseno do ângulo entre input normalizado e a tangente
+                if (dot > STREET_INPUT_EPS || dot < -STREET_INPUT_EPS) {
+                    var dir = dot > 0 ? 1 : -1; // só o sinal, pra orientação do sprite (ver updateFacingFromMoveVector abaixo) — a MAGNITUDE do avanço usa `dot` direto, não `dir`.
+                    var stepTiles = dot * (1000 / S.stepIntervalMs) * dtSec; // STREET_SPEED_TILES_PER_SEC = 1000/S.stepIntervalMs (ver nota no topo do arquivo), escalado pelo cosseno de alinhamento — velocidade plena só quando input e rua estão perfeitamente alinhados.
+                    var candCol = S.playerContCol + nearest.tangentCol * stepTiles;
+                    var candRow = S.playerContRow + nearest.tangentRow * stepTiles;
+                    var roundedCol = Math.round(candCol), roundedRow = Math.round(candRow);
+                    if (isWalkable(roundedCol, roundedRow)) {
+                        S.playerContCol = candCol;
+                        S.playerContRow = candRow;
+                        // Orientação: mesma função de tryMove(), só que com a direção
+                        // CONTÍNUA (tangente*sinal, SEM escalar pela magnitude de `dot` —
+                        // a pose do sprite não deve ficar "menos virada" só porque o input
+                        // estava mal alinhado) em vez de um passo de grid inteiro — só
+                        // atualiza quando o avanço foi de fato aceito (isWalkable acima),
+                        // preservando "nunca desliza" também neste modo.
+                        updateFacingFromMoveVector(nearest.tangentCol * dir, nearest.tangentRow * dir);
+                    }
+                    // isWalkable false: avanço recusado, posição contínua não muda
+                    // (mesmo "bloqueia contra bloco" de tryMove(), sem sair do lugar).
+                }
+            }
+
+            var logicalCol = Math.round(S.playerContCol);
+            var logicalRow = Math.round(S.playerContRow);
+            if (logicalCol !== S.playerCol || logicalRow !== S.playerRow) {
+                S.playerCol = logicalCol;
+                S.playerRow = logicalRow;
+                // Mesmo trio que tryMove() dispara num passo bem-sucedido — streaming
+                // de chunk, payload de rede (window.OverworldState) e interação de POI
+                // continuam funcionando sem nenhuma mudança nesses três sistemas.
+                updateChunkWindow();
+                syncPublicState();
+                checkPoiInteractions();
+            }
+
+            // Posição desenhada = a contínua direta — já é suave frame-a-frame, não
+            // precisa do lerp de S.stepIntervalMs do sistema antigo (ver render(),
+            // que pula esse lerp quando S.onStreet).
+            S.playerDrawCol = S.playerContCol;
+            S.playerDrawRow = S.playerContRow;
+            // Mantém o sistema discreto antigo "pronto" pro caso do jogador sair da
+            // rua no próximo frame (ver ramo else abaixo, "saindo do modo contínuo").
+            S.playerPrevCol = S.playerContCol;
+            S.playerPrevRow = S.playerContRow;
+            S.moveStartAt = now;
+        } else {
+            if (S.onStreet) {
+                // Saindo do modo contínuo — sincroniza o sistema de tile discreto
+                // antigo pra não saltar: origem e destino do próximo passo começam
+                // iguais à posição atual (pt já não importa, prevCol===playerCol).
+                S.playerPrevCol = S.playerCol;
+                S.playerPrevRow = S.playerRow;
+                S.moveStartAt = now;
+            }
+            S.onStreet = false;
+
+            // Sistema discreto de sempre, SEM NENHUMA MUDANÇA — mesmo gate de
+            // S.stepIntervalMs, mesma chamada a tryMove().
+            if (now - S.lastStepAt >= S.stepIntervalMs) {
+                if (delta) {
+                    tryMove(delta.dc, delta.dr, now);
+                    S.lastStepAt = now;
+                }
+            }
+        }
     }
 
     // Estágio 2 — dispatcher genérico de interação por POI, substitui a antiga
@@ -2394,29 +3024,20 @@
     function loop(ts) {
         if (!S.isActive) return; // guarda contra o loop continuar após um Deactivate tardio
         var now = ts || performance.now();
-        if (now - S.lastStepAt >= S.stepIntervalMs) {
-            // BUG PRÉ-EXISTENTE CORRIGIDO 2026-09-03 (agente de zoom/câmera): esta linha
-            // chamava currentInputDelta(), função que não existe mais neste arquivo — foi
-            // renomeada/substituída por currentInputVector() na refatoração de vetor de
-            // movimento (ver ATUALIZAÇÃO 2026-09-03 "input de movimento" no topo do
-            // arquivo, item 4), mas o call site aqui em loop() não foi atualizado junto.
-            // Efeito real: toda vez que activateNow() rodava, o primeiro loop() (ts ainda
-            // não tinha passado S.stepIntervalMs desde S.lastStepAt=0, então a condição
-            // acima é quase sempre verdadeira já no 1º frame) lançava
-            // "ReferenceError: currentInputDelta is not defined" DENTRO do callback do
-            // requestAnimationFrame — sem try/catch em volta, isso interrompe o loop
-            // inteiro (a linha `S.rafId = requestAnimationFrame(loop)` no fim da função
-            // nunca era alcançada), ou seja: o overworld não desenhava UM ÚNICO frame
-            // depois de ativado. Não é algo que esta passada quebrou — já estava assim
-            // antes de eu tocar no arquivo (confirmado com grep: só existia a definição
-            // de currentInputVector(), zero definição de currentInputDelta em lugar
-            // nenhum). Corrigido aqui porque sem isso não dava nem para testar zoom.
-            var delta = currentInputVector();
-            if (delta) {
-                tryMove(delta.dc, delta.dr, now); // `now` = t0 do lerp visual deste passo, ver tryMove().
-                S.lastStepAt = now;
-            }
-        }
+        // BUG PRÉ-EXISTENTE CORRIGIDO 2026-09-03 (agente de zoom/câmera, sessão
+        // anterior): este loop chamava currentInputDelta(), função que não existe
+        // mais neste arquivo (renomeada pra currentInputVector() numa refatoração
+        // anterior sem atualizar este call site) — ReferenceError no 1º frame,
+        // sem try/catch em volta, matava o rAF inteiro. Já corrigido antes desta
+        // passada (nota completa preservada na ATUALIZAÇÃO 2026-09-03 "zoom" no
+        // topo do arquivo, item 0) — só documentando que o call site mudou de
+        // novo aqui, agora pra updateMovement() (2026-09-03, movimento contínuo
+        // em rua — ver ATUALIZAÇÃO correspondente no topo do arquivo), que decide
+        // internamente entre o tryMove() discreto de sempre e o avanço contínuo
+        // novo, conforme o jogador estar ou não sobre uma rua.
+        var dtSec = S.lastMoveAt ? Math.max(0, (now - S.lastMoveAt) / 1000) : 0;
+        S.lastMoveAt = now;
+        updateMovement(now, dtSec);
         render(now);
         S.rafId = requestAnimationFrame(loop);
     }
@@ -2482,9 +3103,46 @@
         S.moveStartAt = 0;
         S.camX = null; S.camY = null; // força snap da câmera pro spawn no próximo render()
         S.lastRenderAt = 0;
+        // CAUSA RAIZ REAL do "nome de rua não aparece" reportado 2026-09-03 (Problema 1) —
+        // investigado ao vivo (window.OverworldDebug.setZoom + Deactivate/Activate real,
+        // não suposição): S.zoomLevel NUNCA era resetado aqui. drawStreetNameLabel() (o
+        // rótulo "junto da curva" que o usuário procurava) só é chamado quando
+        // !isMacroZoom() (zoomLevel >= ZOOM_MACRO_THRESHOLD=0.75, ver render()) — o código
+        // em si SEMPRE esteve correto e É chamado (confirmado com o overworld ativo de
+        // verdade: em zoomLevel=1 os rótulos aparecem nítidos, cor #eafffe sobre pílula
+        // escura, sem nenhum erro no console). O bug real é de ESTADO: um scroll-out do
+        // mouse (bem natural ao testar/olhar o mapa, ou mesmo um "-" sem querer) deixa
+        // zoomLevel abaixo do limiar; como nada resetava esse valor, ele PERSISTE em
+        // qualquer reativação seguinte (voltar do Episódio 1 pela torre, morrer e
+        // renascer, relogar) até um F5 na página inteira — e em zoom macro
+        // drawStreetCurves() nem gera candidato de rótulo nenhum (retorna {} de
+        // propósito, ver comentário na função), então os nomes desaparecem
+        // silenciosamente e ficam sumidos pro resto da sessão. Reproduzido ao vivo: 1)
+        // OverworldDebug.setZoom(0.5); 2) DeactivateOverworld()+ActivateOverworld(); 3)
+        // getZoom() ainda voltava zoomLevel:0.5 — confirma que não era resetado. Fix:
+        // toda entrada real no overworld (não só a primeira) volta pro zoom PADRÃO
+        // documentado (ZOOM_DEFAULT=1.0, acima do limiar de 0.75) — mesmo princípio já
+        // aplicado a câmera/posição/interpolação nas linhas acima, só que também pro zoom.
+        S.zoomLevel = ZOOM_DEFAULT;
         S.otherPlayersDraw = {}; // descarta interpolação de outros jogadores de uma sessão anterior
 
+        // 2026-09-03 (movimento contínuo em rua) — reseta o controlador de
+        // movimento pro novo spawn, mesmo espírito do reset de câmera/lerp acima:
+        // sem isto, S.onStreet/S.playerContCol/Row reteriam estado de uma sessão
+        // ANTERIOR do overworld (ex.: reentrando depois do Episódio 1 num ponto
+        // do mapa fora de rua enquanto ainda "achava" que estava sobre uma rua).
+        S.onStreet = false;
+        S.playerContCol = S.playerCol;
+        S.playerContRow = S.playerRow;
+        S.lastMoveAt = 0;
+
         S.canvas.style.display = 'block';
+        // Problema 3 (2026-09-03) — botões de zoom aparecem junto com o canvas do
+        // overworld (mesmo ciclo de vida, ver ensureZoomControls()); 'flex' (não
+        // 'block') porque align-items/justify-content do CSS deles só centralizam o
+        // símbolo +/− com display flex.
+        if (S.zoomInBtn) S.zoomInBtn.style.display = 'flex';
+        if (S.zoomOutBtn) S.zoomOutBtn.style.display = 'flex';
 
         if (S.rafId) cancelAnimationFrame(S.rafId); // nunca dois loops vivos ao mesmo tempo (skill §4)
         detachInput();
@@ -2527,6 +3185,9 @@
             S.resizeHandler = null;
         }
         if (S.canvas) S.canvas.style.display = 'none';
+        // Problema 3 (2026-09-03) — some junto com o canvas (ver ativação simétrica em activateNow()).
+        if (S.zoomInBtn) S.zoomInBtn.style.display = 'none';
+        if (S.zoomOutBtn) S.zoomOutBtn.style.display = 'none';
     };
 
     // ============================== Boot ==============================
