@@ -5,7 +5,9 @@
       "id": "tower_rua_beltrao",
       "name": "Torre de Entrada — Rua Doutor Beltrão",
       "type": "episode_entry",
-      "globalCol": 42, "globalRow": 42,
+      "globalCol": 40, "globalRow": 40,
+      "_position_note": "Repositionada em 03/09/2026 (era globalCol/globalRow 42/42, em cima de asfalto na malha regenerada) por tools/build-overworld-grid.js:findTowerSpot() - o footprint 3x3 (linhas/colunas 39-41) cai inteiro em celulas 'block' (quarteirao) do grid regenerado, 2 celulas do centro original. A 'porta' e a quina sudeste do footprint (globalRow 41, globalCol 41), que encosta (4-adjacencia) na celula de rua globalRow 41 / globalCol 42 (parte do componente conectado principal, ~89% das celulas andaveis do chunk 0_0) - jogador anda pela rua vindo do leste e entra por ali. Ver data/overworld/chunks/0_0.json _meta.caveats para o mesmo registro do lado dos dados.",
+      "defaultSpawn": { "globalCol": 42, "globalRow": 41, "_note": "Celula de rua exatamente adjacente a porta (ver _position_note acima) - usada por overworld.js:activateNow() como fallback quando ActivateOverworld() e chamado sem coordenada explicita. O antigo fallback fixo 'centro da torre + 2 linhas ao sul' pressupunha uma porta ao SUL, que so valia pra posicao antiga (42/42); a porta desta posicao (40/40) fica a LESTE, entao esse heuristico fixo deixaria o jogador nascendo em cima de bloco. Se a torre for reposicionada de novo no futuro, atualize este campo junto (ou apague-o pra cair de volta no heuristico antigo, que so funciona se a nova porta continuar ao sul)." },
       "footprint": { "widthTiles": 3, "heightTiles": 3 },
       "interaction": { "kind": "episode_entry", "episodeId": "episode_1", "triggerOn": "enter" },
       "visual": { "streetLabel": "Rua Doutor Beltrão", "beacon": true }

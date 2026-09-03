@@ -864,17 +864,23 @@
 							} else if (tile == 24) {
 								g_ctx.drawImage(fireballRightImg, x, y, 24, 24);
 							} else if (tile == 25) {
-								// Porta "NITERÓI" (02/09/2026): saída manual pro Overworld a qualquer
-								// momento da Fase 1 — não só na morte/vitória (esses já existiam, ver
+								// Porta "NEO NIT" (02/09/2026, rótulo trocado 03/09/2026 a pedido do
+								// usuário): saída manual pro Overworld a qualquer momento da Fase 1 —
+								// não só na morte/vitória (esses já existiam, ver
 								// EnterEpisode1FromOverworld() / branches G_WIN e G_GAMEOVER do keydown).
 								// Mesmo doorImage/rótulo-flutuante das portas 21 ("back")/22 ("cave1"),
 								// só muda o texto. Só existe em g_levels[0] (bitmap da Fase 1); ver
-								// colisão correspondente em c_DeSoGhost.move().
+								// colisão correspondente em c_DeSoGhost.move(). "Niterói" (nome real da
+								// cidade-fonte dos dados OSM) continua em uso interno/atribuição — ver
+								// data/overworld/*.json e docs — isto aqui é só o texto QUE O JOGADOR LÊ
+								// nesta porta, trocado por não confundir com o rótulo diegético usado no
+								// resto do jogo (Neo Nit = a metrópole de 3147 de onde Ftasma vem, ver
+								// index.html seção de lore) para a mesma cidade real.
 								g_ctx.drawImage(doorImage, x, y, 24, 24);
 								g_ctx.font = "bold 9px 'Courier New'";
 								g_ctx.fillStyle = "#FF00FF";
 								g_ctx.textAlign = "center";
-								g_ctx.fillText("NITERÓI", x + 12, y - 6);
+								g_ctx.fillText("NEO NIT", x + 12, y - 6);
 								g_ctx.textAlign = "start";
 							}
 						}

@@ -233,6 +233,87 @@
 //    a conversão local<->global agora é por-chunk, não mais um único par global pro
 //    módulo inteiro.
 // ============================================================================
+//
+// ATUALIZAÇÃO 2026-09-03 (sessão de correção pós-Estágio 6) — diagnóstico da tela
+// "quase em branco" reportada pelo usuário + reescrita da camada visual de ruas.
+// Cinco decisões documentadas aqui:
+//
+// 1) A TELA EM BRANCO NÃO ERA BUG DE CARREGAMENTO: testado ao vivo (servidor local,
+//    ActivateOverworld() real) antes de mexer em qualquer coisa — manifest.json e os
+//    3 chunks respondem 200 OK, window.OverworldDebug.getLoadedChunkKeys() mostrava
+//    os 3 chunks carregados, zero erro de console. A causa real era a fragmentação
+//    documentada no commit 73e0bf4 (151 componentes 4-conectados no chunk 0_0, só 19
+//    células andáveis perto da torre): quase toda a tela ao redor do spawn era
+//    'block' (não desenhado, ver item 1 da nota de 02/09), então o canvas parecia
+//    vazio mesmo com os dados carregados corretamente. Ver tools/build-overworld-grid.js
+//    pra causa raiz completa e correção (halfwidths + fechamento de gap diagonal +
+//    reconciliação de costura entre chunks). Depois da regeneração, o chunk 0_0 tem
+//    89% das células andáveis num componente só (1137-1146/1287) — o pequeno bolsão
+//    isolado virou a norma inversa.
+//
+// 2) GEOMETRIA REAL DE RUA PRESERVADA (streetWays): cada chunk agora grava, além do
+//    `grid` raster de sempre (inalterado em formato — colisão/chunking continuam
+//    lendo só isso, ver item 1 da nota de 02/09, ainda válido), um array
+//    `streetWays`: um item por OSM way (não por nome agregado), com `name`,
+//    `highway` e `points` = a polilinha ORIGINAL em col/row FRACIONÁRIO (não
+//    arredondado pra tile inteiro) no espaço local do chunk. É o dado que a query
+//    Overpass sempre devolveu via `out geom` mas o pipeline antigo descartava depois
+//    de rasterizar (ver item 2 da nota de 02/09 — aquele "NÃO EXISTE NO DADO ATUAL"
+//    ficou obsoleto: agora existe, de propósito). `buildStreetPathsForChunk()`
+//    converte pra coordenada GLOBAL (soma chunkOriginGlobalCol/Row, mesma convenção
+//    do grid) e pré-calcula tela (gridToScreen) uma vez no carregamento do chunk,
+//    não a cada frame.
+//
+// 3) RUAS DESENHADAS COMO CURVA, NÃO MAIS TILE QUADRADO: drawStreetCurves() traça
+//    cada `streetWay` como uma curva suave (quadraticCurveTo ponto-a-ponto, técnica
+//    padrão de "linha suave por pontos" sem precisar de spline completa) por cima de
+//    um preenchimento BEM fraco por célula (drawStreetPavementFill, substituiu o
+//    antigo drawStreetTile brilhante) que continua vindo do grid raster — garante
+//    que não sobra nenhum buraco visual onde o grid diz "andável" mas nenhuma curva
+//    passa exatamente por cima (ex.: células promovidas pelo fechamento de diagonal,
+//    que ficam a 1 passo da geometria real, não sobre ela). Isto é literalmente "o
+//    grid discreto por baixo pra colisão/lógica, geometria real por cima pro
+//    visual", como pedido — nada no isWalkable()/tryMove() mudou.
+//
+// 4) ESTÉTICA "BARRA DE ROLAGEM" — INTERPRETAÇÃO EXPLÍCITA: o usuário referenciou "a
+//    estética da barra de rolagem". A regra real (css/style.css, ::-webkit-scrollbar)
+//    é: track quase preto (`rgba(7,7,8,0.95)`) com borda `--border-light`, thumb em
+//    `linear-gradient(180deg, --cyan-neon, --purple-neon)` — um gradiente de DUAS
+//    cores, direção FIXA (180deg = topo→base da tela, não ao longo do conteúdo).
+//    Apliquei o mesmo MECANISMO (gradiente linear de direção fixa no canvas, não
+//    relativo a cada curva) às ruas: `buildStreetGradient()` cria UM
+//    `ctx.createLinearGradient` por frame, do topo ao fundo do canvas, e reusa pra
+//    TODAS as curvas (barato: 1 gradiente, não 1 por rua). Estendi de 2 pra 3 paradas
+//    de cor (cyan→magenta→purple) porque o usuário nomeou as três cores de próprio
+//    punho ("ciano/magenta/roxo") — mesmas 3 variáveis neon já usadas em outros
+//    elementos deste projeto (css/style.css --cyan-neon/--magenta-neon/--purple-neon
+//    = hsl(180,100%,50%)/hsl(300,100%,50%)/hsl(275,100%,60%)), não uma cor inventada.
+//    Por baixo do traço gradiente, uma "casing" (contorno) na cor do track
+//    (rgba(7,7,8,0.9)) replica a moldura escura da barra de rolagem. Brilho neon
+//    simulado sem `shadowBlur` por curva (mesma razão de performance já documentada
+//    em drawStreetTile original: roda em ~100 ways/chunk visíveis por frame) — um
+//    halo largo e fraco desenhado antes do traço principal, técnica idêntica à que
+//    já existia.
+//
+// 5) NOME DE RUA POR SEGMENTO, NÃO SÓ A TORRE: cada `streetWay` já carrega seu
+//    próprio `name` (tag OSM real, por way — não mais só a lista agregada em
+//    `_meta.extraction_stats.named_streets_found`). `render()` agrupa as ways
+//    visíveis por nome e desenha UM rótulo por nome único (o segmento mais longo
+//    entre os visíveis, pra não empilhar o mesmo nome várias vezes numa rua com
+//    múltiplos `way`) próximo do meio-arco da curva, mesmo tratamento visual de
+//    `drawTowerStreetLabel` (pílula escura + glow ciano + Courier New) só que menor
+//    e sem flutuação — é rótulo de mapa, não uma placa 3D como a da torre.
+//
+// 6) TORRE REPOSICIONADA (era globalCol/globalRow 42/42): a malha regenerada mudou
+//    quais células são rua perto da torre, então a posição antiga ficou em cima de
+//    asfalto. Nova posição (40/40) e a lógica de busca (footprint 3x3 inteiro fora
+//    de rua + pelo menos 1 célula de borda encostando numa célula de rua do
+//    componente grande = "porta") ficam em
+//    tools/build-overworld-grid.js:findTowerSpot() — mesma decisão registrada em
+//    data/overworld/pois.json (`_position_note`) e nos `_meta.caveats` do chunk
+//    0_0. Nada em overworld.js precisou mudar pra isso (computePoiBounds() já lê
+//    globalCol/globalRow do POI, não um valor hardcoded).
+// ============================================================================
 
 (function () {
     'use strict';
@@ -242,6 +323,29 @@
     var TILE_H = 32;
     var HALF_W = TILE_W / 2;
     var HALF_H = TILE_H / 2;
+
+    // ---- Ruas como curva (ver ATUALIZAÇÃO 2026-09-03 no topo do arquivo) --------
+    // TILE_SIZE_M precisa bater com data/overworld/manifest.json:tile_size_m (10) —
+    // é a mesma constante que tools/build-overworld-grid.js usa do lado do dado;
+    // aqui só converte metro->pixel de tela pra largura de traço. Usa TILE_H (a
+    // dimensão "vertical" da projeção 2:1, menos distorcida que TILE_W) como
+    // referência de escala: PX_PER_METER = TILE_H / TILE_SIZE_M.
+    var STREET_TILE_SIZE_M = 10;
+    var STREET_PX_PER_METER = TILE_H / STREET_TILE_SIZE_M;
+    var STREET_MIN_WIDTH_PX = 5; // piso visual pra vias finas (footway/steps) não sumirem
+    // Mesmos halfwidths de tools/build-overworld-grid.js:HALFWIDTH_M (a classificação
+    // walkable/blocked já usa esses números) — reaproveitados aqui só pra largura
+    // VISUAL do traço, não pra reclassificar nada. Não redigitar sem revisar os dois
+    // arquivos juntos se um mudar.
+    var STREET_HALFWIDTH_M = {
+        motorway: 11, trunk: 10, primary: 9, secondary: 8, tertiary: 7.5,
+        unclassified: 6.5, residential: 6.5, living_street: 6, service: 5,
+        pedestrian: 5.5, footway: 4, path: 3.5, steps: 3, track: 4, cycleway: 4
+    };
+    function streetWidthPx(highway) {
+        var halfwidthM = STREET_HALFWIDTH_M[highway] || STREET_HALFWIDTH_M.residential;
+        return Math.max(STREET_MIN_WIDTH_PX, halfwidthM * 2 * STREET_PX_PER_METER);
+    }
 
     // ---- Estágio 1 (plano crystalline-launching-goose.md, seção 3) --------
     // Meia-vida do lerp exponencial da câmera, em segundos — não um fator fixo
@@ -259,14 +363,27 @@
     // arquivos de chunk em si (data/overworld/chunks/{chunkX}_{chunkY}.json) só são
     // buscados sob demanda depois, via ensureChunkLoaded() — ver bloco de atualização
     // 03/09/2026 (Estágio 5) no topo do arquivo.
-    var MANIFEST_URL = 'data/overworld/manifest.json';
+    // DATA_VERSION (2026-09-03): os arquivos data/overworld/*.json não têm hash no
+    // nome nem passam pelo bundler que cache-busta js/*.js (ver `?v=N` no <script> de
+    // index.html) — sem query string própria, um servidor estático típico (inclusive
+    // o http-server -c-1 usado em dev) pode aplicar cache HEURÍSTICO baseado só em
+    // Last-Modified mesmo sem header Cache-Control explícito (RFC 7234), servindo uma
+    // resposta antiga do disco do navegador sem nem revalidar com o servidor —
+    // confirmado ao vivo nesta sessão: depois de regenerar os chunks/pois.json
+    // (tools/build-overworld-grid.js), o navegador continuou servindo o `pois.json`
+    // ANTIGO (torre em 42/42) por vários reloads, mesmo com o arquivo já correto no
+    // disco/servidor. Mesma lógica de version-bump manual que overworld.js?v=N já
+    // usa — sobe este número sempre que os dados de data/overworld/ mudarem de
+    // verdade (regeração de chunk, reposição de POI etc.).
+    var OVERWORLD_DATA_VERSION = 3;
+    var MANIFEST_URL = 'data/overworld/manifest.json?v=' + OVERWORLD_DATA_VERSION;
     // Estágio 2 do plano de overworld expansível (POI data-driven) — ver
     // C:\Users\Klara\.claude\plans\crystalline-launching-goose.md §4. Carregado em
     // paralelo ao manifesto no boot (loadPois(), abaixo de loadManifest()); os dois
     // precisam terminar antes do overworld ser considerado "pronto" — ver
     // finalizeLoadIfReady(). pois.json continua um arquivo ÚNICO (não por chunk, item 5
     // do pedido do Estágio 5) — não muda neste estágio.
-    var POI_URL = 'data/overworld/pois.json';
+    var POI_URL = 'data/overworld/pois.json?v=' + OVERWORLD_DATA_VERSION;
 
     // ---- Estado interno (fechado neste módulo — nada aqui vaza pra window
     // além dos 4 pontos de contrato pedidos) --------------------------------
@@ -587,6 +704,42 @@
         };
     }
 
+    // Converte `streetWays` (col/row FRACIONÁRIO, local ao chunk — ver
+    // tools/build-overworld-grid.js) pra coordenada GLOBAL + tela, uma única vez no
+    // carregamento do chunk (não a cada frame, ver ATUALIZAÇÃO 2026-09-03 item 2).
+    // Cada way vira {name, highway, screenPts: [{x,y}...], bbox: {...}, lengthPx}.
+    // `lengthPx` (soma das distâncias entre pontos consecutivos em tela) só serve pra
+    // escolher, entre vários segmentos do MESMO nome visíveis num frame, qual deles
+    // ganha o rótulo (o mais longo) — ver render()/drawStreetCurves().
+    function buildStreetPathsForChunk(streetWays, originGlobalCol, originGlobalRow) {
+        if (!Array.isArray(streetWays)) return [];
+        var out = [];
+        for (var i = 0; i < streetWays.length; i++) {
+            var w = streetWays[i];
+            if (!w || !Array.isArray(w.points) || w.points.length < 2) continue;
+            var screenPts = new Array(w.points.length);
+            var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            var lengthPx = 0;
+            for (var p = 0; p < w.points.length; p++) {
+                var globalCol = originGlobalCol + w.points[p][0];
+                var globalRow = originGlobalRow + w.points[p][1];
+                var s = gridToScreen(globalCol, globalRow);
+                screenPts[p] = s;
+                if (s.x < minX) minX = s.x; if (s.x > maxX) maxX = s.x;
+                if (s.y < minY) minY = s.y; if (s.y > maxY) maxY = s.y;
+                if (p > 0) lengthPx += Math.hypot(s.x - screenPts[p - 1].x, s.y - screenPts[p - 1].y);
+            }
+            out.push({
+                name: w.name || null,
+                highway: w.highway,
+                screenPts: screenPts,
+                bbox: { minX: minX, maxX: maxX, minY: minY, maxY: maxY },
+                lengthPx: lengthPx
+            });
+        }
+        return out;
+    }
+
     // Garante que o chunk (chunkX,chunkY) esteja em S.loadedChunks, disparando o fetch se
     // ainda não estiver carregado nem em voo. No-op silencioso (nem loga) se o chunk não
     // existe no manifesto — isso é um BURACO ESPERADO no mapa da cidade (bairro ainda não
@@ -600,7 +753,7 @@
         if (!manifestEntry) return; // buraco esperado — nada pra buscar ainda
 
         S.loadingChunks[key] = true;
-        fetch(manifestEntry.file)
+        fetch(manifestEntry.file + '?v=' + OVERWORLD_DATA_VERSION) // ver nota de OVERWORLD_DATA_VERSION acima
             .then(function (r) {
                 if (!r.ok) throw new Error('HTTP ' + r.status + ' ao buscar ' + manifestEntry.file);
                 return r.json();
@@ -623,7 +776,11 @@
                     originGlobalCol: originCol,
                     originGlobalRow: originRow,
                     chunkX: chunkX,
-                    chunkY: chunkY
+                    chunkY: chunkY,
+                    // ver ATUALIZAÇÃO 2026-09-03 item 2 no topo do arquivo — geometria real
+                    // de rua preservada por way, convertida uma única vez aqui (não a cada
+                    // frame) pra coordenada global + tela.
+                    streetPaths: buildStreetPathsForChunk(data.streetWays, originCol, originRow)
                 };
             })
             .catch(function (err) {
@@ -816,24 +973,149 @@
         return 'hsl(' + hue + ', ' + sat + '%, ' + light + '%)';
     }
 
-    function drawStreetTile(ctx, cx, cy, pal) {
-        // Paleta 02/09/2026 — referência de estilo pedida: mapa AR escuro, fundo preto,
-        // ruas claras/brancas com brilho neon sutil (não os ícones do app de referência,
-        // só a estética). Fundo já vem quase preto do clear do frame (pal.bgDark); aqui
-        // só a rua em si, num cinza bem claro quase branco com halo ciano.
-        //
-        // Não usa ctx.shadowBlur por tile: isso roda em centenas de tiles/frame (ver
-        // culling em render()) e shadowBlur é caro o bastante no Canvas 2D pra derrubar
-        // o frame rate nessa escala. O "glow" é simulado sem blur de verdade: um contorno
-        // externo largo e fraco (halo) desenhado ANTES do preenchimento da rua, seguido
-        // do preenchimento claro com um contorno interno fino e mais forte por cima —
-        // ambos são só stroke/fill normais, sem custo de blur.
-        diamondPath(ctx, cx, cy, HALF_W * 1.08, HALF_H * 1.08);
-        ctx.strokeStyle = 'rgba(120, 245, 255, 0.16)';
-        ctx.lineWidth = 4;
-        ctx.stroke();
+    // SUBSTITUI o antigo drawStreetTile brilhante (era o preenchimento PRINCIPAL da
+    // rua, ver ATUALIZAÇÃO 2026-09-03 item 3) — agora é só o "chão" fraco por baixo
+    // da curva neon (drawStreetCurves, mais abaixo). Existe pra garantir que toda
+    // célula 'street'/'landmark' do grid tenha ALGUM piso visível mesmo onde
+    // nenhuma curva passa exatamente por cima (ex.: célula promovida pelo
+    // fechamento de gap diagonal do pipeline, ver tools/build-overworld-grid.js —
+    // fica a 1 passo da geometria real, não sobre ela). Bem mais discreto que
+    // antes de propósito: se competisse visualmente com o gradiente neon da curva,
+    // o "mapa digital" pedido viraria ruído.
+    function drawStreetPavementFill(ctx, cx, cy) {
+        drawFlatDiamond(ctx, cx, cy, HALF_W * 1.02, HALF_H * 1.02, 'rgba(10, 22, 28, 0.55)', null);
+    }
 
-        drawFlatDiamond(ctx, cx, cy, HALF_W, HALF_H, 'hsla(195, 25%, 86%, 0.92)', 'rgba(180, 250, 255, 0.55)');
+    // Gradiente neon fixo (mesmo mecanismo do ::-webkit-scrollbar-thumb de
+    // css/style.css: 1 gradiente linear de direção FIXA reusado pra tudo, não um
+    // gradiente por objeto — ver ATUALIZAÇÃO 2026-09-03 item 4). UM objeto por
+    // frame (cache em S._streetGradientCache, invalidado só quando o canvas muda de
+    // tamanho), reusado pelo traço de TODAS as ruas visíveis.
+    function buildStreetGradient(ctx, canvas, pal) {
+        var cache = S._streetGradientCache;
+        if (cache && cache.w === canvas.width && cache.h === canvas.height) return cache.gradient;
+        var g = ctx.createLinearGradient(0, 0, 0, canvas.height); // 180deg: topo -> base, igual --webkit-scrollbar-thumb
+        g.addColorStop(0, pal.cyan);
+        g.addColorStop(0.5, pal.magenta);
+        g.addColorStop(1, pal.purple);
+        S._streetGradientCache = { w: canvas.width, h: canvas.height, gradient: g };
+        return g;
+    }
+
+    // Traça uma streetWay já convertida (ver buildStreetPathsForChunk) como curva
+    // suave: quadraticCurveTo ponto-a-ponto usando cada ponto real como controle e o
+    // PONTO MÉDIO entre pontos consecutivos como o destino de fato da curva — técnica
+    // padrão de "linha suave por N pontos" sem precisar resolver uma spline completa
+    // (cada segmento fica C1-contínuo com o vizinho porque compartilha a tangente no
+    // ponto médio). Cai de volta pra reta simples se a via tiver só 2 pontos (não há
+    // o que suavizar).
+    function tracePathSmooth(ctx, pts, camOffsetX, camOffsetY) {
+        if (pts.length < 2) return;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x + camOffsetX, pts[0].y + camOffsetY);
+        if (pts.length === 2) {
+            ctx.lineTo(pts[1].x + camOffsetX, pts[1].y + camOffsetY);
+            return;
+        }
+        for (var i = 1; i < pts.length - 1; i++) {
+            var cur = pts[i], next = pts[i + 1];
+            var midX = (cur.x + next.x) / 2 + camOffsetX;
+            var midY = (cur.y + next.y) / 2 + camOffsetY;
+            ctx.quadraticCurveTo(cur.x + camOffsetX, cur.y + camOffsetY, midX, midY);
+        }
+        var last = pts[pts.length - 1];
+        ctx.lineTo(last.x + camOffsetX, last.y + camOffsetY);
+    }
+
+    // Desenha todas as streetWays visíveis (bbox cruza a janela de tela) de todos os
+    // chunks carregados: 1ª passada = "casing" escura (moldura, mesma cor do track
+    // da barra de rolagem) em todas, 2ª passada = traço gradiente neon por cima
+    // (mesmo objeto de gradiente pra todas, ver buildStreetGradient). Devolve os
+    // candidatos a rótulo (agrupados por nome, guarda só o mais longo de cada) pra
+    // render() desenhar depois, por cima de tudo — mesmo espírito de
+    // drawTowerStreetLabel (rótulo de UI flutuante, não objeto do mundo).
+    function drawStreetCurves(ctx, pal, camOffsetX, camOffsetY, canvas) {
+        var viewMinX = -camOffsetX - HALF_W * 2, viewMaxX = canvas.width - camOffsetX + HALF_W * 2;
+        var viewMinY = -camOffsetY - HALF_H * 2, viewMaxY = canvas.height - camOffsetY + HALF_H * 2;
+        var visible = [];
+        for (var key in S.loadedChunks) {
+            var chunk = S.loadedChunks[key];
+            var paths = chunk.streetPaths;
+            if (!paths) continue;
+            for (var i = 0; i < paths.length; i++) {
+                var way = paths[i];
+                var b = way.bbox;
+                if (b.maxX < viewMinX || b.minX > viewMaxX || b.maxY < viewMinY || b.minY > viewMaxY) continue;
+                visible.push(way);
+            }
+        }
+        if (!visible.length) return {};
+
+        // passada 1: casing escura (embaixo), largura um pouco maior que o traço final
+        ctx.save();
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = 'rgba(7, 7, 8, 0.9)';
+        for (var c = 0; c < visible.length; c++) {
+            var w1 = visible[c];
+            ctx.lineWidth = streetWidthPx(w1.highway) + 3;
+            tracePathSmooth(ctx, w1.screenPts, camOffsetX, camOffsetY);
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        // passada 2: halo fraco (glow sem shadowBlur, mesma técnica de performance já
+        // usada no antigo drawStreetTile — ver nota ali) + traço gradiente por cima.
+        var gradient = buildStreetGradient(ctx, canvas, pal);
+        ctx.save();
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = gradient;
+        ctx.globalAlpha = 0.25;
+        for (var h = 0; h < visible.length; h++) {
+            var wHalo = visible[h];
+            ctx.lineWidth = streetWidthPx(wHalo.highway) + 8;
+            tracePathSmooth(ctx, wHalo.screenPts, camOffsetX, camOffsetY);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        for (var g2 = 0; g2 < visible.length; g2++) {
+            var w2 = visible[g2];
+            ctx.lineWidth = streetWidthPx(w2.highway);
+            tracePathSmooth(ctx, w2.screenPts, camOffsetX, camOffsetY);
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        // candidatos a rótulo: 1 por nome único, fica o de maior lengthPx entre os visíveis
+        var byName = {};
+        for (var n = 0; n < visible.length; n++) {
+            var wn = visible[n];
+            if (!wn.name) continue;
+            var existing = byName[wn.name];
+            if (!existing || wn.lengthPx > existing.lengthPx) byName[wn.name] = wn;
+        }
+        return byName;
+    }
+
+    // Rótulo de nome de rua ao longo do meio-arco de uma streetWay — mesmo
+    // tratamento visual de drawTowerStreetLabel (pílula escura + glow ciano +
+    // Courier New), só que menor e sem flutuação (é rótulo de mapa, não placa 3D).
+    function drawStreetNameLabel(ctx, pal, way, camOffsetX, camOffsetY) {
+        var pts = way.screenPts;
+        var mid = pts[Math.floor(pts.length / 2)];
+        var cx = mid.x + camOffsetX, cy = mid.y + camOffsetY;
+        ctx.save();
+        ctx.font = '10px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        var w = ctx.measureText(way.name).width;
+        ctx.fillStyle = 'rgba(5, 5, 8, 0.62)';
+        ctx.fillRect(cx - w / 2 - 6, cy - 13, w + 12, 15);
+        ctx.shadowColor = pal.cyan;
+        ctx.shadowBlur = 5;
+        ctx.fillStyle = '#eafffe';
+        ctx.fillText(way.name, cx, cy - 2);
+        ctx.restore();
     }
 
     // DESATIVADO 02/09/2026 a pedido do usuário — ver nota de arquitetura no topo do
@@ -1225,6 +1507,17 @@
         var minColGlobal = S.playerCol - R;
         var maxColGlobal = S.playerCol + R;
 
+        // ver ATUALIZAÇÃO 2026-09-03 item 3 — chão (ruas/pavimento) virou uma passada
+        // própria, desenhada AQUI, antes do laço de depth-sort. É seguro separar do
+        // depth-sort porque toda célula 'street' é PLANA (altura zero): nunca precisa
+        // "ficar na frente" de nada (quem tem altura de verdade — a torre — extrude
+        // pra CIMA a partir da própria base, nunca alcança a área de tela de um tile
+        // mais perto da câmera; ver skill isometric-canvas-rendering §2, o caso que
+        // ela avisa pra tomar cuidado é objeto ALTO vs entidade, não chão raso vs
+        // objeto alto). Só a célula 'landmark' (footprint do POI) continua indo pro
+        // array `drawables` de baixo — o desenho DELA (drawLandmarkGroundMarker) e da
+        // torre em cima precisa competir no mesmo sort que o jogador/outros, porque a
+        // torre é alta de verdade.
         var drawables = [];
         for (var gRow = minRowGlobal; gRow <= maxRowGlobal; gRow++) {
             for (var gCol = minColGlobal; gCol <= maxColGlobal; gCol++) {
@@ -1236,11 +1529,21 @@
                 if (cellLocalRow < 0 || cellLocalRow >= cellChunk.dim || cellLocalCol < 0 || cellLocalCol >= cellChunk.dim) continue;
                 var ch = cellChunk.rows[cellLocalRow][cellLocalCol];
                 // Prédios desativados (item 1 da nota de arquitetura no topo do arquivo) —
-                // célula '#' nem entra no array de depth-sort, só 'street'/'landmark' desenham.
+                // célula '#' não desenha nada.
                 if (ch === '#') continue;
-                drawables.push({ key: gRow + gCol, type: 'tile', row: gRow, col: gCol, ch: ch });
+                if (S.entryPoi && isInsidePoiFootprint(S.entryPoi, gCol, gRow)) {
+                    drawables.push({ key: gRow + gCol, type: 'tile', row: gRow, col: gCol, ch: ch });
+                } else {
+                    var groundS = gridToScreen(gCol, gRow);
+                    drawStreetPavementFill(ctx, groundS.x + camOffsetX, groundS.y + camOffsetY);
+                }
             }
         }
+
+        // curvas de rua reais por cima do pavimento fraco, ainda antes das entidades —
+        // devolve os candidatos a rótulo (1 por nome único, o segmento visível mais
+        // longo) pra desenhar depois de tudo, como rótulo de UI flutuante.
+        var streetLabelCandidates = drawStreetCurves(ctx, pal, camOffsetX, camOffsetY, canvas);
 
         var others = window.OverworldOtherPlayers;
         updateOtherPlayersDraw(tsMs, others); // Estágio 1 — mesmo tratamento de interpolação visual do jogador local, ver comentário na função.
@@ -1263,22 +1566,16 @@
         for (var d = 0; d < drawables.length; d++) {
             var item = drawables[d];
             if (item.type === 'tile') {
+                // única coisa que ainda chega aqui como 'tile' é célula do footprint do
+                // POI de entrada (ver loop de varredura acima) — rua comum já foi
+                // desenhada na passada de chão, antes deste laço.
                 var s = gridToScreen(item.col, item.row);
                 var sx = s.x + camOffsetX, sy = s.y + camOffsetY;
-                // Estágio 2 — não decide mais pelo char 'L' do grid (a rasterização de
-                // landmark no grid vira legado, ver plano §2/§4); decide por pertencer ao
-                // footprint do POI de entrada carregado (leitura direta do POI, não do char).
-                if (S.entryPoi && isInsidePoiFootprint(S.entryPoi, item.col, item.row)) {
-                    drawLandmarkGroundMarker(ctx, sx, sy, pal);
-                    var eb = S.entryPoi._bounds;
-                    if (item.row === eb.anchorRow && item.col === eb.anchorCol) {
-                        var center = gridToScreen(eb.centerCol, eb.centerRow);
-                        drawTower(ctx, center.x + camOffsetX, center.y + camOffsetY, pal, tSec, S.entryPoi);
-                    }
-                } else {
-                    // única alternativa possível aqui é 'street' — '#' (block) já foi filtrado
-                    // antes de entrar em `drawables`, ver loop de varredura acima.
-                    drawStreetTile(ctx, sx, sy, pal);
+                drawLandmarkGroundMarker(ctx, sx, sy, pal);
+                var eb = S.entryPoi._bounds;
+                if (item.row === eb.anchorRow && item.col === eb.anchorCol) {
+                    var center = gridToScreen(eb.centerCol, eb.centerRow);
+                    drawTower(ctx, center.x + camOffsetX, center.y + camOffsetY, pal, tSec, S.entryPoi);
                 }
             } else if (item.type === 'other') {
                 var s2 = gridToScreen(item.drawCol, item.drawRow); // posição DESENHADA (interpolada) — só visual, ver updateOtherPlayersDraw().
@@ -1296,6 +1593,16 @@
         }
 
         drawTowerStreetLabel(ctx, pal, camOffsetX, camOffsetY, tSec);
+
+        // Rótulos de nome de rua (ver ATUALIZAÇÃO 2026-09-03 item 5) — 1 por nome
+        // único visível neste frame, já escolhido (segmento mais longo) por
+        // drawStreetCurves(). Teto de 6 rótulos simultâneos só por sanidade visual
+        // em trechos muito densos de vias nomeadas — não observado na prática com o
+        // tamanho de janela de culling atual (tipicamente 2-4 nomes por vez).
+        var labelNames = Object.keys(streetLabelCandidates);
+        for (var ln = 0; ln < labelNames.length && ln < 6; ln++) {
+            drawStreetNameLabel(ctx, pal, streetLabelCandidates[labelNames[ln]], camOffsetX, camOffsetY);
+        }
 
         // HUD mínimo de depuração — posição do jogador no grid + estado do streaming de
         // chunks (Estágio 5: chunk atual e quantos estão em memória agora — útil pra
@@ -1448,8 +1755,24 @@
         if (typeof spawnGridX === 'number' && typeof spawnGridY === 'number') {
             S.playerCol = spawnGridX;
             S.playerRow = spawnGridY;
+        } else if (S.entryPoi && S.entryPoi.defaultSpawn &&
+            typeof S.entryPoi.defaultSpawn.globalCol === 'number' && typeof S.entryPoi.defaultSpawn.globalRow === 'number') {
+            // Preferido: célula andável real, orientada a dado (ver pois.json ->
+            // defaultSpawn). Corrige um bug real encontrado em 2026-09-03: o
+            // heurístico fixo abaixo ("centro da torre + 2 linhas ao sul")
+            // pressupõe uma porta ao SUL da torre — só valia enquanto a torre
+            // ficava em 42/42 com o único vizinho andável ao sul. Depois de
+            // reposicionar a torre (ver ATUALIZAÇÃO 2026-09-03 item 6), a porta
+            // passou a ficar a LESTE, e esse heurístico fixo fazia o jogador
+            // nascer numa célula '#' bloqueada — testado ao vivo, confirmado o
+            // bug, corrigido aqui.
+            S.playerCol = S.entryPoi.defaultSpawn.globalCol;
+            S.playerRow = S.entryPoi.defaultSpawn.globalRow;
         } else if (window.OverworldTowerGridPos) {
-            // sem spawn explícito: usa a célula andável mais próxima da torre.
+            // Fallback antigo, só usado se o POI não trouxer defaultSpawn — assume
+            // porta ao sul (ver nota acima); não confiar nisto sem checar contra o
+            // grid real se a torre for reposicionada de novo sem atualizar
+            // pois.json:defaultSpawn.
             S.playerCol = window.OverworldTowerGridPos.gridX;
             S.playerRow = window.OverworldTowerGridPos.gridY + 2;
         }
