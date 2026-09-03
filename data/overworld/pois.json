@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "pois": [
+    {
+      "id": "tower_rua_beltrao",
+      "name": "Torre de Entrada — Rua Doutor Beltrão",
+      "type": "episode_entry",
+      "globalCol": 42, "globalRow": 42,
+      "footprint": { "widthTiles": 3, "heightTiles": 3 },
+      "interaction": { "kind": "episode_entry", "episodeId": "episode_1", "triggerOn": "enter" },
+      "visual": { "streetLabel": "Rua Doutor Beltrão", "beacon": true }
+    }
+  ]
+}

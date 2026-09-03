@@ -103,6 +103,42 @@
 //    cai no marcador genérico antigo (`drawPlayerToken`) só pra esse jogador — não
 //    inventa um sprite definitivo sem dado real.
 // ============================================================================
+//
+// ATUALIZAÇÃO 02/09/2026 (Estágio 2 do plano de overworld expansível, arquivo
+// crystalline-launching-goose.md) — POI orientado a dados. Substitui a antiga
+// varredura de 'L' no grid (computeLandmarkBounds/isInsideLandmark/
+// checkLandmarkEnter) por um novo arquivo `data/overworld/pois.json`, carregado
+// em paralelo ao grid no boot (loadPois(), converge com loadGrid() em
+// finalizeLoadIfReady()). Duas decisões que valem documentar:
+//
+// 1) window.OverworldTowerGridPos SEM MUDANÇA DE CONTRATO: continua sendo
+//    {gridX, gridY} da torre, só que agora vem do POI cujo interaction.kind é
+//    "episode_entry" (computePoiBounds()), em vez de escanear o grid procurando
+//    'L'. Confirmado que os números batem exatamente com o que já existia
+//    (globalCol=42/globalRow=42, footprint 3x3 -> mesmo minRow/maxRow/minCol/
+//    maxCol que a varredura antiga encontrava) — este estágio ainda roda em
+//    grid local 0-84 (globalCol/globalRow do POI SÃO col/row locais por
+//    enquanto; a migração de verdade pra coordenadas globais de cidade é o
+//    Estágio 3 do plano, não este arquivo). Consumido por
+//    js/web2/game_core.js:549, js/game/ghostdex_ui.js:515 e js/game/engine.js
+//    (spawn padrão e retorno do Episódio 1 na morte/vitória/porta manual) —
+//    nenhum desses três arquivos precisou mudar.
+//
+// 2) DISPATCHER GENÉRICO POR interaction.kind: checkLandmarkEnter() (só sabia
+//    checar a torre) virou checkPoiInteractions(), que avalia TODO POI com
+//    triggerOn:"enter" a cada passo lógico e despacha pra
+//    POI_INTERACTION_HANDLERS[interaction.kind]. Handler ausente pra um kind
+//    não registrado = console.warn + no-op (testado ao vivo com um POI de
+//    depuração temporário, tipo inexistente no registry — nunca lança erro,
+//    forward-compat pra POIs futuros cujo handler ainda não foi escrito nesta
+//    versão do cliente). footprint.widthTiles/heightTiles do POI substitui as
+//    antigas constantes hardcoded TOWER_HW/TOWER_HH (removidas) em
+//    drawTower()/drawTowerStreetLabel(); o texto flutuante da rua agora vem de
+//    poi.visual.streetLabel (data-driven) em vez do literal 'Rua Doutor
+//    Beltrão' — mesmo conteúdo, fonte diferente. TOWER_HEIGHT (extrusão em Z,
+//    puramente visual) e o restante do item 2 da nota acima (nomes de rua por
+//    CÉLULA ainda não existem no dado) continuam válidos, sem mudança.
+// ============================================================================
 
 (function () {
     'use strict';
@@ -113,20 +149,58 @@
     var HALF_W = TILE_W / 2;
     var HALF_H = TILE_H / 2;
 
+    // ---- Estágio 1 (plano crystalline-launching-goose.md, seção 3) --------
+    // Meia-vida do lerp exponencial da câmera, em segundos — não um fator fixo
+    // por frame (senão o comportamento muda entre monitor 60Hz e 144Hz, ver
+    // render()). 100ms escolhido por ser bem mais curto que o passo lógico
+    // (S.stepIntervalMs = 150ms): câmera "pega" o jogador rápido o bastante pra
+    // não parecer atrasada, mas ainda absorve qualquer aresta de velocidade.
+    var CAMERA_HALF_LIFE_S = 0.1;
+    var CAMERA_LERP_K = Math.pow(0.5, 1 / CAMERA_HALF_LIFE_S); // k tal que k^CAMERA_HALF_LIFE_S = 0.5
+
     var GRID_URL = 'data/niteroi_overworld_grid.json';
+    // Estágio 2 do plano de overworld expansível (POI data-driven) — ver
+    // C:\Users\Klara\.claude\plans\crystalline-launching-goose.md §4. Carregado em
+    // paralelo ao grid no boot (loadPois(), abaixo de loadGrid()); os dois precisam
+    // terminar antes do overworld ser considerado "pronto" — ver finalizeLoadIfReady().
+    var POI_URL = 'data/overworld/pois.json';
 
     // ---- Estado interno (fechado neste módulo — nada aqui vaza pra window
     // além dos 4 pontos de contrato pedidos) --------------------------------
     var S = {
         rows: null,          // array de strings, rows[row][col]
         dim: 0,              // 85
-        landmark: null,      // {minRow,maxRow,minCol,maxCol,centerRow,centerCol}
-        loaded: false,
+        gridLoaded: false,
+        pois: null,             // array de POIs de data/overworld/pois.json (loadPois) — cada
+                                 // item ganha um `_bounds` calculado em computePoiBounds()
+        poisLoaded: false,
+        entryPoi: null,         // POI com interaction.kind === 'episode_entry' — fonte de
+                                 // window.OverworldTowerGridPos (Estágio 2, substitui o antigo
+                                 // S.landmark calculado varrendo 'L' no grid)
+        loaded: false,          // true quando grid E pois terminaram de carregar (finalizeLoadIfReady)
         pendingActivate: null, // {x,y} se ActivateOverworld foi chamado antes do fetch terminar
 
-        playerCol: 0,
-        playerRow: 0,
-        insideLandmark: false, // borda de entrada (dispara EnterEpisode1 só na transição fora->dentro)
+        playerCol: 0,        // LÓGICO/autoritativo — inteiro. Única fonte pra isWalkable()/
+        playerRow: 0,        // checkPoiInteractions() (ver tryMove()). NUNCA leia playerDrawCol/Row pra isso.
+
+        // ---- Estágio 1 (câmera lerp + movimento interpolado) — só visual -------
+        // playerPrevCol/Row = tile de onde o passo lógico atual partiu; junto com
+        // S.moveStartAt (t0 do passo) e S.stepIntervalMs (duração) dão os 3 dados
+        // do lerp em render(): t = (agora - moveStartAt) / stepIntervalMs,
+        // draw = prev + (atual - prev) * clamp(t, 0, 1). playerDrawCol/Row é
+        // recalculado todo frame em render() — nunca escrito fora dali.
+        playerPrevCol: 0,
+        playerPrevRow: 0,
+        playerDrawCol: 0,
+        playerDrawRow: 0,
+        moveStartAt: 0,       // ts (performance.now()) do início do passo lógico atual — só avança em tryMove() quando o passo REALMENTE muda de tile (nunca em tentativa bloqueada, senão o visual "salta pra trás" a cada tecla batendo na parede).
+        camX: null,           // offset de câmera suavizado (screen-space). null = ainda não inicializado, força snap no próximo render — nunca desliza da posição da sessão/spawn anterior.
+        camY: null,
+        lastRenderAt: 0,      // ts do frame anterior — só pra dt real da câmera (lerp independente de framerate).
+        otherPlayersDraw: {}, // key (email||name) -> {prevCol,prevRow,targetCol,targetRow,drawCol,drawRow,moveStartAt} — mesmo tratamento de interpolação aplicado aos jogadores remotos. Duração aproximada por stepIntervalMs: o cliente não conhece o tick exato do broadcast do servidor (OVERWORLD_TICK_RATE vive em server/index.js) — formalizar isso é trabalho do Estágio 6 do plano, fora de escopo aqui.
+
+        insidePoiIds: {},    // poi.id -> bool, borda de entrada por POI (Estágio 2, generaliza o
+                              // antigo insideLandmark: dispara a interação só na transição fora->dentro)
         lastDir: { dc: 0, dr: 1 }, // pra desenhar o marcador do jogador virado pra algum lado
 
         isActive: false,
@@ -233,53 +307,107 @@
                 // _meta, pra nunca dessincronizar se o grid for regenerado em outro tamanho.
                 S.rows = data.grid.rows;
                 S.dim = S.rows.length;
-                computeLandmarkBounds();
-                S.loaded = true;
-                console.log('[Overworld] grid carregado (' + S.dim + 'x' + S.dim + '). Torre em', window.OverworldTowerGridPos);
-                if (S.pendingActivate) {
-                    var p = S.pendingActivate;
-                    S.pendingActivate = null;
-                    activateNow(p.x, p.y);
-                }
+                S.gridLoaded = true;
+                finalizeLoadIfReady();
             })
             .catch(function (err) {
                 console.error('[Overworld] falha ao carregar ' + GRID_URL + ':', err);
             });
     }
 
-    // Varre o grid de verdade em busca de 'L' em vez de confiar em números
-    // fixos do _meta — robusto a uma regeneração futura do arquivo (skill
-    // osm-to-game-grid pode rodar de novo com outro raio/rua).
-    function computeLandmarkBounds() {
-        var minRow = Infinity, maxRow = -Infinity, minCol = Infinity, maxCol = -Infinity;
-        for (var r = 0; r < S.rows.length; r++) {
-            var row = S.rows[r];
-            for (var c = 0; c < row.length; c++) {
-                if (row[c] === 'L') {
-                    if (r < minRow) minRow = r;
-                    if (r > maxRow) maxRow = r;
-                    if (c < minCol) minCol = c;
-                    if (c > maxCol) maxCol = c;
-                }
+    // Estágio 2 (POI data-driven) — data/overworld/pois.json substitui a antiga
+    // varredura de 'L' no grid como fonte da torre/landmarks. Carregado em paralelo
+    // a loadGrid(); os dois convergem em finalizeLoadIfReady().
+    function loadPois() {
+        fetch(POI_URL)
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status + ' ao buscar ' + POI_URL);
+                return r.json();
+            })
+            .then(function (data) {
+                S.pois = (data && Array.isArray(data.pois)) ? data.pois : [];
+                S.poisLoaded = true;
+                finalizeLoadIfReady();
+            })
+            .catch(function (err) {
+                // Mesma filosofia defensiva de antes ("nenhuma célula L encontrada" já era
+                // só um warn + landmark null, nunca travava o boot): sem pois.json, degrada
+                // pra lista vazia — sem POI "episode_entry" a torre fica ausente (ver
+                // computePoiBounds), mas o overworld continua carregando e jogável.
+                console.error('[Overworld] falha ao carregar ' + POI_URL + ':', err);
+                S.pois = [];
+                S.poisLoaded = true;
+                finalizeLoadIfReady();
+            });
+    }
+
+    // Converge os dois fetches paralelos (grid + pois). Só considera o overworld
+    // "carregado" (S.loaded, gate de ActivateOverworld) quando os dois terminaram —
+    // computePoiBounds() precisa só dos POIs, mas render()/isWalkable() precisam do
+    // grid, então nenhum dos dois pode faltar.
+    function finalizeLoadIfReady() {
+        if (!S.gridLoaded || !S.poisLoaded) return;
+        computePoiBounds();
+        S.loaded = true;
+        console.log('[Overworld] grid carregado (' + S.dim + 'x' + S.dim + '), ' + S.pois.length + ' POI(s). Torre em', window.OverworldTowerGridPos);
+        if (S.pendingActivate) {
+            var p = S.pendingActivate;
+            S.pendingActivate = null;
+            activateNow(p.x, p.y);
+        }
+    }
+
+    // Estágio 2 — substitui a antiga computeLandmarkBounds() (que varria o grid
+    // procurando 'L'). Leitura direta do POI carregado: cada POI ganha um retângulo
+    // de footprint em coordenadas de grid — ainda LOCAL (0-84) neste estágio, porque
+    // globalCol/globalRow do POI equivalem a col/row local enquanto só existir o
+    // chunk (0,0) (ver plano, "Estágio 2 ainda em grid local"; Estágio 3 é quem migra
+    // isso pra coordenadas globais de verdade). window.OverworldTowerGridPos continua
+    // vindo do POI cujo interaction.kind é "episode_entry" — mesmo contrato de antes,
+    // consumido por js/web2/game_core.js:549, js/game/ghostdex_ui.js:515 e
+    // js/game/engine.js (spawn/retorno do Episódio 1).
+    function computePoiBounds() {
+        S.entryPoi = null;
+        var entryCandidates = [];
+        for (var i = 0; i < S.pois.length; i++) {
+            var poi = S.pois[i];
+            if (!poi || typeof poi.globalCol !== 'number' || typeof poi.globalRow !== 'number') {
+                console.warn('[Overworld] POI inválido (sem globalCol/globalRow numéricos), ignorado:', poi);
+                continue;
+            }
+            var fp = poi.footprint || { widthTiles: 1, heightTiles: 1 };
+            var halfWTiles = (fp.widthTiles - 1) / 2;
+            var halfHTiles = (fp.heightTiles - 1) / 2;
+            var bounds = {
+                minCol: poi.globalCol - Math.floor(halfWTiles),
+                maxCol: poi.globalCol + Math.ceil(halfWTiles),
+                minRow: poi.globalRow - Math.floor(halfHTiles),
+                maxRow: poi.globalRow + Math.ceil(halfHTiles),
+                centerCol: poi.globalCol,
+                centerRow: poi.globalRow
+            };
+            // âncora de profundidade = canto mais "perto da câmera" do footprint
+            // (maior col+row), mesma regra de sort da skill isometric-canvas-rendering
+            // §2 (sprite/volume alto ancora no footprint, não no topo do desenho).
+            bounds.anchorRow = bounds.maxRow;
+            bounds.anchorCol = bounds.maxCol;
+            poi._bounds = bounds;
+
+            if (poi.interaction && poi.interaction.kind === 'episode_entry') {
+                entryCandidates.push(poi);
             }
         }
-        if (minRow === Infinity) {
-            console.warn('[Overworld] nenhuma célula "L" encontrada no grid — landmark ausente.');
-            S.landmark = null;
+
+        if (entryCandidates.length === 0) {
+            console.warn('[Overworld] nenhum POI com interaction.kind="episode_entry" encontrado — torre ausente.');
             window.OverworldTowerGridPos = null;
             return;
         }
-        var centerRow = Math.round((minRow + maxRow) / 2);
-        var centerCol = Math.round((minCol + maxCol) / 2);
-        S.landmark = {
-            minRow: minRow, maxRow: maxRow, minCol: minCol, maxCol: maxCol,
-            centerRow: centerRow, centerCol: centerCol,
-            // âncora de profundidade = canto mais "perto da câmera" do footprint
-            // (maior col+row), conforme a regra de sort da skill (§2: sprite alto
-            // ancora no footprint, não no topo do sprite).
-            anchorRow: maxRow, anchorCol: maxCol
-        };
-        window.OverworldTowerGridPos = { gridX: centerCol, gridY: centerRow };
+        if (entryCandidates.length > 1) {
+            console.warn('[Overworld] mais de um POI "episode_entry" encontrado — usando o primeiro (' + entryCandidates[0].id + ').');
+        }
+        S.entryPoi = entryCandidates[0];
+        window.OverworldTowerGridPos = { gridX: S.entryPoi._bounds.centerCol, gridY: S.entryPoi._bounds.centerRow };
     }
 
     function isWalkable(col, row) {
@@ -288,10 +416,13 @@
         return S.rows[row][col] !== '#';
     }
 
-    function isInsideLandmark(col, row) {
-        if (!S.landmark) return false;
-        return row >= S.landmark.minRow && row <= S.landmark.maxRow &&
-               col >= S.landmark.minCol && col <= S.landmark.maxCol;
+    // Substitui a antiga isInsideLandmark(col,row) (que só conhecia a torre). Agora
+    // genérica por POI — footprint.widthTiles/heightTiles substitui as constantes
+    // hardcoded TOWER_HW/TOWER_HH de antes (ver drawTower/drawTowerStreetLabel).
+    function isInsidePoiFootprint(poi, col, row) {
+        if (!poi || !poi._bounds) return false;
+        var b = poi._bounds;
+        return row >= b.minRow && row <= b.maxRow && col >= b.minCol && col <= b.maxCol;
     }
 
     // ============================ Projeção ====================================
@@ -460,14 +591,16 @@
         drawFlatDiamond(ctx, cx, cy, HALF_W, HALF_H, 'rgba(191, 0, 255, 0.10)', pal.purple);
     }
 
-    // Extraído pra constantes (em vez de literais dentro de drawTower) porque
-    // drawTowerStreetLabel() precisa das MESMAS medidas pra flutuar o nome da rua
-    // acima do farol, sem duplicar números que poderiam dessincronizar.
-    var TOWER_HW = HALF_W * 3, TOWER_HH = HALF_H * 3; // footprint 3x3
+    // Estágio 2 — TOWER_HW/TOWER_HH hardcoded (footprint 3x3 fixo) removidos: a
+    // largura/altura em tiles agora vêm do footprint do POI carregado
+    // (poi.footprint.widthTiles/heightTiles), lido em cada chamada. TOWER_HEIGHT
+    // continua fixo — é a extrusão em Z (px), puramente visual, não faz parte do
+    // schema de footprint (que só descreve o retângulo em tiles no chão).
     var TOWER_HEIGHT = 170;
 
-    function drawTower(ctx, cx, cy, pal, tSec) {
-        var hw = TOWER_HW, hh = TOWER_HH;
+    function drawTower(ctx, cx, cy, pal, tSec, poi) {
+        var fp = (poi && poi.footprint) || { widthTiles: 3, heightTiles: 3 };
+        var hw = HALF_W * fp.widthTiles, hh = HALF_H * fp.heightTiles;
         var height = TOWER_HEIGHT;
         ctx.save();
         ctx.shadowColor = pal.cyan;
@@ -481,7 +614,10 @@
         });
         ctx.restore();
 
-        // farol pulsante no topo — deixa a torre óbvia de longe, conforme pedido.
+        // farol pulsante no topo — deixa a torre óbvia de longe, conforme pedido. Só
+        // desenha se o POI pedir (visual.beacon !== false — mesmo default "ligado" de
+        // antes, quando essa opção nem existia).
+        if (poi && poi.visual && poi.visual.beacon === false) return;
         var pulse = 0.55 + 0.45 * Math.sin(tSec * 2.4);
         var beaconY = cy - height - hh - 14;
         ctx.save();
@@ -503,21 +639,28 @@
     // laço de depth-sort, então sempre fica por cima de tudo, como uma etiqueta de
     // UI flutuante e não um objeto do mundo isométrico.
     function drawTowerStreetLabel(ctx, pal, camOffsetX, camOffsetY, tSec) {
-        if (!S.landmark) return;
-        var center = gridToScreen(S.landmark.centerCol, S.landmark.centerRow);
+        var poi = S.entryPoi;
+        if (!poi || !poi._bounds) return;
+        // Estágio 2 — texto vem de poi.visual.streetLabel (data-driven) em vez do
+        // literal 'Rua Doutor Beltrão' hardcoded; cai pro poi.name se streetLabel não
+        // vier no dado, e não desenha nada se nenhum dos dois existir.
+        var label = (poi.visual && poi.visual.streetLabel) || poi.name;
+        if (!label) return;
+        var fp = poi.footprint || { widthTiles: 3, heightTiles: 3 };
+        var hh = HALF_H * fp.heightTiles;
+        var center = gridToScreen(poi._bounds.centerCol, poi._bounds.centerRow);
         var cx = center.x + camOffsetX;
         var cy = center.y + camOffsetY;
         // Âncora NO PÉ da torre (cy - a metade do footprint), não no farol do topo
-        // (que fica a `TOWER_HEIGHT + TOWER_HH + 14` px acima de cy — quase 250px).
-        // O canvas de jogo de verdade (#myCanvas, e portanto este, ver
+        // (que fica a `TOWER_HEIGHT + hh + 14` px acima de cy — quase 250px). O
+        // canvas de jogo de verdade (#myCanvas, e portanto este, ver
         // resizeCanvasToContainer) roda a 640x300px — testado ao vivo: com o rótulo
         // ancorado no farol, ele só cabia na tela com a câmera ~10 tiles longe da
         // torre; ancorado perto do pé (como uma placa na entrada, não uma bandeira
         // no topo) fica visível sempre que a própria torre está em quadro, que é
         // exatamente o "perto da torre" pedido.
         var bob = Math.sin(tSec * 1.6) * 3; // leve flutuação vertical, reforça a leitura "flutuando"
-        var y = cy - TOWER_HH - 45 + bob;
-        var label = 'Rua Doutor Beltrão';
+        var y = cy - hh - 45 + bob;
 
         ctx.save();
         ctx.font = 'bold 13px "Courier New", monospace';
@@ -680,6 +823,73 @@
         }
     }
 
+    // Estágio 1 — identidade estável de um jogador remoto pro mapa de interpolação
+    // abaixo. Reaproveita o mesmo par email/name já usado pelo resto do arquivo
+    // pra identificar jogadores (ver nota no topo do arquivo sobre o payload
+    // `overworld_players_update`) — não inventa um id novo. Limitação conhecida:
+    // se nem email nem name existirem, cai num '?' genérico (jogadores anônimos
+    // colidiriam no mesmo slot de interpolação); não pior que o '???' já usado
+    // hoje pro rótulo visual desses casos.
+    function otherPlayerKey(p) {
+        return p.email || p.name || '?';
+    }
+
+    // Estágio 1 — mesmo tratamento de interpolação visual do jogador local (ver
+    // topo de render()), aplicado a cada jogador remoto de `window.OverworldOtherPlayers`.
+    // Só efeito visual — jogadores remotos nunca participam de colisão local hoje,
+    // então não há restrição de "vazamento pra lógica" a preservar aqui (diferente
+    // do jogador local, onde isso é inegociável).
+    //
+    // Duração aproximada pelo mesmo S.stepIntervalMs (150ms) do passo local: este
+    // arquivo não conhece o tick real do broadcast do servidor (OVERWORLD_TICK_RATE
+    // vive em server/index.js, fora do escopo do Estágio 1) — formalizar a duração
+    // real por tick de rede é trabalho do Estágio 6 do plano.
+    function updateOtherPlayersDraw(now, others) {
+        var seen = {};
+        if (Array.isArray(others)) {
+            for (var i = 0; i < others.length; i++) {
+                var p = others[i];
+                if (!p || typeof p.gridX !== 'number' || typeof p.gridY !== 'number') continue;
+                var key = otherPlayerKey(p);
+                seen[key] = true;
+                var entry = S.otherPlayersDraw[key];
+                if (!entry) {
+                    // primeira vez que este jogador aparece pra este cliente — sem
+                    // posição anterior real conhecida, desenha direto no lugar (nunca
+                    // desliza vindo de (0,0) ou de qualquer valor arbitrário).
+                    S.otherPlayersDraw[key] = {
+                        prevCol: p.gridX, prevRow: p.gridY,
+                        targetCol: p.gridX, targetRow: p.gridY,
+                        drawCol: p.gridX, drawRow: p.gridY,
+                        moveStartAt: now
+                    };
+                } else {
+                    if (entry.targetCol !== p.gridX || entry.targetRow !== p.gridY) {
+                        // novo update de posição chegou da rede: rebaseia o lerp a
+                        // partir da posição VISUAL atual (drawCol/Row), não do alvo
+                        // antigo — evita um salto se o update chegar no meio de uma
+                        // interpolação ainda em andamento.
+                        entry.prevCol = entry.drawCol;
+                        entry.prevRow = entry.drawRow;
+                        entry.targetCol = p.gridX;
+                        entry.targetRow = p.gridY;
+                        entry.moveStartAt = now;
+                    }
+                    var t = S.stepIntervalMs > 0
+                        ? Math.min(1, Math.max(0, (now - entry.moveStartAt) / S.stepIntervalMs))
+                        : 1;
+                    entry.drawCol = entry.prevCol + (entry.targetCol - entry.prevCol) * t;
+                    entry.drawRow = entry.prevRow + (entry.targetRow - entry.prevRow) * t;
+                }
+            }
+        }
+        // descarta jogadores que saíram de OverworldOtherPlayers (desconectaram ou
+        // saíram da vizinhança) — sem isso o mapa cresce sem limite.
+        for (var k in S.otherPlayersDraw) {
+            if (!seen[k]) delete S.otherPlayersDraw[k];
+        }
+    }
+
     // ============================== Frame de render =============================
     function render(tsMs) {
         var ctx = S.ctx, canvas = S.canvas;
@@ -690,9 +900,39 @@
         ctx.fillStyle = pal.bgDark;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        var camCenter = gridToScreen(S.playerCol, S.playerRow);
-        var camOffsetX = canvas.width / 2 - camCenter.x;
-        var camOffsetY = canvas.height / 2 - camCenter.y;
+        // Estágio 1 — posição DESENHADA (visual) do jogador: interpola entre o
+        // tile de origem do passo lógico atual (playerPrevCol/Row) e o destino
+        // (playerCol/Row) ao longo de S.stepIntervalMs. RESTRIÇÃO INEGOCIÁVEL do
+        // plano: isto é só visual — isWalkable()/checkPoiInteractions() (tryMove())
+        // NUNCA leem playerDrawCol/Row, só a posição lógica inteira.
+        var pt = S.stepIntervalMs > 0
+            ? Math.min(1, Math.max(0, (tsMs - S.moveStartAt) / S.stepIntervalMs))
+            : 1;
+        S.playerDrawCol = S.playerPrevCol + (S.playerCol - S.playerPrevCol) * pt;
+        S.playerDrawRow = S.playerPrevRow + (S.playerRow - S.playerPrevRow) * pt;
+
+        // Câmera: lerp exponencial independente de framerate —
+        // camera += (alvo-camera) * (1 - k^dt), NÃO um fator fixo por frame
+        // (senão a convergência muda de velocidade entre 60Hz/144Hz). Alvo é a
+        // posição de TELA da posição DESENHADA (não a lógica) — a câmera segue o
+        // deslize suave do jogador, não o salto de tile. Primeiro frame após
+        // activate (camX/camY null) faz snap direto, nunca desliza vindo da
+        // posição da sessão/spawn anterior.
+        var camTargetScreen = gridToScreen(S.playerDrawCol, S.playerDrawRow);
+        var camTargetX = canvas.width / 2 - camTargetScreen.x;
+        var camTargetY = canvas.height / 2 - camTargetScreen.y;
+        var camDt = S.lastRenderAt ? Math.max(0, (tsMs - S.lastRenderAt) / 1000) : 0;
+        S.lastRenderAt = tsMs;
+        if (S.camX === null || S.camY === null) {
+            S.camX = camTargetX;
+            S.camY = camTargetY;
+        } else {
+            var camLerpF = 1 - Math.pow(CAMERA_LERP_K, camDt);
+            S.camX += (camTargetX - S.camX) * camLerpF;
+            S.camY += (camTargetY - S.camY) * camLerpF;
+        }
+        var camOffsetX = S.camX;
+        var camOffsetY = S.camY;
 
         // culling: janela quadrada em espaço de grid ao redor do jogador, generosa
         // o bastante pra cobrir o viewport (não desenha os 85x85 fora de tela).
@@ -718,15 +958,19 @@
         }
 
         var others = window.OverworldOtherPlayers;
+        updateOtherPlayersDraw(tsMs, others); // Estágio 1 — mesmo tratamento de interpolação visual do jogador local, ver comentário na função.
         if (Array.isArray(others)) {
             for (var i = 0; i < others.length; i++) {
                 var p = others[i];
                 if (!p || typeof p.gridX !== 'number' || typeof p.gridY !== 'number') continue;
-                drawables.push({ key: p.gridY + p.gridX, type: 'other', data: p });
+                var otherDraw = S.otherPlayersDraw[otherPlayerKey(p)];
+                var oDrawCol = otherDraw ? otherDraw.drawCol : p.gridX;
+                var oDrawRow = otherDraw ? otherDraw.drawRow : p.gridY;
+                drawables.push({ key: oDrawRow + oDrawCol, type: 'other', data: p, drawCol: oDrawCol, drawRow: oDrawRow });
             }
         }
 
-        drawables.push({ key: S.playerRow + S.playerCol, type: 'player' });
+        drawables.push({ key: S.playerDrawRow + S.playerDrawCol, type: 'player' });
 
         // depth-sort único (tiles + entidades juntos) — regra §2 da skill.
         drawables.sort(function (a, b) { return a.key - b.key; });
@@ -736,11 +980,15 @@
             if (item.type === 'tile') {
                 var s = gridToScreen(item.col, item.row);
                 var sx = s.x + camOffsetX, sy = s.y + camOffsetY;
-                if (item.ch === 'L') {
+                // Estágio 2 — não decide mais pelo char 'L' do grid (a rasterização de
+                // landmark no grid vira legado, ver plano §2/§4); decide por pertencer ao
+                // footprint do POI de entrada carregado (leitura direta do POI, não do char).
+                if (S.entryPoi && isInsidePoiFootprint(S.entryPoi, item.col, item.row)) {
                     drawLandmarkGroundMarker(ctx, sx, sy, pal);
-                    if (S.landmark && item.row === S.landmark.anchorRow && item.col === S.landmark.anchorCol) {
-                        var center = gridToScreen(S.landmark.centerCol, S.landmark.centerRow);
-                        drawTower(ctx, center.x + camOffsetX, center.y + camOffsetY, pal, tSec);
+                    var eb = S.entryPoi._bounds;
+                    if (item.row === eb.anchorRow && item.col === eb.anchorCol) {
+                        var center = gridToScreen(eb.centerCol, eb.centerRow);
+                        drawTower(ctx, center.x + camOffsetX, center.y + camOffsetY, pal, tSec, S.entryPoi);
                     }
                 } else {
                     // única alternativa possível aqui é 'street' — '#' (block) já foi filtrado
@@ -748,7 +996,7 @@
                     drawStreetTile(ctx, sx, sy, pal);
                 }
             } else if (item.type === 'other') {
-                var s2 = gridToScreen(item.data.gridX, item.data.gridY);
+                var s2 = gridToScreen(item.drawCol, item.drawRow); // posição DESENHADA (interpolada) — só visual, ver updateOtherPlayersDraw().
                 // esconde o sufixo técnico "(#id)" do rótulo visual — ele é lido à parte por
                 // getOtherPlayerGhostImg(), não precisa aparecer no nome flutuante.
                 var name = (item.data.name || item.data.email || '???').replace(GHOST_ID_SUFFIX_RE, '');
@@ -756,7 +1004,7 @@
                 var otherImg = getOtherPlayerGhostImg(item.data);
                 drawGhostBillboard(ctx, s2.x + camOffsetX, s2.y + camOffsetY, otherImg, false, name, pal);
             } else if (item.type === 'player') {
-                var s3 = gridToScreen(S.playerCol, S.playerRow);
+                var s3 = gridToScreen(S.playerDrawCol, S.playerDrawRow); // posição DESENHADA (interpolada) — nunca a lógica aqui, ver nota no topo de render().
                 var selfImg = getSelfGhostImg();
                 drawGhostBillboard(ctx, s3.x + camOffsetX, s3.y + camOffsetY, selfImg, true, 'você', pal);
             }
@@ -816,27 +1064,68 @@
         return null;
     }
 
-    function tryMove(dc, dr) {
+    function tryMove(dc, dr, now) {
         var nc = S.playerCol + dc, nr = S.playerRow + dr;
-        if (!isWalkable(nc, nr)) return false; // bloqueia contra 'block', permite 'street'/'landmark'
+        if (!isWalkable(nc, nr)) return false; // bloqueia contra 'block', permite 'street'/'landmark' — LÓGICO, decide antes de qualquer coisa visual existir pra este passo.
+        // Estágio 1: guarda de onde o passo lógico partiu — origem do lerp visual
+        // (playerDrawCol/Row, calculado em render()) até o novo playerCol/Row, ao
+        // longo de S.stepIntervalMs. moveStartAt só avança AQUI, num passo que
+        // realmente mudou de tile — nunca numa tentativa bloqueada (isWalkable já
+        // retornou acima nesse caso), senão o visual "salta pra trás" e re-desliza
+        // a cada tecla batendo contra uma parede.
+        S.playerPrevCol = S.playerCol;
+        S.playerPrevRow = S.playerRow;
         S.playerCol = nc; S.playerRow = nr;
+        S.moveStartAt = now;
         S.lastDir = { dc: dc, dr: dr };
         syncPublicState();
-        checkLandmarkEnter();
+        checkPoiInteractions(); // lê S.playerCol/Row (lógico) — NUNCA playerDrawCol/Row. Restrição inegociável do plano.
         return true;
     }
 
-    function checkLandmarkEnter() {
-        var inside = isInsideLandmark(S.playerCol, S.playerRow);
-        if (inside && !S.insideLandmark) {
-            // borda de entrada — dispara uma vez só, não a cada frame parado lá dentro.
+    // Estágio 2 — dispatcher genérico de interação por POI, substitui a antiga
+    // checkLandmarkEnter() (hardcoded só pra torre). Handler ausente pra um dado
+    // interaction.kind = console.warn + no-op, NUNCA lança erro (forward-compat pra
+    // POIs futuros cujo handler ainda não foi escrito nesta versão do cliente — ver
+    // plano §4).
+    var POI_INTERACTION_HANDLERS = {
+        episode_entry: function (poi) {
+            // Comportamento idêntico ao antigo checkLandmarkEnter(): dispara
+            // window.EnterEpisode1FromOverworld() se existir (contrato de
+            // js/game/engine.js), senão só loga (ok em teste isolado sem engine.js).
             if (typeof window.EnterEpisode1FromOverworld === 'function') {
                 window.EnterEpisode1FromOverworld();
             } else {
-                console.log('[Overworld] jogador entrou no landmark, mas window.EnterEpisode1FromOverworld ainda não existe (ok em teste isolado).');
+                console.log('[Overworld] jogador entrou no POI "' + poi.id + '", mas window.EnterEpisode1FromOverworld ainda não existe (ok em teste isolado).');
             }
         }
-        S.insideLandmark = inside;
+    };
+
+    function dispatchPoiInteraction(poi) {
+        var kind = poi.interaction && poi.interaction.kind;
+        var handler = kind && POI_INTERACTION_HANDLERS[kind];
+        if (typeof handler === 'function') {
+            handler(poi);
+        } else {
+            console.warn('[Overworld] nenhum handler registrado para interaction.kind="' + kind + '" (poi.id=' + poi.id + ') — ignorando.');
+        }
+    }
+
+    // Avalia TODOS os POIs com triggerOn:'enter' a cada passo, dispara só na borda
+    // de entrada (fora->dentro, uma vez só por POI) — mesmo princípio da antiga
+    // checkLandmarkEnter(), generalizado pra N POIs via S.insidePoiIds.
+    function checkPoiInteractions() {
+        if (!S.pois) return;
+        for (var i = 0; i < S.pois.length; i++) {
+            var poi = S.pois[i];
+            if (!poi || !poi.interaction || poi.interaction.triggerOn !== 'enter') continue;
+            var inside = isInsidePoiFootprint(poi, S.playerCol, S.playerRow);
+            var wasInside = !!S.insidePoiIds[poi.id];
+            if (inside && !wasInside) {
+                dispatchPoiInteraction(poi);
+            }
+            S.insidePoiIds[poi.id] = inside;
+        }
     }
 
     function syncPublicState() {
@@ -852,7 +1141,7 @@
         if (now - S.lastStepAt >= S.stepIntervalMs) {
             var delta = currentInputDelta();
             if (delta) {
-                tryMove(delta.dc, delta.dr);
+                tryMove(delta.dc, delta.dr, now); // `now` = t0 do lerp visual deste passo, ver tryMove().
                 S.lastStepAt = now;
             }
         }
@@ -874,8 +1163,33 @@
             S.playerCol = window.OverworldTowerGridPos.gridX;
             S.playerRow = window.OverworldTowerGridPos.gridY + 2;
         }
-        S.insideLandmark = isInsideLandmark(S.playerCol, S.playerRow);
+        // Inicializa o estado "dentro do POI" pra posição de spawn SEM disparar (mesmo
+        // espírito do antigo `S.insideLandmark = isInsideLandmark(...)` — só registra
+        // onde o jogador já está; checkPoiInteractions() é quem dispara, só em
+        // transições fora->dentro durante o movimento).
+        S.insidePoiIds = {};
+        if (S.pois) {
+            for (var ai = 0; ai < S.pois.length; ai++) {
+                var apoi = S.pois[ai];
+                if (apoi && apoi.interaction && apoi.interaction.triggerOn === 'enter') {
+                    S.insidePoiIds[apoi.id] = isInsidePoiFootprint(apoi, S.playerCol, S.playerRow);
+                }
+            }
+        }
         syncPublicState();
+
+        // Estágio 1: reseta todo estado visual/interpolado pro novo spawn — sem
+        // isso a câmera e o fantasma deslizariam da posição da sessão/spawn
+        // ANTERIOR até aqui no primeiro frame (feio ao entrar/reentrar no
+        // overworld, ex.: voltando do Episódio 1 pra outro ponto do mapa).
+        S.playerPrevCol = S.playerCol;
+        S.playerPrevRow = S.playerRow;
+        S.playerDrawCol = S.playerCol;
+        S.playerDrawRow = S.playerRow;
+        S.moveStartAt = 0;
+        S.camX = null; S.camY = null; // força snap da câmera pro spawn no próximo render()
+        S.lastRenderAt = 0;
+        S.otherPlayersDraw = {}; // descarta interpolação de outros jogadores de uma sessão anterior
 
         S.canvas.style.display = 'block';
 
@@ -896,10 +1210,12 @@
 
     window.ActivateOverworld = function (spawnGridX, spawnGridY) {
         if (!S.loaded) {
-            // grid ainda não terminou de carregar — guarda o pedido e ativa
-            // assim que o fetch resolver, em vez de falhar silenciosamente.
+            // grid e/ou pois.json ainda não terminaram de carregar (S.loaded só vira
+            // true em finalizeLoadIfReady(), quando os dois convergem) — guarda o
+            // pedido e ativa assim que os fetches resolverem, em vez de falhar
+            // silenciosamente.
             S.pendingActivate = { x: spawnGridX, y: spawnGridY };
-            console.log('[Overworld] ActivateOverworld chamado antes do grid carregar — ativação adiada.');
+            console.log('[Overworld] ActivateOverworld chamado antes do grid/pois carregarem — ativação adiada.');
             return;
         }
         activateNow(spawnGridX, spawnGridY);
@@ -924,6 +1240,7 @@
     function init() {
         ensureCanvas();
         loadGrid();
+        loadPois();
     }
 
     if (document.readyState === 'loading') {
