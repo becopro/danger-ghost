@@ -1448,6 +1448,26 @@
     // por estar fora da janela 3x3) = bloqueado por padrão, nos três casos — o jogador
     // nunca anda pra uma célula cujo dado ele não tem, mesmo que essa célula "exista" no
     // manifesto mas ainda não tenha chegado.
+    // ATUALIZAÇÃO 2026-09-04 — '#' PAROU DE BLOQUEAR (era falso obstáculo, não dado
+    // real de prédio). Pedido do usuário depois de testar ao vivo: mesmo com a
+    // restrição de tangente removida em updateMovement() (03/09/2026), o fantasma
+    // continuava "preso perto da rua" — causa raiz aqui, não lá. `_meta.grid.legend`
+    // de data/overworld/chunks/*.json rotula '#' como "block (building/quarteirao -
+    // blocked)", mas `_meta.classification_method.block` do mesmo arquivo confessa
+    // que é placeholder: "Default classification for every cell not reached by a
+    // street buffer [...] no separate OSM building-footprint query was run (block ==
+    // 'not street')". Ou seja: '#' não representa nenhum prédio real, só "não caiu
+    // no buffer da rua" — no chunk 0_0 isso é 5929 de 7225 células (82%). Barrar
+    // colisão nele era, na prática, recriar a mesma jaula da tangente removida
+    // ontem, só que por outro caminho. Fix: as 3 classificações ('.','#','L') agora
+    // são TODAS andáveis — a distinção continua existindo no dado só pra render()
+    // (desenha textura de rua ou não, linha ~2731) e para uma futura consulta real
+    // de contorno de prédio (building=*), nenhuma das duas mudou aqui. Os dois
+    // `return false` estruturais abaixo (chunk não carregado / fora dos limites do
+    // chunk) continuam de pé — esse bloqueio é sobre dado AUSENTE, não estética, e
+    // é o único que ainda deve existir (ver item 3 da nota de arquitetura no topo
+    // do arquivo, "BURACO NO MAPA = BLOQUEADO" — combina exatamente com o teste 3
+    // pedido: andar rumo a um chunk fora do manifesto ainda deve travar na borda).
     function isWalkable(globalCol, globalRow) {
         var cxy = chunkXYForGlobal(globalCol, globalRow);
         var chunk = S.loadedChunks[chunkKey(cxy.chunkX, cxy.chunkY)];
@@ -1455,7 +1475,7 @@
         var localCol = globalCol - chunk.originGlobalCol;
         var localRow = globalRow - chunk.originGlobalRow;
         if (localRow < 0 || localRow >= chunk.dim || localCol < 0 || localCol >= chunk.dim) return false;
-        return chunk.rows[localRow][localCol] !== '#';
+        return true; // '#'/'.'/'L' andáveis por igual — ver ATUALIZAÇÃO acima
     }
 
     // Substitui a antiga isInsideLandmark(col,row) (que só conhecia a torre). Agora
@@ -3158,8 +3178,14 @@
     // em QUALQUER ponto do mapa, inclusive em cima de uma rua — input normalizado
     // (unitário mesmo na diagonal, evita o clássico "diagonal 41% mais rápido")
     // usado direto como vetor de avanço. isWalkable() continua sendo a ÚNICA
-    // restrição de movimento (colisão contra prédio), com wall-slide de quina
-    // (desliza no eixo isolado ainda livre em vez de travar seco na diagonal).
+    // restrição de movimento, com wall-slide de quina (desliza no eixo isolado
+    // ainda livre em vez de travar seco na diagonal) — ATUALIZAÇÃO 2026-09-04: não
+    // é mais "colisão contra prédio" (não existe dado real de prédio, ver
+    // ATUALIZAÇÃO na própria isWalkable() alguns milhares de linhas abaixo), só
+    // bloqueio estrutural (chunk não carregado / fora dos limites do chunk). O
+    // wall-slide seguinte fica praticamente inerte na prática agora (só dispara
+    // perto de borda de chunk ausente), mas não foi removido — ainda é o
+    // comportamento correto nesse caso e não custa nada mantê-lo.
     // S.onStreet ainda é calculado (findNearestStreetPoint() <=
     // STREET_SNAP_RADIUS_TILES da posição visual atual) mas é PURAMENTE
     // informativo agora — só pra window.OverworldDebug.getMovementMode() em teste
