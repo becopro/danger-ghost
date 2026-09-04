@@ -512,7 +512,7 @@ window.PlayAsGhost = function(ghostId) {
             // de ir direto pro Episódio 1. Guard preserva o comportamento antigo (StartCutscene
             // direto) se overworld.js não estiver carregado.
             if (typeof window.ActivateOverworld === "function") {
-                var _owSpawnPAG = (typeof window.GetOverworldSpawnPos === "function") ? window.GetOverworldSpawnPos() : (window.OverworldTowerGridPos || { gridX: 0, gridY: 0 });
+                var _owSpawnPAG = (typeof window.GetOverworldSpawnPos === "function") ? window.GetOverworldSpawnPos() : (window.OverworldTowerDoorPos || window.OverworldTowerGridPos || { gridX: 0, gridY: 0 }); // 2026-09-03: fallback só do caso extremo GetOverworldSpawnPos ausente — mesma porta da torre que ela retornaria, não o centro do footprint.
                 window.ActivateOverworld(_owSpawnPAG.gridX, _owSpawnPAG.gridY);
             } else if (typeof window.StartCutscene === "function") {
                 var ownChar = localChars.find(function(c) { return c.characterId === charId; });

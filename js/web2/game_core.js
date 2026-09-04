@@ -546,7 +546,7 @@
                     // acima), então precisa do mesmo guard pra não pular o overworld. Sem
                     // overworld.js carregado, cai no StartCutscene() de sempre (paridade v1.0).
                     if (typeof window.ActivateOverworld === "function") {
-                        var _owSpawnSCP = (typeof window.GetOverworldSpawnPos === "function") ? window.GetOverworldSpawnPos() : (window.OverworldTowerGridPos || { gridX: 0, gridY: 0 });
+                        var _owSpawnSCP = (typeof window.GetOverworldSpawnPos === "function") ? window.GetOverworldSpawnPos() : (window.OverworldTowerDoorPos || window.OverworldTowerGridPos || { gridX: 0, gridY: 0 }); // 2026-09-03: fallback só do caso extremo GetOverworldSpawnPos ausente — mesma porta da torre que ela retornaria, não o centro do footprint.
                         window.ActivateOverworld(_owSpawnSCP.gridX, _owSpawnSCP.gridY);
                     } else if (typeof window.StartCutscene === "function") {
                         window.StartCutscene(char.worldLevel, true);

@@ -1654,13 +1654,18 @@
 						// este bloco nunca dispara fora da Fase 1 por construção (não precisa checar
 						// g_currentLevel aqui).
 						if (((ct >= 0 && ct < 11 && map.bitmap[ct][c] == 25) || (cb >= 0 && cb < 11 && map.bitmap[cb][c] == 25)) && this.jump) {
-							if (typeof window.ActivateOverworld === 'function' && window.OverworldTowerGridPos) {
+							if (typeof window.ActivateOverworld === 'function' && (window.OverworldTowerDoorPos || window.OverworldTowerGridPos)) {
 								// Mesmo motivo do branch G_WIN/G_GAMEOVER (ver comentário lá): sem isso,
 								// g_gameState fica preso em G_PLAY enquanto o overworld está ativo, e um
 								// SPACE nesse meio-tempo pausaria o Episódio 1 escondido em vez de cair
 								// no branch G_START (que já sabe reativar o overworld sozinho).
+								// 2026-09-03: OverworldTowerDoorPos (porta, andável) em vez de
+								// OverworldTowerGridPos (centro do footprint 3x3, pode cair em cima de
+								// bloco/prédio) — mesma razão de GetOverworldSpawnPos() acima, "sempre em
+								// frente à torre" vale pra qualquer retorno ao overworld, não só o boot.
 								SetGameState(G_START);
-								window.ActivateOverworld(window.OverworldTowerGridPos.gridX, window.OverworldTowerGridPos.gridY);
+								var _doorPos1 = window.OverworldTowerDoorPos || window.OverworldTowerGridPos;
+								window.ActivateOverworld(_doorPos1.gridX, _doorPos1.gridY);
 							}
 							this.jump = false;
 						}
@@ -3582,13 +3587,21 @@
 			// indefinido) OU chamando StartCutscene()/ResetGame() direto pelo console sem passar por
 			// EnterEpisode1FromOverworld(), o fluxo é idêntico ao de antes desta integração.
 			function GetOverworldSpawnPos() {
-				// Fallback: posição fixa da torre (sempre existe, definida pelo motor do overworld).
-				var fallback = (window.OverworldTowerGridPos) || { gridX: 0, gridY: 0 };
-				// Preferência: última posição salva do jogador no banco (server/db.js já devolve
-				// overworldGridX/overworldGridY em loadOrCreatePlayer()/login; completeCloudLogin()
-				// (js/web2/auth.js) grava o playerData inteiro — overworldGridX/Y incluídos — em
-				// localStorage.dg_cloud_profile). null/ausente (conta nova, nunca esteve no overworld)
-				// cai no fallback da torre, como o comentário do próprio db.js já documenta.
+				// ATUALIZADO 2026-09-03 (correção de escopo do pedido original — o usuário queria
+				// SÓ corrigir o PONTO DE FALLBACK, não remover "retomar de onde parou"). Volta a
+				// preferir a última posição salva do jogador (localStorage.dg_cloud_profile.
+				// overworldGridX/Y, sincronizada do banco por completeCloudLogin()/server/db.js) —
+				// exatamente o comportamento original, de antes desta sessão. O bug real que
+				// motivou o pedido era só o FALLBACK usado quando não há posição salva (conta
+				// nova, nunca esteve no overworld): antes caía em window.OverworldTowerGridPos, o
+				// CENTRO do footprint 3x3 da torre (globalCol/Row 40/40) — provavelmente em cima de
+				// bloco/prédio (não andável) ou já DENTRO do footprint de entrada (dispararia
+				// EnterEpisode1FromOverworld() na hora, loop de entrada instantânea). Corrigido
+				// trocando esse fallback pra window.OverworldTowerDoorPos
+				// (overworld.js:computePoiBounds(), mesmo padrão/momento de OverworldTowerGridPos)
+				// — a célula ANDÁVEL exatamente ao lado da porta (pois.json:defaultSpawn,
+				// globalCol/Row 42/41), documentada no próprio dado.
+				var fallback = window.OverworldTowerDoorPos || window.OverworldTowerGridPos || { gridX: 0, gridY: 0 };
 				try {
 					var raw = localStorage.getItem('dg_cloud_profile');
 					if (raw) {
@@ -4162,7 +4175,7 @@ var g_binaryBits = [];
 						// EnterEpisode1FromOverworld() (ver acima). Sem overworld ativo nesta run
 						// (fluxo direto/legado, ou overworld.js não carregado), ResetGame() roda
 						// exatamente como sempre — reinício do v1.0, sem regressão.
-						if (window.__dgReturnToOverworld && typeof window.ActivateOverworld === 'function' && window.OverworldTowerGridPos) {
+						if (window.__dgReturnToOverworld && typeof window.ActivateOverworld === 'function' && (window.OverworldTowerDoorPos || window.OverworldTowerGridPos)) {
 							// SetGameState(G_START) ANTES de ativar o overworld: sem isso, #winPanel
 							// (painel HTML, não canvas) continua com display:block por cima do
 							// overworld — SetGameState() é a única coisa que esconde esse painel (ela
@@ -4171,19 +4184,26 @@ var g_binaryBits = [];
 							// fluxo completo ao vivo (painel de vitória ficava grudado por cima do
 							// overworld até esse fix). SaveScore() já rodou quando G_WIN começou (ver
 							// SetGameState), não repete aqui.
+							// 2026-09-03: OverworldTowerDoorPos (porta, andável) em vez de
+							// OverworldTowerGridPos (centro do footprint, pode cair em cima de
+							// bloco/prédio) — "sempre em frente à torre" (pedido do usuário) vale
+							// pra qualquer retorno ao overworld, não só o boot inicial.
 							SetGameState(G_START);
-							window.ActivateOverworld(window.OverworldTowerGridPos.gridX, window.OverworldTowerGridPos.gridY);
+							var _doorPos2 = window.OverworldTowerDoorPos || window.OverworldTowerGridPos;
+							window.ActivateOverworld(_doorPos2.gridX, _doorPos2.gridY);
 						} else {
 							ResetGame();
 						}
 					} else if (g_gameState == G_GAMEOVER) {
 						// Mesma regra da tela de vitória, acima — tela/score/painel de Game Over
 						// continuam idênticos, só o destino do SPACE muda quando a run veio do overworld.
-						if (window.__dgReturnToOverworld && typeof window.ActivateOverworld === 'function' && window.OverworldTowerGridPos) {
+						if (window.__dgReturnToOverworld && typeof window.ActivateOverworld === 'function' && (window.OverworldTowerDoorPos || window.OverworldTowerGridPos)) {
 							// Mesmo motivo do branch G_WIN acima: sem isso, #gameOverPanel fica
-							// grudado por cima do overworld (achado testando ao vivo).
+							// grudado por cima do overworld (achado testando ao vivo). Mesma troca
+							// pra OverworldTowerDoorPos (porta) de 2026-09-03.
 							SetGameState(G_START);
-							window.ActivateOverworld(window.OverworldTowerGridPos.gridX, window.OverworldTowerGridPos.gridY);
+							var _doorPos3 = window.OverworldTowerDoorPos || window.OverworldTowerGridPos;
+							window.ActivateOverworld(_doorPos3.gridX, _doorPos3.gridY);
 						} else {
 							ResetGame();
 						}

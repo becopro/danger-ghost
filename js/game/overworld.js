@@ -671,6 +671,32 @@
 // render() não muda seu custo por frame (a posição desenhada já era escrita
 // direto no modo rua; agora o modo livre também escreve direto, mesmo custo,
 // sem lerp extra) — fps medido antes/depois no relatório desta sessão.
+//
+// ATUALIZAÇÃO 2026-09-03 "ruas viram só guia visual" (pedido do usuário: "as
+// ruas a partir de agora são só um guia do mapa, o jogador pode deslizar por
+// todo o mapa") — a distinção "sobre rua" (b, c, d, e acima) FOI REMOVIDA de
+// updateMovement() por completo (branch morto apagado de verdade, não só
+// desligado por flag — ~60 linhas de projeção por cosseno na tangente, mais
+// nearestPoiFootprintDist()/POI_FOOTPRINT_OVERRIDE_TILES, o workaround que
+// existia só pra essa mesma restrição não travar a entrada da torre — os dois
+// perderam sentido junto). updateMovement() agora tem um ÚNICO ramo de
+// avanço — o que era o modo "livre" (item f acima) — rodando sempre, rua ou
+// não; colisão contra prédio (isWalkable) e wall-slide de quina (item 3 da
+// nota "movimento livre contínuo" abaixo) continuam intactos, só a restrição
+// "só anda ao longo da tangente perto de rua" que sumiu. Ruas continuam
+// existindo como CAMADA VISUAL (polilinhas, drawStreetNameLabel) — nada da
+// renderização de rua/rótulo mudou. findNearestStreetPoint() e
+// STREET_SNAP_RADIUS_TILES continuam vivos (rótulo de rua, orientação da
+// torre, e agora só informativos em S.onStreet/getMovementMode() — nunca mais
+// decidem COMO o vetor de avanço é calculado).
+//
+// MESMA SESSÃO, pedido separado do usuário: a feature "dicas de tecla em
+// interseção" (buildIntersectionsForChunk/segmentInteriorHit/
+// keyLabelForDirection/drawIntersectionKeyHints/drawKeyHintLabel, sessão
+// anterior) foi REMOVIDA por completo — perdeu propósito com ruas virando
+// guia visual puro (não existe mais "só 2 direções" pra uma dica de tecla
+// ajudar a escolher). findNearestStreetPoint()/drawStreetNameLabel() NÃO
+// foram tocadas, são features independentes que continuam em uso.
 // ============================================================================
 
 (function () {
@@ -935,7 +961,7 @@
 
         // ---- Movimento contínuo (rua E livre — unificado 2026-09-03, ver
         // ATUALIZAÇÃO "movimento livre contínuo" no topo do arquivo) ------------
-        onStreet: false,        // true enquanto o jogador está a <= STREET_SNAP_RADIUS_TILES de alguma streetWay — só decide COMO o vetor de avanço é calculado em updateMovement() (projetado na tangente da rua vs. direção livre normalizada); os dois modos são igualmente contínuos/por-dt desde a unificação. Nunca lido por isWalkable/rede/POI — só pelo controlador de movimento e pelo hook de debug (getMovementMode).
+        onStreet: false,        // true enquanto o jogador está a <= STREET_SNAP_RADIUS_TILES de alguma streetWay. ATUALIZADO 2026-09-03 ("ruas viram só guia visual"): puramente INFORMATIVO agora — não decide mais COMO o vetor de avanço é calculado (essa restrição foi removida de updateMovement()). Só existe pra window.OverworldDebug.getMovementMode() continuar respondendo "o jogador está perto de uma rua?" em teste ao vivo; nunca lido por isWalkable/rede/POI.
         playerContCol: 0,       // posição contínua (float) AUTORITATIVA da posição visual, SEMPRE (rua ou livre) — avançada por dt real em updateMovement(), nunca em saltos de tile. playerCol/Row (inteiro) é derivado dela via Math.round() só quando muda de célula (ver commitLogicalStepIfChanged()).
         playerContRow: 0,
         lastMoveAt: 0,          // ts (performance.now()) do loop() anterior — só pra dt real do avanço contínuo (independente de framerate, mesmo raciocínio de CAMERA_LERP_K/lastRenderAt, mas um relógio PRÓPRIO do controlador de movimento, não compartilhado com a câmera).
@@ -1042,6 +1068,7 @@
     // OVERWORLD_GRID_MIN/MAX), só o SIGNIFICADO do valor.
     window.OverworldState = { playerGridX: 0, playerGridY: 0, isActive: false };
     window.OverworldTowerGridPos = null;
+    window.OverworldTowerDoorPos = null; // 2026-09-03 — célula andável ao lado da porta (ver computePoiBounds()), não o centro do footprint; usado como destino real de spawn/retorno.
 
     // Estágio 5 — hook de depuração READ-ONLY (não é um dos 4 pontos de contrato
     // originais, é só o único jeito de inspecionar S.loadedChunks/currentChunk de fora
@@ -1050,15 +1077,10 @@
     // funcionar. Seguro de manter: não muta nada, só lê.
     window.OverworldDebug = {
         getLoadedChunkKeys: function () { return Object.keys(S.loadedChunks); },
-        // 2026-09-03 (dicas de tecla em interseção) — inspeção read-only dos nós de
-        // interseção precomputados por chunk (buildIntersectionsForChunk), pra
-        // confirmar via console contagem/branches sem precisar navegar até lá
-        // visualmente pra achar um de verdade. Mesmo espírito de getMovementMode/
-        // getFacing acima (só leitura, não muta nada).
-        getIntersections: function (chunkKeyArg) {
-            var chunk = S.loadedChunks[chunkKeyArg];
-            return chunk ? chunk.intersections : null;
-        },
+        // getIntersections (dicas de tecla em interseção) REMOVIDO em 2026-09-03 junto
+        // com a feature inteira (buildIntersectionsForChunk/drawIntersectionKeyHints) —
+        // pedido do usuário: perdeu propósito porque ruas viraram guia visual puro
+        // (movimento livre em todo lugar, sem seguir tangente de rua).
         getCurrentChunk: function () { return { chunkX: S.currentChunkX, chunkY: S.currentChunkY }; },
         // 2026-09-03 — inspeção read-only da orientação do avatar (ver ATUALIZAÇÃO
         // 2026-09-03 no topo do arquivo), pra confirmar via console em teste ao vivo
@@ -1219,6 +1241,7 @@
         if (entryCandidates.length === 0) {
             console.warn('[Overworld] nenhum POI com interaction.kind="episode_entry" encontrado — torre ausente.');
             window.OverworldTowerGridPos = null;
+            window.OverworldTowerDoorPos = null;
             return;
         }
         if (entryCandidates.length > 1) {
@@ -1226,6 +1249,25 @@
         }
         S.entryPoi = entryCandidates[0];
         window.OverworldTowerGridPos = { gridX: S.entryPoi._bounds.centerCol, gridY: S.entryPoi._bounds.centerRow };
+        // 2026-09-03 (spawn sempre na porta da torre, pedido do usuário) — ponto
+        // ANDÁVEL exatamente ao lado da porta, não o centro do footprint 3x3 acima
+        // (que costuma cair em cima de bloco/prédio, ou na melhor hipótese já
+        // nasce DENTRO do footprint de entrada e dispararia EnterEpisode1FromOverworld()
+        // imediatamente). Fonte: S.entryPoi.defaultSpawn (pois.json, documentado
+        // no próprio dado) — já existia, mas só era lido como ÚLTIMO fallback
+        // dentro de activateNow() (nenhum call site real chegava a usá-lo, porque
+        // todos passavam coordenada explícita). Exposto aqui, mesmo padrão/momento
+        // de window.OverworldTowerGridPos acima, pra
+        // js/game/engine.js:GetOverworldSpawnPos() e os retornos do Episódio 1
+        // poderem usá-lo como destino de spawn/retorno ("o jogo sempre começa em
+        // frente à torre", pedido do usuário). Fallback pro centro da torre só se
+        // o POI não trouxer defaultSpawn — mantém o contrato "sempre existe algum
+        // valor", mesmo que geometricamente pior (mesmo caso que activateNow() já
+        // tratava antes desta mudança).
+        var doorSpawn = S.entryPoi.defaultSpawn;
+        window.OverworldTowerDoorPos = (doorSpawn && typeof doorSpawn.globalCol === 'number' && typeof doorSpawn.globalRow === 'number')
+            ? { gridX: doorSpawn.globalCol, gridY: doorSpawn.globalRow }
+            : window.OverworldTowerGridPos;
     }
 
     // Estágio 5 — chave de S.loadedChunks/S.manifestChunksByKey/S.loadingChunks, sempre
@@ -1296,198 +1338,18 @@
         return out;
     }
 
-    // ==================== Interseções de rua (dicas de tecla) ====================
-    // Pedido do usuário 2026-09-03: "sempre que o ghost chegar a uma interseção de
-    // ruas deve aparecer... as teclas que deve clicar para cada caminho". Não existe
-    // grafo de interseções pré-computado no dado (streetWays é só a polilinha bruta
-    // do OSM, por way, sem noção de onde vias se tocam) — construído aqui, UMA VEZ
-    // por chunk carregado (mesmo padrão de performance de buildStreetPathsForChunk
-    // acima: nunca refeito por frame, só quando um chunk novo entra em
-    // S.loadedChunks via ensureChunkLoaded).
-    //
-    // PREMISSA (documentada, não redescoberta a cada leitura do arquivo): dado OSM
-    // real corta cada via em ways separadas exatamente em CADA nó real de junção —
-    // ou seja, um cruzamento real quase sempre coincide com uma EXTREMIDADE de way
-    // no dado bruto (primeiro ou último gridPt), não com o meio de um segmento.
-    // Por isso a detecção abaixo cobre dois formatos:
-    //   1) Duas (ou mais) extremidades de ways DIFERENTES caindo (quase) no mesmo
-    //      ponto global — cruzamento em X/+/T onde todas as vias terminam ali.
-    //   2) Uma extremidade de via A caindo no INTERIOR de um segmento de via B, que
-    //      só está "passando por cima" sem cortar ali — cruzamento em T clássico
-    //      (via B contribui DOIS ramos, um em cada sentido ao longo dela).
-    // Cruzamento em X onde NENHUMA das duas vias termina ali (duas ways cruzando
-    // sem nó OSM comum) não é tratado — não observado nos 3 chunks reais existentes
-    // hoje (conferido nos dados), fora de escopo desta passada.
-    //
-    // LIMITAÇÃO DE FRONTEIRA (aceita pra esta passada, documentada em vez de
-    // resolvida): só enxerga ways do PRÓPRIO chunk. Um nó de interseção bem na
-    // costura entre dois chunks fica com ramos incompletos (só os do chunk local,
-    // o outro chunk nem é consultado aqui) — mesclar grafos entre chunks vizinhos
-    // fica fora de escopo agora (só 3 chunks existem hoje, nenhuma interseção real
-    // cai exatamente na costura entre eles nos dados atuais).
-    var INTERSECTION_NODE_SNAP_TILES = 1.0; // tolerância pra considerar 2 extremidades de ways diferentes "o mesmo nó" — mesma ordem de grandeza de STREET_SNAP_RADIUS_TILES (ver bloco de constantes de movimento, mais abaixo no arquivo)
-    var INTERSECTION_COLINEAR_DOT = -0.9; // 2 ramos com produto escalar abaixo disto (quase exatamente opostos) = via reta cortada em 2 osmIds — não é uma escolha real de caminho, não conta como cruzamento navegável (regra pedida explicitamente)
-    var INTERSECTION_HINT_RADIUS_TILES = 7; // raio de proximidade (tiles) em que os rótulos de tecla começam a aparecer
-    var INTERSECTION_HINT_FADE_TILES = 2.5; // faixa (tiles), medida de dentro pra fora do raio acima, em que o alpha vai de 1 a 0 — "fade in/out, não popup abrupto" (pedido explícito)
-    var INTERSECTION_BRANCH_LABEL_OFFSET_TILES = 1.6; // distância do nó, ao longo do ramo, onde o rótulo é ancorado — perto do INÍCIO do ramo, não no meio da rua (pedido explícito)
-
-    // Acha, na polilinha `gp`, um ponto cuja projeção caia no INTERIOR real de algum
-    // segmento (t estritamente entre os dois extremos, com uma margem de 1% pra não
-    // recontar a própria extremidade do segmento — essa já é coberta pelo
-    // clustering de extremidades em buildIntersectionsForChunk) e esteja a `tol` ou
-    // menos de (col,row). Mesma matemática ponto-segmento de findNearestStreetPoint
-    // (mais abaixo no arquivo), só que aqui devolve a TANGENTE local em vez da
-    // distância — usado só pra achar o "ramo que passa por cima" de um T-junction.
-    function segmentInteriorHit(gp, col, row, tol) {
-        if (!gp || gp.length < 2) return null;
-        var tolSq = tol * tol;
-        for (var s = 0; s < gp.length - 1; s++) {
-            var ax = gp[s].col, ay = gp[s].row, bx = gp[s + 1].col, by = gp[s + 1].row;
-            var vx = bx - ax, vy = by - ay;
-            var lenSq = vx * vx + vy * vy;
-            if (lenSq < 1e-9) continue;
-            var t = ((col - ax) * vx + (row - ay) * vy) / lenSq;
-            if (t <= 0.01 || t >= 0.99) continue; // perto de uma extremidade do segmento — não é "interior", pula (evita duplicar ramo já coberto pelo clustering de extremidades)
-            var px = ax + vx * t, py = ay + vy * t;
-            var dx = col - px, dy = row - py;
-            if (dx * dx + dy * dy <= tolSq) {
-                var len = Math.sqrt(lenSq);
-                return { dirCol: vx / len, dirRow: vy / len };
-            }
-        }
-        return null;
-    }
-
-    // Constrói a lista de nós de interseção NAVEGÁVEL de um chunk, a partir do
-    // `streetPaths` já convertido (buildStreetPathsForChunk). Devolve
-    // [{col,row,branches:[{dirCol,dirRow}, ...]}] em coordenada GLOBAL fracionária
-    // (mesmo espaço de gridPts) — cada branch já é um vetor unitário em espaço de
-    // GRID (não de tela), pronto pra virar rótulo de tecla via keyLabelForDirection.
-    function buildIntersectionsForChunk(streetPaths) {
-        var tol = INTERSECTION_NODE_SNAP_TILES;
-        var tolSq = tol * tol;
-
-        // 1) extremidades de cada way, com a tangente que sai delas PRA DENTRO da
-        // via (mesma convenção de sinal que já não importa em updateMovement: só a
-        // direção física do ramo, usada aqui só pra rotular tecla).
-        var endpoints = [];
-        for (var i = 0; i < streetPaths.length; i++) {
-            var gp = streetPaths[i].gridPts;
-            if (!gp || gp.length < 2) continue;
-            endpoints.push(makeEndpointTangent(i, gp[0], gp[1]));
-            var n = gp.length;
-            endpoints.push(makeEndpointTangent(i, gp[n - 1], gp[n - 2]));
-        }
-        function makeEndpointTangent(wayIdx, at, towards) {
-            var dc = towards.col - at.col, dr = towards.row - at.row;
-            var len = Math.hypot(dc, dr) || 1;
-            return { wayIdx: wayIdx, col: at.col, row: at.row, dirCol: dc / len, dirRow: dr / len };
-        }
-
-        // 2) clusteriza extremidades próximas entre si (cada extremidade entra no
-        // primeiro cluster cujo centroide atual esteja a `tol` ou menos, senão abre
-        // cluster novo). O(n²) mas n é pequeno (~100-300 extremidades por chunk),
-        // rodado só 1x por chunk carregado — mesmo raciocínio de custo aceito que
-        // findNearestStreetPoint já documenta pro laço por-frame dele, só que este
-        // aqui roda MUITO menos vezes ainda.
-        var clusters = [];
-        for (var e = 0; e < endpoints.length; e++) {
-            var ep = endpoints[e];
-            var found = null;
-            for (var c = 0; c < clusters.length; c++) {
-                var cl = clusters[c];
-                var ddc = ep.col - cl.col, ddr = ep.row - cl.row;
-                if (ddc * ddc + ddr * ddr <= tolSq) { found = cl; break; }
-            }
-            if (found) {
-                found.endpoints.push(ep);
-                var n2 = found.endpoints.length; // recentraliza pela média — deixa o cluster "andar" pro centro real da junção conforme mais extremidades entram
-                found.col = (found.col * (n2 - 1) + ep.col) / n2;
-                found.row = (found.row * (n2 - 1) + ep.row) / n2;
-            } else {
-                clusters.push({ col: ep.col, row: ep.row, endpoints: [ep] });
-            }
-        }
-
-        // 3) monta os ramos de cada cluster: 1 por extremidade agrupada, + 2 por
-        // via que só "passa por cima" (T-junction, via segmentInteriorHit) sem ter
-        // a própria extremidade neste cluster. Culling por gridBbox antes do
-        // check ponto-segmento caro — mesmo padrão de findNearestStreetPoint.
-        var result = [];
-        for (var ci = 0; ci < clusters.length; ci++) {
-            var cluster = clusters[ci];
-            var branches = [];
-            var waysAtNode = {};
-            for (var b = 0; b < cluster.endpoints.length; b++) {
-                branches.push({ dirCol: cluster.endpoints[b].dirCol, dirRow: cluster.endpoints[b].dirRow });
-                waysAtNode[cluster.endpoints[b].wayIdx] = true;
-            }
-            for (var w = 0; w < streetPaths.length; w++) {
-                if (waysAtNode[w]) continue;
-                var way = streetPaths[w];
-                var gb = way.gridBbox;
-                if (gb && (cluster.col < gb.minCol - tol || cluster.col > gb.maxCol + tol ||
-                    cluster.row < gb.minRow - tol || cluster.row > gb.maxRow + tol)) continue;
-                var hit = segmentInteriorHit(way.gridPts, cluster.col, cluster.row, tol);
-                if (hit) {
-                    branches.push({ dirCol: hit.dirCol, dirRow: hit.dirRow });
-                    branches.push({ dirCol: -hit.dirCol, dirRow: -hit.dirRow });
-                }
-            }
-            // Filtro (regra pedida explicitamente): <2 ramos = ponta solta, não é
-            // cruzamento. Exatamente 2 ramos quase opostos (produto escalar bem
-            // negativo) = via reta só cortada em 2 osmIds — não é escolha real de
-            // caminho, o jogador nem percebe que trocou de way ali.
-            if (branches.length < 2) continue;
-            if (branches.length === 2) {
-                var dot = branches[0].dirCol * branches[1].dirCol + branches[0].dirRow * branches[1].dirRow;
-                if (dot < INTERSECTION_COLINEAR_DOT) continue;
-            }
-            result.push({ col: cluster.col, row: cluster.row, branches: branches });
-        }
-        return result;
-    }
-
-    // Rotula uma direção (dc,dr) em espaço de GRID com a tecla (ou combinação de 2
-    // teclas) mais próxima, arredondando pro OCTANTE mais próximo (4 cardeais + 4
-    // diagonais) em vez de tentar mapear QUALQUER ângulo pra uma combinação
-    // genérica — decisão de simplicidade explicitamente permitida pelo pedido:
-    // ramos de rua real (dado OSM bruto) raramente são cardinais/diagonais
-    // perfeitos, então "a tecla mais parecida" já comunica a intenção sem exigir
-    // do jogador um input em ângulo exato que nem a própria projeção de rua em
-    // updateMovement() exige (ali o cosseno tolera desalinhamento, aqui a UI só
-    // mostra a melhor aproximação discreta). MESMA convenção de eixos de
-    // AXIS_KEYS (mais abaixo no arquivo): dr negativo=Norte(Up/W), dr
-    // positivo=Sul(Down/S), dc negativo=Oeste(Left/A), dc positivo=Leste(Right/D).
-    var KEY_OCTANTS = [
-        { dc: 0, dr: -1, label: '↑' },          // N  (ArrowUp / W)
-        { dc: 1, dr: -1, label: '↑+→' },   // NE (ArrowUp+ArrowRight)
-        { dc: 1, dr: 0, label: '→' },           // E  (ArrowRight / D)
-        { dc: 1, dr: 1, label: '↓+→' },    // SE (ArrowDown+ArrowRight)
-        { dc: 0, dr: 1, label: '↓' },           // S  (ArrowDown / S)
-        { dc: -1, dr: 1, label: '↓+←' },   // SW (ArrowDown+ArrowLeft)
-        { dc: -1, dr: 0, label: '←' },          // W  (ArrowLeft / A)
-        { dc: -1, dr: -1, label: '↑+←' }   // NW (ArrowUp+ArrowLeft)
-    ];
-    (function normalizeKeyOctants() { // pré-normaliza uma vez — evita sqrt(2) repetido no hot path de render
-        for (var i = 0; i < KEY_OCTANTS.length; i++) {
-            var o = KEY_OCTANTS[i];
-            var len = Math.hypot(o.dc, o.dr);
-            o.ndc = o.dc / len; o.ndr = o.dr / len;
-        }
-    })();
-    function keyLabelForDirection(dc, dr) {
-        var len = Math.hypot(dc, dr);
-        if (len < 1e-9) return null;
-        var ndc = dc / len, ndr = dr / len;
-        var best = null, bestDot = -Infinity;
-        for (var i = 0; i < KEY_OCTANTS.length; i++) {
-            var o = KEY_OCTANTS[i];
-            var dot = ndc * o.ndc + ndr * o.ndr;
-            if (dot > bestDot) { bestDot = dot; best = o; }
-        }
-        return best.label;
-    }
+    // "Interseções de rua (dicas de tecla)" — feature inteira REMOVIDA em
+    // 2026-09-03 (pedido do usuário, implementada na sessão anterior): detecção
+    // de nós de interseção (segmentInteriorHit, buildIntersectionsForChunk,
+    // clustering de extremidades de way, constantes INTERSECTION_*) e rotulagem
+    // de tecla por octante (keyLabelForDirection, KEY_OCTANTS). Perdeu propósito
+    // nesta mesma sessão: ruas viraram guia visual puro (updateMovement() não
+    // restringe mais "só 2 direções" perto de rua), então não existe mais
+    // escolha de caminho pra uma dica de tecla ajudar. chunk.intersections (cache
+    // por chunk, preenchido em ensureChunkLoaded) e a chamada de render
+    // (drawIntersectionKeyHints) foram removidas junto — ver ATUALIZAÇÃO no topo
+    // do arquivo. findNearestStreetPoint() (usado por rótulo de rua/orientação da
+    // torre) é uma função DIFERENTE, não tocada.
 
     // Garante que o chunk (chunkX,chunkY) esteja em S.loadedChunks, disparando o fetch se
     // ainda não estiver carregado nem em voo. No-op silencioso (nem loga) se o chunk não
@@ -1530,11 +1392,10 @@
                     originGlobalRow: originRow,
                     chunkX: chunkX,
                     chunkY: chunkY,
-                    streetPaths: streetPaths,
-                    // dicas de tecla em interseção (pedido 2026-09-03) — precomputado
-                    // aqui junto com streetPaths, mesmo ciclo de vida (1x por chunk
-                    // carregado), ver buildIntersectionsForChunk acima.
-                    intersections: buildIntersectionsForChunk(streetPaths)
+                    streetPaths: streetPaths
+                    // campo `intersections` (dicas de tecla em interseção) REMOVIDO em
+                    // 2026-09-03 junto com a feature inteira — ver nota acima de
+                    // ensureChunkLoaded().
                 };
             })
             .catch(function (err) {
@@ -1606,33 +1467,11 @@
         return row >= b.minRow && row <= b.maxRow && col >= b.minCol && col <= b.maxCol;
     }
 
-    // CORREÇÃO 2026-09-03 (achada em teste ao vivo, ver ATUALIZAÇÃO "movimento
-    // contínuo em rua" no topo do arquivo) — distância (0 se já dentro) do ponto
-    // (col,row) até o footprint de POI mais próximo, usada por updateMovement()
-    // pra decidir se a restrição "só 2 direções" da rua deve ser IGNORADA perto de
-    // um POI. Achado real: pois.json:defaultSpawn (42,41, ao lado da porta da
-    // torre) fica a nearestStreetDist=0.34 tiles da própria rua — bem DENTRO do
-    // raio de captura (STREET_SNAP_RADIUS_TILES=1.1) — mas a 1 tile exato da borda
-    // do footprint da torre (col42, footprint até col41). Testado ao vivo: um
-    // jogador parado no spawn, seguindo só a tangente da rua (quase N-S ali),
-    // NUNCA consegue dar o passo puramente lateral (oeste) que a porta exige —
-    // trava, sem conseguir entrar na torre. Sem isto, "os últimos passos até a
-    // porta... mantenha o movimento livre" (pedido explícito do usuário) fica
-    // quebrado bem no ÚNICO lugar em que isso importa de verdade.
-    function nearestPoiFootprintDist(col, row) {
-        if (!S.pois) return Infinity;
-        var best = Infinity;
-        for (var i = 0; i < S.pois.length; i++) {
-            var poi = S.pois[i];
-            var b = poi && poi._bounds;
-            if (!b) continue;
-            var dc = Math.max(b.minCol - col, 0, col - b.maxCol);
-            var dr = Math.max(b.minRow - row, 0, row - b.maxRow);
-            var d = Math.sqrt(dc * dc + dr * dr); // 0 se (col,row) já está dentro do footprint
-            if (d < best) best = d;
-        }
-        return best;
-    }
+    // nearestPoiFootprintDist() (achada em teste ao vivo, workaround pra restrição
+    // "só 2 direções perto de rua" travar a entrada da torre) foi REMOVIDA em
+    // 2026-09-03 junto com essa restrição em updateMovement() — sem a restrição
+    // de tangente, não existe mais nada pra "ignorar perto de um POI". Ver
+    // ATUALIZAÇÃO "ruas viram só guia visual" no topo do arquivo.
 
     // ============================ Projeção ====================================
     // gridToScreen() continua DE PROPÓSITO sem nenhum fator de zoom embutido —
@@ -2233,73 +2072,13 @@
     }
 
     // ==================== Dicas de tecla em interseção (renderização) ============
-    // Camada de HUD PURA (pedido explícito: não participa de updateMovement(),
-    // colisão ou disparo de POI — só lê S.loadedChunks[*].intersections,
-    // precomputado em ensureChunkLoaded/buildIntersectionsForChunk acima, e
-    // S.playerDrawCol/Row pra distância/fade). Chamada 1x por frame direto de
-    // render(), só em zoom micro (mesma regra de drawStreetNameLabel — em macro
-    // o jogador não está mirando um cruzamento específico, e os próprios
-    // rótulos de rua já somem nesse zoom pelo mesmo motivo).
-    function drawIntersectionKeyHints(ctx, pal, camOffsetX, camOffsetY) {
-        var pc = S.playerDrawCol, pr = S.playerDrawRow;
-        var fadeStart = INTERSECTION_HINT_RADIUS_TILES - INTERSECTION_HINT_FADE_TILES;
-        for (var key in S.loadedChunks) {
-            var nodes = S.loadedChunks[key].intersections;
-            if (!nodes) continue;
-            for (var i = 0; i < nodes.length; i++) {
-                var node = nodes[i];
-                var ddc = node.col - pc, ddr = node.row - pr;
-                var dist = Math.hypot(ddc, ddr);
-                if (dist > INTERSECTION_HINT_RADIUS_TILES) continue; // culling barato antes de qualquer desenho — mesmo padrão de bbox culling já usado no resto do arquivo
-                // fade in/out (pedido explícito, "não popup abrupto") — 1 dentro do
-                // raio "cheio", cai linear até 0 na borda externa.
-                var alpha = dist <= fadeStart ? 1 : Math.max(0, 1 - (dist - fadeStart) / INTERSECTION_HINT_FADE_TILES);
-                if (alpha <= 0.01) continue;
-                for (var b = 0; b < node.branches.length; b++) {
-                    var branch = node.branches[b];
-                    var label = keyLabelForDirection(branch.dirCol, branch.dirRow);
-                    if (!label) continue;
-                    // ancorado perto do INÍCIO do ramo (pedido explícito), não no nó
-                    // em si nem no meio da rua — desloca o rótulo ao longo da própria
-                    // direção do ramo antes de projetar pra tela.
-                    var labelCol = node.col + branch.dirCol * INTERSECTION_BRANCH_LABEL_OFFSET_TILES;
-                    var labelRow = node.row + branch.dirRow * INTERSECTION_BRANCH_LABEL_OFFSET_TILES;
-                    var world = gridToScreen(labelCol, labelRow);
-                    var s = worldToScreen(world.x, world.y, camOffsetX, camOffsetY);
-                    drawKeyHintLabel(ctx, pal, s.x, s.y, label, alpha);
-                }
-            }
-        }
-    }
-
-    // Pílula neon com o rótulo de tecla — mesma estética/tratamento visual de
-    // drawStreetNameLabel (pílula escura translúcida + glow ciano + Courier New
-    // 10px) já estabelecida no arquivo pra rótulo de mundo pequeno, com borda
-    // magenta pra diferenciar visualmente de nome-de-rua à primeira vista.
-    // Fonte em px FIXO de tela (não multiplicada por S.zoomLevel) de propósito —
-    // MESMA decisão já tomada por todo rótulo de texto deste arquivo
-    // (drawStreetNameLabel/drawTowerStreetLabel/drawNeighbourhoodLabel): champion
-    // de legibilidade sobre "escalar com o resto do mundo" — só a ANCORAGEM
-    // (posição, via gridToScreen+worldToScreen) escala com zoom/câmera como o
-    // resto do HUD de mundo, o texto em si ficaria ilegível cedo demais no
-    // zoom-out se encolhesse junto.
-    function drawKeyHintLabel(ctx, pal, cx, cy, label, alpha) {
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.font = '10px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        var w = ctx.measureText(label).width;
-        ctx.fillStyle = 'rgba(5, 5, 8, 0.68)';
-        ctx.fillRect(cx - w / 2 - 5, cy - 12, w + 10, 15);
-        ctx.strokeStyle = pal.magenta;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(cx - w / 2 - 5, cy - 12, w + 10, 15);
-        ctx.shadowColor = pal.cyan;
-        ctx.shadowBlur = 6;
-        ctx.fillStyle = '#eafffe';
-        ctx.fillText(label, cx, cy - 1);
-        ctx.restore();
-    }
+    // drawIntersectionKeyHints/drawKeyHintLabel (dicas de tecla em interseção)
+    // REMOVIDAS em 2026-09-03 — pedido do usuário: a feature perdeu propósito
+    // porque ruas viraram guia visual puro nesta mesma sessão (movimento livre em
+    // todo lugar, sem seguir tangente de rua — ver updateMovement()). Chamada
+    // removida de render() junto (ver ponto onde isMacroZoom() decide a camada de
+    // rua detalhada). drawStreetNameLabel() (nomes de rua) NÃO foi tocada —
+    // continua em uso, é uma feature independente.
 
     // ============================ Camada de construções (vazia hoje) ============
     // Item 2 do pedido: "prepare a estrutura de dados/código pra que, quando
@@ -3062,13 +2841,10 @@
             for (var ln = 0; ln < labelNames.length && ln < 6; ln++) {
                 drawStreetNameLabel(ctx, pal, streetLabelCandidates[labelNames[ln]], camOffsetX, camOffsetY);
             }
-            // Dicas de tecla em interseção (pedido 2026-09-03) — mesma regra de zoom
-            // que os nomes de rua acima (só faz sentido mirar um cruzamento
-            // específico em visão micro; o próprio raio de proximidade
-            // (INTERSECTION_HINT_RADIUS_TILES) já torna isto redundante em macro,
-            // mas o `if` explícito documenta a regra no ponto de decisão, mesmo
-            // princípio do comentário logo acima sobre streetLabelCandidates.
-            drawIntersectionKeyHints(ctx, pal, camOffsetX, camOffsetY);
+            // Dicas de tecla em interseção (drawIntersectionKeyHints) chamadas aqui
+            // até 2026-09-03 — feature REMOVIDA por completo (pedido do usuário,
+            // perdeu propósito com ruas virando guia visual puro). Nomes de rua
+            // acima (streetLabelCandidates/drawStreetNameLabel) não foram tocados.
         }
 
         // HUD mínimo de depuração — posição do jogador no grid + estado do streaming de
@@ -3211,17 +2987,10 @@
     // Ver ATUALIZAÇÃO 2026-09-03 "movimento contínuo em rua" no topo do arquivo pro
     // raciocínio completo de cada constante/decisão abaixo.
     var STREET_SNAP_RADIUS_TILES = 1.1; // tolerância pra considerar o jogador "sobre uma rua" — cobre células promovidas pelo fechamento de gap diagonal do pipeline (ficam ~1 tile da geometria real, ver nota de 03/09 sobre streetWays).
-    var STREET_INPUT_EPS = 1e-6;        // zona-morta pro produto escalar input·tangente — evita ruído de ponto-flutuante decidir avançar/recuar quando o input é matematicamente ortogonal à rua (ex.: rua a 45°, input na outra diagonal).
-    // CORREÇÃO 2026-09-03 (achada em teste ao vivo, não fazia parte do design original
-    // — ver nearestPoiFootprintDist() acima e ATUALIZAÇÃO no topo do arquivo): raio de
-    // override — perto de QUALQUER POI (footprint da torre incluído), a restrição "só
-    // 2 direções" da rua é ignorada e o movimento cai pro modo livre contínuo de sempre,
-    // MESMO que o jogador esteja geometricamente perto o bastante de uma streetWay pra
-    // contar como "on-street" por distância. 1.5 tiles escolhido por cobrir com folga o
-    // caso medido ao vivo (pois.json:defaultSpawn fica a exatamente 1.0 tile da borda
-    // do footprint da torre) sem abrir uma zona de exclusão grande demais ao redor de
-    // POIs menores no futuro.
-    var POI_FOOTPRINT_OVERRIDE_TILES = 1.5;
+    var STREET_INPUT_EPS = 1e-6;        // zona-morta pro produto escalar input·tangente — usado por updateFacingFromMoveVector() pra decidir se o passo teve componente horizontal de tela suficiente pra virar o sprite; evita ruído de ponto-flutuante virar o sprite num passo puramente vertical em tela.
+    // POI_FOOTPRINT_OVERRIDE_TILES (raio de override perto de POI pra ignorar a
+    // restrição "só 2 direções" da rua) foi REMOVIDO em 2026-09-03 junto com essa
+    // restrição — ver ATUALIZAÇÃO "ruas viram só guia visual" no topo do arquivo.
 
     // ==================== Movimento livre contínuo (unificação 2026-09-03) =====
     // ATUALIZAÇÃO 2026-09-03 "movimento livre contínuo" (ver bloco no topo do
@@ -3377,138 +3146,76 @@
     // ============================ updateMovement() ===============================
     // Controlador de movimento por frame — chamado por loop(), ANTES de render().
     // ÚNICO controlador do jogador local desde a unificação 2026-09-03 (ver
-    // ATUALIZAÇÃO "movimento livre contínuo" no topo do arquivo e o bloco de
-    // constantes acima de findNearestStreetPoint() pro raciocínio completo/
-    // pesquisa aplicada). S.playerContCol/Row (float) é SEMPRE a posição
-    // autoritativa, avançada por dt real a cada frame — nunca mais em saltos de
-    // S.stepIntervalMs. Decide a cada frame se o jogador está "sobre uma rua"
-    // (findNearestStreetPoint() <= STREET_SNAP_RADIUS_TILES da posição VISUAL
-    // atual) e alterna SÓ COMO o vetor de avanço é calculado:
-    //   - SOBRE RUA: input projetado na tangente local do segmento mais próximo
-    //     — só a componente ao longo do caminho importa (implementa "só 2
-    //     direções").
-    //   - LIVRE: input normalizado (unitário mesmo na diagonal, evita o
-    //     clássico "diagonal 41% mais rápido") usado direto como direção — 8
-    //     direções, MESMA PLAYER_SPEED_TILES_PER_SEC de pico do modo rua (sem
-    //     isso haveria um salto de velocidade perceptível bem na fronteira
-    //     entre os dois modos).
+    // ATUALIZAÇÃO "movimento livre contínuo" no topo do arquivo). S.playerContCol/Row
+    // (float) é SEMPRE a posição autoritativa, avançada por dt real a cada frame —
+    // nunca em saltos de S.stepIntervalMs.
+    //
+    // ATUALIZAÇÃO 2026-09-03 "ruas viram só guia visual" — REMOVIDA a distinção
+    // "sobre rua" (projeção do input na tangente local, só 2 direções) que existia
+    // aqui antes. Ruas agora são só uma camada VISUAL (ver drawStreetNameLabel,
+    // inalterada; a antiga camada de dicas de tecla em interseção foi REMOVIDA por
+    // completo, mesma sessão — ver ATUALIZAÇÃO no topo do arquivo); o jogador anda livre nas 8 direções
+    // em QUALQUER ponto do mapa, inclusive em cima de uma rua — input normalizado
+    // (unitário mesmo na diagonal, evita o clássico "diagonal 41% mais rápido")
+    // usado direto como vetor de avanço. isWalkable() continua sendo a ÚNICA
+    // restrição de movimento (colisão contra prédio), com wall-slide de quina
+    // (desliza no eixo isolado ainda livre em vez de travar seco na diagonal).
+    // S.onStreet ainda é calculado (findNearestStreetPoint() <=
+    // STREET_SNAP_RADIUS_TILES da posição visual atual) mas é PURAMENTE
+    // informativo agora — só pra window.OverworldDebug.getMovementMode() em teste
+    // ao vivo, nunca mais influencia o avanço.
+    //
     // dtSec = delta de tempo real desde a última chamada (S.lastMoveAt, relógio
     // PRÓPRIO deste controlador — não o mesmo S.lastRenderAt que a câmera usa em
     // render(), pra não acoplar os dois sistemas), já clampado em MAX_DT_SEC por
     // loop() antes de chegar aqui (previne tunneling/espiral da morte).
     function updateMovement(now, dtSec) {
         var delta = currentInputVector();
+
+        // Só informativo (ver ATUALIZAÇÃO acima) — findNearestStreetPoint() e
+        // STREET_SNAP_RADIUS_TILES continuam vivos por causa de outros usos
+        // (rótulo de rua, orientação da torre, detecção de interseção); aqui só
+        // alimenta S.onStreet pro hook de debug, não decide mais nada.
         var testCol = (typeof S.playerDrawCol === 'number') ? S.playerDrawCol : S.playerCol;
         var testRow = (typeof S.playerDrawRow === 'number') ? S.playerDrawRow : S.playerRow;
-        var nearest = findNearestStreetPoint(testCol, testRow);
-        // CORREÇÃO 2026-09-03 (achada em teste ao vivo — ver nearestPoiFootprintDist()
-        // e POI_FOOTPRINT_OVERRIDE_TILES acima): perto de um POI, o movimento livre de
-        // sempre tem prioridade sobre o seguimento de rua, mesmo dentro do raio de
-        // captura da rua — sem isto, o passo lateral pra dentro da porta da torre fica
-        // geometricamente inatingível a partir do spawn padrão.
-        var onStreetNow = !!nearest && nearest.dist <= STREET_SNAP_RADIUS_TILES &&
-            nearestPoiFootprintDist(testCol, testRow) > POI_FOOTPRINT_OVERRIDE_TILES;
+        var nearestForDebug = findNearestStreetPoint(testCol, testRow);
+        S.onStreet = !!nearestForDebug && nearestForDebug.dist <= STREET_SNAP_RADIUS_TILES;
 
-        if (onStreetNow) {
-            if (!S.onStreet) {
-                // Entrando no modo rua agora — ancora na posição VISUAL atual (não
-                // numa projeção exata sobre a linha, que puxaria o jogador
-                // lateralmente de forma perceptível no instante da transição).
-                // Normalmente já é um no-op (testCol/testRow == playerContCol/Row,
-                // porque o modo livre também mantém os dois em sincronia todo
-                // frame desde a unificação) — mantido como guarda explícita pro
-                // 1º frame após activateNow() e por clareza de intenção.
-                S.playerContCol = testCol;
-                S.playerContRow = testRow;
-            }
-            S.onStreet = true;
-
-            if (delta) {
-                // CORREÇÃO 2026-09-03 (achada em teste ao vivo — ver ATUALIZAÇÃO no topo
-                // do arquivo item 2c/2d): a primeira versão disto usava só o SINAL do
-                // produto escalar bruto (delta·tangente) pra decidir avançar/recuar, mas
-                // aplicava velocidade MÁXIMA sempre que o sinal desse não-zero — e como
-                // ruas reais (dado OSM) quase nunca são perfeitamente horizontais/
-                // verticais (ex.: "Rua Waldir Cabral" é 176°, só 4° fora do horizontal,
-                // não 180° exato), isso fazia ATÉ UM INPUT ORTOGONAL (ex.: ArrowUp numa
-                // rua quase-horizontal) disparar velocidade PLENA na direção da rua —
-                // exatamente o oposto de "cima/baixo não fazem nada útil" pedido pelo
-                // usuário. Corrigido normalizando o vetor de input (unitário mesmo na
-                // diagonal) ANTES do produto escalar — o resultado é o COSSENO do ângulo
-                // entre input e tangente, em [-1,1] — e escalando a velocidade por esse
-                // valor (não só pelo sinal). Efeito real: input alinhado com a rua anda
-                // a velocidade PLENA (cosseno ~1); input perpendicular anda a ~0 (cosseno
-                // ~0, só o resíduo do desalinhamento real da rua, imperceptível); ângulos
-                // intermediários (ex. diagonal real vs input cardinal) andam
-                // proporcionalmente mais devagar — é literalmente "projetar o vetor de
-                // input na tangente" como pedido, não uma aproximação por sinal.
-                var inLen = Math.hypot(delta.dc, delta.dr); // 1 pra input cardinal, sqrt(2) pra diagonal (2 teclas de eixos diferentes)
-                var normDc = delta.dc / inLen, normDr = delta.dr / inLen;
-                var dot = normDc * nearest.tangentCol + normDr * nearest.tangentRow; // cosseno do ângulo entre input normalizado e a tangente
-                if (dot > STREET_INPUT_EPS || dot < -STREET_INPUT_EPS) {
-                    var dir = dot > 0 ? 1 : -1; // só o sinal, pra orientação do sprite (ver updateFacingFromMoveVector abaixo) — a MAGNITUDE do avanço usa `dot` direto, não `dir`.
-                    var stepTiles = dot * PLAYER_SPEED_TILES_PER_SEC * dtSec; // escalado pelo cosseno de alinhamento — velocidade plena só quando input e rua estão perfeitamente alinhados. MESMA constante de pico do modo livre (ver bloco de constantes acima) — garante continuidade de velocidade na transição entre os dois modos.
-                    var candCol = S.playerContCol + nearest.tangentCol * stepTiles;
-                    var candRow = S.playerContRow + nearest.tangentRow * stepTiles;
-                    var roundedCol = Math.round(candCol), roundedRow = Math.round(candRow);
-                    if (isWalkable(roundedCol, roundedRow)) {
-                        S.playerContCol = candCol;
-                        S.playerContRow = candRow;
-                        // Orientação: direção CONTÍNUA (tangente*sinal, SEM escalar pela
-                        // magnitude de `dot` — a pose do sprite não deve ficar "menos
-                        // virada" só porque o input estava mal alinhado) — só atualiza
-                        // quando o avanço foi de fato aceito (isWalkable acima),
-                        // preservando "nunca desliza" também neste modo.
-                        updateFacingFromMoveVector(nearest.tangentCol * dir, nearest.tangentRow * dir);
-                    }
-                    // isWalkable false: avanço recusado, posição contínua não muda
-                    // (mesmo "bloqueia contra bloco" de sempre, sem sair do lugar).
+        // Único controlador de avanço agora — livre nas 8 direções sempre (era só
+        // o ramo "fora de rua" antes da remoção da restrição de tangente).
+        if (delta) {
+            var inLenF = Math.hypot(delta.dc, delta.dr); // 1 cardinal, sqrt(2) diagonal
+            var normDcF = delta.dc / inLenF, normDrF = delta.dr / inLenF; // normalizado ANTES de multiplicar pela velocidade — evita o "diagonal 41% mais rápido" (ver skills/physics_dt.md §5, citado no bloco de constantes acima).
+            var stepTilesF = PLAYER_SPEED_TILES_PER_SEC * dtSec;
+            var candColF = S.playerContCol + normDcF * stepTilesF;
+            var candRowF = S.playerContRow + normDrF * stepTilesF;
+            if (isWalkable(Math.round(candColF), Math.round(candRowF))) {
+                S.playerContCol = candColF;
+                S.playerContRow = candRowF;
+                updateFacingFromMoveVector(normDcF, normDrF);
+            } else {
+                // "Wall slide": a diagonal plena esbarrou numa quina bloqueada,
+                // mas um dos dois eixos isolados pode continuar livre — desliza
+                // só nesse eixo em vez de travar seco contra o canto (técnica
+                // padrão de movimento em grade; ver bloco de constantes acima,
+                // item 4, pra raciocínio completo). Sem isto, andar na diagonal
+                // rente a uma parede oblíqua pararia de repente a cada leve
+                // irregularidade do contorno andável/bloqueado — uma "trava"
+                // perceptível que o pedido do usuário pede pra eliminar.
+                var slidCol = S.playerContCol + normDcF * stepTilesF;
+                var slidRow = S.playerContRow + normDrF * stepTilesF;
+                if (normDcF !== 0 && isWalkable(Math.round(slidCol), Math.round(S.playerContRow))) {
+                    S.playerContCol = slidCol;
+                    updateFacingFromMoveVector(normDcF, 0);
+                } else if (normDrF !== 0 && isWalkable(Math.round(S.playerContCol), Math.round(slidRow))) {
+                    S.playerContRow = slidRow;
+                    updateFacingFromMoveVector(0, normDrF);
                 }
-            }
-        } else {
-            S.onStreet = false;
-
-            // 2026-09-03 (unificação do movimento livre contínuo) — substitui o
-            // antigo tryMove() discreto (1 tile a cada S.stepIntervalMs, sem
-            // posição lógica fracionária). Mesmo controlador contínuo do modo
-            // rua acima, só que o vetor de avanço é o input NORMALIZADO direto
-            // (8 direções livres), não uma projeção numa tangente de via.
-            if (delta) {
-                var inLenF = Math.hypot(delta.dc, delta.dr); // 1 cardinal, sqrt(2) diagonal
-                var normDcF = delta.dc / inLenF, normDrF = delta.dr / inLenF; // normalizado ANTES de multiplicar pela velocidade — evita o "diagonal 41% mais rápido" (ver skills/physics_dt.md §5, citado no bloco de constantes acima).
-                var stepTilesF = PLAYER_SPEED_TILES_PER_SEC * dtSec;
-                var candColF = S.playerContCol + normDcF * stepTilesF;
-                var candRowF = S.playerContRow + normDrF * stepTilesF;
-                if (isWalkable(Math.round(candColF), Math.round(candRowF))) {
-                    S.playerContCol = candColF;
-                    S.playerContRow = candRowF;
-                    updateFacingFromMoveVector(normDcF, normDrF);
-                } else {
-                    // "Wall slide": a diagonal plena esbarrou numa quina bloqueada,
-                    // mas um dos dois eixos isolados pode continuar livre — desliza
-                    // só nesse eixo em vez de travar seco contra o canto (técnica
-                    // padrão de movimento em grade; ver bloco de constantes acima,
-                    // item 4, pra raciocínio completo). Sem isto, andar na diagonal
-                    // rente a uma parede oblíqua pararia de repente a cada leve
-                    // irregularidade do contorno andável/bloqueado — uma "trava"
-                    // perceptível que o pedido do usuário pede pra eliminar.
-                    var slidCol = S.playerContCol + normDcF * stepTilesF;
-                    var slidRow = S.playerContRow + normDrF * stepTilesF;
-                    if (normDcF !== 0 && isWalkable(Math.round(slidCol), Math.round(S.playerContRow))) {
-                        S.playerContCol = slidCol;
-                        updateFacingFromMoveVector(normDcF, 0);
-                    } else if (normDrF !== 0 && isWalkable(Math.round(S.playerContCol), Math.round(slidRow))) {
-                        S.playerContRow = slidRow;
-                        updateFacingFromMoveVector(0, normDrF);
-                    }
-                    // Os dois eixos travados: nenhum avanço, mesmo "bloqueia contra
-                    // bloco" de sempre — sem sair do lugar.
-                }
+                // Os dois eixos travados: nenhum avanço, mesmo "bloqueia contra
+                // bloco" de sempre — sem sair do lugar.
             }
         }
 
-        // Comum aos dois modos desde a unificação — antes só o ramo "em rua" fazia
-        // isto; agora S.playerContCol/Row é SEMPRE a posição autoritativa.
         commitLogicalStepIfChanged(Math.round(S.playerContCol), Math.round(S.playerContRow));
         S.playerDrawCol = S.playerContCol;
         S.playerDrawRow = S.playerContRow;
