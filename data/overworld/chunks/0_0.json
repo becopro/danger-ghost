@@ -410,7 +410,9 @@
       "Regenerado em 2026-09-03T13:33:30.561Z: halfwidths aumentados (~1.3x) + fechamento de gap diagonal (ver tools/build-overworld-grid.js) para eliminar fragmentacao 4-conectada. Isto muda QUAIS celulas sao rua vs quarteirao perto de bordas antes ambiguas; nenhuma coordenada OSM foi inventada, so a regra de rasterizacao.",
       "Torre (POI tower_rua_beltrao) recentrada em row=40 col=40 (era row=42 col=42) para ficar fora da malha viaria com uma porta adjacente a uma celula de rua do componente principal - ver docs/HANDOVER.md ou o relatorio da sessao de 03/09/2026 para o raciocinio completo.",
       "Regenerado em 2026-09-03T13:36:17.504Z: halfwidths aumentados (~1.3x) + fechamento de gap diagonal (ver tools/build-overworld-grid.js) para eliminar fragmentacao 4-conectada. Isto muda QUAIS celulas sao rua vs quarteirao perto de bordas antes ambiguas; nenhuma coordenada OSM foi inventada, so a regra de rasterizacao.",
-      "Torre (POI tower_rua_beltrao) recentrada em row=40 col=40 (era row=42 col=42) para ficar fora da malha viaria com uma porta adjacente a uma celula de rua do componente principal - ver docs/HANDOVER.md ou o relatorio da sessao de 03/09/2026 para o raciocinio completo."
+      "Torre (POI tower_rua_beltrao) recentrada em row=40 col=40 (era row=42 col=42) para ficar fora da malha viaria com uma porta adjacente a uma celula de rua do componente principal - ver docs/HANDOVER.md ou o relatorio da sessao de 03/09/2026 para o raciocinio completo.",
+      "04/09/2026: torre (POI tower_rua_beltrao) reposicionada de novo, agora para row=48 col=31 (era row=40 col=40) a pedido do usuario - ver data/overworld/pois.json:_position_note para o raciocinio completo do lado do POI. Do lado deste arquivo de grid: as 9 celulas 'L' do footprint 3x3 ANTIGO (rows 39-41 x cols 39-41) foram revertidas para '#' (classificacao natural de quarteirao, igual as celulas vizinhas - nao havia como recuperar a classificacao 'pre-L' original sem reprocessar OSM, entao '#' foi escolhido por bater com a vizinhanca imediata), e as 9 celulas do footprint NOVO (rows 47-49 x cols 30-32) foram marcadas 'L'. Isto e necessario porque o laco de desenho em overworld.js pula qualquer celula '#' ANTES de checar se ela pertence ao footprint do POI (isInsidePoiFootprint) - um footprint sentado em cima de celulas '#' nao-marcadas nunca dispara drawTower(), mesmo com pois.json apontando pro lugar certo (bug encontrado ao vivo nesta sessao: a etiqueta flutuante 'Danger Ghost/Episodio 1' aparecia no lugar novo, mas o predio nao desenhava, porque so a etiqueta le poi._bounds diretamente - o predio depende do scan de celulas encontrar tipo 'tile' no footprint).",
+      "04/09/2026 (2a correcao, mesmo dia): a posicao row=48 col=31 acima era uma interpretacao APROXIMADA de screenshot (contorno vermelho desenhado a mao pelo usuario, comparado visualmente) - o usuario depois mandou a localizacao EXATA em texto: 'o local que deve ficar a torre e no comeco da rua beltrao com a rua mario viana'. Achado o no OSM real do cruzamento: o segmento osmId=785117600 ('Rua Doutor Beltrao') termina em (col=38.833,row=53.554), e esse e EXATAMENTE (ate a 3a casa decimal) o ponto inicial do segmento osmId=785117599 ('Rua Doutor Mario Vianna') - mesmo no OSM, cruzamento real, nao aproximacao. Torre movida de novo: as 9 celulas 'L' do footprint ANTERIOR (rows 47-49 x cols 30-32, adicionado na correcao acima) foram revertidas para '#' (mesmo raciocinio de sempre - bate com a vizinhanca imediata, que ja era '#' nessas mesmas linhas/colunas antes da 1a correcao), e as 9 celulas do footprint NOVO (rows 50-52 x cols 36-38) foram marcadas 'L'. Footprint novo escolhido por ficar 100% dentro de celulas '#' reais E encostar (4-adjacencia) em rua andavel '.' em DUAS bordas ao mesmo tempo - leste inteiro (col39, rows50-52, que e o proprio corredor vertical que desce ate o no do cruzamento em row53/54) e sul inteiro (row53, cols36-38, a rua horizontal que cruza ali) - um lote de esquina de verdade, colado no cruzamento sem ficar sentado em cima do no da rua (que fica sobre asfalto, celula '.', nao seria valido pra footprint). Ver data/overworld/pois.json:_position_note para o raciocinio completo do lado do POI (globalCol/globalRow/defaultSpawn novos)."
     ]
   },
   "grid": {
@@ -454,9 +456,9 @@
       "#########.###...#####.###..##.##.#####.#####.##################..####################",
       "########..#####..####.###.###....#####.#####.########################################",
       "########..######..##........###.#####..####..######..################################",
-      "########.###########...####..##.#####.#LLL#.#######.###########.#####################",
-      "#######..###################..........#LLL#.######..###########.#####################",
-      "#######.######################...###.##LLL..######..##########..#####################",
+      "########.###########...####..##.#####.#####.#######.###########.#####################",
+      "#######..###################..........#####.######..###########.#####################",
+      "#######.######################...###.#####..######..##########..#####################",
       "#######.########################..########.#######.###########.######################",
       "..####..#################...#####..######..######..###########.######################",
       "....##.###################.........######......#..############.######################",
@@ -465,9 +467,9 @@
       "####..#...#######################.######.###############....###.....#################",
       "####..###...#####################.######.###############.##.....#.#......############",
       "####..#####...###################.#####..###############..####....######.....########",
-      "#####.######......###############.#####..##############........#..#########......####",
-      "#####.######.##.........#########.#####.###############..###..##.####################",
-      "#####.######.#######..............#####.###############...###.##.####################",
+      "#####.######......###############.##LLL..##############........#..#########......####",
+      "#####.######.##.........#########.##LLL.###############..###..##.####################",
+      "#####.######.#######..............##LLL.###############...###.##.####################",
       "#####.######.########.#####..............##############.#.....#..####################",
       "####..######.########.############.#..............####..####.##.#####################",
       "###..#######.########.############.###.#####.................##.#####################",

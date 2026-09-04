@@ -877,7 +877,7 @@
     // disco/servidor. Mesma lógica de version-bump manual que overworld.js?v=N já
     // usa — sobe este número sempre que os dados de data/overworld/ mudarem de
     // verdade (regeração de chunk, reposição de POI etc.).
-    var OVERWORLD_DATA_VERSION = 5; // bump 2026-09-03 (sessão "torre 2 linhas / rua rotacionada / zoom cidade"): pois.json ganhou visual.towerLabel ({main,sub} — torre em 2 linhas) — mesma prática documentada acima (cache heurístico do http-server sem query string própria já mordeu uma sessão anterior).
+    var OVERWORLD_DATA_VERSION = 12; // bump 2026-09-04 (v11->v12): correção da posição da torre pro cruzamento real Rua Doutor Beltrão x Rua Doutor Mário Vianna (globalCol/Row 31/48 -> 37/51 em pois.json; célula 'L' do footprint movida de novo em chunks/0_0.json) — a posição 31/48 era uma aproximação por comparação de screenshot, esta é a localização exata que o usuário pediu em texto. Mesma prática de version-bump documentada acima.
     var MANIFEST_URL = 'data/overworld/manifest.json?v=' + OVERWORLD_DATA_VERSION;
     // Estágio 2 do plano de overworld expansível (POI data-driven) — ver
     // C:\Users\Klara\.claude\plans\crystalline-launching-goose.md §4. Carregado em
@@ -2157,30 +2157,25 @@
 
     // Estágio 2 — TOWER_HW/TOWER_HH hardcoded (footprint 3x3 fixo) removidos: a
     // largura/altura em tiles agora vêm do footprint do POI carregado
-    // (poi.footprint.widthTiles/heightTiles), lido em cada chamada. TOWER_HEIGHT
-    // continua fixo — é a extrusão em Z (px), puramente visual, não faz parte do
-    // schema de footprint (que só descreve o retângulo em tiles no chão).
-    var TOWER_HEIGHT = 170;
+    // (poi.footprint.widthTiles/heightTiles), lido em cada chamada.
+    //
+    // TOWER_HEIGHT (extrusão em Z do prisma antigo) REMOVIDA em 2026-09-04: drawTower()
+    // trocou de prisma procedural pra billboard 2D (ver TOWER_BILLBOARD_TARGET_H logo
+    // abaixo, que é a substituta conceitual — altura-alvo em px de MUNDO, só que da
+    // IMAGEM, não de uma extrusão). Não sobrou nenhum outro consumidor de TOWER_HEIGHT
+    // no arquivo (comentário de drawTowerStreetLabel só cita o número como contexto
+    // histórico de onde o farol ficava, não lê a variável).
 
-    // Problema 2 (2026-09-03) — "torre deve ficar paralela à rua". Investigado ao vivo
-    // ANTES de escrever qualquer rotação: qual rua de verdade fica mais perto da torre?
-    // tools/build-overworld-grid.js:findTowerSpot() carve a "porta" da torre encostando
-    // na célula de rua globalRow=41/globalCol=42 (ver pois.json:_position_note); rodando
-    // um script Node contra data/overworld/chunks/0_0.json:streetWays (nearest-segment,
-    // point-to-segment distance — a MESMA função ptSegDist que o build script já usa pra
-    // rasterizar) contra os 3 `way` de "Rua Doutor Beltrão", o segmento
-    // osmId=182630122 pontos[0]->[1] (col,row FRACIONÁRIO local do chunk 0_0 = global,
-    // origem 0,0) — de [46.138,30.71] a [41.273,43.985] — é o mais próximo tanto do
-    // centro da torre (dist=2.566 tiles) quanto da célula-porta 42/41 (dist=0.345 tiles,
-    // praticamente em cima). Nenhum outro segmento de nenhuma rua chega perto disso.
-    // Ângulo do segmento em espaço de GRID: atan2(dRow,dCol) = atan2(13.275,-4.865) =
-    // 110.13°. Como o footprint é um QUADRADO (3x3), rotacionar por 110.13° produz o
-    // MESMO retângulo desenhado que rotacionar por 110.13-90=20.13° (só troca qual lado
-    // do quadrado é "largura" vs "profundidade" — visualmente idêntico) — normalizado
-    // pra [-45°,45°] por clareza (menor rotação visual equivalente). Resultado:
-    // orientationDeg=20.13, GRAVADO EM data/overworld/pois.json (visual.orientationDeg),
-    // não um número mágico só aqui no código — decisão de DADO, como pedido. Ver
-    // computeFootprintCornersScreen() abaixo pra como esse ângulo vira geometria de tela.
+    // Problema 2 (2026-09-03) — "torre deve ficar paralela à rua", resolvido rotacionando
+    // o footprint do PRISMA antigo (visual.orientationDeg=20.13 em pois.json, derivado do
+    // ângulo real da Rua Doutor Beltrão contra o segmento de rua mais próximo — ver git
+    // history deste arquivo pra derivação completa). REMOVIDO em 2026-09-04 junto com a
+    // troca pra billboard 2D (ver _orientationRemovedNote em data/overworld/pois.json) —
+    // uma imagem plana não tem "lados" pra rotacionar, e a torre mudou de posição no
+    // mesmo commit, então o ângulo antigo nem seria válido geometricamente mais. As
+    // funções computeFootprintCornersScreen()/drawExtrudedFootprint() abaixo continuam
+    // vivas (podem servir a um POI futuro que precise de prisma rotacionado de novo) —
+    // só pararam de ser CHAMADAS por drawTower().
     var DEG2RAD = Math.PI / 180;
 
     // Gira o retângulo do footprint (widthTiles x heightTiles, em espaço de GRID) por
@@ -2225,59 +2220,65 @@
         return { T: T, R: mid[1], B: B, L: mid[0] };
     }
 
+    // Arte definitiva da torre (2026-09-04) — mesmo padrão de billboard 2D que
+    // drawGhostBillboard() já usa pro sprite do fantasma (ver comentário lá, ~linha
+    // 2472): imagem carregada uma vez com cache (loadAvatar(), cache genérico por URL
+    // já existente — S.avatarImgCache — não precisou de um cache dedicado novo, a URL
+    // em si já é uma chave única). gg_torre_beltrao.png é pixel-art isométrica PRONTA
+    // (1039x2517px, com os letreiros neon "DANGER GHOST"/"EPISODE 1" desenhados NA
+    // PRÓPRIA imagem) — copiada pro projeto em assets/overworld/ (pasta nova, mesmo
+    // padrão de assets/sprites/ que já guarda os sprites de fantasma).
+    var TOWER_IMG_URL = 'assets/overworld/gg_torre_beltrao.png';
+    // Altura-alvo em px de MUNDO (antes de multiplicar por S.zoomLevel), mantendo a
+    // proporção original da imagem — mesmo princípio de GHOST_SPRITE_TARGET_H
+    // (~linha 2401) só que pra torre. Testado ao vivo (zoom micro 1.0 e macro ~0.5-0.7)
+    // dentro da faixa 170-220 pedida: 200 leu bem como "prédio grande", claramente
+    // maior que o fantasma (GHOST_SPRITE_TARGET_H=46) sem ficar desproporcional nem
+    // pequena demais pra ler os letreiros em zoom próximo.
+    var TOWER_BILLBOARD_TARGET_H = 200;
+
     function drawTower(ctx, cx, cy, pal, tSec, poi, camOffsetX, camOffsetY) {
         var z = S.zoomLevel;
         var fp = (poi && poi.footprint) || { widthTiles: 3, heightTiles: 3 };
-        var angleDeg = (poi && poi.visual && typeof poi.visual.orientationDeg === 'number') ? poi.visual.orientationDeg : 0;
-        var height = TOWER_HEIGHT * z;
-        // Camada de POI — visível em qualquer zoom (item 4a/4b do pedido de zoom), então o
-        // prisma da torre escala normalmente com S.zoomLevel como qualquer objeto de
-        // mundo (fica menor no zoom-out, maior no zoom-in, como esperado). hh (usado pro
-        // farol logo abaixo) vem da metade vertical de tela real dos cantos calculados —
-        // no caso eixo-alinhado (angleDeg=0) isso é numericamente idêntico ao antigo
-        // HALF_H*fp.heightTiles*z (mesmo valor, só derivado dos cantos em vez de
-        // hardcoded), então zero regressão pra qualquer POI sem orientationDeg.
-        var corners;
-        if (angleDeg !== 0 && poi && poi._bounds) {
-            corners = computeFootprintCornersScreen(poi._bounds.centerCol, poi._bounds.centerRow, fp.widthTiles, fp.heightTiles, angleDeg, camOffsetX, camOffsetY);
-        } else {
-            var hw = HALF_W * fp.widthTiles * z, hhAxis = HALF_H * fp.heightTiles * z;
-            corners = {
-                T: { x: cx, y: cy - hhAxis },
-                R: { x: cx + hw, y: cy },
-                B: { x: cx, y: cy + hhAxis },
-                L: { x: cx - hw, y: cy }
-            };
-        }
-        var hh = Math.abs(corners.B.y - corners.T.y) / 2; // meia-altura de TELA real do prisma, rotacionado ou não — ver farol abaixo.
-        cx = (corners.T.x + corners.R.x + corners.B.x + corners.L.x) / 4; // recentraliza cx pro farol a partir dos cantos reais (bate com o cx recebido no caso eixo-alinhado; some qualquer arredondamento no caso rotacionado).
-        ctx.save();
-        ctx.shadowColor = pal.cyan;
-        ctx.shadowBlur = 22 * z;
-        drawExtrudedFootprint(ctx, corners, height, {
-            roof: pal.purple,
-            leftFace: hslShade(275, 70, 22),
-            rightFace: hslShade(275, 70, 14),
-            roofStroke: pal.cyan,
-            roofStrokeWidth: 2
-        });
-        ctx.restore();
+        // "Pé" da torre = canto da base do footprint mais PERTO da câmera — mesmo ponto
+        // que o antigo corners.B do prisma eixo-alinhado ocupava (ver comentário de
+        // computeFootprintCornersScreen acima sobre a convenção T/R/B/L). cx,cy
+        // recebidos são o CENTRO do footprint já projetado; o pé fica hh px de tela
+        // abaixo dele — mesma fórmula que hh já usava antes desta troca (footprint não
+        // mudou, só o desenho por cima dele).
+        var hh = HALF_H * fp.heightTiles * z;
+        var footX = cx, footY = cy + hh;
 
-        // farol pulsante no topo — deixa a torre óbvia de longe, conforme pedido. Só
-        // desenha se o POI pedir (visual.beacon !== false — mesmo default "ligado" de
-        // antes, quando essa opção nem existia).
+        var img = loadAvatar(TOWER_IMG_URL);
+        var ready = img && img.complete && img.naturalWidth > 0;
+        if (!ready) return; // ainda carregando (só a 1ª visita — depois fica em cache) — sem placeholder: a célula de chão do footprint (drawLandmarkGroundMarker, já desenhada por quem chama drawTower) já sinaliza "tem algo aqui" enquanto isso, e o próximo frame já desenha a imagem certa.
+
+        var targetH = TOWER_BILLBOARD_TARGET_H * z;
+        var scale = targetH / img.naturalHeight;
+        var w = img.naturalWidth * scale;
+        var h = targetH;
+        ctx.drawImage(img, footX - w / 2, footY - h, w, h);
+
+        // Farol pulsante no topo — TESTADO AO VIVO nos dois formatos (com e sem) antes
+        // de decidir: MANTIDO. A imagem já traz antenas/parabólicas desenhadas no topo,
+        // mas ficam dentro do frame da arte; o farol continua sendo o único elemento
+        // ANIMADO da torre e o que mais ajuda a achá-la de longe em zoom bem afastado
+        // (mesmo raciocínio de "legível à distância" de antes — ver escala especial de
+        // macro zoom abaixo) — sem ele a torre nova ficaria estática, e em zoom macro a
+        // arte perde nitidez antes do ponto pulsante. Só desenha se o POI pedir
+        // (visual.beacon !== false — mesmo default "ligado" de antes).
         if (poi && poi.visual && poi.visual.beacon === false) return;
         var pulse = 0.55 + 0.45 * Math.sin(tSec * 2.4);
-        var beaconY = cy - height - hh - 14 * z;
-        // Item 4b do pedido: em zoom-out o beacon precisa continuar legível "à
-        // distância" — se o raio/blur só acompanhassem S.zoomLevel como o resto da
-        // torre, eles encolheriam junto com tudo e ficariam pontinhos ilegíveis
-        // exatamente no modo em que mais precisam se destacar. Em vez de escalar
-        // linear com z, uso um raio de BASE fixo em px de tela (não multiplicado por
-        // z) no modo macro — maior, relativamente, que o resto do prisma que já
-        // encolheu — e só escala normal com z no modo micro (comportamento "de
-        // sempre"). Resultado: o beacon cresce (relativo ao resto) conforme o
-        // usuário dá zoom out, até o piso de ZOOM_MIN.
+        var beaconY = footY - h - 14 * z;
+        // Item 4b do pedido original de zoom: em zoom-out o beacon precisa continuar
+        // legível "à distância" — se o raio/blur só acompanhassem S.zoomLevel como o
+        // resto da torre, eles encolheriam junto com tudo e ficariam pontinhos
+        // ilegíveis exatamente no modo em que mais precisam se destacar. Em vez de
+        // escalar linear com z, uso um raio de BASE fixo em px de tela (não
+        // multiplicado por z) no modo macro — maior, relativamente, que o resto da
+        // imagem que já encolheu — e só escala normal com z no modo micro
+        // (comportamento "de sempre"). Mesma fórmula de antes desta troca de arte, só
+        // a origem de beaconY mudou (topo da imagem, não topo do prisma).
         var baseRadius = 6 + pulse * 3;
         var baseBlur = 16 + pulse * 14;
         var beaconRadius = isMacroZoom() ? baseRadius * 1.7 : baseRadius * z;
@@ -2288,7 +2289,7 @@
         ctx.fillStyle = pal.cyan;
         ctx.globalAlpha = 0.55 + pulse * 0.45;
         ctx.beginPath();
-        ctx.arc(cx, beaconY, beaconRadius, 0, Math.PI * 2);
+        ctx.arc(footX, beaconY, beaconRadius, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
     }
