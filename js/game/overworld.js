@@ -2688,7 +2688,24 @@
             ctx.fillStyle = '#fff';
             ctx.shadowColor = '#000';
             ctx.shadowBlur = 3;
-            ctx.fillText(label, cx, footY - h - 6);
+            // 04/09/2026: label agora pode vir com "\n" (nome numa linha, "Lv.N" na
+            // outra — ver chamadas em render(), branches 'other' e 'player') porque uma
+            // linha só ("Fulano Lv.12") ficava comprida demais e colidia com o sprite
+            // vizinho em nomes maiores testado ao vivo. fillText não quebra \n sozinho
+            // (desenharia tudo numa linha só, ilegível) — por isso o split manual aqui,
+            // mesmo princípio de 2 fillText que a etiqueta da torre já usa
+            // (drawTowerStreetLabel, mainText/subText), só que sem a caixa de fundo
+            // (a torre é um POI grande e parado; o ghost é pequeno e se move o tempo
+            // todo, uma caixa piscando a cada frame atrapalharia mais que ajudaria).
+            // Desenha de baixo pra cima a partir de "footY - h - 6" (mesma âncora de
+            // sempre, pro caso de 1 linha só continuar pixel-idêntico a antes) e empilha
+            // linhas anteriores acima dela.
+            var labelLines = String(label).split('\n');
+            var LABEL_LINE_H = 11;
+            for (var li = labelLines.length - 1; li >= 0; li--) {
+                var lineY = (footY - h - 6) - (labelLines.length - 1 - li) * LABEL_LINE_H;
+                ctx.fillText(labelLines[li], cx, lineY);
+            }
             ctx.restore();
         }
     }
@@ -2721,7 +2738,22 @@
             ctx.fillStyle = '#fff';
             ctx.shadowColor = '#000';
             ctx.shadowBlur = 3;
-            ctx.fillText(label, cx, footY - bodyH - 16);
+            // 04/09/2026: mesmo suporte a label multi-linha ("\n") que
+            // drawGhostBillboard ganhou (ver comentário lá) — achado ao vivo que
+            // faltava aqui: drawPlayerToken é o marcador genérico usado quando a
+            // imagem do fantasma ainda não carregou OU quando o ID do sprite não é
+            // reconhecível (ex.: outro jogador sem sufixo "(#id)" no nome), e SEM
+            // este split o "\n" enviado por render() (nome + "Lv.N") virava um
+            // fillText só, com o caractere de quebra de linha real dentro da
+            // string — canvas fillText não quebra linha sozinho, então o rótulo
+            // saía ilegível/cortado. Mesma âncora de sempre (footY - bodyH - 16)
+            // pro caso de 1 linha só continuar idêntico a antes.
+            var tokenLabelLines = String(label).split('\n');
+            var TOKEN_LABEL_LINE_H = 11;
+            for (var tli = tokenLabelLines.length - 1; tli >= 0; tli--) {
+                var tokenLineY = (footY - bodyH - 16) - (tokenLabelLines.length - 1 - tli) * TOKEN_LABEL_LINE_H;
+                ctx.fillText(tokenLabelLines[tli], cx, tokenLineY);
+            }
             ctx.restore();
         }
     }
@@ -3026,10 +3058,20 @@
                 var screenS2 = worldToScreen(s2.x, s2.y, camOffsetX, camOffsetY);
                 // esconde o sufixo técnico "(#id)" do rótulo visual — ele é lido à parte por
                 // getOtherPlayerGhostImg(), não precisa aparecer no nome flutuante.
-                var name = (item.data.name || item.data.email || '???').replace(GHOST_ID_SUFFIX_RE, '');
+                var name = (item.data.name || item.data.email || '???').replace(GHOST_ID_SUFFIX_RE, '').trim();
                 if (item.data.avatarUrl) loadAvatar(item.data.avatarUrl);
                 var otherImg = getOtherPlayerGhostImg(item.data);
-                drawGhostBillboard(ctx, screenS2.x, screenS2.y, otherImg, false, name, pal);
+                // 04/09/2026: label ganhou o level do ghost (pedido do usuário: nome+level
+                // acima de CADA jogador, não só o local). item.data vem de
+                // window.OverworldOtherPlayers, que por sua vez é o payload
+                // 'overworld_players_update' do servidor já filtrado pelo próprio e-mail
+                // (js/game/network.js) — confirmado que o .filter() de lá preserva o objeto
+                // INTEIRO (só decide quem entra na lista, não reconstrói o objeto), então
+                // basta o servidor mandar ghostLevel (server/index.js, bloco de merge da
+                // vizinhança 3x3) que ele já chega aqui sem nenhuma mudança extra no
+                // network.js. Fallback 1 cobre payload antigo/quem nunca setou level.
+                var otherLabel = name + '\nLv.' + (item.data.ghostLevel || 1);
+                drawGhostBillboard(ctx, screenS2.x, screenS2.y, otherImg, false, otherLabel, pal);
             } else if (item.type === 'player') {
                 var s3 = gridToScreen(S.playerDrawCol, S.playerDrawRow); // posição DESENHADA (interpolada) — nunca a lógica aqui, ver nota no topo de render().
                 var screenS3 = worldToScreen(s3.x, s3.y, camOffsetX, camOffsetY);
@@ -3040,7 +3082,23 @@
                 // muda nada nessa leitura — S.facingRight é lido, nunca escrito, por
                 // qualquer código deste bloco (ver "Não quebre o que já existe" no
                 // pedido) — só a POSIÇÃO de desenho (screenS3) mudou de fórmula.
-                drawGhostBillboard(ctx, screenS3.x, screenS3.y, selfImg, true, 'você', pal, S.facingRight);
+                //
+                // 04/09/2026: label trocado do literal 'você' (genérico, não dizia nada a
+                // mais que "isto é você") pra "Nome\nLv.N" — mesma informação que os
+                // outros jogadores agora mostram sobre o jogador local, pedido do usuário.
+                // Nome: MESMA fonte que ConnectToServer()/join_game já usa pro servidor
+                // (js/game/network.js linha ~51, localStorage 'playerName'), com o mesmo
+                // sufixo técnico "(#id)" removido — reaproveita GHOST_ID_SUFFIX_RE (já
+                // usada 2 linhas acima pro nome de outros jogadores) em vez de duplicar a
+                // regex; o sufixo é metadado de sistema (id do ghost ativo), não algo que
+                // o próprio jogador precisa ver flutuando acima do sprite dele mesmo.
+                // Level: MESMA fonte que o HUD do Episódio 1 já usa pro nível do ghost
+                // ativo (engine.js, ex. linha ~2742 "GHOST LEVEL: " + stats.level) — não
+                // inventa uma segunda fonte de verdade pro mesmo dado.
+                var selfName = (localStorage.getItem('playerName') || 'Ghost').replace(GHOST_ID_SUFFIX_RE, '').trim();
+                var selfStats = (window.GhostRPG && window.GhostRPG.getStats) ? window.GhostRPG.getStats() : {};
+                var selfLabel = selfName + '\nLv.' + (selfStats.level || 1);
+                drawGhostBillboard(ctx, screenS3.x, screenS3.y, selfImg, true, selfLabel, pal, S.facingRight);
             }
         }
 
@@ -3084,6 +3142,38 @@
             '  chunk=' + S.currentChunkX + ',' + S.currentChunkY +
             '  loaded=' + Object.keys(S.loadedChunks).length +
             '  zoom=' + S.zoomLevel.toFixed(2) + (macroZoom ? ' [macro]' : ' [micro]'), 8, 14);
+        ctx.restore();
+
+        // Contador de gente online — pedido do usuário (04/09/2026), separado do HUD de
+        // depuração acima de propósito: aquele é lixo técnico só útil pra desenvolvedor
+        // (chunk/zoom/col/row), este é informação de JOGADOR normal e tem que sobreviver
+        // se o HUD de debug acima for removido/escondido um dia. Mesma família visual
+        // (Courier New monospace + ciano com sombra preta, "linguagem" que o resto do
+        // overworld já usa pra HUD flutuante).
+        // window.NetworkState.totalOnlineCount vem de js/game/network.js, que já escuta
+        // 'sync_state' (server/index.js, setInterval GLOBAL, roda independente do
+        // jogador estar no overworld ou no Episódio 1) — o dado já chegava sozinho no
+        // cliente, só faltava alguém desenhar. Fallback '?' (não '0') quando ainda
+        // indefinido (ex.: frame antes do primeiro sync_state chegar) pra não mentir
+        // "0 online" por um instante logo na entrada.
+        //
+        // Posição: TESTADO AO VIVO (não y=32, tentativa inicial) — o canto superior
+        // esquerdo do canvas (x:8-40, y:8-78) já é ocupado por 2 botões DOM reais
+        // (#overworldZoomInBtn em y:8-40 e #overworldZoomOutBtn em y:46-78, ambos
+        // x:8-40, desenhados por CIMA do canvas), e o canto superior direito tem
+        // #gameScreenModeBtn (x:596-628, y:8-40) — colocar o contador em y=32 (dentro
+        // da faixa do botão de zoom) ou encostado na borda direita escondia boa parte
+        // do texto atrás desses botões. y=92 fica abaixo dos dois botões de zoom
+        // (que terminam em y=78) e ainda longe do botão do canto direito — único ponto
+        // do topo do canvas livre de sobreposição de UI real, confirmado com screenshot.
+        ctx.save();
+        ctx.font = 'bold 12px "Courier New", monospace';
+        ctx.fillStyle = '#00ffff';
+        ctx.shadowColor = '#000';
+        ctx.shadowBlur = 3;
+        var onlineCount = (window.NetworkState && window.NetworkState.totalOnlineCount !== undefined)
+            ? window.NetworkState.totalOnlineCount : '?';
+        ctx.fillText('Online: ' + onlineCount, 8, 92);
         ctx.restore();
     }
 

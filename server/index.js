@@ -1083,7 +1083,13 @@ setInterval(() => {
                             name: p.name,
                             avatarUrl: p.avatarUrl || null,
                             gridX: p.overworldGridX,
-                            gridY: p.overworldGridY
+                            gridY: p.overworldGridY,
+                            // 04/09/2026: level do ghost pro label acima do sprite no overworld (HUD
+                            // "Nome Lv.N"). O campo já existe em memória desde o fluxo do Episódio 1
+                            // (player_move popula players[id].ghostLevel, ver linha ~321/329) — só
+                            // faltava vazar pro payload de vizinhança. Fallback 1 cobre quem nunca
+                            // jogou Episódio 1 ainda (ghost recém-criado, level padrão de verdade).
+                            ghostLevel: p.ghostLevel || 1
                         });
                     }
                 });
