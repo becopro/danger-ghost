@@ -376,12 +376,36 @@ function OpenChestModal() {
         g_chestSelection = null;
         g_chestTransferOpenForIndex = null;
 
+        // 04/09/2026 (bug real reportado: baú "trava o jogo mas não aparece" em
+        // fullscreen) — a Fullscreen API do navegador só renderiza o elemento que
+        // está de fato em fullscreen E seus DESCENDENTES; qualquer nó fora dessa
+        // subárvore (mesmo com position:fixed/z-index alto) some da tela sem sumir
+        // do DOM. O botão de fullscreen do JOGO (ToggleGameFullscreen(), ~linha 1062
+        // abaixo) coloca em fullscreen #fullscreenGameArea, não document.documentElement
+        // — então um overlay preso em document.body (ancestral de #fullscreenGameArea,
+        // não descendente) fica invisível, mas OverworldSetInputLocked(true) já rodou:
+        // o jogador vê o jogo "travado" com o input preso e nenhum modal na tela.
+        // Resolve escolhendo o alvo dinamicamente: se ALGUM elemento estiver em
+        // fullscreen agora (document.fullscreenElement — cobre tanto o fullscreen do
+        // jogo quanto o fullscreen genérico do navegador via ToggleFullscreen()),
+        // anexa o overlay DENTRO dele; senão, comportamento antigo (document.body).
+        // Sem hardcode de #fullscreenGameArea de propósito — funciona pra qualquer
+        // elemento que esteja realmente em fullscreen no momento em que o baú abre.
+        var chestModalMountTarget = document.fullscreenElement || document.body;
         var overlay = document.getElementById('chestModalOverlay');
         if (!overlay) {
             overlay = document.createElement('div');
             overlay.id = 'chestModalOverlay';
             overlay.className = 'tutorial-modal-overlay';
-            document.body.appendChild(overlay);
+            chestModalMountTarget.appendChild(overlay);
+        } else if (overlay.parentElement !== chestModalMountTarget) {
+            // Baú já existia no DOM de uma abertura anterior, mas o contexto de
+            // fullscreen mudou desde então (ex.: abriu fora, entrou em fullscreen,
+            // abriu de novo) — parentElement antigo pode estar fora da subárvore
+            // visível agora. appendChild() de um nó que já existe no documento MOVE
+            // o nó (não duplica, não recria listeners inline via onclick="..."),
+            // então isso realoca o overlay pro lugar certo sem perder estado.
+            chestModalMountTarget.appendChild(overlay);
         }
         overlay.style.display = 'block'; // mesma convenção de display já usada por interactiveTutorialModal (js/game/engine.js)
         RenderChestModal();
