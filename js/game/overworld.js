@@ -2231,11 +2231,35 @@
     var TOWER_IMG_URL = 'assets/overworld/gg_torre_beltrao.png';
     // Altura-alvo em px de MUNDO (antes de multiplicar por S.zoomLevel), mantendo a
     // proporção original da imagem — mesmo princípio de GHOST_SPRITE_TARGET_H
-    // (~linha 2401) só que pra torre. Testado ao vivo (zoom micro 1.0 e macro ~0.5-0.7)
-    // dentro da faixa 170-220 pedida: 200 leu bem como "prédio grande", claramente
-    // maior que o fantasma (GHOST_SPRITE_TARGET_H=46) sem ficar desproporcional nem
-    // pequena demais pra ler os letreiros em zoom próximo.
-    var TOWER_BILLBOARD_TARGET_H = 200;
+    // (~linha 2401) só que pra torre.
+    //
+    // 2026-09-04 — REESCALADO: o valor antigo (200) foi escolhido só "no olho", sem
+    // nenhum critério de proporção real ("prédio grande" vs. o fantasma, comentário
+    // anterior). Pedido do usuário: a escala da torre deve ser derivada da PORTA da
+    // torre, que deve renderizar do mesmo tamanho que o fantasma jogável
+    // (GHOST_SPRITE_TARGET_H=46, ~linha 2401) — critério objetivo (a porta é a
+    // referência de escala humana da cena), não "olho".
+    //
+    // Medição: gg_torre_beltrao.png tem 1039x2517px. Analisei os pixels da imagem
+    // (script Python/Pillow, componentes conexos de pixel quase-preto pra achar o
+    // vão escuro da porta sem pegar contorno fino de 1px de outras partes do
+    // desenho) — vão da porta (canto inferior-esquerdo da imagem, contorno neon
+    // magenta): topo do vão em y=2214px, base do vão (onde a soleira/piso da porta
+    // encosta no chão, ponto mais baixo da moldura da porta — NÃO é o ponto mais
+    // baixo do silhueta inteira da torre, que fica ~34px mais abaixo num canto
+    // diferente por causa da perspectiva isométrica) em y=2482px. Altura do vão =
+    // 2482-2214 = 268px. doorFraction = 268/2517 ≈ 0.1065 (dentro da faixa
+    // "~10-11%" estimada visualmente antes de medir — confirma a estimativa).
+    //
+    // Fórmula: TOWER_BILLBOARD_TARGET_H = GHOST_SPRITE_TARGET_H / doorFraction
+    //        = 46 / 0.1065 ≈ 432px (mais de 2x o valor antigo de 200).
+    //
+    // Testado ao vivo (ver sessão 2026-09-04): fantasma parado na frente da porta,
+    // zoom 0.5 e 1.0 via window.OverworldDebug.setZoom() — comparação visual da
+    // altura do fantasma contra o vão da porta confirmou 432 como leitura correta
+    // (torre não estica feio nem foge da tela em zoom alto, farol/etiqueta de nome
+    // continuam legíveis por cima).
+    var TOWER_BILLBOARD_TARGET_H = 432;
 
     function drawTower(ctx, cx, cy, pal, tSec, poi, camOffsetX, camOffsetY) {
         var z = S.zoomLevel;
