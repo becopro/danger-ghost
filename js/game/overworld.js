@@ -2954,9 +2954,40 @@
             }
         }
 
-        drawables.push({ key: S.playerDrawRow + S.playerDrawCol, type: 'player' });
+        // ATUALIZAÇÃO 2026-09-04 — jogador local ganha key=Infinity, SEMPRE vence o
+        // sort (pedido do usuário: o personagem que você controla nunca pode ficar
+        // encoberto por elemento de mundo — cenário, torre, cemitério, prédio,
+        // item — "independente da densidade visual do mundo aberto"). Antes disso,
+        // o jogador entrava no depth-sort com key = row+col igual a qualquer
+        // tile/POI/outro jogador (skill isometric-canvas-rendering §2) e podia
+        // legitimamente perder pra torre/cemitério dependendo de onde estivesse —
+        // comportamento correto de oclusão isométrica, mas errado pra ESTE jogo:
+        // aqui o jogador local é o "âncora" da câmera e da leitura da cena, sumir
+        // atrás de um prédio quebra a jogabilidade mais do que quebra o realismo
+        // visual perder oclusão.
+        // Isto é uma exceção DELIBERADA, não um bug sendo corrigido: sacrifica
+        // correção de oclusão (o jogador pode visualmente "atravessar" a torre ou
+        // o cemitério, desenhando por cima de arte que deveria escondê-lo) em troca
+        // de nunca ficar escondido. Escopo é só o jogador LOCAL — type:'other'
+        // (outros jogadores, linha ~2953) continua com key = drawRow+drawCol normal,
+        // competindo no depth-sort igual a hoje; outro jogador pode e deve continuar
+        // ficando atrás de um prédio, essa exceção não é sobre eles.
+        // Infinity em vez de um número grande arbitrário: garante vencer o sort
+        // não importa o quão longe o mapa cresça (row/col globais, sem teto
+        // conhecido) — não é um "número mágico" que pode um dia ser alcançado.
+        // O comparador (a.key-b.key) trata Infinity-Infinity como NaN só se dois
+        // itens Infinity forem comparados entre si; só o jogador local usa
+        // Infinity (um item só), então essa comparação nunca acontece na prática —
+        // e mesmo que acontecesse, sort() não quebra com NaN, só não garante ordem
+        // relativa entre eles (irrelevante aqui, é sempre 1 item).
+        // UI (HUD, drawStreetNameLabel, modal do baú) NÃO passa por este array —
+        // continua desenhada depois deste laço (canvas) ou como DOM sobreposto
+        // (modal), então continua acima do jogador sem precisar de nada aqui.
+        drawables.push({ key: Infinity, type: 'player' });
 
         // depth-sort único (tiles + entidades juntos) — regra §2 da skill.
+        // Exceção do jogador local documentada acima: ele agora é sempre o último
+        // (key=Infinity), o resto do array continua ordenado por row+col normal.
         drawables.sort(function (a, b) { return a.key - b.key; });
 
         // ============ CAMADA DE POI + entidades dinâmicas (depth-sort único) ======
