@@ -876,11 +876,23 @@
 								// nesta porta, trocado por não confundir com o rótulo diegético usado no
 								// resto do jogo (Neo Nit = a metrópole de 3147 de onde Ftasma vem, ver
 								// index.html seção de lore) para a mesma cidade real.
+								//
+								// (04/09/2026) Texto quebrado em duas linhas empilhadas a pedido do
+								// usuário — mesmo princípio visual da torre do overworld ("Danger
+								// Ghost" + "Episódio 1" abaixo), só que aqui é a MESMA palavra dividida,
+								// não um título+subtítulo de tamanhos diferentes: "NEO" em cima, "NIT"
+								// embaixo, porta embaixo das duas. Mantive a baseline de "NIT" exatamente
+								// onde o texto de uma linha só ficava antes (y - 6, colado no topo da
+								// porta) e só acrescentei "NEO" 8px acima dela — com fonte de 9px isso
+								// empilha as duas linhas sem sobrepor uma na outra (testado ao vivo) e
+								// muda o mínimo possível o espaço que o texto já ocupava por cima do
+								// tile de cima no grid.
 								g_ctx.drawImage(doorImage, x, y, 24, 24);
 								g_ctx.font = "bold 9px 'Courier New'";
 								g_ctx.fillStyle = "#FF00FF";
 								g_ctx.textAlign = "center";
-								g_ctx.fillText("NEO NIT", x + 12, y - 6);
+								g_ctx.fillText("NEO", x + 12, y - 14);
+								g_ctx.fillText("NIT", x + 12, y - 6);
 								g_ctx.textAlign = "start";
 							}
 						}
