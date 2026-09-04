@@ -877,7 +877,7 @@
     // disco/servidor. Mesma lógica de version-bump manual que overworld.js?v=N já
     // usa — sobe este número sempre que os dados de data/overworld/ mudarem de
     // verdade (regeração de chunk, reposição de POI etc.).
-    var OVERWORLD_DATA_VERSION = 12; // bump 2026-09-04 (v11->v12): correção da posição da torre pro cruzamento real Rua Doutor Beltrão x Rua Doutor Mário Vianna (globalCol/Row 31/48 -> 37/51 em pois.json; célula 'L' do footprint movida de novo em chunks/0_0.json) — a posição 31/48 era uma aproximação por comparação de screenshot, esta é a localização exata que o usuário pediu em texto. Mesma prática de version-bump documentada acima.
+    var OVERWORLD_DATA_VERSION = 14; // bump 2026-09-04 (v13->v14): as 35 células do footprint do cemitério em chunks/0_0.json:grid.rows mudaram de '#' pra 'L' (ver pois.json:_gridCellsFixNote — sem isso o billboard nunca era desenhado, render() pula célula '#' antes de checar POI). v12->v13 (comentário anterior) já tinha coberto a ADIÇÃO do POI em si; este bump cobre a correção de DADO do chunk que veio depois, mesma prática de version-bump documentada acima.
     var MANIFEST_URL = 'data/overworld/manifest.json?v=' + OVERWORLD_DATA_VERSION;
     // Estágio 2 do plano de overworld expansível (POI data-driven) — ver
     // C:\Users\Klara\.claude\plans\crystalline-launching-goose.md §4. Carregado em
@@ -916,6 +916,15 @@
         entryPoi: null,         // POI com interaction.kind === 'episode_entry' — fonte de
                                  // window.OverworldTowerGridPos (Estágio 2, substitui o antigo
                                  // S.landmark calculado varrendo 'L' no grid)
+        chestPoi: null,         // 2026-09-04 — POI com interaction.kind === 'chest_entry' (cemitério,
+                                 // baú de conta). Mesmo papel de entryPoi, variável própria (não um
+                                 // contrato público window.* — nada externo precisa da posição do
+                                 // cemitério hoje, diferente da torre).
+        billboardPois: [],      // 2026-09-04 — [entryPoi, chestPoi].filter(Boolean), montada em
+                                 // computePoiBounds(): todo POI que tem footprint desenhado como
+                                 // imagem 2D ancorada (drawTower/drawCemeteryGate), consumida pelo
+                                 // laço de varredura de tiles em render() pra achar "esta célula
+                                 // pertence a QUAL POI billboard" sem um if/else por POI.
         loaded: false,          // true quando manifest E pois terminaram de carregar
                                  // (finalizeLoadIfReady) — Estágio 5: NÃO espera mais nenhum
                                  // chunk de tile em si, só o metadado (manifest) + POIs. Os
@@ -975,6 +984,11 @@
         zoomOutBtn: null,
 
         keys: {},          // teclas pressionadas agora
+        inputLocked: false, // 2026-09-04 (baú de conta) — true enquanto um modal (hoje: o baú,
+                             // window.OpenChestModal()) está aberto POR CIMA do overworld ativo;
+                             // checado no topo de keydownHandler (attachInput) e no início de
+                             // updateMovement() — ver window.OverworldSetInputLocked() mais abaixo.
+                             // Default false: nenhuma regressão pra quem nunca abre o baú.
         // stepIntervalMs NÃO governa mais nenhum gate de passo do jogador local
         // desde a unificação 2026-09-03 (ver ATUALIZAÇÃO no topo do arquivo) — o
         // jogador local avança por dt real em todo frame, sem timer fixo. Mantido
@@ -1114,7 +1128,12 @@
             return { zoomLevel: S.zoomLevel, isMacro: isMacroZoom(), threshold: ZOOM_MACRO_THRESHOLD, min: ZOOM_MIN, max: ZOOM_MAX };
         },
         screenToGrid: function (screenX, screenY) { return screenToGrid(screenX, screenY); },
-        setZoom: function (z) { S.zoomLevel = clampZoom(z); }
+        setZoom: function (z) { S.zoomLevel = clampZoom(z); },
+        // 2026-09-04 (baú de conta) — inspeção read-only de S.inputLocked, pra
+        // confirmar via console em teste ao vivo que window.OverworldSetInputLocked()
+        // de fato muda o estado interno (mesmo espírito de getFacing/getZoom acima).
+        getInputLocked: function () { return S.inputLocked; },
+        getChestPoi: function () { return S.chestPoi ? { id: S.chestPoi.id, bounds: S.chestPoi._bounds } : null; }
     };
 
     // ======================= Carregamento dos dados ==========================
@@ -1208,7 +1227,17 @@
     // js/game/engine.js (spawn/retorno do Episódio 1).
     function computePoiBounds() {
         S.entryPoi = null;
+        S.chestPoi = null; // 2026-09-04 (feature de baú) — mesmo papel de S.entryPoi, só que pro POI
+                            // com interaction.kind="chest_entry" (cemitério). Ver nota abaixo de
+                            // S.billboardPois pra por que os dois passaram a conviver em vez de um
+                            // "S.entryPoi" genérico só: window.OverworldTowerGridPos/DoorPos (contrato
+                            // já consumido por engine.js/game_core.js/ghostdex_ui.js) é
+                            // especificamente da TORRE — generalizar isso quebraria esse contrato
+                            // pros 3 consumidores existentes, então cada POI com renderização
+                            // billboard+footprint ganha sua própria variável S.<algo>Poi nomeada,
+                            // não um array anônimo indexado por posição.
         var entryCandidates = [];
+        var chestCandidates = [];
         for (var i = 0; i < S.pois.length; i++) {
             var poi = S.pois[i];
             if (!poi || typeof poi.globalCol !== 'number' || typeof poi.globalRow !== 'number') {
@@ -1235,7 +1264,28 @@
 
             if (poi.interaction && poi.interaction.kind === 'episode_entry') {
                 entryCandidates.push(poi);
+            } else if (poi.interaction && poi.interaction.kind === 'chest_entry') {
+                chestCandidates.push(poi);
             }
+        }
+
+        // 2026-09-04 — S.billboardPois: lista genérica de "todo POI que tem footprint +
+        // desenho 2D próprio" (hoje: a torre e o cemitério), consumida pelo laço de
+        // varredura de tiles em render() pra decidir se uma célula pertence ao
+        // footprint de ALGUM POI billboard (não só o da torre, como era antes desta
+        // mudança) — ver comentário em render(). Não substitui S.entryPoi/S.chestPoi
+        // (contratos específicos continuam vivos, ver nota acima), só evita repetir
+        // "if (S.entryPoi...) else if (S.chestPoi...) else if (S.outroPoiFuturo...)"
+        // no laço de render a cada POI billboard novo que aparecer depois.
+        S.billboardPois = [];
+        if (chestCandidates.length === 0) {
+            console.log('[Overworld] nenhum POI com interaction.kind="chest_entry" encontrado — cemitério ausente (ok se ainda não foi adicionado a pois.json).');
+        } else {
+            if (chestCandidates.length > 1) {
+                console.warn('[Overworld] mais de um POI "chest_entry" encontrado — usando o primeiro (' + chestCandidates[0].id + ').');
+            }
+            S.chestPoi = chestCandidates[0];
+            S.billboardPois.push(S.chestPoi);
         }
 
         if (entryCandidates.length === 0) {
@@ -1248,6 +1298,7 @@
             console.warn('[Overworld] mais de um POI "episode_entry" encontrado — usando o primeiro (' + entryCandidates[0].id + ').');
         }
         S.entryPoi = entryCandidates[0];
+        S.billboardPois.push(S.entryPoi);
         window.OverworldTowerGridPos = { gridX: S.entryPoi._bounds.centerCol, gridY: S.entryPoi._bounds.centerRow };
         // 2026-09-03 (spawn sempre na porta da torre, pedido do usuário) — ponto
         // ANDÁVEL exatamente ao lado da porta, não o centro do footprint 3x3 acima
@@ -2261,6 +2312,32 @@
     // continuam legíveis por cima).
     var TOWER_BILLBOARD_TARGET_H = 432;
 
+    // 2026-09-04 (feature de baú de conta / cemitério) — extraído de drawTower()
+    // (que até aqui era a ÚNICA função de billboard 2D do arquivo): o desenho em
+    // si — carregar a imagem com cache (loadAvatar, já genérico por URL), checar
+    // .complete/.naturalWidth, escalar mantendo a proporção original pra bater
+    // targetH, ancorar a base no "pé" do footprint (footX,footY) — não tinha NADA
+    // específico de torre, era só "desenha uma imagem pronta ancorada no pé do
+    // footprint", mesma técnica de drawGhostBillboard() pro sprite do fantasma.
+    // drawCemeteryGate() (abaixo) reusa este mesmo helper; drawTower() virou um
+    // wrapper fino que chama isto e depois desenha só a parte que É específica
+    // dela (o farol pulsante). Nenhuma mudança de comportamento visual pra
+    // torre — mesma matemática de antes, só movida pra um lugar reaproveitável.
+    // targetH já deve vir MULTIPLICADO pelo zoom (quem chama decide o zoom, este
+    // helper não lê S.zoomLevel sozinho) — mesmo contrato que TOWER_BILLBOARD_TARGET_H*z
+    // já tinha inline aqui antes da extração.
+    function drawPoiBillboard(ctx, footX, footY, imgUrl, targetH) {
+        var img = loadAvatar(imgUrl);
+        var ready = img && img.complete && img.naturalWidth > 0;
+        if (!ready) return { ready: false, w: 0, h: 0 }; // ainda carregando (só a 1ª visita — depois fica em cache) — sem placeholder: a célula de chão do footprint (drawLandmarkGroundMarker, já desenhada por quem chama isto) já sinaliza "tem algo aqui" enquanto isso, e o próximo frame já desenha a imagem certa.
+
+        var scale = targetH / img.naturalHeight;
+        var w = img.naturalWidth * scale;
+        var h = targetH;
+        ctx.drawImage(img, footX - w / 2, footY - h, w, h);
+        return { ready: true, w: w, h: h };
+    }
+
     function drawTower(ctx, cx, cy, pal, tSec, poi, camOffsetX, camOffsetY) {
         var z = S.zoomLevel;
         var fp = (poi && poi.footprint) || { widthTiles: 3, heightTiles: 3 };
@@ -2273,15 +2350,9 @@
         var hh = HALF_H * fp.heightTiles * z;
         var footX = cx, footY = cy + hh;
 
-        var img = loadAvatar(TOWER_IMG_URL);
-        var ready = img && img.complete && img.naturalWidth > 0;
-        if (!ready) return; // ainda carregando (só a 1ª visita — depois fica em cache) — sem placeholder: a célula de chão do footprint (drawLandmarkGroundMarker, já desenhada por quem chama drawTower) já sinaliza "tem algo aqui" enquanto isso, e o próximo frame já desenha a imagem certa.
-
-        var targetH = TOWER_BILLBOARD_TARGET_H * z;
-        var scale = targetH / img.naturalHeight;
-        var w = img.naturalWidth * scale;
-        var h = targetH;
-        ctx.drawImage(img, footX - w / 2, footY - h, w, h);
+        var billboard = drawPoiBillboard(ctx, footX, footY, TOWER_IMG_URL, TOWER_BILLBOARD_TARGET_H * z);
+        if (!billboard.ready) return;
+        var h = billboard.h;
 
         // Farol pulsante no topo — TESTADO AO VIVO nos dois formatos (com e sem) antes
         // de decidir: MANTIDO. A imagem já traz antenas/parabólicas desenhadas no topo,
@@ -2317,6 +2388,65 @@
         ctx.fill();
         ctx.restore();
     }
+
+    // ======================= Cemitério (baú de conta) — 2026-09-04 ==============
+    // Segundo POI billboard do arquivo (o primeiro foi a torre), plano
+    // crystalline-launching-goose.md. Arte pronta (gg_cemiterio.png, 2816x1536px,
+    // isométrica) — mesma técnica de drawTower()/drawPoiBillboard() acima, imagem
+    // 2D ancorada na base do footprint, sem prisma procedural.
+    var CEMETERY_IMG_URL = 'assets/overworld/gg_cemiterio.png';
+    // Altura-alvo em px de MUNDO (antes de multiplicar por S.zoomLevel) — MESMO
+    // critério objetivo já usado pra TOWER_BILLBOARD_TARGET_H acima (pedido
+    // explícito do usuário: "mesma técnica do portão da torre"): a referência de
+    // escala humana da cena não é "no olho", é um elemento real da própria
+    // imagem que deveria renderizar do mesmo tamanho que o fantasma jogável
+    // (GHOST_SPRITE_TARGET_H=46). Pra torre foi o vão da porta; aqui é o vão do
+    // PORTÃO DE FERRO (arco de pedra com grade, canto inferior-esquerdo da arte).
+    //
+    // Medição: gg_cemiterio.png tem 2816x1536px. Cropei a região do portão e
+    // sobrepus uma grade de referência em pixel (script Python/Pillow, mesmo
+    // processo da torre) pra ler as bordas do vão sem "no olho":
+    //   - topo do vão = ponta mais alta das lanças de ferro do portão, y≈933px
+    //     (medido no pico da lança mais alta das 3 visíveis no arco).
+    //   - base do vão = onde os barrotes verticais de ferro encostam no chão/
+    //     soleira, y≈1197px (logo antes do paralelepípedo do caminho começar).
+    //   Altura do vão = 1197-933 = 264px. doorFraction = 264/1536 ≈ 0.1719
+    //   (bem maior que a fração da porta da torre, ~0.1065 — esperado: o portão
+    //   do cemitério é mais baixo/largo, a imagem é uma paisagem panorâmica com
+    //   bastante área vazia ao redor do lote murado, não um prédio vertical
+    //   preenchendo o quadro).
+    //
+    // Fórmula: CEMETERY_BILLBOARD_TARGET_H = GHOST_SPRITE_TARGET_H / doorFraction
+    //        = 46 / 0.1719 ≈ 268px.
+    //
+    // Testado ao vivo (ver sessão 2026-09-04, mesmo roteiro da torre): fantasma
+    // parado em frente ao portão, zoom 0.5 e 1.0 via window.OverworldDebug.setZoom()
+    // — comparação visual da altura do fantasma contra o vão do portão.
+    var CEMETERY_BILLBOARD_TARGET_H = 268;
+
+    function drawCemeteryGate(ctx, cx, cy, pal, tSec, poi, camOffsetX, camOffsetY) {
+        var z = S.zoomLevel;
+        var fp = (poi && poi.footprint) || { widthTiles: 7, heightTiles: 5 };
+        // Mesmo raciocínio de "pé do footprint" de drawTower() acima — cx,cy
+        // recebidos são o CENTRO do footprint já projetado; o pé fica hh px de
+        // tela abaixo dele.
+        var hh = HALF_H * fp.heightTiles * z;
+        var footX = cx, footY = cy + hh;
+        // Sem farol/beacon aqui de propósito (poi.visual.beacon=false em
+        // pois.json) — o cemitério não é um ponto de entrada de fase que precise
+        // ser achado "de longe"; drawPoiBillboard() sozinho já cobre o desenho
+        // inteiro, diferente de drawTower() que ainda desenha o pulso por cima.
+        drawPoiBillboard(ctx, footX, footY, CEMETERY_IMG_URL, CEMETERY_BILLBOARD_TARGET_H * z);
+    }
+
+    // Dispatcher genérico de desenho billboard por interaction.kind — mesmo
+    // princípio de POI_INTERACTION_HANDLERS mais abaixo (dispatch por
+    // interaction.kind em vez de um if/else por POI), só que pro DESENHO em vez
+    // da interação de entrada. Consumido pelo laço de depth-sort em render().
+    var POI_BILLBOARD_DRAW_HANDLERS = {
+        episode_entry: drawTower,
+        chest_entry: drawCemeteryGate
+    };
 
     // Nome flutuando perto da torre — item 3 do pedido original ("nome de local
     // flutuando" na referência de estilo). Desenhada UMA VEZ por frame (não por
@@ -2774,8 +2904,18 @@
                 // Prédios desativados (item 1 da nota de arquitetura no topo do arquivo) —
                 // célula '#' não desenha nada.
                 if (ch === '#') continue;
-                if (S.entryPoi && isInsidePoiFootprint(S.entryPoi, gCol, gRow)) {
-                    drawables.push({ key: gRow + gCol, type: 'tile', row: gRow, col: gCol, ch: ch });
+                // 2026-09-04 — generalizado de "só S.entryPoi" pra S.billboardPois (torre +
+                // cemitério hoje, qualquer POI billboard futuro amanhã) — mesmo
+                // comportamento de antes pra torre (nenhuma regressão), só sem hardcode de
+                // uma variável só. Primeira ocorrência ganha (footprints não se sobrepõem
+                // na prática; se sobrepuserem algum dia, o primeiro da lista "vence" a
+                // célula, comportamento definido em vez de indefinido).
+                var tileBillboardPoi = null;
+                for (var bp = 0; bp < S.billboardPois.length; bp++) {
+                    if (isInsidePoiFootprint(S.billboardPois[bp], gCol, gRow)) { tileBillboardPoi = S.billboardPois[bp]; break; }
+                }
+                if (tileBillboardPoi) {
+                    drawables.push({ key: gRow + gCol, type: 'tile', row: gRow, col: gCol, ch: ch, poiRef: tileBillboardPoi });
                 } else if (!macroZoom) {
                     // preenchimento detalhado por-célula — só em visão micro (item 3: some
                     // no zoom-out, a curva sozinha já basta pra orientação nessa escala).
@@ -2829,17 +2969,26 @@
         for (var d = 0; d < drawables.length; d++) {
             var item = drawables[d];
             if (item.type === 'tile') {
-                // única coisa que ainda chega aqui como 'tile' é célula do footprint do
-                // POI de entrada (ver loop de varredura acima) — rua comum já foi
-                // desenhada na passada de chão, antes deste laço.
+                // única coisa que ainda chega aqui como 'tile' é célula do footprint de
+                // ALGUM POI billboard (S.billboardPois — torre ou cemitério hoje, ver loop
+                // de varredura acima) — rua comum já foi desenhada na passada de chão,
+                // antes deste laço.
                 var s = gridToScreen(item.col, item.row);
                 var screenS = worldToScreen(s.x, s.y, camOffsetX, camOffsetY);
                 drawLandmarkGroundMarker(ctx, screenS.x, screenS.y, pal);
-                var eb = S.entryPoi._bounds;
+                var eb = item.poiRef._bounds;
                 if (item.row === eb.anchorRow && item.col === eb.anchorCol) {
+                    // Dispatch por interaction.kind (POI_BILLBOARD_DRAW_HANDLERS, ver
+                    // drawCemeteryGate() acima) em vez de "if é a torre, desenha a torre" —
+                    // mesmo princípio de POI_INTERACTION_HANDLERS mais abaixo, generalizado
+                    // 2026-09-04 quando o cemitério virou o 2º POI billboard do arquivo.
                     var center = gridToScreen(eb.centerCol, eb.centerRow);
                     var screenCenter = worldToScreen(center.x, center.y, camOffsetX, camOffsetY);
-                    drawTower(ctx, screenCenter.x, screenCenter.y, pal, tSec, S.entryPoi, camOffsetX, camOffsetY);
+                    var billboardKind = item.poiRef.interaction && item.poiRef.interaction.kind;
+                    var billboardDrawFn = billboardKind && POI_BILLBOARD_DRAW_HANDLERS[billboardKind];
+                    if (typeof billboardDrawFn === 'function') {
+                        billboardDrawFn(ctx, screenCenter.x, screenCenter.y, pal, tSec, item.poiRef, camOffsetX, camOffsetY);
+                    }
                 }
             } else if (item.type === 'other') {
                 var s2 = gridToScreen(item.drawCol, item.drawRow); // posição DESENHADA (interpolada) — só visual, ver updateOtherPlayersDraw().
@@ -2948,6 +3097,17 @@
 
     function attachInput() {
         S.keydownHandler = function (e) {
+            // 2026-09-04 (feature de baú de conta) — trava de input: quando algum modal
+            // abre PARADO EM CIMA do overworld ativo (hoje: o baú, window.OpenChestModal()
+            // em js/ui/ui_manager.js), nenhuma tecla deste handler deve alcançar o mundo
+            // por baixo — nem movimento, nem zoom (não faz sentido zoomar o mapa escondido
+            // atrás de uma modal). Checado NO TOPO, antes de qualquer outro ramo, de
+            // propósito: até 2026-09-04 nenhum outro modal do jogo abria "parado em cima"
+            // do overworld ativo (todos os outros ou pausam o jogo inteiro via
+            // DeactivateOverworld(), ou vivem fora dele), então esse gap nunca tinha
+            // aparecido antes — ver window.OverworldSetInputLocked() mais abaixo (exposto
+            // pro Track B/UI ligar/desligar ao abrir/fechar a modal).
+            if (S.inputLocked) return;
             if (ALL_MOVE_KEYS[e.key]) {
                 S.keys[e.key] = true;
                 if (e.key.indexOf('Arrow') === 0) e.preventDefault();
@@ -3221,6 +3381,14 @@
     // render(), pra não acoplar os dois sistemas), já clampado em MAX_DT_SEC por
     // loop() antes de chegar aqui (previne tunneling/espiral da morte).
     function updateMovement(now, dtSec) {
+        // 2026-09-04 (baú de conta) — trava INDEPENDENTE do early-return de
+        // keydownHandler (attachInput): uma tecla já PRESSIONADA antes do modal abrir
+        // continua "true" em S.keys (só keyup a apaga, e keyup não é bloqueado —
+        // nunca queremos tecla "grudada" depois de fechar o modal), então sem este
+        // early-return AQUI o personagem continuaria andando por baixo do modal
+        // enquanto essa tecla seguisse segurada. currentInputVector() nem chega a
+        // ser lido — comportamento idêntico a "nenhuma tecla pressionada".
+        if (S.inputLocked) return;
         var delta = currentInputVector();
 
         // Só informativo (ver ATUALIZAÇÃO acima) — findNearestStreetPoint() e
@@ -3286,6 +3454,20 @@
                 window.EnterEpisode1FromOverworld();
             } else {
                 console.log('[Overworld] jogador entrou no POI "' + poi.id + '", mas window.EnterEpisode1FromOverworld ainda não existe (ok em teste isolado).');
+            }
+        },
+        // 2026-09-04 (baú de conta) — kind NOVO, não reusa episode_entry: dispara
+        // window.OpenChestModal() (js/ui/ui_manager.js) em vez de
+        // EnterEpisode1FromOverworld(). OpenChestModal() é quem chama
+        // window.OverworldSetInputLocked(true) (não este handler) — mesma divisão
+        // de responsabilidade que EnterEpisode1FromOverworld() já tem hoje: este
+        // dispatcher só INICIA a interação, quem trata a UI decide o resto (aqui,
+        // travar o movimento até a modal fechar).
+        chest_entry: function (poi) {
+            if (typeof window.OpenChestModal === 'function') {
+                window.OpenChestModal();
+            } else {
+                console.log('[Overworld] jogador entrou no POI "' + poi.id + '", mas window.OpenChestModal ainda não existe (ok em teste isolado sem ui_manager.js).');
             }
         }
     };
@@ -3447,6 +3629,12 @@
         S.playerContCol = S.playerCol;
         S.playerContRow = S.playerRow;
         S.lastMoveAt = 0;
+        // 2026-09-04 (baú de conta) — mesma lógica de reset de sessão anterior acima:
+        // nunca entrar já travado. Cobre o caso de o jogador ter saído do overworld
+        // (morte/vitória do Episódio 1, DeactivateOverworld) com o baú ainda aberto de
+        // alguma forma — DeactivateOverworld() já zera isto também (ver mais abaixo),
+        // este é o segundo cinto-de-segurança, no ponto de ENTRADA em vez de saída.
+        S.inputLocked = false;
 
         S.canvas.style.display = 'block';
         // Problema 3 (2026-09-03) — botões de zoom aparecem junto com o canvas do
@@ -3499,6 +3687,17 @@
         // Problema 3 (2026-09-03) — some junto com o canvas (ver ativação simétrica em activateNow()).
         if (S.zoomInBtn) S.zoomInBtn.style.display = 'none';
         if (S.zoomOutBtn) S.zoomOutBtn.style.display = 'none';
+        S.inputLocked = false; // 2026-09-04 (baú de conta) — não sair travado; ver espelho em activateNow().
+    };
+
+    // 2026-09-04 (baú de conta) — contrato público pro Track B/UI (js/ui/ui_manager.js)
+    // ligar/desligar a trava de movimento ao abrir/fechar um modal que fica PARADO EM
+    // CIMA do overworld ativo (hoje: window.OpenChestModal()/CloseChestModal()). Mesmo
+    // padrão de função pública já usado por ActivateOverworld/DeactivateOverworld/
+    // EnterEpisode1FromOverworld (contrato simples, sem estado escondido do lado de
+    // fora — quem chama só passa true/false, este módulo é o único dono de S.inputLocked).
+    window.OverworldSetInputLocked = function (locked) {
+        S.inputLocked = !!locked;
     };
 
     // ============================== Boot ==============================

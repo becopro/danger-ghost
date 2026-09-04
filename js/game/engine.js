@@ -3614,6 +3614,49 @@
 				return fallback;
 			}
 
+			// 2026-09-04 (feature de baú de conta, plano crystalline-launching-goose.md) —
+			// window.g_chestItems: cache em memória do baú de itens da CONTA (não do
+			// personagem ativo, ver server/db.js:chest_items), populado a partir de
+			// localStorage.dg_cloud_profile.chestItems — MESMO ponto de leitura que
+			// GetOverworldSpawnPos() já usa alguns parágrafos acima pra
+			// overworldGridX/Y (grep pedido no prompt desta tarefa: "achar o mesmo ponto
+			// de leitura" — é este). dg_cloud_profile é escrito por
+			// completeCloudLogin() (js/web2/auth.js, fora de escopo desta passada — outro
+			// agente mexe nesse arquivo em paralelo, Track A do plano); este módulo só
+			// LÊ, nunca escreve nele.
+			//
+			// Por que uma função reaproveitável em vez de só rodar uma vez no boot: ao
+			// contrário de overworldGridX/Y (só lido sob demanda, dentro de
+			// GetOverworldSpawnPos(), chamada exatamente 1x por entrada no overworld),
+			// window.g_chestItems precisa estar POPULADO e ATUALIZADO no momento em que
+			// window.OpenChestModal() (js/ui/ui_manager.js) abre a modal — e esse momento
+			// pode acontecer bem depois do boot deste arquivo (login pode terminar depois
+			// de engine.js já ter rodado). Chamada 1x aqui embaixo (cobre reload de página
+			// com sessão já resgatada — dg_cloud_profile já existe no localStorage antes
+			// do primeiro frame) E exposta como window.LoadChestItemsFromCloudProfile pra
+			// ui_manager.js re-sincronizar bem antes de renderizar a modal, sem precisar
+			// de nenhum hook em auth.js.
+			function loadChestItemsFromCloudProfile() {
+				try {
+					var raw = localStorage.getItem('dg_cloud_profile');
+					if (raw) {
+						var profile = JSON.parse(raw);
+						if (Array.isArray(profile.chestItems)) {
+							window.g_chestItems = profile.chestItems;
+							return;
+						}
+					}
+				} catch (e) {}
+				// Sem dg_cloud_profile.chestItems ainda (conta nova / login não terminou /
+				// campo ainda não chegou de auth.js) — nunca deixa window.g_chestItems
+				// indefinido, só preserva o array já em memória se já existir (evita
+				// zerar um baú que alguma mutação local já tenha alterado nesta sessão
+				// antes deste re-sync rodar de novo).
+				if (!Array.isArray(window.g_chestItems)) window.g_chestItems = [];
+			}
+			window.g_chestItems = window.g_chestItems || [];
+			loadChestItemsFromCloudProfile(); // leitura oportunista no boot (ver comentário acima)
+
 			// Contrato do motor do overworld (js/game/overworld.js): ele chama esta função quando o
 			// jogador entra na área da torre. Reaproveita o caminho EXATO que hoje já inicia o
 			// Episódio 1 a partir do menu/SPACE (StartCutscene() sem argumentos = fase 1, sem
@@ -4948,6 +4991,7 @@ var g_binaryBits = [];
 			// (js/game/overworld.js) chamar quando o jogador entra na área da torre.
 			window.EnterEpisode1FromOverworld = EnterEpisode1FromOverworld;
 			window.GetOverworldSpawnPos = GetOverworldSpawnPos;
+			window.LoadChestItemsFromCloudProfile = loadChestItemsFromCloudProfile; // 2026-09-04 (baú de conta) — ver definição acima.
 			})(); // Fecha IIFE Caixa Preta
 		
 

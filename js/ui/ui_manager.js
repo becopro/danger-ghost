@@ -317,6 +317,335 @@ function DeleteItem(index) {
     }
 }
 
+// ============================================================================
+// 2026-09-04 (baú de conta / cemitério, plano crystalline-launching-goose.md) —
+// Modal do baú, 1000 slots por CONTA (window.g_chestItems, ver
+// js/game/engine.js:loadChestItemsFromCloudProfile e
+// server/db.js:chest_items — Track A, não tocado aqui). Reaproveita a MESMA
+// estrutura visual de UpdateNavbarBag() acima (.bag-grid-slot 6 colunas,
+// seleção com borda magenta, painel de detalhes .bag-details-*), mas dentro do
+// shell de modal já usado por loreModal/interactiveTutorialModal
+// (.tutorial-modal-overlay/-container/-header/-close-btn, ver css/style.css) —
+// o painel da navbar é pequeno demais pra até 1000 itens, e o pedido do
+// usuário foi explícito: modal PRÓPRIA, maior, centralizada, overlay escuro.
+//
+// PAGINAÇÃO (diferença central pro Bag, que usa um loop fixo de 100 divs
+// porque o inventário do ghost tem teto de 100): renderizar até 1000 divs de
+// uma vez travaria a UI (pedido explícito do usuário) — CHEST_MODAL_PAGE_SIZE
+// fatia window.g_chestItems em páginas de 60 (múltiplo de 6, enche a grade
+// sem sobra visual na maioria das páginas).
+//
+// DUAS fontes de item na mesma modal, não uma só: o inventário do ghost ATIVO
+// (coluna esquerda, pra poder GUARDAR algo nele) e o próprio baú da conta
+// (coluna central, paginada, pra DESCARTAR/TRANSFERIR) — um pedido do usuário
+// só faz sentido lendo os 3 botões juntos ("GUARDAR: remove do inventário do
+// ghost ATIVO... DESCARTAR/TRANSFERIR: [do baú]") se as duas listas convivem
+// na mesma tela; um item só fica selecionado por vez (g_chestSelection, com
+// `source` marcando de qual lista veio), porque os botões disponíveis
+// dependem de qual das duas é a origem.
+// ============================================================================
+var CHEST_MODAL_PAGE_SIZE = 60;
+var g_chestPage = 0;
+var g_chestSelection = null;            // null | {source:'bag', id} | {source:'chest', index}
+var g_chestTransferOpenForIndex = null; // index em window.g_chestItems cujo submenu TRANSFERIR está aberto, ou null
+
+// Mesma lógica de ícone que UpdateNavbarBag() já tinha inline (2x, pro grid e
+// pro painel de detalhes) — extraída aqui pra não triplicar (o baú soma mais
+// dois lugares: grid do baú e grid do inventário-na-modal).
+function chestIconHtml(item) {
+    var iconHtml = item && item.icon;
+    if (item && item.id === "blue_key") {
+        return "<img src='assets/sprites/Blue key (1).webp' style='width:20px;height:20px;image-rendering:pixelated;vertical-align:middle;' />";
+    } else if (iconHtml && iconHtml.indexOf("<img") === -1 && iconHtml.indexOf("/") !== -1) {
+        return "<img src='" + escapeHTML(iconHtml) + "' style='width:20px;height:20px;image-rendering:pixelated;vertical-align:middle;' />";
+    }
+    return iconHtml || '';
+}
+
+function OpenChestModal() {
+    try {
+        // Re-sincroniza window.g_chestItems com dg_cloud_profile antes de renderizar —
+        // cobre o caso de o login ter terminado DEPOIS do boot de engine.js (ver
+        // comentário completo em js/game/engine.js:loadChestItemsFromCloudProfile).
+        if (typeof window.LoadChestItemsFromCloudProfile === 'function') {
+            window.LoadChestItemsFromCloudProfile();
+        }
+        if (!Array.isArray(window.g_chestItems)) window.g_chestItems = [];
+
+        g_chestPage = 0;
+        g_chestSelection = null;
+        g_chestTransferOpenForIndex = null;
+
+        var overlay = document.getElementById('chestModalOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'chestModalOverlay';
+            overlay.className = 'tutorial-modal-overlay';
+            document.body.appendChild(overlay);
+        }
+        overlay.style.display = 'block'; // mesma convenção de display já usada por interactiveTutorialModal (js/game/engine.js)
+        RenderChestModal();
+
+        // Trigger de entrada no overworld já chamou isto ANTES de disparar
+        // chest_entry (ver POI_INTERACTION_HANDLERS.chest_entry, overworld.js) — mas
+        // OpenChestModal() também pode ser aberto de outros pontos futuros, então
+        // garante a trava aqui também (idempotente, sem custo chamar 2x).
+        if (typeof window.OverworldSetInputLocked === 'function') window.OverworldSetInputLocked(true);
+    } catch (err) {
+        console.warn('OpenChestModal Error', err);
+    }
+}
+
+function CloseChestModal() {
+    try {
+        var overlay = document.getElementById('chestModalOverlay');
+        if (overlay) overlay.style.display = 'none';
+        g_chestTransferOpenForIndex = null;
+        if (typeof window.OverworldSetInputLocked === 'function') window.OverworldSetInputLocked(false);
+    } catch (err) {
+        console.warn('CloseChestModal Error', err);
+    }
+}
+window.OpenChestModal = OpenChestModal;
+window.CloseChestModal = CloseChestModal;
+
+function RenderChestModal() {
+    try {
+        var overlay = document.getElementById('chestModalOverlay');
+        if (!overlay) return;
+
+        var bagStats = window.GhostRPG ? GhostRPG.getStats() : { inventory: [] };
+        var bagItems = bagStats.inventory || [];
+        var chestItems = Array.isArray(window.g_chestItems) ? window.g_chestItems : [];
+
+        // ---- coluna esquerda: inventário do ghost ATIVO (fonte do GUARDAR) --------
+        var bagGridHTML = "<div style='display:grid; grid-template-columns:repeat(4,1fr); gap:6px; max-height:380px; overflow-y:auto; padding-right:4px;'>";
+        if (bagItems.length === 0) {
+            bagGridHTML += "<div style='grid-column:1/-1; text-align:center; color:var(--text-muted); font-size:11px; padding:10px 0;'>Inventário vazio</div>";
+        }
+        for (var bi = 0; bi < bagItems.length; bi++) {
+            var bItem = bagItems[bi];
+            var bSel = g_chestSelection && g_chestSelection.source === 'bag' && g_chestSelection.id === bItem.id;
+            bagGridHTML += "<div onclick=\"SelectChestBagItem('" + escapeHTML(bItem.id) + "')\" class='bag-grid-slot' style='position:relative;" + (bSel ? "border:2px solid var(--magenta-neon); box-shadow:0 0 8px var(--magenta-neon);" : "") + "' title='" + escapeHTML(bItem.name || '') + "'>" +
+                chestIconHtml(bItem) +
+                (bItem.count > 1 ? "<span style='position:absolute; bottom:1px; right:2px; font-size:9px; font-weight:bold; background:#000; color:#FFA500; padding:0px 2px; border-radius:2px; border:1px solid #FFA500;'>x" + bItem.count + "</span>" : "") +
+                "</div>";
+        }
+        bagGridHTML += "</div>";
+
+        // ---- coluna central: baú da conta, PAGINADO (nunca os 1000 de uma vez) ----
+        var totalPages = Math.max(1, Math.ceil(chestItems.length / CHEST_MODAL_PAGE_SIZE));
+        if (g_chestPage >= totalPages) g_chestPage = totalPages - 1;
+        if (g_chestPage < 0) g_chestPage = 0;
+        var pageStart = g_chestPage * CHEST_MODAL_PAGE_SIZE;
+        var pageItems = chestItems.slice(pageStart, pageStart + CHEST_MODAL_PAGE_SIZE);
+
+        var chestGridHTML = "<div style='display:grid; grid-template-columns:repeat(6,1fr); gap:6px;'>";
+        if (chestItems.length === 0) {
+            chestGridHTML += "<div style='grid-column:1/-1; text-align:center; color:var(--text-muted); font-size:12px; padding:24px 0;'>O baú está vazio.</div>";
+        }
+        for (var ci = 0; ci < pageItems.length; ci++) {
+            var globalIdx = pageStart + ci;
+            var cItem = pageItems[ci];
+            var cSel = g_chestSelection && g_chestSelection.source === 'chest' && g_chestSelection.index === globalIdx;
+            chestGridHTML += "<div onclick=\"SelectChestItem(" + globalIdx + ")\" class='bag-grid-slot' style='position:relative;" + (cSel ? "border:2px solid var(--magenta-neon); box-shadow:0 0 8px var(--magenta-neon);" : "") + "' title='" + escapeHTML(cItem.name || '') + "'>" +
+                chestIconHtml(cItem) +
+                (cItem.count > 1 ? "<span style='position:absolute; bottom:1px; right:2px; font-size:9px; font-weight:bold; background:#000; color:#FFA500; padding:0px 2px; border-radius:2px; border:1px solid #FFA500;'>x" + cItem.count + "</span>" : "") +
+                "</div>";
+        }
+        // Preenche até múltiplo de 6 só com slots vazios DESTA página (nunca mais que
+        // 5 sobrando — page size é múltiplo de 6), mesmo visual do Bag.
+        var remainder = pageItems.length % 6;
+        if (pageItems.length > 0 && remainder !== 0) {
+            for (var pad = remainder; pad < 6; pad++) {
+                chestGridHTML += "<div class='bag-grid-slot' style='border:1px dashed rgba(255, 0, 255, 0.2); color:rgba(255,255,255,0.15); cursor:default;'>-</div>";
+            }
+        }
+        chestGridHTML += "</div>";
+
+        var pagerHTML = "<div style='display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:11px; color:var(--text-muted); gap:8px;'>" +
+            "<button onclick='ChestModalPrevPage()'" + (g_chestPage <= 0 ? " disabled" : "") + " class='bag-equip-btn' style='width:auto; margin:0; padding:4px 10px; font-size:10px;'>&larr; ANTERIOR</button>" +
+            "<span>Página " + (g_chestPage + 1) + "/" + totalPages + " — " + chestItems.length + "/1000 itens</span>" +
+            "<button onclick='ChestModalNextPage()'" + (g_chestPage >= totalPages - 1 ? " disabled" : "") + " class='bag-equip-btn' style='width:auto; margin:0; padding:4px 10px; font-size:10px;'>PRÓXIMA &rarr;</button>" +
+            "</div>";
+
+        var detailsHTML = RenderChestDetailsPanel(bagItems, chestItems);
+
+        var bodyHTML =
+            "<div style='display:flex; gap:16px; padding:16px; flex-wrap:wrap; align-items:flex-start;'>" +
+            "<div style='flex:0 0 210px;'>" +
+            "<h3 style='margin:0 0 8px 0; color:var(--cyan-neon); font-size:13px; font-family:var(--font-title); letter-spacing:1px;'>SEU INVENTÁRIO</h3>" +
+            bagGridHTML +
+            "</div>" +
+            "<div style='flex:1 1 380px; min-width:300px;'>" +
+            "<h3 style='margin:0 0 8px 0; color:var(--magenta-neon); font-size:13px; font-family:var(--font-title); letter-spacing:1px;'>🪦 BAÚ DO CEMITÉRIO</h3>" +
+            chestGridHTML +
+            pagerHTML +
+            "</div>" +
+            "<div style='flex:0 0 240px;'>" +
+            detailsHTML +
+            "</div>" +
+            "</div>";
+
+        overlay.innerHTML =
+            "<div class='tutorial-modal-container' style='max-width:920px; height:auto; max-height:88vh; margin:30px auto;'>" +
+            "<div class='tutorial-modal-header'>" +
+            "<h2>🪦 Baú da Conta</h2>" +
+            "<button class='tutorial-close-btn' onclick='CloseChestModal()'>Fechar [X]</button>" +
+            "</div>" +
+            "<div class='tutorial-modal-body' style='display:block; overflow-y:auto;'>" + bodyHTML + "</div>" +
+            "</div>";
+    } catch (err) {
+        console.warn('RenderChestModal Error', err);
+    }
+}
+
+// Painel de detalhes/ações compartilhado — o que aparece nele depende de QUAL
+// das duas listas (bag/chest) tem o item selecionado agora (g_chestSelection),
+// ou do submenu de transferência (g_chestTransferOpenForIndex) por cima disso.
+function RenderChestDetailsPanel(bagItems, chestItems) {
+    if (g_chestTransferOpenForIndex !== null) {
+        var xferItem = chestItems[g_chestTransferOpenForIndex];
+        if (!xferItem) {
+            g_chestTransferOpenForIndex = null;
+            return RenderChestDetailsPanel(bagItems, chestItems);
+        }
+        var roster = GetOwnedCharactersRoster();
+        var html = "<div class='bag-details-container'><div class='bag-details-info'>" +
+            "<div style='color:var(--yellow-neon); font-weight:bold; font-size:12px; margin-bottom:8px;'>Transferir<br>\"" + escapeHTML(xferItem.name || '') + "\"<br>para:</div>";
+        if (roster.length === 0) {
+            html += "<div style='color:var(--text-muted); font-size:11px;'>Nenhum ghost encontrado na conta.</div>";
+        } else {
+            html += "<div style='display:flex; flex-direction:column; gap:4px; max-height:180px; overflow-y:auto;'>";
+            for (var ri = 0; ri < roster.length; ri++) {
+                var g = roster[ri];
+                if (!g || !g.characterId) continue;
+                html += "<button onclick=\"ConfirmTransferChestItem('" + escapeHTML(g.characterId) + "')\" style='text-align:left; padding:6px 8px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); color:var(--text-main); border-radius:4px; cursor:pointer; font-size:11px;'>" + escapeHTML(g.name || g.characterId) + "</button>";
+            }
+            html += "</div>";
+        }
+        html += "</div><div class='bag-details-actions'><button onclick='CancelTransferChestItem()' class='bag-discard-btn' style='flex:1;'>CANCELAR</button></div></div>";
+        return html;
+    }
+
+    if (!g_chestSelection) {
+        return "<div class='bag-details-container'><div class='bag-details-info' style='display:flex; align-items:center; justify-content:center; min-height:220px;'>" +
+            "<p style='text-align:center; color:var(--text-muted); font-size:12px; margin:0;'>SELECIONE UM ITEM</p></div></div>";
+    }
+
+    var item, actionsHTML;
+    if (g_chestSelection.source === 'bag') {
+        item = bagItems.find(function (i) { return i.id === g_chestSelection.id; });
+        if (!item) { g_chestSelection = null; return RenderChestDetailsPanel(bagItems, chestItems); }
+        actionsHTML = "<button onclick=\"StoreActiveGhostItemInChest('" + escapeHTML(item.id) + "')\" class='bag-equip-btn' style='flex:1;'>GUARDAR NO BAÚ</button>";
+    } else {
+        item = chestItems[g_chestSelection.index];
+        if (!item) { g_chestSelection = null; return RenderChestDetailsPanel(bagItems, chestItems); }
+        actionsHTML =
+            "<button onclick='OpenTransferChestSubmenu(" + g_chestSelection.index + ")' class='bag-equip-btn' style='flex:1;'>TRANSFERIR</button>" +
+            "<button onclick=\"DiscardChestItem(" + g_chestSelection.index + ")\" class='bag-discard-btn' style='flex:1;'>DESCARTAR</button>";
+    }
+
+    return "<div class='bag-details-container'><div class='bag-details-info'>" +
+        "<div style='color:#fff; font-weight:bold; font-size:13px; margin-bottom:4px; display:flex; align-items:center; gap:6px;'><span>" + chestIconHtml(item) + "</span> " + escapeHTML(item.name || '') + "</div>" +
+        "<div style='margin-bottom:4px; line-height:1.35; color:var(--text-main); font-size:11px;'>" + escapeHTML(item.description || '') + "</div>" +
+        "</div><div class='bag-details-actions'>" + actionsHTML + "</div></div>";
+}
+
+function SelectChestBagItem(itemId) {
+    g_chestSelection = { source: 'bag', id: itemId };
+    g_chestTransferOpenForIndex = null;
+    RenderChestModal();
+}
+
+function SelectChestItem(globalIndex) {
+    g_chestSelection = { source: 'chest', index: globalIndex };
+    g_chestTransferOpenForIndex = null;
+    RenderChestModal();
+}
+
+function ChestModalPrevPage() {
+    if (g_chestPage > 0) { g_chestPage--; g_chestSelection = null; RenderChestModal(); }
+}
+
+function ChestModalNextPage() {
+    g_chestPage++; g_chestSelection = null; RenderChestModal();
+}
+
+// GUARDAR — move o item selecionado do inventário do ghost ATIVO pro baú da
+// conta. window.DiscardInventoryItem() remove a stack INTEIRA do ghost (mesma
+// função que DiscardBagItem já usa) — mover parcialmente (só parte de um
+// stack) não foi pedido, mesma granularidade de "guardar" que o resto do jogo
+// usa pra mover item inteiro entre listas.
+function StoreActiveGhostItemInChest(itemId) {
+    if (!Array.isArray(window.g_chestItems)) window.g_chestItems = [];
+    if (window.g_chestItems.length >= 1000) {
+        alert('O baú está cheio (limite: 1000 itens)!');
+        return;
+    }
+    var stats = window.GhostRPG ? GhostRPG.getStats() : { inventory: [] };
+    // GhostRPG.getStats() já devolve uma CÓPIA (JSON.parse(JSON.stringify(state)),
+    // ver rpg_system.js) — `item` aqui já é independente do state.inventory
+    // privado, não precisa clonar de novo antes do discardItem() abaixo mexer
+    // no original.
+    var item = (stats.inventory || []).find(function (i) { return i.id === itemId; });
+    if (!item) return;
+    if (!window.DiscardInventoryItem || !window.DiscardInventoryItem(itemId)) return;
+    window.g_chestItems.push(item);
+    if (window.SyncChestItemsToServer) window.SyncChestItemsToServer();
+    g_chestSelection = null;
+    RenderChestModal();
+}
+
+// DESCARTAR — remove permanentemente do baú, mesmo confirm() de segurança que
+// DiscardBagItem() já usa pro Bag normal.
+function DiscardChestItem(globalIndex) {
+    if (!Array.isArray(window.g_chestItems) || !window.g_chestItems[globalIndex]) return;
+    var item = window.g_chestItems[globalIndex];
+    if (!confirm("Tem certeza que quer descartar \"" + (item.name || item.id) + "\" do baú? Essa ação é permanente!")) return;
+    window.g_chestItems.splice(globalIndex, 1);
+    if (window.SyncChestItemsToServer) window.SyncChestItemsToServer();
+    g_chestSelection = null;
+    RenderChestModal();
+}
+
+function OpenTransferChestSubmenu(globalIndex) {
+    g_chestTransferOpenForIndex = globalIndex;
+    RenderChestModal();
+}
+
+function CancelTransferChestItem() {
+    g_chestTransferOpenForIndex = null;
+    RenderChestModal();
+}
+
+function ConfirmTransferChestItem(targetCharacterId) {
+    if (g_chestTransferOpenForIndex === null || !Array.isArray(window.g_chestItems)) return;
+    var item = window.g_chestItems[g_chestTransferOpenForIndex];
+    if (item && window.TransferChestItemToGhost) {
+        window.TransferChestItemToGhost(item, targetCharacterId); // já remove do baú e sincroniza — ver rpg_system.js
+    }
+    g_chestTransferOpenForIndex = null;
+    g_chestSelection = null;
+    RenderChestModal();
+}
+
+// Lista de ghosts da conta pro submenu de TRANSFERIR — window.g_ownedCharacters
+// (cache em memória, ver js/game/ghostdex_ui.js) com fallback pra
+// localStorage.dg_local_characters direto se o cache ainda não foi populado
+// nesta sessão (mesmo padrão defensivo já usado em outros pontos deste jogo).
+function GetOwnedCharactersRoster() {
+    if (Array.isArray(window.g_ownedCharacters) && window.g_ownedCharacters.length > 0) {
+        return window.g_ownedCharacters;
+    }
+    try {
+        var raw = localStorage.getItem('dg_local_characters');
+        return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+        return [];
+    }
+}
+
 function UpdateNavbarEquip() {
     try {
         var panelContent = document.getElementById("navbarPanelContent");

@@ -1129,3 +1129,124 @@ window.ConsumeElixir = function() {
 window.GetEquipmentState = function() {
     return GhostRPG.getEquipment();
 };
+
+// ============================================================================
+// 2026-09-04 (baú de conta / cemitério, plano crystalline-launching-goose.md) —
+// transferência de item do BAÚ (window.g_chestItems, por CONTA — ver
+// server/db.js:chest_items, Track A) pro inventário de um ghost específico,
+// ativo ou não. Vive FORA do IIFE de GhostRPG de propósito: precisa mexer em
+// `dg_local_characters` inteiro (todos os personagens), não só no `state`
+// privado (só o personagem ativo) que o closure de GhostRPG enxerga — mesma
+// razão pela qual window.UnlockGhostForPlayer (js/game/ghost_inventory.js)
+// também edita esse localStorage direto em vez de passar por GhostRPG.
+//
+// normalizeCharId: dg_local_characters tem uma inconsistência de formato JÁ
+// DOCUMENTADA neste mesmo arquivo (ver saveLocalStorage acima, "Compatibilidade
+// com saves antigos") — um personagem pode estar salvo como "001" (cru, o que
+// GhostRPG.saveLocalStorage grava) ou "ghost_001" (o que
+// ghost_inventory.js:UnlockGhostForPlayer grava numa captura nova, antes desse
+// personagem ser jogado/salvo pelo menos 1x via GhostRPG). Comparar só com
+// "===" quebraria silenciosamente pra um ghost recém-capturado ainda não
+// normalizado — esta função compara pela forma normalizada (sem prefixo, sem
+// zeros à esquerda) nos dois lados, sem NUNCA reescrever o characterId
+// armazenado (só usa a forma normalizada pra decidir "é o mesmo personagem?").
+function normalizeCharId(id) {
+    return String(id || '').replace(/^ghost_/, '').replace(/^0+(?=\d)/, '');
+}
+
+window.TransferChestItemToGhost = function(item, targetCharacterId) {
+    if (!item || !targetCharacterId) {
+        console.warn('[RPG] TransferChestItemToGhost: item ou targetCharacterId ausente.');
+        return false;
+    }
+
+    var activeCharId = (window.GhostRPG && GhostRPG.getStats) ? GhostRPG.getStats().characterId : null;
+    var isActiveGhost = activeCharId != null && normalizeCharId(activeCharId) === normalizeCharId(targetCharacterId);
+
+    if (isActiveGhost) {
+        // Ghost ATIVO — caminho direto, mesma função que qualquer loot novo usa
+        // (AddInventoryItem já cuida de empilhamento/limite de 100 slots/persistência
+        // local; GhostRPG.addItem() já dispara UpdateNavbarBag() se a aba Bag estiver
+        // aberta, então o inventário do Bag reflete a transferência sem esta função
+        // precisar saber nada de UI).
+        window.AddInventoryItem(item.id, item.name, item.icon, item.description, item.count || 1);
+    } else {
+        // Ghost NÃO-ativo — GhostRPG não enxerga esse personagem (só conhece o
+        // `state` ativo), então edita dg_local_characters diretamente: acha o
+        // registro pelo characterId normalizado, empurra o item no array
+        // `inventory` dele (mesmo empilhamento simples de GhostRPG.addItem() acima
+        // pra itens sem quality/Common — ghosts não-ativos não têm o limite de 100
+        // slots reforçado aqui, documentado, não um bug novo desta função), grava
+        // de volta em localStorage.dg_local_characters.
+        var raw = localStorage.getItem('dg_local_characters');
+        var localChars = raw ? JSON.parse(raw) : [];
+        var targetChar = localChars.find(function (c) { return normalizeCharId(c.characterId) === normalizeCharId(targetCharacterId); });
+        if (!targetChar) {
+            console.warn('[RPG] TransferChestItemToGhost: personagem "' + targetCharacterId + '" não encontrado em dg_local_characters — transferência abortada, item permanece no baú.');
+            return false;
+        }
+        if (!Array.isArray(targetChar.inventory)) targetChar.inventory = [];
+        var isStackable = (item.id === "ghost_spell" || item.id === "elixir" || item.id === "deso_coin" || item.id === "blue_key" || !item.quality || item.quality === "Common");
+        var existing = isStackable ? targetChar.inventory.find(function (i) { return i.id === item.id; }) : null;
+        if (existing) {
+            existing.count = (existing.count || 1) + (item.count || 1);
+        } else {
+            var newItem = Object.assign({}, item);
+            newItem.count = item.count || 1;
+            targetChar.inventory.push(newItem);
+        }
+        localStorage.setItem('dg_local_characters', JSON.stringify(localChars));
+
+        // Sincroniza com o banco — mesmo evento/payload {characters:[...]} que
+        // window.UnlockGhostForPlayer já usa (ghost_inventory.js ~linha 79). Diferente
+        // daquela função, NÃO omite inventory/equipment do payload: lá o objetivo era
+        // não sobrescrever progresso de OUTRO aparelho com um personagem RECÉM-CRIADO
+        // (só campos vazios, ver comentário lá); aqui targetChar já É o registro
+        // completo e atualizado deste aparelho (acabou de receber o item de verdade),
+        // então mandar o objeto inteiro é o comportamento certo — o COALESCE do
+        // servidor não teria nada melhor pra "preservar" no lugar disso.
+        var xferSocket = window.NetworkState && window.NetworkState.socket;
+        if (xferSocket && xferSocket.connected && localStorage.getItem('dg_cloud_email')) {
+            xferSocket.emit('save_game_state', { characters: [targetChar] });
+        }
+
+        // window.g_ownedCharacters (cache em memória separado de dg_local_characters,
+        // ver nota em js/game/ghostdex_ui.js) — mantém os dois em sincronia, mesmo
+        // raciocínio já documentado lá ("sem isso, a tela de seleção de personagem
+        // mostraria o inventário desatualizado até o próximo login").
+        if (Array.isArray(window.g_ownedCharacters)) {
+            var cachedChar = window.g_ownedCharacters.find(function (c) { return normalizeCharId(c.characterId) === normalizeCharId(targetCharacterId); });
+            if (cachedChar) cachedChar.inventory = targetChar.inventory;
+        }
+    }
+
+    // Em QUALQUER um dos dois ramos acima (ativo ou não), o item some do baú —
+    // mesmo efeito colateral, um só lugar em vez de duplicado. Remove por
+    // IDENTIDADE de objeto (indexOf), não por id: o baú pode ter várias entradas
+    // com o mesmo `id` (itens não empilháveis com quality/attributes diferentes,
+    // mesmo raciocínio de GhostRPG.addItem sobre só empilhar item Common/sem
+    // quality) — remover a primeira ocorrência POR ID poderia apagar a entrada
+    // ERRADA se o jogador tivesse duas cópias diferentes do mesmo item base.
+    if (Array.isArray(window.g_chestItems)) {
+        var chestIdx = window.g_chestItems.indexOf(item);
+        if (chestIdx !== -1) window.g_chestItems.splice(chestIdx, 1);
+    }
+    if (window.SyncChestItemsToServer) window.SyncChestItemsToServer();
+    return true;
+};
+
+// 2026-09-04 (baú de conta) — emite o estado atual de window.g_chestItems pro
+// servidor (mesmo evento `save_game_state` que characters/favorites/etc já
+// usam; contrato do plano — campo `chestItems`, camelCase, validado
+// server-side em sanitizePlayerProgressPayload/MAX_CHEST_ITEMS, server/db.js,
+// Track A). Função própria em vez de inline em cada call site porque TRÊS
+// fluxos diferentes disparam exatamente o mesmo emit (GUARDAR/DESCARTAR em
+// js/ui/ui_manager.js, TRANSFERIR acima) — um só lugar pro guard
+// socket-conectado-e-logado, mesmo padrão já usado por
+// UnlockGhostForPlayer/statsFixSocket.
+window.SyncChestItemsToServer = function () {
+    var socket = window.NetworkState && window.NetworkState.socket;
+    if (socket && socket.connected && localStorage.getItem('dg_cloud_email')) {
+        socket.emit('save_game_state', { chestItems: Array.isArray(window.g_chestItems) ? window.g_chestItems : [] });
+    }
+};

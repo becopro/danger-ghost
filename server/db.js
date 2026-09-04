@@ -85,6 +85,22 @@ function ensureTableReady() {
         `)).then(() => pool.query(`
             ALTER TABLE players ADD COLUMN IF NOT EXISTS overworld_grid_y INTEGER
         `)).then(() => pool.query(`
+            -- Baú de conta (04/09/2026, tarefa do backend-architect: Cemitério + Baú, Track A).
+            -- Igual ghostdex_progress/favorites/overworld_grid_x/y acima, mora em players (não em
+            -- characters) porque é dado de CONTA: o jogador troca de fantasma o tempo todo
+            -- (rpg_system.js/SwitchActiveGhost), e um item guardado no baú não "pertence" ao
+            -- fantasma que por acaso estava ativo no momento em que foi guardado — é um inventário
+            -- extra COMPARTILHADO entre todos os fantasmas da conta, de onde qualquer um deles pode
+            -- puxar item de volta. Mesmo formato de objeto já usado no inventory de personagem
+            -- (id/name/icon/description/count/quality/etc., ver ui_manager.js:UpdateNavbarBag) —
+            -- nenhum schema de item novo, só um array JSONB diferente guardando a mesma forma.
+            -- Default '[]' (conta nova = baú vazio), teto de 1000 itens NUNCA confiado a este
+            -- DEFAULT nem ao cliente — é reforçado no servidor dentro de
+            -- sanitizePlayerProgressPayload (ver comentário lá) toda vez que o campo chega por
+            -- save_game_state, porque um DEFAULT de coluna não impede um cliente de mandar um
+            -- array maior depois.
+            ALTER TABLE players ADD COLUMN IF NOT EXISTS chest_items JSONB DEFAULT '[]'
+        `)).then(() => pool.query(`
             CREATE TABLE IF NOT EXISTS characters (
                 email TEXT NOT NULL REFERENCES players(email) ON DELETE CASCADE,
                 character_id TEXT NOT NULL,
@@ -385,6 +401,12 @@ const PLAYER_NUMERIC_BOUNDS = {
     maxMana: [0, 250000],
     lives: [0, 15000]
 };
+// Teto do baú de conta (04/09/2026) — número de negócio do pedido do usuário (Cemitério + Baú),
+// não calibrado de uma faixa plausível de gameplay como PLAYER_NUMERIC_BOUNDS acima. Usado em
+// sanitizePlayerProgressPayload pra rejeitar (não truncar) um chestItems maior que isso — ver
+// comentário lá pro raciocínio completo de por que rejeitar o payload inteiro é mais seguro que
+// truncar pros primeiros 1000.
+const MAX_CHEST_ITEMS = 1000;
 const WEAPON_DAMAGE_BOUNDS = [0, 100000];
 
 function isPlausibleNumber(value, bounds) {
@@ -445,6 +467,18 @@ function sanitizePlayerProgressPayload(email, data) {
     if (clean.favorites != null && !Array.isArray(clean.favorites)) reject('favorites', clean.favorites);
     if (clean.ghostdexProgress != null && !isPlainObject(clean.ghostdexProgress)) reject('ghostdexProgress', clean.ghostdexProgress);
     if (clean.equippedSkills != null && !Array.isArray(clean.equippedSkills)) reject('equippedSkills', clean.equippedSkills);
+    // Baú de conta (04/09/2026): forma errada (não-array) OU array maior que o teto de 1000 vira
+    // "ausente" igual a qualquer outro campo implausível acima — o COALESCE em savePlayerProgress
+    // já preserva o chest_items atual do banco nesse caso, é o MESMO mecanismo, nenhum código novo
+    // precisou entrar lá. Deliberadamente NÃO trunca pros primeiros 1000 mantendo o resto de fora
+    // (igual galleryUrls faz acima em sanitizeProfilePayload) — truncar silenciosamente é mais
+    // perigoso aqui do que lá: um cliente forjando um array gigante no console (chestItems:
+    // new Array(50000).fill(item)) poderia ficar tentando tamanhos até acertar exatamente 1000 e
+    // POR SORTE preencher o baú inteiro de uma vez com item forjado, em vez de ser rejeitado toda
+    // vez que passar do teto. Rejeitar o payload INTEIRO (preservando o chest_items válido que já
+    // está no banco) fecha esse caminho: não existe tamanho de payload forjado que "funcione
+    // parcialmente".
+    if (clean.chestItems != null && (!Array.isArray(clean.chestItems) || clean.chestItems.length > MAX_CHEST_ITEMS)) reject('chestItems', Array.isArray(clean.chestItems) ? `array com ${clean.chestItems.length} itens` : clean.chestItems);
 
     return clean;
 }
@@ -700,7 +734,7 @@ async function loadPlayerByEmail(email) {
     const { rows } = await pool.query(
         `SELECT email, name, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills",
             ghostdex_progress AS "ghostdexProgress", favorites, avatar_url AS "avatarUrl", gallery_urls AS "galleryUrls",
-            overworld_grid_x AS "overworldGridX", overworld_grid_y AS "overworldGridY"
+            overworld_grid_x AS "overworldGridX", overworld_grid_y AS "overworldGridY", chest_items AS "chestItems"
          FROM players WHERE email = $1`,
         [email]
     );
@@ -747,7 +781,7 @@ async function loginPlayer(email, password) {
     const { rows } = await pool.query(
         `SELECT email, name, password, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills",
             ghostdex_progress AS "ghostdexProgress", favorites, avatar_url AS "avatarUrl", gallery_urls AS "galleryUrls",
-            overworld_grid_x AS "overworldGridX", overworld_grid_y AS "overworldGridY"
+            overworld_grid_x AS "overworldGridX", overworld_grid_y AS "overworldGridY", chest_items AS "chestItems"
          FROM players WHERE email = $1`,
         [email]
     );
@@ -787,6 +821,9 @@ async function createPlayer(email, profileName, password) {
         email, name: defaultName, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0, 0, 0, 0],
         ghostdexProgress: {}, favorites: [], avatarUrl: null, galleryUrls: [],
         overworldGridX: null, overworldGridY: null, // conta nova: nunca esteve no overworld, cliente usa a torre como spawn
+        chestItems: [], // conta nova: baú vazio (mesmo default '[]' da coluna chest_items) — objeto
+                         // devolvido direto ao cliente aqui, sem passar por um SELECT de volta ao
+                         // banco, então precisa espelhar o DEFAULT da coluna manualmente
         characters: [] // conta nova de verdade: nenhum fantasma no banco ainda — o jogador forja o
                         // primeiro (30/08/2026: não existe mais criação automática de um "Ghost
                         // #001" nem adoção de personagens que só existiam no localStorage).
@@ -873,8 +910,9 @@ async function savePlayerProgress(email, data) {
             equipped_skills = COALESCE($6, equipped_skills),
             ghostdex_progress = COALESCE($7, ghostdex_progress),
             favorites = COALESCE($8, favorites),
+            chest_items = COALESCE($9, chest_items),
             updated_at = now()
-         WHERE email = $9`,
+         WHERE email = $10`,
         [
             data.level ?? null,
             data.xp ?? null,
@@ -884,6 +922,12 @@ async function savePlayerProgress(email, data) {
             data.equippedSkills ? JSON.stringify(data.equippedSkills) : null,
             data.ghostdexProgress ? JSON.stringify(data.ghostdexProgress) : null,
             data.favorites ? JSON.stringify(data.favorites) : null,
+            // Baú de conta (04/09/2026): mesmo padrão de favorites/ghostdexProgress acima —
+            // sanitizePlayerProgressPayload já reduziu "ausente, forma errada, ou maior que 1000"
+            // a "chestItems não existe mais em data" antes daqui, então `? JSON.stringify(...) :
+            // null` é só o de sempre: campo presente vira JSON, campo ausente vira null, e o
+            // COALESCE preserva o chest_items que já está no banco.
+            data.chestItems ? JSON.stringify(data.chestItems) : null,
             email
         ]
     );
