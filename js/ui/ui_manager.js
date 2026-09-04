@@ -520,7 +520,29 @@ function RenderChestDetailsPanel(bagItems, chestItems) {
             for (var ri = 0; ri < roster.length; ri++) {
                 var g = roster[ri];
                 if (!g || !g.characterId) continue;
-                html += "<button onclick=\"ConfirmTransferChestItem('" + escapeHTML(g.characterId) + "')\" style='text-align:left; padding:6px 8px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); color:var(--text-main); border-radius:4px; cursor:pointer; font-size:11px;'>" + escapeHTML(g.name || g.characterId) + "</button>";
+                // 04/09/2026 (pedido do usuário): antes cada linha era só o NOME em texto puro,
+                // sem nenhuma relação visual com o resto do jogo. Agora cada card usa a mesma
+                // thumbnail + cadeia de fallback de sprite que a Ghostdex já usa em
+                // RenderGhostdexInNavbar() (js/game/ghostdex_ui.js) — mesmo padrão de 3 caminhos
+                // que overworld.js:ghostSpritePaths() também replica — pra manter consistência
+                // de identidade visual entre as telas onde um ghost aparece.
+                // g.characterId só carrega um ID de espécie real do catálogo quando tem o
+                // prefixo "ghost_" (ex. "ghost_002" -> ID "002" pro sprite). Um fantasma FORJADO
+                // ("dg_local_...", ver game_core.js) não tem espécie de catálogo nenhuma, então
+                // não existe sprite pra buscar — cai no emoji genérico 👻, o mesmo fallback que
+                // friends.js:BuildFriendAvatarNode() já usa pra avatar sem imagem, em vez de
+                // inventar um placeholder novo pro jogo.
+                var thumbHtml;
+                if (g.characterId.indexOf('ghost_') === 0) {
+                    var speciesId = escapeHTML(g.characterId.replace('ghost_', ''));
+                    thumbHtml = "<img src='Ghosts/%23" + speciesId + ".png' onerror='this.onerror=null;this.src=\"Ghosts/" + speciesId + ".png\";this.onerror=function(){this.onerror=null;this.src=\"assets/sprites/ghost_" + speciesId + "_r.webp\";};' style='width:24px;height:24px;image-rendering:pixelated;filter:drop-shadow(0 0 5px #00FFFF);flex-shrink:0;' />";
+                } else {
+                    thumbHtml = "<span style='width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;'>&#128123;</span>";
+                }
+                // Cor do nome segue a paleta já usada no baú (var(--yellow-neon)), não a verde
+                // da Ghostdex — o baú reaproveita classes visuais da Bag/Ghostdex por
+                // conveniência, mas tem identidade de cor própria (magenta/amarelo neon).
+                html += "<button onclick=\"ConfirmTransferChestItem('" + escapeHTML(g.characterId) + "')\" style='display:flex; align-items:center; gap:8px; text-align:left; padding:6px 8px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); color:var(--text-main); border-radius:4px; cursor:pointer; font-size:11px;'>" + thumbHtml + "<span style='color:var(--yellow-neon); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>" + escapeHTML(g.name || g.characterId) + "</span></button>";
             }
             html += "</div>";
         }
