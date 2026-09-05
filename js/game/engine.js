@@ -836,7 +836,27 @@
 							else if (tile == 9) g_ctx.drawImage(cupFrames[cupFrame], x, y, 24, 24);
 							else if (tile == 10) g_ctx.drawImage(crownImage, x, y, 24, 24);
 							else if (tile == 11) g_ctx.drawImage(ringImage, x, y, 24, 24);
-							else if (tile == 12) g_ctx.drawImage(DeSoGhost_Lives, x, y, 24, 24);
+							else if (tile == 12) {
+								// ELIXIR (05/09/2026): pedido do usuário -- este pickup já virou "Elixir"
+								// na lógica e na Bag (ver comentário maior em ~linha 1756 e o
+								// window.AddInventoryItem("elixir", "Elixir", "🧪", ...) em ~linha 1779),
+								// mas o desenho do tile no nível continuava usando o sprite velho do
+								// fantasma (DeSoGhost_Lives / "Ftasma d.webp"), que é resquício do antigo
+								// item "vida extra". Trocado por fillText do MESMO emoji 🧪 que a Bag já
+								// usa -- não existe nenhum arquivo de imagem de elixir no projeto (procurei
+								// antes de decidir por emoji em vez de sprite), então "mesma arte" aqui
+								// significa literalmente o mesmo caractere de emoji, não uma imagem nova.
+								// save()/restore() em vez de mexer direto no contexto porque o restante
+								// do loop de tiles logo abaixo/acima espera o estado default do canvas
+								// (textAlign="start" etc.) -- sem isso o próximo tile desenhado herdaria
+								// textAlign/textBaseline/font trocados aqui.
+								g_ctx.save();
+								g_ctx.font = "18px sans-serif";
+								g_ctx.textAlign = "center";
+								g_ctx.textBaseline = "middle";
+								g_ctx.fillText("🧪", x + 12, y + 12);
+								g_ctx.restore();
+							}
 							else if (tile == 13) g_ctx.drawImage(mudTileImage, x, y, 24, 24);
 							else if (tile == 14) g_ctx.drawImage(blueTileImage, x, y, 24, 24);
 							else if (tile == 15) g_ctx.drawImage(pipeImage, x, y, 24, 24);
@@ -2459,7 +2479,23 @@
 				g_ctx.font = "bold 18px 'Courier New'";
 				var nameWidth = g_ctx.measureText(charName).width;
 				var livesX = 10 + nameWidth + 8;
-				g_ctx.drawImage(DeSoGhost_Lives, livesX, g_canvas.height - 25, 24, 24);
+				// ELIXIR (05/09/2026): mesmo motivo do tile 12 no draw() do nível (ver
+				// comentário completo ali) -- o contador de "vidas" no HUD inferior
+				// ("Nome [ícone] X N") também desenhava o sprite velho do fantasma pra
+				// representar o que hoje é o item Elixir. Trocado por fillText do MESMO
+				// emoji 🧪 usado na Bag, mantendo a MESMA posição/tamanho que a imagem
+				// 24x24 ocupava (livesX, g_canvas.height - 25) -- só o desenho muda,
+				// "X " + ghostLives logo abaixo continua igual. save()/restore() porque
+				// o resto do HUD desenhado depois (SCORE, LEVEL, nome do Ghost ativo)
+				// depende do font/fillStyle/textAlign que já estavam setados antes
+				// desta linha (não pode vazar textAlign="center"/textBaseline="middle"
+				// pro texto "X " + ghostLives logo em seguida).
+				g_ctx.save();
+				g_ctx.font = "18px sans-serif";
+				g_ctx.textAlign = "center";
+				g_ctx.textBaseline = "middle";
+				g_ctx.fillText("🧪", livesX + 12, g_canvas.height - 25 + 12);
+				g_ctx.restore();
 				var ghostLives = typeof DeSoGhost !== 'undefined' && DeSoGhost ? DeSoGhost.lives : 3;
 				g_ctx.fillText("X " + ghostLives, livesX + 26, g_canvas.height - 8);
 
