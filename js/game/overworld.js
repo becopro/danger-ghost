@@ -2624,13 +2624,34 @@
     }
 
     // Sprite de OUTRO jogador — heurística documentada no topo do arquivo (item 3):
-    // extrai o ID do sufixo "(#ID)" do `name` ecoado pelo servidor. Sem sufixo
-    // reconhecível, retorna null (drawGhostBillboard cai no marcador genérico só
-    // pra esse jogador, sem inventar sprite).
+    // extrai o ID do sufixo "(#ID)" do `name` ecoado pelo servidor.
+    //
+    // CORREÇÃO 2026-09-05 (teste E2E com 2 contas reais, 2 sockets simultâneos, pedido
+    // do usuário: "todos os jogadores devem se ver como é no Episódio 1"): sem sufixo
+    // reconhecível, esta função SEMPRE retornou null até hoje — e null aqui não é caso
+    // raro, é o caminho comum. `window.g_currentPlayerGhost` (a origem do sufixo, ver
+    // ConnectToServer() em network.js linha ~51-53) só é populado depois que o jogador
+    // passa pelo fluxo do Ghostdex/PlayAsGhost; testado ao vivo com 2 contas novas
+    // (signup real -> Forge New Ghost -> Play, sem nunca abrir o Ghostdex) e as DUAS
+    // chegaram ao overworld com g_currentPlayerGhost indefinido — ou seja, SEM sufixo,
+    // o caso comum pra qualquer conta nova, não uma borda. null aqui faz
+    // drawGhostBillboard cair no marcador genérico (drawPlayerToken, um ponto magenta
+    // sem forma de fantasma) pra QUALQUER outro jogador nessa situação.
+    // Isso já tinha sido corrigido pro jogador LOCAL em getSelfGhostImg() (2026-09-03,
+    // comentário acima: "sem esse fallback ele nunca vê o sprite real... diferente do
+    // Episódio 1, que sempre mostra um fantasma de verdade") — mas o mesmo fallback
+    // nunca foi espelhado aqui pros OUTROS jogadores, então a assimetria continuava: seu
+    // próprio fantasma sempre parecia um fantasma de verdade, o dos outros virava um
+    // borrão magenta sempre que o servidor não conseguia extrair um ID do nome. Ghost
+    // #001 é o MESMO fallback, pelo MESMO motivo, só que agora dos dois lados —
+    // nenhum sprite novo, nenhuma chamada de rede nova, só reaproveita
+    // loadGhostSpriteById() (cache próprio por id, ver função acima) exatamente como
+    // getSelfGhostImg() já faz.
     var GHOST_ID_SUFFIX_RE = /\(#([^)]+)\)\s*$/;
     function getOtherPlayerGhostImg(p) {
         var m = p && p.name ? GHOST_ID_SUFFIX_RE.exec(p.name) : null;
-        return m ? loadGhostSpriteById(m[1]) : null;
+        var id = m ? m[1] : '001';
+        return loadGhostSpriteById(id);
     }
 
     // Desenha o fantasma (imagem real, reduzida) ancorado nos "pés" (footY = cy, o
