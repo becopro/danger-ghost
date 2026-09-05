@@ -497,8 +497,26 @@ io.on('connection', (socket) => {
     // Postgres — um jogador anônimo (que player_move aceita) não tem onde persistir.
     socket.on('overworld_move', (data) => {
         const playerSession = players[socket.id];
-        if (!playerSession || !playerSession.email) {
-            return; // silencioso — mesmo espírito de save_game_state/update_profile pra evento de alta frequência sem sessão
+        // 05/09/2026 (auditoria forense de multiplayer — "Online:2 mas ninguém vê ninguém no
+        // overworld", reproduzido de verdade com 2 contas em localhost/127.0.0.1): esta checagem
+        // já existia e sempre foi silenciosa por design para um socket que NUNCA autenticou (mesmo
+        // espírito de save_game_state/update_profile). Mas rastreamento ao vivo (log temporário,
+        // removido depois de achar a causa) mostrou um caso BEM diferente e digno de aviso: um
+        // socket com `hasSession=true` (já passou por join_game) mandando overworld_move de verdade,
+        // mas SEM email — sintoma de uma reconexão (deploy, queda de rede) que recriou
+        // players[socket.id] do zero sem que o cliente jamais re-emitisse login/session_login pra
+        // este socket novo (ver fix em js/game/network.js, socket.on('connect')). Este segundo caso
+        // é raro sob operação normal (o fix do lado do cliente cobre exatamente ele) e, quando
+        // acontece mesmo assim (ex.: token de sessão expirado justo na hora da reconexão), é
+        // exatamente o tipo de falha que passou desapercebida por ficar 100% silenciosa antes —
+        // por isso um warn (não um log de alta frequência) fica, em vez de remover a instrumentação
+        // por completo.
+        if (!playerSession) {
+            return; // socket nunca completou nem join_game — silencioso, nada de anormal aqui
+        }
+        if (!playerSession.email) {
+            console.warn('[Overworld] overworld_move rejeitado: sessão existe mas sem e-mail (provável reconexão sem re-login) — socket ' + socket.id);
+            return;
         }
         if (!data || !isPlausibleGridCoord(data.gridX) || !isPlausibleGridCoord(data.gridY)) {
             return; // fora da faixa -2000/2000 ou não-inteiro: rejeita em silêncio, mesmo padrão de NUMERIC_BOUNDS (db.js)

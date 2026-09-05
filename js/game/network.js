@@ -8,6 +8,13 @@ window.NetworkState = {
     authTimeout: null
 };
 
+// 05/09/2026 (auditoria forense de multiplayer — ver comentário grande dentro de
+// socket.on('connect') abaixo pro raciocínio completo): distingue a PRIMEIRA vez que este
+// socket conecta nesta visita de página de qualquer reconexão automática seguinte
+// (reconnection:true). false por carregamento de página (nunca persiste em localStorage de
+// propósito — precisa voltar a false toda vez que a página recarrega de verdade).
+var g_hasConnectedOnceThisPageLoad = false;
+
 // Calcula a URL do backend (site + apps webview) — usada aqui pro socket.io e
 // também reusada por js/web2/profile.js (fetch do upload de imagem de perfil),
 // pra nunca ter duas fontes de verdade sobre qual host é o servidor do jogo
@@ -61,7 +68,76 @@ window.ConnectToServer = function() {
         // invisível pros outros até se mexer de novo. Zera a chave de dedup pra
         // forçar um overworld_move novo no próximo tick do poll, se ainda ativo.
         g_lastOverworldEmitKey = null;
-        
+
+        // 05/09/2026 (auditoria forense de multiplayer, "Online:2 mas ninguém vê ninguém no
+        // overworld", reproduzido de verdade com 2 contas em localhost/127.0.0.1): join_game
+        // recria players[socket.id] do zero (comentário acima já sabia disso), mas NADA além
+        // disso rodava neste handler de 'connect' — e este é o MESMO handler pra primeira
+        // conexão E para toda reconexão automática do socket.io (reconnection:true, linha
+        // ~41). Resultado real, confirmado ao vivo com log temporário no servidor
+        // (server/index.js, socket.on('overworld_move')): depois de qualquer restart do
+        // processo do servidor (deploy, crash, etc.) com a ABA JÁ ABERTA e já logada, o
+        // socket.io reconecta sozinho sem recarregar a página — g_hasAuthenticatedThisPageLoad
+        // continua true (é estado em memória da ABA, não do socket) e GetCurrentPlayerEmail()
+        // continua devolvendo o e-mail certo (lido de dg_cloud_email no localStorage, também
+        // não afetado por reconexão) — mas o NOVO players[socket.id] no servidor nunca recebe
+        // .email de volta, porque nenhum evento de login é reemitido aqui, só join_game. Todo
+        // overworld_move seguinte é rejeitado em silêncio pra sempre (server/index.js: "if
+        // (!playerSession.email) return;", sem emitir erro nenhum) — e por isso as DUAS contas
+        // de teste ficavam invisíveis uma pra outra mesmo perto uma da outra: nenhuma das duas
+        // tinha .email no processo novo do servidor, então nenhuma delas nunca entrava em
+        // nenhuma room ow_{chunkX}_{chunkY} de verdade. "Online: N" continuava certo porque
+        // vem de join_game/sync_state, que não exige e-mail nenhum — sistema totalmente
+        // separado (ver comentário grande em server/index.js perto do broadcast do overworld).
+        //
+        // Fix: se esta aba já completou um login de verdade NESTA visita
+        // (g_hasAuthenticatedThisPageLoad, fonte de verdade correta desde o achado de
+        // 22/08/2026 sobre dg_cloud_email — ver js/web2/auth.js) e a reconexão aconteceu (não
+        // é a primeira vez que 'connect' dispara nesta aba), tenta re-autenticar o NOVO socket
+        // sozinho via TryAutoLoginFromSession() (mesmo token dg_session_token já salvo, mesma
+        // função usada pelo botão "RESGATAR PROGRESSO"). Isto NÃO reintroduz o auto-login
+        // proibido pelo pedido de 22/08/2026 ("nunca logar sozinho ao carregar a página"):
+        // g_hasAuthenticatedThisPageLoad só é true depois de um clique de verdade do jogador
+        // nesta mesma visita — na PRIMEIRA conexão da aba ele é sempre false (checado abaixo),
+        // então este bloco nunca roda antes de um login manual real. Se o token salvo também
+        // não for mais válido (ex.: JWT_SECRET rotacionado num restart do servidor — ver
+        // "[SECURITY] jwtsecret não definido" em server/index.js, mesma categoria de achado já
+        // corrigido em 18/08/2026 mas ainda sem valor definido em server/.env local), volta
+        // honestamente pro estado "não autenticado" (reexibe os botões de login) em vez de
+        // continuar fingindo estar logado — mesmo espírito do achado de save_error (nunca
+        // silêncio total sobre uma falha real).
+        if (g_hasConnectedOnceThisPageLoad && window.g_hasAuthenticatedThisPageLoad) {
+            console.log('[Network] Reconexão detectada com sessão já autenticada nesta aba — re-sincronizando login com o novo processo do servidor...');
+            if (typeof TryAutoLoginFromSession === 'function') {
+                TryAutoLoginFromSession(function (loggedIn) {
+                    if (!loggedIn) {
+                        console.warn('[Network] Falha ao re-sincronizar sessão após reconexão — token de sessão inválido/expirado. Voltando ao estado "não logado" em vez de continuar silenciosamente sem efeito (save/overworld ficariam quebrados sem aviso nenhum).');
+                        window.g_hasAuthenticatedThisPageLoad = false;
+                        if (typeof UpdateLoginButtonsVisibility === 'function') UpdateLoginButtonsVisibility();
+                    } else {
+                        console.log('[Network] Sessão re-sincronizada com sucesso após reconexão.');
+                        // 05/09/2026 (mesma investigação — corrida descoberta AO VIVO testando o
+                        // fix acima, não suposta): o loop de overworld_move (150ms, mais abaixo
+                        // neste arquivo) já tinha zerado g_lastOverworldEmitKey no 'connect' (ver
+                        // comentário histórico logo depois deste bloco) e podia perfeitamente
+                        // disparar UM overworld_move antes desta chamada de session_login
+                        // terminar (round-trip assíncrono) — esse envio prematuro chega no
+                        // servidor com playerSession.email ainda undefined, é rejeitado em
+                        // silêncio (mesmo "if (!playerSession.email) return;" do achado
+                        // original), e como o dedup é por POSIÇÃO (não por sucesso de envio),
+                        // g_lastOverworldEmitKey já fica marcado com aquele grid — o jogador
+                        // ficava invisível de novo, agora até se MEXER (só aí a posição muda e
+                        // um overworld_move novo sai). Zera de novo aqui, DEPOIS da confirmação
+                        // real de sessão, pra garantir pelo menos um overworld_move válido no
+                        // próximo tick do loop, independente de ter havido ou não uma tentativa
+                        // prematura enquanto o login ainda estava em voo.
+                        g_lastOverworldEmitKey = null;
+                    }
+                });
+            }
+        }
+        g_hasConnectedOnceThisPageLoad = true;
+
         var btn = document.getElementById("btnNavLogin");
         if (btn) btn.innerText = "ONLINE";
         
