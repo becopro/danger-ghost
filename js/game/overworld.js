@@ -1089,7 +1089,14 @@
     // consumidores (js/game/network.js manda isso pro servidor via overworld_move
     // sem interpretar o número; server/index.js só valida faixa, ver
     // OVERWORLD_GRID_MIN/MAX), só o SIGNIFICADO do valor.
-    window.OverworldState = { playerGridX: 0, playerGridY: 0, isActive: false };
+    // facingRight (05/09/2026, achado #2 BAIXO da auditoria forense de multiplayer): 5º campo do
+    // contrato, mesmo espírito dos outros 3 acima — espelha S.facingRight (ver
+    // updateFacingFromMoveVector()) pra network.js poder mandar a direção real de quem está
+    // andando junto com overworld_move, em vez de nunca mandar nada (overworld_players_update
+    // nunca carregou direção — só posição/nível/avatar — então drawGhostBillboard() sempre recebia
+    // `undefined` pros OUTROS jogadores, mesmo já aceitando o parâmetro pro jogador local desde
+    // 2026-09-03). Default `true` (mesmo default de S.facingRight, ver S = {...} abaixo).
+    window.OverworldState = { playerGridX: 0, playerGridY: 0, isActive: false, facingRight: true };
     window.OverworldTowerGridPos = null;
     window.OverworldTowerDoorPos = null; // 2026-09-03 — célula andável ao lado da porta (ver computePoiBounds()), não o centro do footprint; usado como destino real de spawn/retorno.
 
@@ -3249,7 +3256,14 @@
                 // vizinhança 3x3) que ele já chega aqui sem nenhuma mudança extra no
                 // network.js. Fallback 1 cobre payload antigo/quem nunca setou level.
                 var otherLabel = name + '\nLv.' + (item.data.ghostLevel || 1);
-                drawGhostBillboard(ctx, screenS2.x, screenS2.y, otherImg, false, otherLabel, pal);
+                // 05/09/2026 (achado #2 BAIXO da auditoria forense): antes, este call site nunca
+                // passava o 8º parâmetro (facingRight) — sempre `undefined`, então drawGhostBillboard
+                // (função acima, `if (facingRight === false)`) nunca espelhava o sprite de NENHUM
+                // outro jogador, mesmo quando ele estava de fato andando pra outro lado. Payload
+                // 'overworld_players_update' agora carrega item.data.facingRight de verdade (ver
+                // server/index.js, merge de vizinhança, e js/game/network.js, emissor de
+                // overworld_move) — só faltava ler aqui em vez de omitir o argumento.
+                drawGhostBillboard(ctx, screenS2.x, screenS2.y, otherImg, false, otherLabel, pal, item.data.facingRight);
             } else if (item.type === 'player') {
                 var s3 = gridToScreen(S.playerDrawCol, S.playerDrawRow); // posição DESENHADA (interpolada) — nunca a lógica aqui, ver nota no topo de render().
                 var screenS3 = worldToScreen(s3.x, s3.y, camOffsetX, camOffsetY);
@@ -3820,6 +3834,12 @@
         window.OverworldState.playerGridX = S.playerCol;
         window.OverworldState.playerGridY = S.playerRow;
         window.OverworldState.isActive = S.isActive;
+        // 05/09/2026 (achado #2): espelha a orientação atual junto com a posição — chamada só
+        // quando o passo LÓGICO muda de célula (ver commitLogicalStepIfChanged()), mas
+        // updateFacingFromMoveVector() já roda antes disso no mesmo frame (tryMove() e
+        // updateMovement() chamam ela antes de commitLogicalStepIfChanged()), então S.facingRight
+        // já está atualizado pro passo atual no momento em que este espelhamento acontece.
+        window.OverworldState.facingRight = S.facingRight;
     }
 
     // ============================== Loop principal ==============================

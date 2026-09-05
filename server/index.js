@@ -27,11 +27,29 @@ const fs = require('fs'); // 03/09/2026 (Estágio 6, backend-architect): leitura
 const app = express();
 const server = http.createServer(app);
 
+// 05/09/2026 (auditoria forense de multiplayer, achado #3 BAIXO): sem pingInterval/pingTimeout
+// explícitos, o Engine.IO usa o default (25000/20000) — uma queda de conexão SEM frame de close
+// (processo do cliente morto, sinal de rede perdido, aba fechada à força sem o evento normal de
+// disconnect) podia demorar até ~45s (25s até o próximo ping + 20s esperando o pong) pra o
+// servidor perceber e limpar o jogador fantasma da lista que todo mundo vê (players[socket.id]
+// só é removido no handler de 'disconnect' — ver mais abaixo). 45s de um "fantasma" parado na tela
+// dos outros jogadores é tempo real de más experiência.
+//
+// Calibrado pra 15000/8000 (23s de pior caso, quase metade do default) em vez do mínimo mais
+// agressivo (algo como 10000/5000, cogitado no relatório): este projeto tem um app mobile
+// (danger_ghost_mobile/, Capacitor, ver CLAUDE.md §3) que fala com o MESMO servidor por rede
+// celular, onde latência/jitter ocasional é normal — um pingTimeout curto demais (5s) tem mais
+// chance de derrubar por engano uma conexão real só porque um pong demorou um pouco mais numa
+// rede 4G ruim, e falso-positivo de desconexão (expulsar um jogador que está bem) é pior que o
+// problema original que este achado descreve. 8s de timeout ainda é bem mais rápido que os 20s
+// default pra um caso de queda de verdade, com folga de sobra pra jitter normal de rede móvel.
 const io = new Server(server, {
-    cors: { origin: '*', methods: ['GET', 'POST'] }
+    cors: { origin: '*', methods: ['GET', 'POST'] },
+    pingInterval: 15000,
+    pingTimeout: 8000
 });
 
-const { loginPlayer, createPlayer, loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveOverworldPosition, saveCharacters, deleteCharacter, updateProfile, postDiaryEntry, getDiaryEntries, searchPlayers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends, getPlayerProfile, incrementPlayerStat, checkAndUnlockBadges, getBadgeCatalog, getUnlockedBadgeIds, submitBadgeProgress } = require('./db');
+const { loginPlayer, createPlayer, loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveOverworldPosition, saveCharacters, deleteCharacter, updateProfile, postDiaryEntry, getDiaryEntries, searchPlayers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends, getPlayerProfile, incrementPlayerStat, checkAndUnlockBadges, getBadgeCatalog, getUnlockedBadgeIds, submitBadgeProgress, PLAYER_NUMERIC_BOUNDS, isPlausibleNumber } = require('./db');
 const { OAuth2Client } = require('google-auth-library');
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -115,6 +133,56 @@ const OVERWORLD_GRID_MAX = 2000;
 
 function isPlausibleGridCoord(value) {
     return Number.isInteger(value) && value >= OVERWORLD_GRID_MIN && value <= OVERWORLD_GRID_MAX;
+}
+
+// 05/09/2026 (auditoria forense de multiplayer, achado #1 ALTO): player_move (side-view, Episódio
+// 1 — ver handler abaixo) nunca validou NADA do que o cliente manda. x/y/isFacingRight/level/hp/
+// ghostLevel eram gravados direto de `data` e depois retransmitidos pra TODO MUNDO via sync_state
+// (setInterval mais abaixo) sem filtro nenhum. Confirmado ao vivo pelo auditor antes desta sessão:
+// forjar {x:12345, y:-999, hp:999999, ghostLevel:9999} nesse evento fazia OUTRA conta ver esses
+// valores forjados aparecerem sem checagem (ghostLevel inclusive desenhado direto na tela de quem
+// olha — engine.js:drawOtherPlayers(), "Lv. " + pos.ghostLevel, sem clamp nenhum lá também).
+// overworld_move (escrito depois, ver isPlausibleGridCoord/isChunkKnownOrAdjacent acima) já tinha
+// essa disciplina; ninguém retrofitou o mesmo cuidado neste handler mais antigo.
+//
+// x/y aqui são PIXELS dentro do mapa do episódio 1 (24px por tile) — escala DIFERENTE de
+// isPlausibleGridCoord acima (aquilo é grid do overworld). Faixas lidas do próprio engine.js, não
+// inventadas:
+//   - X: o cliente já trava xPos em [0, 100*24-24] = [0, 2376] ("Limitador à direita", engine.js)
+//     — 100 colunas cobre inclusive o caso especial do levelNum 26, que expande a matriz de 50
+//     pra 100 colunas em runtime. Espelha exatamente esse mesmo clamp aqui, não um número novo.
+//   - Y: não existe um clamp de yPos simétrico no cliente (cair fora do mapa mata na hora, não é
+//     barrado feito uma parede — engine.js, `if (cb >= 11) { this.alive = false; return; }`), mas
+//     a altura real do mapa é fixa em 11 linhas em toda a lógica de colisão (`ty < 11`/`cb >= 11`)
+//     = 11*24 = 264px. Uso essa altura com 1 tile (24px) de folga pra cada lado — suficiente pra
+//     cobrir o pior caso de overshoot de UM frame antes da correção de colisão ou da morte por
+//     queda rodarem (velocidade vertical máxima do pulo é 6.5px/frame, da queda é 5px/frame —
+//     nenhuma das duas chega perto de precisar de mais que 1 tile de folga).
+const PLAYER_MOVE_X_BOUNDS = [0, 2376];
+const PLAYER_MOVE_Y_BOUNDS = [-24, 288];
+
+function isPlausiblePixelCoord(value, bounds) {
+    return Number.isInteger(value) && value >= bounds[0] && value <= bounds[1];
+}
+
+// Mesma lista/lógica de níveis válidos que o cliente usa (window.normalizeLevelName,
+// js/game/network.js) — replicada aqui literalmente, não reinventada, pra nunca ter duas
+// definições divergentes de "level válido" entre cliente e servidor. Só os 4 níveis reais do
+// Episódio 1 (Fase 1 + 3 cavernas) existem hoje; qualquer coisa fora disso (incluindo o que o
+// PRÓPRIO normalizeLevelName do cliente devolveria pra um valor forjado tipo "level 999", que cai
+// no fallback de regex e retornaria "999") é rejeitado pela whitelist abaixo.
+const VALID_PLAYER_MOVE_LEVELS = new Set(['1', '2', '3', '4']);
+
+function normalizePlayerMoveLevel(lvl) {
+    if (!lvl) return '1';
+    const s = String(lvl).toLowerCase();
+    if (s === '1' || s === 'fase 1' || s === 'level 1') return '1';
+    if (s === '2' || s === 'fase 2' || s === 'level 2' || s === 'cave1' || s === 'cave 1') return '2';
+    if (s === '3' || s === 'fase 3' || s === 'level 3' || s === 'cave2' || s === 'cave 2') return '3';
+    if (s === '4' || s === 'fase 4' || s === 'level 4' || s === 'cave3' || s === 'cave 3') return '4';
+    const match = s.match(/\d+/);
+    if (match) return match[0];
+    return '1';
 }
 
 // Manifesto do overworld (Estágio 6) — lido uma vez no boot, não a cada overworld_move. Caminho
@@ -248,6 +316,25 @@ const FRIEND_SEARCH_MAX_ATTEMPTS = 20;
 // email (não varre a tabela como search_players), então pode ser mais generoso — 30/min ainda
 // barra um script abrindo perfis em sequência só pra forçar carga no banco.
 const PLAYER_PROFILE_MAX_ATTEMPTS = 30;
+// player_move (05/09/2026, auditoria forense — achado #1 ALTO): não tinha NENHUM rate limit até
+// hoje, diferente de todo o resto acima. Calibrado olhando a frequência real de emissão do
+// cliente (js/game/network.js): o setInterval de lá roda a cada 100ms e só EMITE quando o estado
+// muda ou a cada heartbeat de 2s — pico sustentado real é ~10 emits/s durante movimento contínuo.
+// 20 tentativas por 1000ms dá margem de 2x sobre esse pico (absorve jitter/lag catch-up sem
+// derrubar jogo legítimo) e ainda barra um script tentando floodar bem mais rápido que qualquer
+// humano jogando manda.
+//
+// Bucket key por socket.id, NÃO por IP como todo o resto desta lista — desvio deliberado do
+// padrão, não esquecimento: login/cadastro/diário/perfil/busca são todos brute-force ou abuso de
+// escrita cara, onde vale a pena travar por IP mesmo que isso puna dois jogadores legítimos atrás
+// do mesmo NAT (raro, e o custo de errar pro lado de "travar demais" é baixo nesses eventos). Já
+// player_move dispara a cada movimento de CADA jogador conectado — se travasse por IP, dois
+// jogadores reais jogando ao mesmo tempo da mesma rede (mesma casa, mesma LAN, mesmo Wi-Fi de
+// escola) dividiriam o mesmo balde e um jogo normal derrubaria o outro no rate limit. Por
+// socket.id, cada CONEXÃO tem seu próprio balde — exatamente o que faz sentido aqui, já que o
+// dado protegido (players[socket.id]) também já é por conexão, não por IP.
+const PLAYER_MOVE_MAX_ATTEMPTS = 20;
+const PLAYER_MOVE_RATE_WINDOW_MS = 1000;
 const RATE_LIMIT_MESSAGE = 'Muitas tentativas, aguarde um momento.';
 // Mesmo texto de RATE_LIMIT_MESSAGE, só que em inglês — pedido do usuário (31/08/2026) foi
 // traduzir só as mensagens de perfil/diário/upload/amizades pro inglês, sem mexer nas de
@@ -260,6 +347,26 @@ const rateLimitBuckets = new Map(); // chave "evento:ip" -> array de timestamps 
 function isRateLimited(bucketKey, maxAttempts, windowMs) {
     const now = Date.now();
     const timestamps = (rateLimitBuckets.get(bucketKey) || []).filter((t) => now - t < windowMs);
+    // 05/09/2026 (auditoria forense, achado #4 BAIXO): antes, um bucket que esvaziava (todas as
+    // tentativas expiraram) continuava pendurado no Map pra sempre — só o ARRAY era cortado pelo
+    // filter acima, a ENTRADA do Map nunca. Com uptime longo e muitos IPs/sockets únicos passando
+    // por aqui (login, busca de jogador, upload, e agora player_move por socket.id — ver mais
+    // abaixo), isso cresce sem nunca liberar memória (pequeno por chave, mas nunca some).
+    // Corrigido: se o corte acima zerar o array, apaga a chave em vez de deixar um array vazio
+    // pendurado. Na prática, como as duas ramificações abaixo sempre terminam gravando de novo
+    // (push no caminho liberado, o próprio `timestamps` filtrado no caminho bloqueado — nenhum dos
+    // dois nunca fica vazio de fato), este delete é hoje redundante no MESMO ciclo de chamada; o
+    // valor real dele é a próxima vez que ALGUÉM checar essa mesma chave depois de um período
+    // ocioso mais longo que windowMs: sem o delete, a entrada some sozinha? não — ela ficaria pra
+    // sempre com o array antigo (já expirado) até essa próxima chamada recalcular do zero de
+    // qualquer forma. O ganho real de memória está nas chaves que NUNCA MAIS são chamadas (um IP
+    // que tenta 1x e some pra sempre): risco residual conhecido, não escondido — essas só são
+    // limpas na PRÓXIMA visita à mesma chave; não existe hoje uma varredura periódica que expire
+    // chaves definitivamente abandonadas sem depender de um novo acesso a elas. Fora do escopo
+    // deste achado (classificado BAIXO/cosmético no relatório da auditoria).
+    if (timestamps.length === 0) {
+        rateLimitBuckets.delete(bucketKey);
+    }
     if (timestamps.length >= maxAttempts) {
         rateLimitBuckets.set(bucketKey, timestamps); // ainda descarta as expiradas, mesmo bloqueando
         return true;
@@ -316,17 +423,70 @@ io.on('connection', (socket) => {
         io.emit('player_joined', { id: socket.id, name: playerName });
     });
 
+    // 05/09/2026 (auditoria forense de multiplayer, achado #1 ALTO — ver comentários de
+    // PLAYER_MOVE_X_BOUNDS/PLAYER_MOVE_Y_BOUNDS/VALID_PLAYER_MOVE_LEVELS mais acima pro raciocínio
+    // completo de cada faixa): este handler gravava x/y/isFacingRight/level/hp/ghostLevel direto de
+    // `data`, sem validar NADA, e o setInterval de sync_state (mais abaixo) retransmitia isso pra
+    // todo mundo sem filtro — confirmado ao vivo forjando {x:12345, y:-999, hp:999999,
+    // ghostLevel:9999} numa conta e vendo os valores forjados aparecerem sem checagem na tela de
+    // outra. overworld_move (abaixo) já seguia essa disciplina; retrofitada aqui no mesmo espírito.
     socket.on('player_move', (data) => {
-        if (!players[socket.id]) {
-            players[socket.id] = { id: socket.id, name: 'Ghost', x: data.x, y: data.y, isFacingRight: data.isFacingRight, level: data.level, hp: data.hp || 100, ghostLevel: data.ghostLevel || 1 };
+        // Rate limit por socket.id (não por IP — ver comentário completo em
+        // PLAYER_MOVE_MAX_ATTEMPTS acima pro motivo do desvio do padrão usado no resto do arquivo).
+        // Descarta em silêncio o excesso: mesmo espírito de overworld_move pra evento de alta
+        // frequência — não faz sentido emitir um evento de erro que o cliente nem escuta pra isto,
+        // nem muito menos desconectar por causa de um pico passageiro de movimento.
+        if (isRateLimited('player_move:' + socket.id, PLAYER_MOVE_MAX_ATTEMPTS, PLAYER_MOVE_RATE_WINDOW_MS)) {
+            return;
         }
-        if (players[socket.id]) {
-            players[socket.id].x = data.x;
-            players[socket.id].y = data.y;
-            players[socket.id].isFacingRight = data.isFacingRight;
-            players[socket.id].level = data.level;
-            if (data.hp !== undefined) players[socket.id].hp = data.hp;
-            if (data.ghostLevel !== undefined) players[socket.id].ghostLevel = data.ghostLevel;
+        if (!data || typeof data !== 'object') return;
+
+        const existing = players[socket.id];
+
+        // Cada campo é validado isoladamente; um campo ruim vira "ausente" (mantém o valor anterior
+        // já em memória, ou um default seguro se for o primeiro movimento deste socket) — mesma
+        // filosofia de sanitizePlayerProgressPayload (server/db.js): nunca derruba a conexão nem
+        // descarta o evento inteiro por causa de UM campo implausível isolado.
+        const validX = isPlausiblePixelCoord(data.x, PLAYER_MOVE_X_BOUNDS)
+            ? data.x
+            : (existing && isPlausiblePixelCoord(existing.x, PLAYER_MOVE_X_BOUNDS) ? existing.x : 48);
+        const validY = isPlausiblePixelCoord(data.y, PLAYER_MOVE_Y_BOUNDS)
+            ? data.y
+            : (existing && isPlausiblePixelCoord(existing.y, PLAYER_MOVE_Y_BOUNDS) ? existing.y : 150);
+        // isFacingRight não é vetor de cheat real (só decide pra que lado o sprite olha) — coerção
+        // estrita pra boolean é suficiente, sem gastar validação extra com isto.
+        const validFacing = !!data.isFacingRight;
+        const normalizedLevel = normalizePlayerMoveLevel(data.level);
+        const validLevel = VALID_PLAYER_MOVE_LEVELS.has(normalizedLevel)
+            ? normalizedLevel
+            : ((existing && existing.level) || '1');
+
+        if (!existing) {
+            // hp/ghostLevel aqui usam EXATAMENTE PLAYER_NUMERIC_BOUNDS (server/db.js) — os mesmos
+            // limites já usados pra validar save de verdade no banco — pra nunca ter duas
+            // definições divergentes de "hp/level plausível" no mesmo projeto. hp é literalmente
+            // DeSoGhost.lives (ver js/game/network.js, emitPlayerMove), por isso usa o bound de
+            // "lives", não um bound de "hp" que nunca existiu. ghostLevel usa o bound de "level"
+            // (mesmo teto generoso e deliberado — 1e11, ver comentário de NUMERIC_BOUNDS em db.js —
+            // já usado pro nível de personagem/conta em todo o resto do projeto; não é o alvo deste
+            // achado inventar um teto mais apertado só pra multiplayer).
+            players[socket.id] = {
+                id: socket.id, name: 'Ghost', x: validX, y: validY, isFacingRight: validFacing, level: validLevel,
+                hp: isPlausibleNumber(data.hp, PLAYER_NUMERIC_BOUNDS.lives) ? data.hp : 100,
+                ghostLevel: isPlausibleNumber(data.ghostLevel, PLAYER_NUMERIC_BOUNDS.level) ? data.ghostLevel : 1
+            };
+            return;
+        }
+
+        existing.x = validX;
+        existing.y = validY;
+        existing.isFacingRight = validFacing;
+        existing.level = validLevel;
+        if (data.hp !== undefined && isPlausibleNumber(data.hp, PLAYER_NUMERIC_BOUNDS.lives)) {
+            existing.hp = data.hp;
+        }
+        if (data.ghostLevel !== undefined && isPlausibleNumber(data.ghostLevel, PLAYER_NUMERIC_BOUNDS.level)) {
+            existing.ghostLevel = data.ghostLevel;
         }
     });
 
@@ -362,6 +522,17 @@ io.on('connection', (socket) => {
         playerSession.overworldActive = true;
         playerSession.overworldChunkX = chunkX;
         playerSession.overworldChunkY = chunkY;
+        // 05/09/2026 (achado #2 BAIXO): direção do sprite pro merge de vizinhança mais abaixo —
+        // overworld_move nunca carregou isso até hoje, então outros jogadores nunca viravam de lado
+        // (overworld.js sempre recebia `undefined` pro call site de outro jogador). Mesma coerção
+        // estrita de boolean do Achado #1 (não é vetor de cheat, só decide o flip do sprite, sem
+        // validação extra) — só grava se o campo veio de verdade; um cliente antigo que ainda não
+        // manda facingRight (não deveria existir, mas defensivo) não apaga uma direção já conhecida.
+        if (data.facingRight !== undefined) {
+            playerSession.overworldFacingRight = !!data.facingRight;
+        } else if (playerSession.overworldFacingRight === undefined) {
+            playerSession.overworldFacingRight = true; // mesmo default inicial de S.facingRight (overworld.js)
+        }
 
         // Join/leave de room (Estágio 6) — EXATAMENTE 1 room por jogador, nunca 9 (ver plano §5 e o
         // comentário grande no broadcast mais abaixo pro motivo: o cliente, js/game/network.js:136,
@@ -1089,7 +1260,13 @@ setInterval(() => {
                             // (player_move popula players[id].ghostLevel, ver linha ~321/329) — só
                             // faltava vazar pro payload de vizinhança. Fallback 1 cobre quem nunca
                             // jogou Episódio 1 ainda (ghost recém-criado, level padrão de verdade).
-                            ghostLevel: p.ghostLevel || 1
+                            ghostLevel: p.ghostLevel || 1,
+                            // 05/09/2026 (achado #2 BAIXO da auditoria forense): direção do sprite —
+                            // gravada em overworld_move (ver comentário lá) e agora vazada pro payload
+                            // de vizinhança, mesmo espírito de ghostLevel acima. Fallback true casa com
+                            // o default inicial de S.facingRight (overworld.js) pra quem ainda não deu
+                            // nenhum passo (overworldFacingRight ainda undefined nesse caso).
+                            facingRight: p.overworldFacingRight !== undefined ? p.overworldFacingRight : true
                         });
                     }
                 });

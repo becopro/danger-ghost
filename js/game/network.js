@@ -207,7 +207,15 @@ setInterval(function() {
         var key = ow.playerGridX + '_' + ow.playerGridY;
         if (key !== g_lastOverworldEmitKey) {
             g_lastOverworldEmitKey = key;
-            window.NetworkState.socket.emit('overworld_move', { gridX: ow.playerGridX, gridY: ow.playerGridY });
+            // facingRight (05/09/2026, achado #2 BAIXO): overworld_move nunca carregou direção —
+            // só posição — então outros jogadores nunca viravam de lado na tela de quem olha
+            // (overworld.js, drawGhostBillboard() sempre recebia `undefined` pro call site de
+            // outro jogador). window.OverworldState.facingRight (ver overworld.js,
+            // syncPublicState()) já muda exatamente nos mesmos instantes que playerGridX/Y (os
+            // dois são escritos juntos em commitLogicalStepIfChanged()/syncPublicState()), então
+            // reusar a MESMA dedup key (gridX_gridY) acima continua correto — não existe um
+            // cenário onde a direção muda sem o grid também mudar nesse mesmo instante.
+            window.NetworkState.socket.emit('overworld_move', { gridX: ow.playerGridX, gridY: ow.playerGridY, facingRight: ow.facingRight });
         }
     } else if (g_lastOverworldActive) {
         window.NetworkState.socket.emit('overworld_leave');

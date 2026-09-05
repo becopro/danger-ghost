@@ -1436,5 +1436,12 @@ module.exports = {
     getBadgeCatalog,
     getUnlockedBadgeIds,
     submitBadgeProgress,
-    getPlayerStatProgress
+    getPlayerStatProgress,
+    // 05/09/2026 (auditoria forense de multiplayer, achado #1): exportados pra server/index.js
+    // reaproveitar EXATAMENTE estes limites na validação de player_move (hp/ghostLevel), em vez
+    // de inventar uma segunda faixa "plausível" divergente pro mesmo tipo de dado no mesmo
+    // projeto. isPlausibleNumber é o predicado que os dois lados usam pra checar contra elas.
+    PLAYER_NUMERIC_BOUNDS,
+    NUMERIC_BOUNDS,
+    isPlausibleNumber
 };
