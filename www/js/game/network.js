@@ -8,6 +8,14 @@ window.NetworkState = {
     authTimeout: null
 };
 
+// 05/09/2026 (paridade com danger ghost/js/game/network.js — auditoria forense de multiplayer,
+// achado que também se aplica aqui: qualquer reconexão de socket, muito mais comum no app mobile
+// por causa de troca de rede/fundo do app, recriava players[socket.id] no servidor sem e-mail,
+// quebrando save_game_state/update_profile/amigos/diário em silêncio até um login manual novo.
+// Ver comentário completo dentro de socket.on('connect') abaixo). false por carregamento de
+// página/abertura do app (nunca persiste de propósito).
+var g_hasConnectedOnceThisPageLoad = false;
+
 // Mesma ideia do site (js/game/network.js): host único do backend, reusado pelo
 // socket.io e pelo upload de imagem de perfil via fetch() em js/web2/profile.js.
 // Sem detecção local/prod aqui — o app mobile sempre fala com produção; pra testar
@@ -45,7 +53,43 @@ window.ConnectToServer = function() {
         var baseName = (localStorage.getItem('playerName') || 'Ghost').replace(/\s*\(#\w+\)\s*$/, '').trim();
         var nameToSend = window.g_currentPlayerGhost ? (baseName + ' (#' + window.g_currentPlayerGhost + ')') : baseName;
         socket.emit('join_game', { playerName: nameToSend });
-        
+
+        // 05/09/2026 (paridade com danger ghost/js/game/network.js — auditoria forense de
+        // multiplayer, mesmo achado, aplicado aqui porque o app mobile é ainda MAIS sujeito a
+        // reconexão que o site: trocar WiFi/dados móveis, o SO suspender o app em segundo plano,
+        // um túnel de rede instável, tudo isso dispara reconnection:true (linha ~35) sem nunca
+        // recarregar a "página" (o WebView do app não recarrega sozinho). join_game acima recria
+        // players[socket.id] do zero no servidor (novo socket.id a cada reconexão) SEM e-mail —
+        // g_hasAuthenticatedThisPageLoad (memória da sessão do app) continua true de antes, e
+        // GetCurrentPlayerEmail() continua lendo o e-mail certo do localStorage, então o app
+        // segue parecendo logado enquanto save_game_state/update_profile/diário/amigos (todos
+        // gated em playerSession.email, ver server/index.js) passam a ser rejeitados em silêncio
+        // pra sempre nesta conexão — sem nenhum aviso, o jogador podia jogar a sessão inteira
+        // pós-reconexão sem NADA sendo salvo de verdade. Mesmo fix do site: se esta sessão do
+        // app já tinha completado um login de verdade (g_hasAuthenticatedThisPageLoad) e isto
+        // não é a primeira vez que 'connect' dispara, re-autentica o socket novo sozinho via
+        // TryAutoLoginFromSession() (mesmo dg_session_token já salvo). Não reintroduz auto-login
+        // na abertura do app (g_hasAuthenticatedThisPageLoad começa false sempre, então a
+        // primeira conexão nunca cai aqui) — só resincroniza uma sessão que o jogador já tinha
+        // autenticado de verdade nesta mesma execução do app. Se o token não for mais válido,
+        // volta honestamente pro estado "não logado" (reexibe os botões de login) em vez de
+        // continuar fingindo estar logado.
+        if (g_hasConnectedOnceThisPageLoad && window.g_hasAuthenticatedThisPageLoad) {
+            console.log('[Network] Reconexão detectada com sessão já autenticada — re-sincronizando login com o servidor...');
+            if (typeof TryAutoLoginFromSession === 'function') {
+                TryAutoLoginFromSession(function (loggedIn) {
+                    if (!loggedIn) {
+                        console.warn('[Network] Falha ao re-sincronizar sessão após reconexão — token de sessão inválido/expirado. Voltando ao estado "não logado".');
+                        window.g_hasAuthenticatedThisPageLoad = false;
+                        if (typeof UpdateLoginButtonsVisibility === 'function') UpdateLoginButtonsVisibility();
+                    } else {
+                        console.log('[Network] Sessão re-sincronizada com sucesso após reconexão.');
+                    }
+                });
+            }
+        }
+        g_hasConnectedOnceThisPageLoad = true;
+
         var btn = document.getElementById("btnNavLogin");
         if (btn) btn.innerText = "ONLINE";
         
