@@ -1003,7 +1003,16 @@
 
         resizeHandler: null,
         keydownHandler: null,
-        keyupHandler: null
+        keyupHandler: null,
+
+        // ---- Efeitos visuais de habilidade (2026-09-04 — ghosts usam magia/item andando
+        // pelo overworld, ver tryUseAbilitySlot()/spawnAbilityEffect() mais abaixo) --------
+        // Puramente decorativo: NENHUM inimigo/combate real existe no overworld ainda
+        // (missões/inimigos são plano futuro, fora deste pedido) — array só de {color,
+        // startedAt, particles}, lido e podado dentro de drawAbilityEffects() (render()).
+        // Nunca lido por updateMovement()/isWalkable()/checkPoiInteractions() — não é
+        // estado de jogabilidade, é só o que aparece na tela por meio segundo.
+        abilityEffects: []
     };
 
     // ---- Paleta: reaproveitada de css/style.css, nunca inventada aqui ------
@@ -2758,6 +2767,154 @@
         }
     }
 
+    // ============================================================================
+    // Habilidades no overworld (2026-09-04) — pedido do usuário: "ghosts devem poder
+    // usar magias/habilidades andando pelo mapa aberto, mesmo sem inimigo pra usar nelas
+    // ainda". Missões/inimigos no overworld são plano futuro — aqui é SÓ a ação de
+    // conjurar/usar (consumo de recurso real + efeito visual decorativo), nunca dano ou
+    // projétil de verdade, porque não existe nada pra acertar ainda.
+    //
+    // MESMAS teclas e MESMA decisão de prioridade/custo que js/game/engine.js já usa no
+    // Episódio 1 (handler de keydown, keyCode 49/50/51) — reaproveitada aqui, não
+    // reinventada, pra manter a expectativa do jogador entre os dois sistemas de render
+    // (ver skill isometric-canvas-rendering: são dois loops/canvas separados, mas a
+    // REGRA de jogo "1 cura ou lança, 2/3 gastam mana dos anéis" é a mesma nos dois).
+    // Cores idênticas às de obtainExplosionEffect() em engine.js pros 3 tipos que já
+    // existem lá (fireball/gelo/madeira) — identidade visual entre os dois sistemas,
+    // como pedido; "elixir" é cor nova (engine.js não desenha efeito nenhum pra elixir
+    // hoje, cura em silêncio), escolhida magenta pra combinar com a paleta neon do jogo
+    // sem colidir com nenhuma das outras 3.
+    var ABILITY_MANA_COST = 15; // igual ao custo fixo de ring1/ring2 em engine.js (keyCode 50/51)
+    var ABILITY_EFFECT_DURATION_MS = 500;
+    var ABILITY_COLORS = {
+        fireball: '#ffaa00',
+        ice: '#00E5FF',
+        wood: '#00E676',
+        elixir: '#ff4dc4'
+    };
+
+    // Fonte de verdade de MANA — ver bloco de comentário longo junto de
+    // window.SpendLiveMana em engine.js (mesma decisão, documentada nos dois lados):
+    // é a MESMA DeSoGhost.mana que o Episódio 1 usa de verdade, exposta por uma ponte
+    // pública mínima porque DeSoGhost é var privada do closure de engine.js. NÃO usa
+    // GhostRPG.getStats().mana (rpg_system.js) — esse valor só é escrito 1x no login
+    // (applyCloudSave) e fica estagnado depois disso, nunca refletindo mana gasta
+    // jogando; usá-lo criaria uma segunda contagem divergente da que aparece de
+    // verdade quando o jogador entra no Episódio 1 em seguida.
+    function tryUseAbilitySlot(slotNum) {
+        var eq = (typeof window.GetEquipmentState === 'function') ? window.GetEquipmentState() : null;
+        if (!eq) return; // rpg_system.js ainda não carregou / função não existe (defensivo, mesmo padrão de engine.js)
+
+        if (slotNum === 1) {
+            // Elixir tem prioridade sobre a spell no slot 1 — MESMA regra de engine.js
+            // (disputam o mesmo slot mainhand/offhand; curar é a ação "de emergência").
+            var equippedSpell = eq.spell ||
+                (eq.mainhand && eq.mainhand.id === 'ghost_spell' ? eq.mainhand : null) ||
+                (eq.offhand && eq.offhand.id === 'ghost_spell' ? eq.offhand : null);
+            var equippedElixir = (eq.mainhand && eq.mainhand.id === 'elixir' ? eq.mainhand : null) ||
+                (eq.offhand && eq.offhand.id === 'elixir' ? eq.offhand : null);
+
+            if (equippedElixir && equippedElixir.count > 0) {
+                // TryHealLiveVitality() já embute "só cura (e só retorna true) se a
+                // vitalidade não estava cheia" — mesma regra do handler keyCode 49 de
+                // engine.js, "não gasta carga à toa". Sem a ponte (engine.js ainda não
+                // carregou), não consome nem mostra efeito — mais seguro que assumir.
+                var healed = (typeof window.TryHealLiveVitality === 'function') && window.TryHealLiveVitality();
+                if (healed) {
+                    if (typeof window.ConsumeElixir === 'function') window.ConsumeElixir();
+                    spawnAbilityEffect(ABILITY_COLORS.elixir);
+                }
+            } else if (equippedSpell && equippedSpell.count > 0) {
+                // Fireball do slot 1 nunca custou mana no Episódio 1 (o custo é a
+                // CARGA do item, ver ConsumeSpellUse) — mesma regra aqui, sem projétil
+                // real (não tem inimigo pra acertar ainda no overworld).
+                if (typeof window.ConsumeSpellUse === 'function') window.ConsumeSpellUse();
+                spawnAbilityEffect(ABILITY_COLORS.fireball);
+            }
+            // Nem elixir nem spell equipados/com carga: tecla não faz nada, como pedido
+            // ("sem equipamento no slot, apertar a tecla não faz nada").
+            return;
+        }
+
+        // Slots 2/3 — anéis, mesmo custo fixo de mana dos dois no Episódio 1.
+        var ringSlot = slotNum === 2 ? 'ring1' : 'ring2';
+        if (!eq[ringSlot]) return; // nada equipado nesse anel — não gasta mana à toa
+        var spent = (typeof window.SpendLiveMana === 'function') && window.SpendLiveMana(ABILITY_MANA_COST);
+        if (!spent) return; // mana insuficiente (ou ponte indisponível) — mesma regra de engine.js: sem mana, tecla não faz nada
+        spawnAbilityEffect(slotNum === 2 ? ABILITY_COLORS.ice : ABILITY_COLORS.wood);
+    }
+
+    // Nasce um "burst" de partículas ancorado na posição de desenho do jogador local —
+    // drawAbilityEffects() (chamada de dentro de render(), logo após desenhar o billboard
+    // do jogador) é quem de fato pinta e depois descarta cada entrada expirada. Ângulos
+    // levemente aleatorizados (não um leque perfeitamente simétrico) pra não parecer um
+    // sprite reciclado toda vez — mesmo espírito "orgânico" das outras animações do
+    // arquivo (ex.: PRNG determinístico dos prédios).
+    function spawnAbilityEffect(color) {
+        var count = 10;
+        var particles = [];
+        for (var i = 0; i < count; i++) {
+            particles.push({
+                angle: (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4,
+                speed: 34 + Math.random() * 22
+            });
+        }
+        S.abilityEffects.push({ color: color, startedAt: performance.now(), particles: particles });
+        // Cinto de segurança: !e.repeat no keydownHandler já limita a 1 disparo por
+        // tecla física pressionada, então isto nunca deveria crescer sem limite — só
+        // por segurança contra algum re-disparo futuro mais rápido que a duração do fx.
+        if (S.abilityEffects.length > 8) S.abilityEffects.shift();
+    }
+
+    // Desenhado por CIMA do billboard do jogador (chamado depois dele em render()), na
+    // MESMA âncora de tela (cx,cy = pé do jogador, igual drawGhostBillboard) — brilho
+    // central pulsante (fade in rápido, fade out no resto) + partículas voando pra fora,
+    // achatadas no eixo Y pra combinar com a projeção isométrica 2:1 do resto do mundo.
+    // Escala com S.zoomLevel como qualquer outra entidade de mundo (torre, sprites) —
+    // ver GHOST_SPRITE_TARGET_H acima, mesmo princípio. Puramente decorativo: não
+    // participa do depth-sort de render() (não precisa — sempre desenhado depois do
+    // jogador local, que já é sempre o item mais "na frente" da cena, key=Infinity).
+    function drawAbilityEffects(ctx, cx, cy, tsMs) {
+        if (!S.abilityEffects.length) return;
+        var z = S.zoomLevel;
+        var anchorY = cy - GHOST_SPRITE_TARGET_H * 0.55 * z; // altura de peito/mãos, não o pé
+        var kept = [];
+        for (var i = 0; i < S.abilityEffects.length; i++) {
+            var fx = S.abilityEffects[i];
+            var age = tsMs - fx.startedAt;
+            if (age >= ABILITY_EFFECT_DURATION_MS) continue; // expirado — não entra em `kept`, descartado
+            kept.push(fx);
+
+            var t = age / ABILITY_EFFECT_DURATION_MS; // 0..1
+            var alpha = t < 0.2 ? (t / 0.2) : (1 - (t - 0.2) / 0.8); // fade in rápido, fade out no resto ("pulsante")
+
+            ctx.save();
+            var glowR = (9 + t * 16) * z;
+            var grad = ctx.createRadialGradient(cx, anchorY, 0, cx, anchorY, glowR);
+            grad.addColorStop(0, fx.color);
+            grad.addColorStop(1, 'transparent');
+            ctx.globalAlpha = Math.max(0, alpha) * 0.85;
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(cx, anchorY, glowR, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.globalAlpha = Math.max(0, alpha);
+            ctx.fillStyle = fx.color;
+            for (var p = 0; p < fx.particles.length; p++) {
+                var part = fx.particles[p];
+                var dist = part.speed * (age / 1000) * z;
+                var px = cx + Math.cos(part.angle) * dist;
+                var py = anchorY + Math.sin(part.angle) * dist * 0.55; // achata verticalmente (2:1 isométrico)
+                ctx.beginPath();
+                ctx.arc(px, py, 2 * z, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+        S.abilityEffects = kept;
+    }
+
     // Estágio 1 — identidade estável de um jogador remoto pro mapa de interpolação
     // abaixo. Reaproveita o mesmo par email/name já usado pelo resto do arquivo
     // pra identificar jogadores (ver nota no topo do arquivo sobre o payload
@@ -3099,6 +3256,10 @@
                 var selfStats = (window.GhostRPG && window.GhostRPG.getStats) ? window.GhostRPG.getStats() : {};
                 var selfLabel = selfName + '\nLv.' + (selfStats.level || 1);
                 drawGhostBillboard(ctx, screenS3.x, screenS3.y, selfImg, true, selfLabel, pal, S.facingRight);
+                // 2026-09-04 (uso de magia/item no overworld) — desenhado DEPOIS do billboard,
+                // na mesma âncora (screenS3), pra ficar por cima do sprite (glow/partículas
+                // sobre o jogador, não atrás). Ver tryUseAbilitySlot()/spawnAbilityEffect().
+                drawAbilityEffects(ctx, screenS3.x, screenS3.y, tsMs);
             }
         }
 
@@ -3245,6 +3406,20 @@
             } else if (ZOOM_OUT_KEYS[e.key]) {
                 S.zoomLevel = clampZoom(S.zoomLevel - ZOOM_KEY_STEP);
                 e.preventDefault();
+            }
+            // 2026-09-04 (uso de magia/item no overworld) — MESMAS teclas numéricas do
+            // Episódio 1 (engine.js, keyCode 49/50/51), pra não surpreender quem já jogou
+            // o Episódio 1 primeiro. `!e.repeat` replica a mesma guarda que engine.js usa
+            // nessas 3 teclas — sem isso, segurar a tecla pressionada spamaria conjuração
+            // (e gasto de mana/carga) a cada auto-repeat do teclado, não só 1x por toque.
+            // `S.isActive` é checado aqui MESMO com S.inputLocked já filtrado acima porque
+            // attachInput() é religado ANTES de S.isActive virar true dentro de
+            // activateNow() (ver ordem de chamadas lá) — existe uma janela real, pequena
+            // mas real, entre "listener anexado" e "overworld oficialmente ativo" onde um
+            // keydown vazando não pode disparar uma habilidade.
+            if ((e.key === '1' || e.key === '2' || e.key === '3') && !e.repeat) {
+                if (S.isActive) tryUseAbilitySlot(parseInt(e.key, 10));
+                return;
             }
         };
         S.keyupHandler = function (e) {

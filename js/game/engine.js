@@ -5004,6 +5004,49 @@ var g_binaryBits = [];
 			window.EnterEpisode1FromOverworld = EnterEpisode1FromOverworld;
 			window.GetOverworldSpawnPos = GetOverworldSpawnPos;
 			window.LoadChestItemsFromCloudProfile = loadChestItemsFromCloudProfile; // 2026-09-04 (baú de conta) — ver definição acima.
+
+			// 2026-09-04 (overworld ganha uso de magia/item, ver overworld.js:tryUseAbilitySlot) —
+			// ponte pública MÍNIMA pro overworld poder gastar/ler a MESMA mana e curar a MESMA
+			// vitalidade que o Episódio 1 usa de verdade (DeSoGhost.mana/vitality são vars
+			// privadas deste closure, nunca em window — ver skill isometric-canvas-rendering,
+			// seção sobre engine.js x overworld.js serem dois sistemas de render separados).
+			// Decisão de fonte de verdade (investigada antes de implementar, não assumida):
+			// GhostRPG.getStats().mana (rpg_system.js) é só o valor da NUVEM, escrito 1x no
+			// login (applyCloudSave) e NUNCA atualizado de volta quando o jogador gasta mana
+			// jogando — nenhum handler de tecla acima (keyCode 50/51) escreve em state.mana,
+			// só em DeSoGhost.mana. Usá-lo no overworld criaria uma segunda contagem de mana
+			// divergente da que aparece/gasta de verdade aqui. DeSoGhost é instanciado 1x por
+			// carregamento de página (ver "new c_DeSoGhost" acima, dentro do mesmo
+			// DOMContentLoaded que também inicia o overworld) e sobrevive a qualquer número de
+			// idas e vindas entre overworld <-> Episódio 1 na mesma aba — por isso gastar mana
+			// no overworld através desta ponte já aparece consistente se o jogador entrar no
+			// Episódio 1 logo em seguida (EnterEpisode1FromOverworld não recria DeSoGhost, só
+			// troca o estado de tela). Limite conhecido e pré-existente: nada aqui sobrevive a
+			// um F5 da página — DeSoGhost.mana já não sobrevivia a isso mesmo só dentro do
+			// Episódio 1, antes deste bridge existir; fora do escopo deste pedido.
+			window.GetLiveManaState = function() {
+				if (typeof DeSoGhost === 'undefined' || !DeSoGhost) return { mana: 0, maxMana: 100 };
+				return { mana: DeSoGhost.mana, maxMana: DeSoGhost.maxMana };
+			};
+			window.SpendLiveMana = function(amount) {
+				if (typeof DeSoGhost === 'undefined' || !DeSoGhost) return false;
+				if (DeSoGhost.mana < amount) return false;
+				DeSoGhost.mana -= amount;
+				return true;
+			};
+			// Mesma regra de "não gasta carga de elixir à toa" que o handler da tecla "1" já
+			// usa acima (keyCode 49): só cura -- e só devolve true, sinalizando pro chamador
+			// que PODE consumir a carga -- se a vitalidade não estava cheia. Mantém a decisão
+			// "curar ou não" numa fonte só (aqui), em vez de o overworld reimplementar a
+			// mesma comparação sobre uma var que nem é dele.
+			window.TryHealLiveVitality = function() {
+				if (typeof DeSoGhost === 'undefined' || !DeSoGhost) return false;
+				if (DeSoGhost.vitality >= DeSoGhost.maxVitality) return false;
+				DeSoGhost.vitality = DeSoGhost.maxVitality;
+				DeSoGhost.vitalityDisplayed = DeSoGhost.maxVitality;
+				DeSoGhost.vitalityFlashTimer = 0;
+				return true;
+			};
 			})(); // Fecha IIFE Caixa Preta
 		
 
