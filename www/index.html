@@ -1590,15 +1590,15 @@
         // manifest/pois/3 chunks carregam 200 OK, mapa/torre/cemitério renderizam, câmera
         // segue o jogador, movimento contínuo funciona, zero erro de JS) — ver relatório
         // do Estágio 1. Continua FALSE aqui de propósito, não um esquecimento: sem os
-        // Estágios 2 (bridge de mana/vitalidade em engine.js — hoje só parcialmente
-        // portado, GetOverworldSpawnPos/EnterEpisode1FromOverworld/g_chestItems(leitura)
-        // já existem, mas GetLiveManaState/SpendLiveMana/TryHealLiveVitality ainda não),
-        // 3 (baú/transferência de item, window.OpenChestModal ainda não existe no mobile)
+        // Estágios 2 (concluído em paralelo, commit bce92c2: GetOverworldSpawnPos/
+        // EnterEpisode1FromOverworld/g_chestItems(leitura)/GetLiveManaState/SpendLiveMana/
+        // TryHealLiveVitality já existem em engine.js), 3 (baú/transferência de item,
+        // window.OpenChestModal ainda não existe no mobile)
         // e 4 (ver outros jogadores de verdade — js/game/network.js do mobile não tem
         // NENHUM hook de overworld_move/overworld_players_update ainda), ligar isto pra
         // todo jogador real trocaria "vai direto pro Episódio 1" por um hub incompleto
-        // (anéis de habilidade e elixir não fazem nada, baú não abre, ninguém mais
-        // aparece no mapa). Decisão de quando ligar pra valer é do Estágio 5, que vê o
+        // (baú não abre, ninguém mais aparece no mapa — magia/elixir já funcionam de
+        // verdade desde o Estágio 2). Decisão de quando ligar pra valer é do Estágio 5, que vê o
         // conjunto completo dos 3 estágios paralelos. Pra testar de novo: window.DG_OVERWORLD_ENABLED=true
         // no console (ou trocar aqui) + window.ActivateOverworld() direto, sem precisar de StartMobileGame().
         window.DG_OVERWORLD_ENABLED = false;
