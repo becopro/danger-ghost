@@ -54,6 +54,17 @@ window.ConnectToServer = function() {
         var nameToSend = window.g_currentPlayerGhost ? (baseName + ' (#' + window.g_currentPlayerGhost + ')') : baseName;
         socket.emit('join_game', { playerName: nameToSend });
 
+        // Overworld (08/09/2026, paridade com danger ghost/js/game/network.js linha ~70,
+        // achado de auditoria forense de 05/09/2026 no site): join_game recria
+        // players[socket.id] do zero no servidor a cada conexão/reconexão (novo socket.id).
+        // Sem isto, um jogador que reconecta PARADO no mesmo tile do overworld (WiFi/dados
+        // móveis trocando, app voltando de segundo plano — bem mais comum aqui que no site,
+        // ver comentário grande abaixo) nunca reemite overworld_move — o loop de emissão
+        // (mais abaixo neste arquivo) só manda quando o tile muda — e fica invisível pros
+        // outros jogadores até se mexer de novo. Zera a chave de dedup pra forçar um
+        // overworld_move novo no próximo tick do poll, se o overworld ainda estiver ativo.
+        g_lastOverworldEmitKey = null;
+
         // 05/09/2026 (paridade com danger ghost/js/game/network.js — auditoria forense de
         // multiplayer, mesmo achado, aplicado aqui porque o app mobile é ainda MAIS sujeito a
         // reconexão que o site: trocar WiFi/dados móveis, o SO suspender o app em segundo plano,
@@ -84,6 +95,17 @@ window.ConnectToServer = function() {
                         if (typeof UpdateLoginButtonsVisibility === 'function') UpdateLoginButtonsVisibility();
                     } else {
                         console.log('[Network] Sessão re-sincronizada com sucesso após reconexão.');
+                        // Overworld (08/09/2026, paridade com o site, linha ~134): o loop de
+                        // overworld_move (150ms, mais abaixo) já zerou g_lastOverworldEmitKey
+                        // no 'connect' acima e pode disparar um overworld_move ANTES desta
+                        // re-sincronização de sessão terminar (round-trip assíncrono) — esse
+                        // envio prematuro chega sem e-mail de sessão, é rejeitado em silêncio
+                        // pelo servidor, e como o dedup é por posição (não por sucesso de
+                        // envio), a chave já ficaria marcada com aquele grid — o jogador
+                        // continuaria invisível até se MEXER de novo. Zera de novo aqui, DEPOIS
+                        // da confirmação real de sessão, pra garantir pelo menos um
+                        // overworld_move válido no próximo tick do loop.
+                        g_lastOverworldEmitKey = null;
                     }
                 });
             }
@@ -145,6 +167,20 @@ window.ConnectToServer = function() {
         delete window.NetworkState.playerNames[id];
     });
 
+    // Overworld isométrico (08/09/2026, Estágio 4 — paridade verbatim com
+    // danger ghost/js/game/network.js linha ~209): recebe o broadcast periódico do
+    // servidor (server/index.js, setInterval a OVERWORLD_TICK_RATE) e preenche
+    // window.OverworldOtherPlayers, o único ponto de contrato que js/game/overworld.js
+    // (já portado verbatim no Estágio 1) lê pra desenhar outros jogadores (render() ->
+    // "var others = window.OverworldOtherPlayers"). Filtra o próprio jogador pelo e-mail
+    // (GetCurrentPlayerEmail(), js/web2/profile.js) porque o payload do servidor não
+    // inclui socket id, só email/name/avatarUrl/gridX/gridY.
+    socket.on('overworld_players_update', (data) => {
+        var selfEmail = (typeof GetCurrentPlayerEmail === 'function') ? GetCurrentPlayerEmail() : null;
+        var list = (data && Array.isArray(data.players)) ? data.players : [];
+        window.OverworldOtherPlayers = selfEmail ? list.filter(function (p) { return p && p.email !== selfEmail; }) : list;
+    });
+
     socket.on('disconnect', () => {
         console.log("[Network] Disconnected");
         window.NetworkState.connected = false;
@@ -197,6 +233,35 @@ setInterval(function() {
         }
     }
 }, 100);
+
+// Overworld isométrico (08/09/2026, Estágio 4 — paridade verbatim com
+// danger ghost/js/game/network.js linha ~276-301): metade que faltava do lado do
+// emissor: envia overworld_move só quando o tile realmente muda (dedup por
+// "gridX_gridY", mesmo espírito do loop de emitPlayerMove acima), e overworld_leave
+// exatamente na transição isActive true->false (Deactivate/EnterEpisode1FromOverworld
+// em js/game/engine.js — já portado no Estágio 2), sem exigir que overworld.js saiba
+// nada de socket.io — ele só expõe window.OverworldState (contrato já existente),
+// este loop é que observa. 150ms casa com o próprio stepIntervalMs de movimento em
+// tiles do overworld.js (já portado verbatim no Estágio 1) — não precisa ser mais
+// rápido, o jogador nunca anda mais que 1 tile nesse intervalo.
+var g_lastOverworldActive = false;
+var g_lastOverworldEmitKey = null;
+setInterval(function() {
+    if (!window.NetworkState || !window.NetworkState.connected || !window.NetworkState.socket) return;
+    var ow = window.OverworldState;
+    if (!ow) return;
+    if (ow.isActive) {
+        var key = ow.playerGridX + '_' + ow.playerGridY;
+        if (key !== g_lastOverworldEmitKey) {
+            g_lastOverworldEmitKey = key;
+            window.NetworkState.socket.emit('overworld_move', { gridX: ow.playerGridX, gridY: ow.playerGridY, facingRight: ow.facingRight });
+        }
+    } else if (g_lastOverworldActive) {
+        window.NetworkState.socket.emit('overworld_leave');
+        g_lastOverworldEmitKey = null;
+    }
+    g_lastOverworldActive = ow.isActive;
+}, 150);
 
 document.addEventListener("DOMContentLoaded", function() {
     window.ConnectToServer();
