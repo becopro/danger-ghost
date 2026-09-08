@@ -106,16 +106,17 @@
             <canvas id="myCanvas" width="640" height="480"></canvas>
             <img id="cutsceneGif" src="assets/sprites/Dream 36.gif" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; box-sizing: border-box; border: 2px solid #00FFFF; object-fit: cover;" alt="Cutscene Gif" />
             <video id="openingCutsceneVideo" src="assets/sprites/1.mp4" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; box-sizing: border-box; border: 2px solid #00FFFF; object-fit: cover;" playsinline></video>
-            <!-- Overworld isométrico (porte de danger ghost/js/game/overworld.js) — Estágio 0: só o
-                 elemento e o stub de acoplamento existem ainda, sem lógica de desenho (isso é o
-                 Estágio 1). Canvas isolado seguindo EXATAMENTE o padrão do #tutorialCanvas em
-                 engine.js (grep por tutCanvas/tutActive/tutLoopId lá): contexto 2D próprio, flag
-                 de ativação própria, requestAnimationFrame cancelável. NUNCA compete com #myCanvas
-                 (o side-scroller roda Game_Step num rAF perpétuo e não pode ser pausado/reaproveitado)
-                 — os dois ficam empilhados aqui dentro de .canvas-container e só um fica visível por
-                 vez via display none/block. Ver window.ActivateOverworld() e
-                 window.DG_OVERWORLD_ENABLED no <script> mais abaixo. -->
-            <canvas id="overworldCanvas" width="640" height="480" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; box-sizing: border-box; border: 2px solid #00FFFF; background: #08060c;"></canvas>
+            <!-- Overworld isométrico (porte de danger ghost/js/game/overworld.js) — Estágio 1
+                 (08/09/2026): o <canvas id="overworldCanvas"> ESTÁTICO do Estágio 0 foi removido
+                 daqui de propósito. O overworld.js real (carregado no fim do <body>, depois do
+                 script inline que define DG_OVERWORLD_ENABLED) cria o PRÓPRIO canvas em runtime via
+                 ensureCanvas() — document.createElement('canvas') + canvas.id='overworldCanvas' +
+                 container.appendChild — dentro deste mesmo .canvas-container, exatamente como já
+                 funciona em produção no site (ver overworld.js linhas 1-45, "DECISÃO DE
+                 ARQUITETURA"). Um elemento estático aqui colidiria com esse createElement (dois ids
+                 iguais no DOM é inválido; getElementById só acharia o primeiro, o outro ficaria
+                 órfão) — por isso a remoção, não uma mudança de estilo. -->
+
             <button id="gameScreenModeBtn" onclick="ToggleGameFullscreen()" style="position: absolute; right: 10px; top: 10px; z-index: 1000; display: none; background: rgba(13, 13, 16, 0.85); border: 1.5px solid var(--cyan-neon); color: var(--cyan-neon); cursor: pointer; border-radius: 4px; box-shadow: 0 0 10px rgba(0, 255, 255, 0.25); width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease-in-out;" onmouseover="this.style.background='var(--cyan-neon)'; this.style.color='#000'; this.style.boxShadow='0 0 15px var(--cyan-neon)';" onmouseout="this.style.background='rgba(13, 13, 16, 0.85)'; this.style.color='var(--cyan-neon)'; this.style.boxShadow='0 0 10px rgba(0, 255, 255, 0.25)';">
                 <img src="assets/sprites/fullscreen_icon.jpg" style="width: 20px; height: 20px; border-radius: 2px;" alt="Fullscreen" />
             </button>
@@ -1581,11 +1582,25 @@
     <button id="mobileInGameMenuBtn" onclick="ShowMobileMainMenuFromGame()" style="position: fixed; bottom: 20px; left: 20px; z-index: 9000; background-image: url('assets/ui/menu_btn_bg.webp'); background-size: 100% 100%; background-color: transparent; border: none; color: #00FFFF; width: 120px; height: 40px; font-size: 16px; font-weight: bold; font-family: 'Orbitron', sans-serif; cursor: pointer; text-transform: uppercase; padding: 0; display: none; align-items: center; justify-content: center; text-shadow: 1px 1px 2px #000;">MENU</button>
 
     <script>
-        // --- OVERWORLD (porte de danger ghost/js/game/overworld.js) — Estágio 0 ---
+        // --- OVERWORLD (porte de danger ghost/js/game/overworld.js) — Estágio 1 (08/09/2026) ---
         // Flag mestra do porte: enquanto false, StartMobileGame() abaixo continua indo
         // direto pro Episódio 1 exatamente como hoje (comportamento 100% preservado).
-        // O Estágio 1 (renderização real do overworld) vira true aqui quando estiver
-        // pronto. Fácil de desligar de novo em caso de bug sem reverter código.
+        // O NÚCLEO do overworld (js/game/overworld.js) já foi portado e testado ao vivo
+        // nesta sessão (servidor estático local + ActivateOverworld() manual via console:
+        // manifest/pois/3 chunks carregam 200 OK, mapa/torre/cemitério renderizam, câmera
+        // segue o jogador, movimento contínuo funciona, zero erro de JS) — ver relatório
+        // do Estágio 1. Continua FALSE aqui de propósito, não um esquecimento: sem os
+        // Estágios 2 (bridge de mana/vitalidade em engine.js — hoje só parcialmente
+        // portado, GetOverworldSpawnPos/EnterEpisode1FromOverworld/g_chestItems(leitura)
+        // já existem, mas GetLiveManaState/SpendLiveMana/TryHealLiveVitality ainda não),
+        // 3 (baú/transferência de item, window.OpenChestModal ainda não existe no mobile)
+        // e 4 (ver outros jogadores de verdade — js/game/network.js do mobile não tem
+        // NENHUM hook de overworld_move/overworld_players_update ainda), ligar isto pra
+        // todo jogador real trocaria "vai direto pro Episódio 1" por um hub incompleto
+        // (anéis de habilidade e elixir não fazem nada, baú não abre, ninguém mais
+        // aparece no mapa). Decisão de quando ligar pra valer é do Estágio 5, que vê o
+        // conjunto completo dos 3 estágios paralelos. Pra testar de novo: window.DG_OVERWORLD_ENABLED=true
+        // no console (ou trocar aqui) + window.ActivateOverworld() direto, sem precisar de StartMobileGame().
         window.DG_OVERWORLD_ENABLED = false;
 
         // Stub do ponto de acoplamento site<->mobile. Contrato real (já testado em produção
@@ -1751,5 +1766,16 @@
     <!-- 27/08/2026: removidas as 3 tags duplicadas de ghost_inventory.js/ghostdex_data.js/
          ghostdex_ui.js que estavam aqui (v=40/40/41) — já carregadas no <head> (v=41/41/42),
          essa segunda cópia era estritamente mais velha e sobrescrevia a versão nova sem motivo. -->
+    <!-- Estágio 1 (08/09/2026) do porte do overworld: carregada DEPOIS do <script> inline acima
+         de propósito, porque aquele bloco ainda define o stub window.ActivateOverworld do Estágio
+         0 (e a flag DG_OVERWORLD_ENABLED) — a definição real de window.ActivateOverworld/
+         DeactivateOverworld/EnterEpisode1FromOverworld/OverworldState que este arquivo cria no seu
+         próprio fim SOBRESCREVE o stub só se carregar depois dele, nunca antes. Também carrega
+         depois de js/game/network.js (linha ~31) e js/game/engine.js (linha ~1123), mesma relação
+         relativa de ordem que o site usa (js/game/engine.js seguido imediatamente por
+         js/game/overworld.js em danger ghost/index.html) — a posição absoluta em relação a
+         auth.js/profile.js/friends.js/badges.js diverge do site porque aqui o overworld.js precisa
+         vir depois do stub, que só existe perto do fim do body; ver relatório do Estágio 1. -->
+    <script src="js/game/overworld.js?v=1"></script>
 </body>
 </html>

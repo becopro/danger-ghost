@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "generated_at_utc": "2026-09-03T02:51:47.169Z",
+  "tile_size_m": 10,
+  "chunk_dim_tiles": 85,
+  "projection": {
+    "method": "local equirectangular (flat-earth approximation)",
+    "origin_lat": -22.904479806248524,
+    "origin_lon": -43.088103756280866,
+    "reference_latitude_for_scale_deg": -22.90478355,
+    "meters_per_degree_latitude": 111320.0,
+    "meters_per_degree_longitude": 102542.7425
+  },
+  "chunks": [
+    {
+      "chunkX": 0,
+      "chunkY": 0,
+      "file": "data/overworld/chunks/0_0.json",
+      "originGlobalCol": 0,
+      "originGlobalRow": 0,
+      "neighbourhood": "Santa Rosa",
+      "generated_at_utc": "2026-09-02T20:34:21Z"
+    },
+    {
+      "chunkX": 1,
+      "chunkY": 0,
+      "file": "data/overworld/chunks/1_0.json",
+      "originGlobalCol": 85,
+      "originGlobalRow": 0,
+      "neighbourhood": "Viradouro",
+      "generated_at_utc": "2026-09-03T02:51:27.972Z"
+    },
+    {
+      "chunkX": 0,
+      "chunkY": 1,
+      "file": "data/overworld/chunks/0_1.json",
+      "originGlobalCol": 0,
+      "originGlobalRow": 85,
+      "neighbourhood": "São Francisco",
+      "generated_at_utc": "2026-09-03T02:51:28.315Z"
+    }
+  ]
+}
