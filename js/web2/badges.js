@@ -203,9 +203,17 @@ function HashStringToInt(str) {
     }
     return h >>> 0;
 }
-function MakeSeededRandom(seed) {
-    var s = (seed >>> 0) || 1;
-   // ----------------------------------------------------------------------------
+// 08/09/2026 (achado ao vivo — arquivo quebrava com "SyntaxError: Unexpected end of
+// input", banner vermelho travando a tela de login): existia aqui um resto órfão de
+// function MakeSeededRandom(seed) { var s = ...; — só as 2 linhas de abertura, sem
+// corpo nem fechamento. Era o gerador de silhueta PROCEDURAL do sistema antigo de
+// ícones SVG; ficou pra trás quando o commit 21c23da trocou os ícones por artes de IA
+// estáticas (BADGE_IMAGES abaixo) sem terminar de remover a função. Confirmado que
+// MakeSeededRandom nunca é chamada em lugar nenhum do arquivo (grep antes de apagar) —
+// GenerateBadgeIconSVG (mais abaixo) usa HashStringToInt só pra um id de gradiente CSS,
+// não pra semear nenhum random. Removida por completo em vez de "consertada", já que
+// era código morto mesmo antes da quebra de sintaxe.
+// ----------------------------------------------------------------------------
 // Silhuetas substituídas por artes geradas por IA (Nano Banana)
 // ----------------------------------------------------------------------------
 var BADGE_GRID_SIZE = 12;
