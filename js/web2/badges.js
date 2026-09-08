@@ -203,30 +203,188 @@ function HashStringToInt(str) {
     }
     return h >>> 0;
 }
-// 08/09/2026 (achado ao vivo — arquivo quebrava com "SyntaxError: Unexpected end of
-// input", banner vermelho travando a tela de login): existia aqui um resto órfão de
-// function MakeSeededRandom(seed) { var s = ...; — só as 2 linhas de abertura, sem
-// corpo nem fechamento. Era o gerador de silhueta PROCEDURAL do sistema antigo de
-// ícones SVG; ficou pra trás quando o commit 21c23da trocou os ícones por artes de IA
-// estáticas (BADGE_IMAGES abaixo) sem terminar de remover a função. Confirmado que
-// MakeSeededRandom nunca é chamada em lugar nenhum do arquivo (grep antes de apagar) —
-// GenerateBadgeIconSVG (mais abaixo) usa HashStringToInt só pra um id de gradiente CSS,
-// não pra semear nenhum random. Removida por completo em vez de "consertada", já que
-// era código morto mesmo antes da quebra de sintaxe.
+// 08/09/2026 (revertido a pedido do usuário — "quero de volta as imagens das medalhas
+// do dia 05/09/2026"): o commit 21c23da (07/09/2026) trocou este gerador procedural por
+// artes estáticas de IA (BADGE_IMAGES + <image href>), e o fez de forma incompleta —
+// deixou pra trás um resto órfão desta própria função (só as 2 linhas de abertura, sem
+// corpo nem fechamento), que quebrou a sintaxe do arquivo inteiro e travou a tela de
+// login (corrigido mais cedo hoje em 9f5e6e8, removendo o resto órfão). Investigação de
+// git archaeology (git log/show em cima de js/web2/badges.js) confirmou que nada mudou
+// nesta lógica entre a criação do sistema (99c5865, 01/09/2026) e 21c23da (07/09/2026) —
+// ou seja, restaurar o estado de 21c23da^ (o pai do commit) é EXATAMENTE o comportamento
+// de 05/09/2026 que o usuário pediu de volta. BADGE_IMAGES e o <image href> foram
+// removidos por não terem mais nenhum chamador (os .jpg em assets/badge_*.jpg continuam
+// no repo, sem uso — não é o foco deste revert apagá-los fisicamente).
+function MakeSeededRandom(seed) {
+    var s = (seed >>> 0) || 1;
+    return function () {
+        s ^= (s << 13); s >>>= 0;
+        s ^= (s >>> 17);
+        s ^= (s << 5); s >>>= 0;
+        return (s >>> 0) / 4294967296;
+    };
+}
+
 // ----------------------------------------------------------------------------
-// Silhuetas substituídas por artes geradas por IA (Nano Banana)
+// Silhuetas 8-bit: cada família de forma é uma função isFilled(x,y) sobre uma
+// grade 12x12 (0..11) — geometria simples (elipse, distância de Manhattan/
+// Chebyshev, distância a um segmento de reta), não curvas suaves. Isso é o que
+// torna o ícone "gerado", não desenhado: a MESMA função roda pros ~55 badges
+// de cada categoria, e o jitter semeado (ver ApplySeededJitter) que faz cada
+// um dos 333 parecer distinto o bastante pra reconhecer de relance.
 // ----------------------------------------------------------------------------
 var BADGE_GRID_SIZE = 12;
 var BADGE_ICON_VIEWBOX = 24; // 24x24 unidades de viewBox, 2 unidades por célula
 
-var BADGE_IMAGES = {
-    evolucao_assombrada: 'assets/badge_ghost_1788807765514.jpg',
-    combate_espiritual: 'assets/badge_blade_1788807783153.jpg',
-    exploracao: 'assets/badge_compass_1788807794338.jpg',
-    acumulador_do_alem: 'assets/badge_gem_1788807805035.jpg',
-    acrobacias: 'assets/badge_bolt_1788807817042.jpg',
-    segredos: 'assets/badge_eye_1788807827267.jpg'
+function DistPointToSegment(px, py, x1, y1, x2, y2) {
+    var A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
+    var lenSq = C * C + D * D;
+    var t = lenSq !== 0 ? (A * C + B * D) / lenSq : 0;
+    if (t < 0) t = 0; else if (t > 1) t = 1;
+    var xx = x1 + t * C, yy = y1 + t * D;
+    var dx = px - xx, dy = py - yy;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+// Evolução: fantasma pixelado — cabeça arredondada (elipse) + corpo reto +
+// base recortada em "ondas" (a cauda clássica de fantasma) + 2 olhos vazados.
+function GhostFilled(x, y) {
+    var cx = 5.5;
+    if (y <= 7) {
+        var dx = (x - cx) / 5.3, dy = (y - 4.6) / 5.5;
+        if ((dx * dx + dy * dy) > 1.05) return false;
+    } else if (y === 8 || y === 9) {
+        if (Math.abs(x - cx) > 5.3) return false;
+    } else if (y === 10) {
+        if ((x % 3) === 2 || Math.abs(x - cx) > 5.3) return false;
+    } else {
+        if ((x % 3) !== 0 || Math.abs(x - cx) > 5) return false;
+    }
+    // olhos vazados
+    if ((y === 4 || y === 5) && (x === 3 || x === 4 || x === 7 || x === 8)) return false;
+    return true;
+}
+
+// Combate: espada — lâmina afunilada (mais larga perto da guarda, estreita na
+// ponta), guarda transversal, cabo.
+function BladeFilled(x, y) {
+    if (y <= 7) {
+        var half = 0.5 + (y / 7) * 1.1;
+        return Math.abs(x - 5.5) <= half;
+    }
+    if (y === 8 || y === 9) return x >= 2 && x <= 9;
+    return Math.abs(x - 5.5) <= 0.7; // y 10-11: cabo
+}
+
+// Exploração: rosa dos ventos — losango central (distância de Manhattan) +
+// hastes retas até a borda nos 4 eixos cardeais.
+function CompassFilled(x, y) {
+    var dx = Math.abs(x - 5.5), dy = Math.abs(y - 5.5);
+    var onSpoke = (x === 5 || x === 6) || (y === 5 || y === 6);
+    return (dx + dy) <= 4.3 || onSpoke;
+}
+
+// Coleta: gema facetada — quadrado com cantos cortados (interseção de
+// Chebyshev com Manhattan = octógono, corte clássico de pedra preciosa).
+function GemFilled(x, y) {
+    var dx = Math.abs(x - 5.5), dy = Math.abs(y - 5.5);
+    var cheby = Math.max(dx, dy);
+    return cheby <= 4.6 && (dx + dy) <= 7.6;
+}
+
+// Acrobacias: raio — dois traços diagonais grossos formando um Z, distância
+// até segmento de reta (reaproveita DistPointToSegment).
+function BoltFilled(x, y) {
+    var d1 = DistPointToSegment(x, y, 8, 0, 3, 6.5);
+    var d2 = DistPointToSegment(x, y, 8.5, 5.5, 3.5, 12);
+    return d1 <= 1.35 || d2 <= 1.35;
+}
+
+// Segredos: olho amendoado (elipse achatada) — a pupila é desenhada depois,
+// por cima, num tom escuro separado (ver EyePupilFilled), não é um vazado.
+function EyeFilled(x, y) {
+    var dx = (x - 5.5) / 5.4, dy = (y - 5.5) / 2.6;
+    return (dx * dx + dy * dy) <= 1.05;
+}
+function EyePupilFilled(x, y) {
+    var dx = x - 5.5, dy = y - 5.5;
+    return (dx * dx + dy * dy) <= 2.1;
+}
+
+var BADGE_SHAPE_FN = {
+    ghost: GhostFilled,
+    blade: BladeFilled,
+    compass: CompassFilled,
+    gem: GemFilled,
+    bolt: BoltFilled,
+    eye: EyeFilled
 };
+
+// Sombreamento pseudo-3D genérico (luz vindo do canto superior-esquerdo) —
+// funciona igual pra qualquer uma das 6 famílias de forma, sem caso especial
+// por shape: só olha x+y (diagonal) e escolhe entre os 3 tons da categoria.
+function ShadeToneForCell(x, y, colors) {
+    var v = x + y; // 0..22 numa grade 12x12
+    if (v <= 7) return colors.light;
+    if (v >= 15) return colors.dark;
+    return colors.base;
+}
+
+// Jitter semeado: alterna algumas células de BORDA (filled com vizinho vazio,
+// ou vazio com vizinho filled) — mantém a silhueta reconhecível (nunca mexe no
+// "miolo" da forma) mas dá a cada badge uma pequena variação única de contorno.
+// Quantidade escala com o tier (ver BADGE_TIER_JITTER) — mais alterações =
+// contorno mais "recortado"/complexo, a leitura de "mais raro" pedida na tarefa.
+function ApplySeededJitter(cellsFlat, rng, jitterCount) {
+    var size = BADGE_GRID_SIZE;
+    var candidates = [];
+    for (var y = 1; y < size - 1; y++) {
+        for (var x = 1; x < size - 1; x++) {
+            var idx = y * size + x;
+            var here = cellsFlat[idx];
+            var left = cellsFlat[idx - 1], right = cellsFlat[idx + 1];
+            var up = cellsFlat[idx - size], down = cellsFlat[idx + size];
+            if (here !== left || here !== right || here !== up || here !== down) {
+                candidates.push(idx);
+            }
+        }
+    }
+    for (var i = 0; i < jitterCount && candidates.length > 0; i++) {
+        var pick = Math.floor(rng() * candidates.length);
+        var cellIdx = candidates.splice(pick, 1)[0];
+        cellsFlat[cellIdx] = !cellsFlat[cellIdx];
+    }
+}
+
+// Funde células adjacentes na MESMA linha com o MESMO tom num único <rect>
+// (em vez de 1 rect por célula) — com 333 ícones na tela ao mesmo tempo isso
+// corta a contagem de elementos SVG por um fator de ~3-5x, o que importa de
+// verdade no grid inteiro carregado (mesmo com lazy-mount via
+// IntersectionObserver, ver GetBadgeIconObserver abaixo).
+function BuildFilledRunsMarkup(cellsFlat, colors) {
+    var size = BADGE_GRID_SIZE;
+    var unit = BADGE_ICON_VIEWBOX / size;
+    var markup = '';
+    for (var y = 0; y < size; y++) {
+        var runStartX = -1, runTone = null;
+        for (var x = 0; x <= size; x++) {
+            var filled = x < size && cellsFlat[y * size + x];
+            var tone = filled ? ShadeToneForCell(x, y, colors) : null;
+            if (filled && runStartX === -1) { runStartX = x; runTone = tone; }
+            else if (filled && tone !== runTone) {
+                markup += BadgeIconRect(runStartX * unit, y * unit, (x - runStartX) * unit, unit, runTone);
+                runStartX = x; runTone = tone;
+            } else if (!filled && runStartX !== -1) {
+                markup += BadgeIconRect(runStartX * unit, y * unit, (x - runStartX) * unit, unit, runTone);
+                runStartX = -1; runTone = null;
+            }
+        }
+    }
+    return markup;
+}
+function BadgeIconRect(x, y, w, h, fill) {
+    return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + fill + '"/>';
+}
 
 function BuildSparkleMarkup(count, color) {
     if (!count) return '';
@@ -247,15 +405,40 @@ function BuildSparkleMarkup(count, color) {
 // ----------------------------------------------------------------------------
 // GERADOR PRINCIPAL — recebe SÓ o badge (categoria + tier já anotados nele por
 // ComputeBadgeTiers(), chamado por RenderBadgeGrid antes de qualquer ícone ser
-// desenhado) e devolve uma string <svg>...</svg>.
+// desenhado) e devolve uma string <svg>...</svg>. Determinístico: mesmo badge
+// -> mesmo SVG sempre (semente = badge.id), então dá pra cachear com segurança
+// (ver g_badgesState.iconCache).
 // ----------------------------------------------------------------------------
 function GenerateBadgeIconSVG(badge) {
     var catCfg = BADGE_CATEGORY_CONFIG[badge.category] || BADGE_CATEGORY_CONFIG.segredos;
     var tier = badge._tier || 'bronze';
+    var shapeFn = BADGE_SHAPE_FN[catCfg.shapeFamily] || GhostFilled;
     var seed = HashStringToInt(String(badge.id != null ? badge.id : (badge.category + '_' + (badge.sortOrder || 0))));
+    var rng = MakeSeededRandom(seed);
+    var size = BADGE_GRID_SIZE;
 
-    var imgSrc = BADGE_IMAGES[badge.category] || BADGE_IMAGES.segredos;
-    var shapeMarkup = '<image href="' + imgSrc + '" x="0" y="0" width="' + BADGE_ICON_VIEWBOX + '" height="' + BADGE_ICON_VIEWBOX + '" preserveAspectRatio="xMidYMid slice" />';
+    var cellsFlat = new Array(size * size);
+    for (var y = 0; y < size; y++) {
+        for (var x = 0; x < size; x++) {
+            cellsFlat[y * size + x] = shapeFn(x, y);
+        }
+    }
+    ApplySeededJitter(cellsFlat, rng, BADGE_TIER_JITTER[tier] || 2);
+
+    var shapeMarkup = BuildFilledRunsMarkup(cellsFlat, catCfg.colors);
+
+    // Pupila do olho (Segredos) é desenhada por cima, sempre no mesmo lugar —
+    // não participa do jitter (perderia a leitura de "olho" se virasse ruído).
+    if (catCfg.shapeFamily === 'eye') {
+        for (var ey = 0; ey < size; ey++) {
+            for (var ex = 0; ex < size; ex++) {
+                if (EyePupilFilled(ex, ey)) {
+                    var u = BADGE_ICON_VIEWBOX / size;
+                    shapeMarkup += BadgeIconRect(ex * u, ey * u, u, u, catCfg.colors.dark);
+                }
+            }
+        }
+    }
 
     var frameCfg = BADGE_TIER_FRAME[tier];
     var frameStroke = frameCfg.color;
