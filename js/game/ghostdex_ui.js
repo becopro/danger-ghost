@@ -422,6 +422,23 @@ window.PlayAsGhost = function(ghostId) {
     }
     
     // Cache the images so the engine can use them
+    //
+    // 08/09/2026 (bug do Ghost #101 andando virado pro lado errado, achado ao vivo pelo
+    // usuário): o motivo NÃO era o arquivo assets/sprites/ghost_101_r.webp estar "errado"
+    // isoladamente — ele seguia a mesma convenção visual de ghost_001_r.webp. O problema real
+    // é que este array de fallback tem DUAS fontes de arte com convenções de espelhamento
+    // OPOSTAS: os retratos Ghosts/#NNN.png (tentados primeiro, existem hoje só pra #001-#100)
+    // usam uma polaridade "olho-esquerda/rabo-direita", enquanto o par assets/sprites/*_r.webp
+    // (usado por engine.js como base ANTES de espelhar pro sentido de movimento, ver
+    // this.face==1 nas próprias linhas de draw() do player) foi gerado com a polaridade oposta.
+    // Isso ficava invisível porque quase todo ghost tem um Ghosts/#NNN.png que ganha prioridade
+    // aqui e nunca deixa o código realmente carregar o _r.webp durante o gameplay — #101 foi o
+    // primeiro ghost sem retrato em Ghosts/, então foi o primeiro a cair de fato no fallback
+    // errado e expor a inconsistência. Corrigido trocando o CONTEÚDO de ghost_101_r.webp pelo de
+    // ghost_101_l.webp (e vice-versa) nos dois repositórios (danger ghost/assets/sprites/ e
+    // danger_ghost_mobile/www/assets/sprites/) — não mudei este array. Se outro ghost sem
+    // retrato em Ghosts/ apresentar o mesmo sintoma, é a mesma causa raiz: confira se o par
+    // _r/_l dele tem a polaridade oposta à de um Ghosts/#NNN.png que já funciona certo.
     function safeLoadGhostSprite(ghostId, callback) {
         var paths = [
             'Ghosts/%23' + ghostId + '.png',
