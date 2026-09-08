@@ -91,6 +91,25 @@ function completeCloudLogin(email, name, playerData, token) {
         if (token) localStorage.setItem("dg_session_token", token);
     } catch(e) {}
 
+    // 08/09/2026 (achado irmão da investigação forense de multiplayer — mesma família do fix de
+    // 05/09/2026 em js/game/network.js): completeCloudLogin() é o ponto de saída comum do login
+    // MANUAL (RESGATAR PROGRESSO/CRIAR CONTA NOVA) e do auto-relogin em reconexão
+    // (TryAutoLoginFromSession, chamada por socket.on('connect')). O reconnect já zera
+    // window.g_lastOverworldEmitKey (rede.js) depois de um login bem-sucedido, exatamente pra
+    // evitar que a dedup de overworld_move (só reemite quando o TILE muda) prenda o jogador
+    // invisível numa posição que só foi rejeitada por falta de sessão. Mas um jogador que perdeu
+    // a sessão (ex.: restart do servidor sem "jwtsecret" persistido — ver server/index.js) e
+    // relogou MANUALMENTE pela tela de login, já parado dentro do overworld, caía exatamente no
+    // mesmo buraco sem passar pelo caminho de reconexão: a chave de dedup continuava presa na
+    // última posição (rejeitada), e nenhum overworld_move novo saía até o jogador se mexer de
+    // verdade. Reproduzido ao vivo nesta investigação (relogin manual parado, sem mover, ficou
+    // sem soltar overworld_move nenhum). Zerar aqui também cobre os dois caminhos com a mesma
+    // correção, sem duplicar a lógica em cada handler de sucesso de login individualmente — este
+    // é o único ponto por onde todo login bem-sucedido já passa.
+    if (typeof window.g_lastOverworldEmitKey !== 'undefined') {
+        window.g_lastOverworldEmitKey = null;
+    }
+
     // dg_cloud_email já está gravado agora: esse é o exato momento em que o login/cadastro
     // é confirmado, então é aqui que os botões "RESGATAR PROGRESSO" / "CRIAR CONTA NOVA" somem.
     UpdateLoginButtonsVisibility();

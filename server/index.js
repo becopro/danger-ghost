@@ -57,17 +57,67 @@ const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 // Token de sessão (30/08/2026): permite o jogo logar sozinho na próxima vez que abrir, sem pedir
 // e-mail/senha de novo — ver socket.on('session_login') mais abaixo. Mesmo padrão de segredo já
 // usado neste projeto (docs/SECURITY_AUDIT.md, achado #2, 18/08/2026): se "jwtsecret" não estiver
-// definido no ambiente, gera um aleatório nesta execução em vez de usar um valor fixo no código —
-// sessões emitidas antes de um restart do servidor deixam de validar, mas nunca existe um segredo
-// previsível. Nome da env var em minúsculo e sem "_" de propósito, mesmo padrão de dbhost/dbpass/
-// etc (server/db.js) — o console remoto usado pra configurar produção tem um teclado que derruba
-// o Shift, então maiúsculas e "_" viram fonte de erro de digitação.
+// definido no ambiente, gera um aleatório em vez de usar um valor fixo no código (nunca existe um
+// segredo previsível). Nome da env var em minúsculo e sem "_" de propósito, mesmo padrão de
+// dbhost/dbpass/etc (server/db.js) — o console remoto usado pra configurar produção tem um
+// teclado que derruba o Shift, então maiúsculas e "_" viram fonte de erro de digitação.
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const JWT_SECRET = process.env.jwtsecret || (() => {
-    console.warn('[SECURITY] jwtsecret não definido no ambiente — usando um segredo aleatório gerado nesta execução. Sessões salvas vão pedir login de novo a cada restart do servidor até isso ser definido.');
-    return crypto.randomBytes(48).toString('hex');
-})();
+
+// 08/09/2026 (investigação forense pedida pelo usuário — "funcionava no começo, agora não vejo
+// outro jogador no overworld"): CAUSA RAIZ REAL confirmada ao vivo, não suposta — reproduzida
+// derrubando e subindo este processo de novo localmente com uma conta de teste real. Antes desta
+// correção, quando "jwtsecret" não estava no .env (o caso de produção, confirmado pelo próprio
+// log "[SECURITY] jwtsecret não definido..." aparecendo em TODO restart do VPS esta semana),
+// crypto.randomBytes() gerava um segredo NOVO a cada boot, guardado só em memória — todo
+// jwt.sign() de ANTES do restart passava a falhar jwt.verify() DEPOIS dele, pra sempre. O fix de
+// 05/09/2026 (socket.on('connect') em js/game/network.js) fez essa falha parar de ser SILENCIOSA
+// (o jogador volta pro estado "não logado" visível em vez de ficar com save/overworld quebrados
+// sem aviso), mas não atacava a causa: o segredo em si continuava trocando a cada deploy/pm2
+// restart, então TODO jogador com sessão salva precisava logar novamente manualmente depois de
+// cada restart — e enquanto isso, "Online: N" continua contando certo (vem de join_game/
+// sync_state, que não exige e-mail) enquanto ninguém aparece pra ninguém no overworld
+// (overworld_move exige playerSession.email, só setado por login) — exatamente o "Online:2 mas
+// ninguém vê ninguém" do relato original, só que reaparecendo a cada restart em vez de ficar
+// permanentemente quebrado.
+//
+// Correção real (Prevent, não só Mitigate): gerar o segredo só na PRIMEIRA vez que faltar no
+// ambiente e PERSISTIR em disco (JWT_SECRET_FILE abaixo), reusando o mesmo valor salvo em todo
+// boot seguinte. Sessões voltam a sobreviver a um restart do processo sem exigir configuração
+// manual nenhuma na VPS — dá no mesmo que definir "jwtsecret" no .env, só que automático. Se
+// "jwtsecret" for definido explicitamente no ambiente no futuro, ele sempre vence (checado
+// primeiro, comportamento inalterado) — o arquivo é só o fallback pra quando ninguém configurou
+// nada, não uma segunda fonte de verdade concorrente.
+const JWT_SECRET_FILE = path.join(__dirname, '.jwtsecret');
+
+function loadOrCreatePersistentJwtSecret() {
+    try {
+        const existing = fs.readFileSync(JWT_SECRET_FILE, 'utf8').trim();
+        if (existing) {
+            console.warn('[SECURITY] jwtsecret não definido no ambiente — reusando o segredo persistido em server/.jwtsecret (gerado num boot anterior). Sessões sobrevivem a este restart. Defina "jwtsecret" em server/.env se preferir controlar o valor manualmente.');
+            return existing;
+        }
+    } catch (readErr) {
+        // Arquivo ainda não existe (ENOENT, primeiro boot) ou outro erro de leitura — cai para
+        // gerar um novo abaixo em qualquer um dos dois casos; não é um erro fatal.
+    }
+
+    const generated = crypto.randomBytes(48).toString('hex');
+    try {
+        // Escreve com permissão restrita ao dono (0600) — mesmo espírito de nunca deixar um
+        // segredo previsível: também não deixa ele legível por outros usuários do mesmo host.
+        fs.writeFileSync(JWT_SECRET_FILE, generated, { encoding: 'utf8', mode: 0o600 });
+        console.warn('[SECURITY] jwtsecret não definido no ambiente — gerado um segredo novo e salvo em server/.jwtsecret (permissão 600) para reuso automático em todo restart seguinte. Defina "jwtsecret" em server/.env se preferir controlar o valor manualmente.');
+    } catch (writeErr) {
+        // Disco somente-leitura, permissão negada, etc — não trava o boot do servidor, mas volta
+        // ao comportamento antigo (efêmero) e avisa alto, porque isso é uma condição anormal que
+        // merece atenção manual (o mesmo restart vai voltar a derrubar sessões).
+        console.error('[SECURITY] Não foi possível persistir server/.jwtsecret (' + writeErr.message + ') — usando um segredo aleatório só desta execução. Sessões salvas vão pedir login de novo a cada restart até isso ser corrigido (verifique permissão de escrita em server/) ou até "jwtsecret" ser definido em server/.env.');
+    }
+    return generated;
+}
+
+const JWT_SECRET = process.env.jwtsecret || loadOrCreatePersistentJwtSecret();
 const SESSION_TOKEN_TTL = '30d';
 
 function signSessionToken(email) {

@@ -17,3 +17,8 @@ resize.js
 server/node_modules/
 jdk21/
 server/game_data.db
+# 08/09/2026 (investigacao forense de multiplayer, causa raiz do jwtsecret): segredo JWT
+# persistido automaticamente por server/index.js (loadOrCreatePersistentJwtSecret) quando
+# "jwtsecret" nao esta definido no .env. Nunca pode ir pro repositorio -- e o mesmo tipo de
+# segredo que .env* acima ja protege, so que em outro arquivo.
+server/.jwtsecret
