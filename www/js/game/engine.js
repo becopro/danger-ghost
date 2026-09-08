@@ -3133,6 +3133,68 @@
 				map.loadLevel(g_currentLevel); SetGameState(G_PLAY);
 			}
 
+			// 08/09/2026 (Estágio 2 do porte mobile do overworld, em paralelo ao Estágio 1
+			// portando overworld.js) — portado do site (danger ghost/js/game/engine.js ~3246)
+			// sem mudanças, é platform-agnostic (mesmo localStorage, mesmo formato de dado,
+			// mesmo backend). Volta a preferir a última posição salva do jogador
+			// (localStorage.dg_cloud_profile.overworldGridX/Y, sincronizada do banco por
+			// completeCloudLogin()/server/db.js). O fallback usado quando não há posição salva
+			// (conta nova, nunca esteve no overworld) é window.OverworldTowerDoorPos — a célula
+			// ANDÁVEL exatamente ao lado da porta — e NÃO window.OverworldTowerGridPos (centro
+			// do footprint 3x3 da torre, provavelmente não andável ou já dentro do footprint de
+			// entrada). Ver histórico do bug no site antes de "corrigir" este fallback de novo.
+			function GetOverworldSpawnPos() {
+				var fallback = window.OverworldTowerDoorPos || window.OverworldTowerGridPos || { gridX: 0, gridY: 0 };
+				try {
+					var raw = localStorage.getItem('dg_cloud_profile');
+					if (raw) {
+						var profile = JSON.parse(raw);
+						if (Number.isInteger(profile.overworldGridX) && Number.isInteger(profile.overworldGridY)) {
+							return { gridX: profile.overworldGridX, gridY: profile.overworldGridY };
+						}
+					}
+				} catch (e) {}
+				return fallback;
+			}
+
+			// 08/09/2026 (Estágio 2, mesmo porte) — portado do site (~3296) sem mudanças. Só
+			// LEITURA de dg_cloud_profile.chestItems; a ESCRITA desse campo em
+			// www/js/web2/auth.js é trabalho do Estágio 3 (outro agente, mais tarde). Até lá,
+			// Array.isArray falha silenciosamente e window.g_chestItems cai num array vazio —
+			// não quebra nada, só não tem itens de verdade ainda.
+			function loadChestItemsFromCloudProfile() {
+				try {
+					var raw = localStorage.getItem('dg_cloud_profile');
+					if (raw) {
+						var profile = JSON.parse(raw);
+						if (Array.isArray(profile.chestItems)) {
+							window.g_chestItems = profile.chestItems;
+							return;
+						}
+					}
+				} catch (e) {}
+				if (!Array.isArray(window.g_chestItems)) window.g_chestItems = [];
+			}
+			window.g_chestItems = window.g_chestItems || [];
+			loadChestItemsFromCloudProfile(); // leitura oportunista no boot (ver comentário acima)
+
+			// Contrato do motor do overworld (js/game/overworld.js): ele chama esta função quando
+			// o jogador entra na área da torre. Reaproveita o caminho EXATO que hoje já inicia o
+			// Episódio 1 a partir do menu/SPACE (StartCutscene() sem argumentos = fase 1, sem
+			// preservar score) — não reimplementa a inicialização da fase. Portado do site (~3321)
+			// sem mudanças.
+			function EnterEpisode1FromOverworld() {
+				if (typeof window.DeactivateOverworld === 'function') window.DeactivateOverworld();
+				// Game_Step (loop deste engine) se desligou sozinho (parou de chamar
+				// requestAnimationFrame) enquanto o overworld estava ativo — ver guarda no topo
+				// de Game_Step. window.OverworldState.isActive já é false aqui (DeactivateOverworld
+				// acabou de rodar), então religar o loop agora é seguro: a próxima chamada já passa
+				// direto pela guarda e volta a rodar Logic/Render normalmente.
+				requestAnimationFrame(Game_Step);
+				window.__dgReturnToOverworld = true;
+				StartCutscene();
+			}
+
 			// --- INITIALIZATION ---
 			var map = new Initialize_Map_Array();
 			var DeSoGhost = new c_DeSoGhost(48, 150);
@@ -3427,6 +3489,19 @@ var g_binaryBits = [];
 			var g_physicsAccumulator = 0;
 
 			function Game_Step(currentTime) {
+				// 08/09/2026 (Estágio 2 do porte mobile do overworld) — overworld ativo -> este
+				// loop se desliga (não chama requestAnimationFrame de novo), em vez de só pular o
+				// desenho. Skill isometric-canvas-rendering §4: "cancelAnimationFrame o loop que
+				// está saindo antes de iniciar o que está entrando, não só parar de chamar as
+				// funções de desenho enquanto o loop continua tiquetaqueando". Portado do site
+				// (danger ghost/js/game/engine.js ~3625) sem mudanças, mesma lógica.
+				// EnterEpisode1FromOverworld() (abaixo) chama requestAnimationFrame(Game_Step) de
+				// novo pra reativar este loop quando volta pro Episódio 1 — sem isso, o jogo
+				// ficaria travado depois da primeira visita ao overworld. Nenhuma lógica interna
+				// do Episódio 1 muda aqui, só a decisão de ligar/desligar o loop inteiro.
+				if (window.OverworldState && window.OverworldState.isActive) {
+					return;
+				}
 				if (!g_lastTime) g_lastTime = currentTime;
 				var dt = currentTime - g_lastTime;
 				g_lastTime = currentTime;
@@ -4399,6 +4474,44 @@ var g_binaryBits = [];
 			});
 
 			window.DrawWinScreen = DrawWinScreen;
+
+			// 08/09/2026 (Estágio 2 do porte mobile do overworld) — costura overworld <-> Episódio
+			// 1, portado do site (danger ghost/js/game/engine.js ~4646-4651) sem mudanças. Exposto
+			// ao window pro motor do overworld (js/game/overworld.js, Estágio 1, outro agente em
+			// paralelo) chamar quando o jogador entra/sai da área da torre.
+			window.EnterEpisode1FromOverworld = EnterEpisode1FromOverworld;
+			window.GetOverworldSpawnPos = GetOverworldSpawnPos;
+			window.LoadChestItemsFromCloudProfile = loadChestItemsFromCloudProfile; // 2026-09-04 no site (baú de conta) — ver definição acima.
+
+			// 08/09/2026 (overworld ganha uso de magia/item, ver overworld.js:tryUseAbilitySlot) —
+			// ponte pública MÍNIMA pro overworld poder gastar/ler a MESMA mana e curar a MESMA
+			// vitalidade que o Episódio 1 usa de verdade (DeSoGhost.mana/vitality são vars
+			// privadas deste closure, nunca em window). Portado do site (~4672-4694) sem mudanças
+			// de lógica: GhostRPG.getStats().mana (rpg_system.js) é só o valor da NUVEM, nunca
+			// atualizado durante o jogo — usar isso criaria uma segunda contagem divergente.
+			// DeSoGhost é instanciado 1x por carregamento de página e sobrevive a qualquer número
+			// de idas e vindas entre overworld <-> Episódio 1 na mesma aba.
+			window.GetLiveManaState = function() {
+				if (typeof DeSoGhost === 'undefined' || !DeSoGhost) return { mana: 0, maxMana: 100 };
+				return { mana: DeSoGhost.mana, maxMana: DeSoGhost.maxMana };
+			};
+			window.SpendLiveMana = function(amount) {
+				if (typeof DeSoGhost === 'undefined' || !DeSoGhost) return false;
+				if (DeSoGhost.mana < amount) return false;
+				DeSoGhost.mana -= amount;
+				return true;
+			};
+			// Mesma regra de "não gasta carga de elixir à toa" que o handler de cura já usa em
+			// outro lugar deste arquivo: só cura -- e só devolve true, sinalizando pro chamador que
+			// PODE consumir a carga -- se a vitalidade não estava cheia.
+			window.TryHealLiveVitality = function() {
+				if (typeof DeSoGhost === 'undefined' || !DeSoGhost) return false;
+				if (DeSoGhost.vitality >= DeSoGhost.maxVitality) return false;
+				DeSoGhost.vitality = DeSoGhost.maxVitality;
+				DeSoGhost.vitalityDisplayed = DeSoGhost.maxVitality;
+				DeSoGhost.vitalityFlashTimer = 0;
+				return true;
+			};
 			})(); // Fecha IIFE Caixa Preta
 		
 
