@@ -3051,13 +3051,31 @@
 
 				boss.draw = function() {
 					// Draw Episode 1 Ghost
-					var sprite = (this.vx > 0) ? (this.ghostImgR || bossImgR) : (this.ghostImgL || bossImgL);
+					// 09/09/2026 (mobile only): este sistema escolhia ghostImgR/ghostImgL como duas
+					// imagens PRONTAS pela direção (this.vx), sem espelhar por código — precisava que
+					// assets/sprites/ghost_<id>_r.webp já viesse "olho-direita". O fix de polaridade
+					// desta sessão (ghosts 001-100, mobile-only) trocou _r.webp pra "olho-esquerda"
+					// (correto pro OUTRO sistema, c_DeSoGhost.draw(), que espelha por código) — isso
+					// quebrou ESTE sistema, que nunca espelhava. Corrigido usando a MESMA técnica de
+					// c_DeSoGhost.draw()/drawGhostBillboard(): uma base só (ghostImgR, "olho-esquerda"),
+					// espelhada via ctx.scale(-1,1) quando vx>0 (direita) — ghostImgL/bossImgL não são
+					// mais lidos aqui (mesma situação de _l.webp em safeLoadGhostSprite, já documentada
+					// lá). Site não precisa deste fix: lá os arquivos _r/_l nunca foram trocados.
+					var spriteBase = this.ghostImgR || bossImgR;
 					if (this.phantomFormTimer > 0 || (this.shockTimer > 0 && Math.floor(Date.now() / 100) % 2 === 0)) {
 						g_ctx.globalAlpha = 0.5;
 					}
 					g_ctx.shadowBlur = 15;
 					g_ctx.shadowColor = '#FF00FF';
-					g_ctx.drawImage(sprite, this.xPos + map_offset, this.yPos, this.width, this.height);
+					if (this.vx > 0) {
+						g_ctx.save();
+						g_ctx.translate(this.xPos + map_offset + this.width, this.yPos);
+						g_ctx.scale(-1, 1);
+						g_ctx.drawImage(spriteBase, 0, 0, this.width, this.height);
+						g_ctx.restore();
+					} else {
+						g_ctx.drawImage(spriteBase, this.xPos + map_offset, this.yPos, this.width, this.height);
+					}
 					g_ctx.shadowBlur = 0;
 					g_ctx.globalAlpha = 1.0;
 
