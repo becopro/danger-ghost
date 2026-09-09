@@ -1598,10 +1598,12 @@
         // NENHUM hook de overworld_move/overworld_players_update ainda), ligar isto pra
         // todo jogador real trocaria "vai direto pro Episódio 1" por um hub incompleto
         // (baú não abre, ninguém mais aparece no mapa — magia/elixir já funcionam de
-        // verdade desde o Estágio 2). Decisão de quando ligar pra valer é do Estágio 5, que vê o
-        // conjunto completo dos 3 estágios paralelos. Pra testar de novo: window.DG_OVERWORLD_ENABLED=true
-        // no console (ou trocar aqui) + window.ActivateOverworld() direto, sem precisar de StartMobileGame().
-        window.DG_OVERWORLD_ENABLED = false;
+        // verdade desde o Estágio 2). ESTÁGIO 5 (08/09/2026): todos os Estágios 1-4 estão
+        // portados e revisados (overworld.js verbatim, bridge de mana/vitalidade, baú com
+        // transferência, multiplayer visual) — ligando pra valer agora, a pedido do usuário,
+        // pra teste real via APK baixado do site. Pra desligar rápido em caso de bug: trocar
+        // esta linha de volta pra false (não precisa reverter nenhum outro arquivo).
+        window.DG_OVERWORLD_ENABLED = true;
 
         // Stub do ponto de acoplamento site<->mobile. Contrato real (já testado em produção
         // no site): window.ActivateOverworld(spawnGridX, spawnGridY), definida em
