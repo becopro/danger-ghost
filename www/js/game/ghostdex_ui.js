@@ -520,7 +520,16 @@ window.PlayAsGhost = function(ghostId) {
 
     if (typeof window.g_gameState !== 'undefined') {
         if (window.g_gameState === 0) { // G_START
-            if (typeof window.StartCutscene === "function") {
+            // 08/09/2026 (Estágio 5 do porte do overworld pro mobile — paridade com
+            // danger ghost/js/game/ghostdex_ui.js ~526-533): tela inicial agora é o overworld
+            // isométrico — quando window.ActivateOverworld existe, ativa o overworld na posição
+            // salva/torre em vez de ir direto pro Episódio 1. Guard preserva o comportamento
+            // antigo (StartCutscene direto, com a mesma resolução de nível já usada aqui) se
+            // overworld.js não estiver carregado.
+            if (typeof window.ActivateOverworld === "function") {
+                var _owSpawnPAG = (typeof window.GetOverworldSpawnPos === "function") ? window.GetOverworldSpawnPos() : (window.OverworldTowerDoorPos || window.OverworldTowerGridPos || { gridX: 0, gridY: 0 });
+                window.ActivateOverworld(_owSpawnPAG.gridX, _owSpawnPAG.gridY);
+            } else if (typeof window.StartCutscene === "function") {
                 var savedLevel = localStorage.getItem("dg_saved_level");
                 var startLevel = 1;
                 if (savedLevel && !isNaN(parseInt(savedLevel))) {
