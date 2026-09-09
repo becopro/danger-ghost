@@ -1200,26 +1200,32 @@
 						g_ctx.shadowBlur = 10;
 						g_ctx.shadowColor = '#00FFFF';
 
-						// 27/08/2026: bug 9 investigado e mantido DIFERENTE do site DE PROPÓSITO —
-						// não é o mesmo bug, apesar de a lógica parecer invertida à primeira vista.
-						// Testado ao vivo: no mobile, safeLoadGhostSprite() (ghostdex_ui.js) sempre
-						// cai no fallback assets/sprites/ghost_<id>_r.webp porque este www/ NÃO tem
-						// pasta Ghosts/ (só existe no site) — e esse .webp já vem PRÉ-ESPELHADO
-						// olhando pra DIREITA. Confirmado ao vivo via
-						// window.g_customPlayerGhostRight.src: no site resolve pra
-						// Ghosts/%23005.png (nativo olhando pra ESQUERDA, precisa espelhar pra
-						// direita); no mobile resolve pra assets/sprites/ghost_005_r.webp (já
-						// olhando pra direita, espelhar de novo ficaria errado). Os branches
-						// precisam continuar opostos porque as imagens de origem são diferentes.
+						// 27/08/2026 (bug 9): mantido DIFERENTE do site DE PROPÓSITO porque, na
+						// época, o fallback assets/sprites/ghost_<id>_r.webp (usado sempre no mobile,
+						// que não tem pasta Ghosts/) vinha PRÉ-ESPELHADO olhando pra DIREITA —
+						// polaridade OPOSTA à do site (Ghosts/#NNN.png, olhando pra ESQUERDA).
+						// 09/09/2026 (mobile only): essa premissa deixou de valer depois do fix de
+						// polaridade desta sessão (ghosts 001-100, commit bd500bd, mesma causa raiz
+						// documentada em ghostdex_ui.js:safeLoadGhostSprite) — ghost_<id>_r.webp agora
+						// é "olho-esquerda", MESMA polaridade que o site sempre teve via retrato.
+						// Restaurado pra estrutura idêntica ao site (mesmo branch por branch) — os
+						// dois agora espelham curRight quando face==1 (direita), desenham sem
+						// espelhar quando face!=1 (esquerda). curRight/curLeft já resolvem pro
+						// sprite certo (custom OU o built-in desoGhostRight/Left, que não foi
+						// tocado por nenhum swap e continua com a orientação própria de sempre).
 						if (this.face == 1) {
-							g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
-						} else {
 							if (isRightReady) {
 								g_ctx.save();
 								g_ctx.translate(this.xPos + map_offset + 24, this.yPos);
 								g_ctx.scale(-1, 1);
 								g_ctx.drawImage(curRight, 0, 0, 24, 24);
 								g_ctx.restore();
+							} else {
+								g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
+							}
+						} else {
+							if (isRightReady) {
+								g_ctx.drawImage(curRight, this.xPos + map_offset, this.yPos, 24, 24);
 							} else {
 								g_ctx.drawImage(curLeft, this.xPos + map_offset, this.yPos, 24, 24);
 							}
@@ -3389,22 +3395,25 @@ var g_binaryBits = [];
 							var match = pos.name && pos.name.match(/\(#(\w+)\)/);
 							var customSprite = match ? getOtherPlayerGhostSprite(match[1]) : null;
 							g_ctx.globalAlpha = 0.85;
-							// 27/08/2026: bug 9 - mantido DIFERENTE do site DE PROPOSITO, mesmo motivo
-							// do jogador local (ver draw() acima e getOtherPlayerGhostSprite() nesta
-							// mesma engine.js): este www/ nao tem pasta Ghosts/, entao o sprite de
-							// OUTRO jogador aqui tambem sempre vem do fallback
-							// assets/sprites/ghost_<id>_r.webp, ja PRE-ESPELHADO olhando pra direita
-							// - diferente do site, que carrega o Ghosts/#NNN.png nativo (olhando
-							// pra esquerda). Espelhar de novo aqui como o site faz ficaria errado.
+							// 27/08/2026 (bug 9): mantido DIFERENTE do site DE PROPOSITO porque este
+							// www/ nao tem pasta Ghosts/, entao o sprite de OUTRO jogador aqui tambem
+							// sempre vem do fallback assets/sprites/ghost_<id>_r.webp.
+							// 09/09/2026 (mobile only): a premissa acima ERA verdade quando este bloco
+							// foi escrito ("_r.webp ja pre-espelhado olhando pra direita", polaridade
+							// ORIGINAL) mas deixou de ser depois do fix de polaridade desta sessao
+							// (ghosts 001-100, commit bd500bd) - _r.webp agora eh "olho-esquerda", MESMA
+							// base que c_DeSoGhost.draw()/drawGhostBillboard()/boss.draw() ja espelham
+							// pra direita. Invertido pra usar a MESMA tecnica (mirror em isFacingRight,
+							// nao em !isFacingRight) - consistente com os outros 3 sistemas agora.
 							if (customSprite) {
 								if (pos.isFacingRight !== false) {
-									g_ctx.drawImage(customSprite, pos.x + map_offset, pos.y, 24, 24);
-								} else {
 									g_ctx.save();
 									g_ctx.translate(pos.x + map_offset + 24, pos.y);
 									g_ctx.scale(-1, 1);
 									g_ctx.drawImage(customSprite, 0, 0, 24, 24);
 									g_ctx.restore();
+								} else {
+									g_ctx.drawImage(customSprite, pos.x + map_offset, pos.y, 24, 24);
 								}
 							} else {
 								var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
