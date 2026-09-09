@@ -2598,7 +2598,19 @@
         var paths = ghostSpritePaths(id);
         var idx = 0;
         function tryNext() {
-            if (idx >= paths.length) return; // esgotou os 3 caminhos — fica no placeholder (fallback pro token genérico)
+            if (idx >= paths.length) {
+                // 09/09/2026 (pedido do usuário: "o jogo deve sempre começar com o ghost
+                // #001, tanto no site quanto no mobile") — esgotou os 3 caminhos pra `id`
+                // (ex.: ghost forjado "dg_local_..." sem nenhum arquivo de sprite próprio,
+                // portrait nem _r.webp). Antes disso ficava preso no placeholder pra sempre
+                // (fallback pro marcador genérico, drawPlayerToken — o "borrão"/ponto que o
+                // jogador via em vez de um fantasma). '001' sempre tem sprite (portrait no
+                // site, _r.webp em qualquer plataforma) — reaproveita o MESMO cache
+                // (loadGhostSpriteById), sem chamada de rede nova. Guarda id!=='001' pra não
+                // entrar em loop se um dia o próprio '001' também falhar.
+                if (id !== '001') S.avatarImgCache[key] = loadGhostSpriteById('001');
+                return;
+            }
             var img = new Image();
             img.onload = function () {
                 if (img.naturalWidth > 0) S.avatarImgCache[key] = img;
