@@ -877,7 +877,7 @@
     // disco/servidor. Mesma lógica de version-bump manual que overworld.js?v=N já
     // usa — sobe este número sempre que os dados de data/overworld/ mudarem de
     // verdade (regeração de chunk, reposição de POI etc.).
-    var OVERWORLD_DATA_VERSION = 15; // bump 2026-09-10 (v14->v15): terceiro POI "egregora" adicionado em pois.json + 3 células do footprint (row51: col30-32) em chunks/0_0.json:grid.rows mudaram de '#' pra 'L' (mesma classe de fix já documentada no bump v13->v14 acima, achado ao vivo: sem bumpar isto, o navegador serve manifest/pois em cache e o POI novo nunca aparece pra quem já tinha jogado antes desta mudança).
+    var OVERWORLD_DATA_VERSION = 16; // bump 2026-09-10 (v15->v16): POI "egregora" corrigido - escala do billboard recalculada (EGREGORA_BILLBOARD_TARGET_H 295->620, medição precisa da porta) e reposicionado (globalCol/globalRow 31/52->31/49, defaultSpawn 33/53->33/50) pra sair de cima da rua, mudando pois.json + chunks/0_0.json:grid.rows (linhas 48-51) + este arquivo (mesma classe de fix já documentada nos bumps v13->v14/v14->v15 acima: sem bumpar isto, o navegador serve manifest/pois/chunk em cache e a correção nunca aparece pra quem já tinha jogado antes desta mudança).
     var MANIFEST_URL = 'data/overworld/manifest.json?v=' + OVERWORLD_DATA_VERSION;
     // Estágio 2 do plano de overworld expansível (POI data-driven) — ver
     // C:\Users\Klara\.claude\plans\crystalline-launching-goose.md §4. Carregado em
@@ -2490,14 +2490,14 @@
     // compartilhado vivem na modal (Track C, window.OpenEgregoraModal()), não
     // neste módulo.
     var EGREGORA_IMG_URL = 'assets/overworld/gg_egregora.png';
-    // Altura-alvo estimada (09/09/2026) - vão da porta/arco de entrada medido visualmente na imagem
-    // (não houve detecção automática confiável de pixel escuro, a arte tem muitas áreas escuras -
-    // figuras encapuzadas, sombras - que a técnica simples usada na torre não isola sozinha).
-    // gg_egregora.png tem 1024x1024px, vão estimado em y~330 a y~490 (altura~160px),
-    // doorFraction~0.156, EGREGORA_BILLBOARD_TARGET_H = 46/0.156 ~ 295.
-    // PRECISA DE CONFIRMAÇÃO AO VIVO (fantasma parado na porta, comparar altura, zoom 0.5 e 1.0 via
-    // window.OverworldDebug.setZoom() - mesmo roteiro da torre/cemitério) antes de considerar definitivo.
-    var EGREGORA_BILLBOARD_TARGET_H = 295;
+    // Altura-alvo REMEDIDA com precisão (10/09/2026) - vão da porta/arco de entrada medido com
+    // varredura de pixel isolada na região da porta + inspeção visual de um recorte ampliado da
+    // imagem (não mais estimativa visual rápida - o método anterior tinha subestimado o quanto a
+    // porta é pequena em relação à imagem inteira). gg_egregora.png tem 1024x1024px, vão real (arco
+    // entre as colunas, sob o texto "EGREGORA") de y≈413 a y≈489 (altura≈76px), doorFraction≈0.0742,
+    // EGREGORA_BILLBOARD_TARGET_H = 46/0.0742 ≈ 620. Confirmado pelo usuário como correto -
+    // não precisa mais de confirmação ao vivo pendente.
+    var EGREGORA_BILLBOARD_TARGET_H = 620; // recalculado 10/09/2026 com medicao precisa do vao da porta (pixel scan + inspecao visual, nao estimativa): doorFraction~0.0742 (vao y~413-489 de 1024px), 46/0.0742~620. Valor anterior (295) subestimava o quanto a porta e pequena em relacao a imagem inteira.
 
     function drawEgregoraLandmark(ctx, cx, cy, pal, tSec, poi, camOffsetX, camOffsetY) {
         var z = S.zoomLevel;
