@@ -877,7 +877,7 @@
     // disco/servidor. Mesma lógica de version-bump manual que overworld.js?v=N já
     // usa — sobe este número sempre que os dados de data/overworld/ mudarem de
     // verdade (regeração de chunk, reposição de POI etc.).
-    var OVERWORLD_DATA_VERSION = 17; // bump 2026-09-10 (v16->v17): POI "egregora" ajustado de novo (terceira rodada) - escala reduzida 1/3 (EGREGORA_BILLBOARD_TARGET_H 620->413) e footprint apertado de 3x3 pra 2x2 (globalCol/globalRow 31/49->30/48, defaultSpawn 33/50->32/48), mudando pois.json + chunks/0_0.json:grid.rows (linhas 48-50) + este arquivo (mesma classe de fix já documentada nos bumps v13->v16 acima: sem bumpar isto, o navegador serve manifest/pois/chunk em cache e a correção nunca aparece pra quem já tinha jogado antes desta mudança).
+    var OVERWORLD_DATA_VERSION = 18; // bump 2026-09-10 (v17->v18): POI "egregora" reposicionado de novo (quarta rodada) - agora colado na Rua Doutor Mário Viana de verdade (rua nomeada pedida pelo usuário, não mais área preta genérica), globalCol/globalRow 30/48->27/50, defaultSpawn 32/48->28/52, footprint continua 2x2 (só mudou de lugar), mudando pois.json + chunks/0_0.json:grid.rows (linhas 48-51) + este arquivo (mesma classe de fix já documentada nos bumps v13->v17 acima: sem bumpar isto, o navegador serve manifest/pois/chunk em cache e a correção nunca aparece pra quem já tinha jogado antes desta mudança).
     var MANIFEST_URL = 'data/overworld/manifest.json?v=' + OVERWORLD_DATA_VERSION;
     // Estágio 2 do plano de overworld expansível (POI data-driven) — ver
     // C:\Users\Klara\.claude\plans\crystalline-launching-goose.md §4. Carregado em
