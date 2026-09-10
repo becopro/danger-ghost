@@ -33,6 +33,21 @@
         "beacon": false,
         "_visualNote": "Sem farol pulsante (beacon:false) — diferente da torre, o cemitério não precisa ser visível 'de longe' como ponto de entrada de fase; drawCemeteryGate() (overworld.js) desenha só a imagem 2D ancorada na base do footprint, mesmo padrão de drawPoiBillboard() usado por drawTower()."
       }
+    },
+    {
+      "id": "egregora",
+      "name": "Egregora",
+      "type": "social_landmark",
+      "globalCol": 31, "globalRow": 52,
+      "_position_note": "Posição ESTIMADA (09/09/2026) por projeção isométrica inversa a partir de um print do usuário com um quadrado vermelho marcando o local, a oeste/sudoeste da torre (globalCol=37/globalRow=51) — mesmo método documentado no _position_note do cemetery_beltrao acima, mas SEM script de medição pixel-a-pixel (não havia arquivo salvo do print pra medir, só leitura visual). dCol≈-6, dRow≈+1 a partir da torre. PRECISA DE CONFIRMAÇÃO VISUAL AO VIVO contra o print de referência do usuário antes de considerar definitivo — ajuste se não bater. Verificado nesta sessão (10/09/2026, Track B): a posição cai inteira dentro do chunk 0_0 (origin 0/0, dim 85 — ver manifest.json), sem cruzar borda de chunk, mesma checagem feita pro cemitério.",
+      "defaultSpawn": { "globalCol": 33, "globalRow": 53, "_note": "CORRIGIDO nesta sessão (10/09/2026, Track B) — o valor originalmente proposto (globalCol=32/globalRow=53) caía DENTRO do footprint (cols 30-32 x rows 51-53; anchor, ver computePoiBounds(), é o canto maxCol/maxRow = col32/row53), então dispararia egregora_entry na hora do spawn. Padrão real usado pela torre e pelo cemitério é anchorCol+1 na mesma anchorRow (célula andável logo depois da quina do footprint mais perto da câmera) — aqui isso é (32+1, 53) = (33,53). Confirmado no grid real (data/overworld/chunks/0_0.json): célula (33,53) é '.', fora do footprint." },
+      "footprint": { "widthTiles": 3, "heightTiles": 3 },
+      "_gridCellsFixNote": "10/09/2026 (Track B) — checado ao vivo no grid antes de considerar a posição pronta, mesmo cuidado documentado no _gridCellsFixNote do cemitério acima: das 9 células do footprint (col30-32 x row51-53), só as 3 da linha de cima (row51: col30,31,32) vieram como '#' (bloco) em data/overworld/chunks/0_0.json:grid.rows — as outras 6 (row52 e row53 inteiras) já eram '.' (rua), incluindo a célula-âncora (col32,row53) que o desenho do billboard usa como gatilho. Mesma causa já documentada no cemitério: render() pula célula '#' com um `continue` ANTES de checar se ela pertence a um POI billboard, então essas 3 células específicas não ganhariam o marcador de chão do footprint (drawLandmarkGroundMarker) — bug mais discreto que o do cemitério (lá as 35 células incluíam a âncora, e o billboard inteiro sumia; aqui só um recorte do footprint ficaria sem marcador visual). Corrigidas as mesmas 3 células pra 'L' direto no chunk (edição cirúrgica de texto, só esses 3 caracteres na linha do row51 — conferido com git diff que nada mais no arquivo mudou).",
+      "interaction": { "kind": "egregora_entry", "triggerOn": "enter" },
+      "visual": {
+        "beacon": false,
+        "_visualNote": "Sem farol pulsante, mesmo raciocínio do cemitério — não é ponto de entrada de fase, não precisa ser visível de longe."
+      }
     }
   ]
 }
