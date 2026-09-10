@@ -49,7 +49,7 @@ const io = new Server(server, {
     pingTimeout: 8000
 });
 
-const { loginPlayer, createPlayer, loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveOverworldPosition, saveCharacters, deleteCharacter, updateProfile, postDiaryEntry, getDiaryEntries, searchPlayers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends, getPlayerProfile, incrementPlayerStat, checkAndUnlockBadges, getBadgeCatalog, getUnlockedBadgeIds, submitBadgeProgress, PLAYER_NUMERIC_BOUNDS, isPlausibleNumber } = require('./db');
+const { loginPlayer, createPlayer, loadOrCreatePlayer, loadPlayerByEmail, savePlayerProgress, saveOverworldPosition, saveCharacters, deleteCharacter, updateProfile, postDiaryEntry, getDiaryEntries, postEgregoraMessage, getEgregoraMessages, searchPlayers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends, getPlayerProfile, incrementPlayerStat, checkAndUnlockBadges, getBadgeCatalog, getUnlockedBadgeIds, submitBadgeProgress, PLAYER_NUMERIC_BOUNDS, isPlausibleNumber } = require('./db');
 const { OAuth2Client } = require('google-auth-library');
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -357,6 +357,12 @@ const SIGNUP_MAX_ATTEMPTS = 8;
 // migrando/importando entradas antigas de uma vez é um uso legítimo parecido — 30/min ainda barra
 // um script disparando centenas de posts por segundo, sem penalizar esse uso normal.
 const DIARY_POST_MAX_ATTEMPTS = 30;
+// post_egregora_message (10/09/2026, mural global do terceiro POI/Egregora): mesmo tipo de escrita
+// repetível e barata que post_diary_entry acima (insert curto, até 300 caracteres — bem menor que
+// os 5000 do diário), reusando o mesmo mecanismo de isRateLimited(). Mesmo valor (30/min) do
+// diário: é um mural social, não precisa ser MAIS permissivo, e o texto curto não justifica ser
+// mais restrito.
+const EGREGORA_POST_MAX_ATTEMPTS = 30;
 // search_players (31/08/2026, sistema de amizades): é leitura, não escrita, mas ainda assim
 // varre a tabela players inteira via ILIKE a cada chamada — sem limite nenhum, um script podia
 // disparar centenas de buscas por segundo só pra forçar carga no banco. 20/min é folgado pro uso
@@ -993,6 +999,56 @@ io.on('connection', (socket) => {
         }).catch((error) => {
             console.error('[DB] Diary load error:', error);
             socket.emit('diary_error', { message: error.message || 'Error loading diary.' });
+        });
+    });
+
+    // Egregora (10/09/2026, terceiro POI do overworld, Track A/backend-architect): mural social
+    // GLOBAL, mesmo molde do diário acima (post_diary_entry) só que sem dono — qualquer jogador
+    // escreve, todo mundo lê o MESMO quadro. player_name vem da sessão em memória (players[socket.id]
+    // .name, confirmado abaixo: populado por join_game e por todo login bem-sucedido junto com
+    // .email — nunca um JOIN em players.name na hora de gravar). Não entra em saveQueues pelo mesmo
+    // motivo do diário: cada post é um INSERT novo, nunca um UPDATE que possa perder dado por ordem
+    // de conclusão.
+    socket.on('post_egregora_message', (data) => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            console.log('[Egregora] Rejected: Player not authenticated.');
+            socket.emit('egregora_error', { message: 'Not authenticated.' });
+            return;
+        }
+        if (isRateLimited('post_egregora_message:' + socket.handshake.address, EGREGORA_POST_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+            socket.emit('egregora_error', { message: RATE_LIMIT_MESSAGE_EN });
+            return;
+        }
+
+        const content = data && data.content;
+        postEgregoraMessage(playerSession.email, playerSession.name, content).then((entry) => {
+            console.log(`[DB] Egregora message posted for ${playerSession.email} (id ${entry.id})`);
+            socket.emit('egregora_message_posted', entry);
+        }).catch((error) => {
+            console.error('[DB] Egregora post error:', error);
+            // error.message aqui é sempre a mensagem de validação de postEgregoraMessage (db.js),
+            // segura de expor — mesmo padrão de post_diary_entry acima.
+            socket.emit('egregora_error', { message: error.message || 'Error posting message.' });
+        });
+    });
+
+    // Lista o mural do Egregora, paginado. Somente leitura, sem filtro por email (mural público) —
+    // exige só socket autenticado, mesmo padrão de get_diary_entries acima. Não precisa de rate
+    // limit dedicado (já limitado por limit máximo de 50 em db.js/getEgregoraMessages).
+    socket.on('get_egregora_messages', (data) => {
+        const playerSession = players[socket.id];
+        if (!playerSession || !playerSession.email) {
+            console.log('[Egregora] Rejected: Player not authenticated.');
+            socket.emit('egregora_error', { message: 'Not authenticated.' });
+            return;
+        }
+
+        getEgregoraMessages(data || {}).then((result) => {
+            socket.emit('egregora_messages_loaded', result);
+        }).catch((error) => {
+            console.error('[DB] Egregora load error:', error);
+            socket.emit('egregora_error', { message: error.message || 'Error loading messages.' });
         });
     });
 

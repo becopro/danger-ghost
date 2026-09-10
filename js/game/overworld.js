@@ -877,7 +877,7 @@
     // disco/servidor. Mesma lógica de version-bump manual que overworld.js?v=N já
     // usa — sobe este número sempre que os dados de data/overworld/ mudarem de
     // verdade (regeração de chunk, reposição de POI etc.).
-    var OVERWORLD_DATA_VERSION = 14; // bump 2026-09-04 (v13->v14): as 35 células do footprint do cemitério em chunks/0_0.json:grid.rows mudaram de '#' pra 'L' (ver pois.json:_gridCellsFixNote — sem isso o billboard nunca era desenhado, render() pula célula '#' antes de checar POI). v12->v13 (comentário anterior) já tinha coberto a ADIÇÃO do POI em si; este bump cobre a correção de DADO do chunk que veio depois, mesma prática de version-bump documentada acima.
+    var OVERWORLD_DATA_VERSION = 15; // bump 2026-09-10 (v14->v15): terceiro POI "egregora" adicionado em pois.json + 3 células do footprint (row51: col30-32) em chunks/0_0.json:grid.rows mudaram de '#' pra 'L' (mesma classe de fix já documentada no bump v13->v14 acima, achado ao vivo: sem bumpar isto, o navegador serve manifest/pois em cache e o POI novo nunca aparece pra quem já tinha jogado antes desta mudança).
     var MANIFEST_URL = 'data/overworld/manifest.json?v=' + OVERWORLD_DATA_VERSION;
     // Estágio 2 do plano de overworld expansível (POI data-driven) — ver
     // C:\Users\Klara\.claude\plans\crystalline-launching-goose.md §4. Carregado em
@@ -920,11 +920,18 @@
                                  // baú de conta). Mesmo papel de entryPoi, variável própria (não um
                                  // contrato público window.* — nada externo precisa da posição do
                                  // cemitério hoje, diferente da torre).
+        egregoraPoi: null,      // 10/09/2026 — POI com interaction.kind === 'egregora_entry'
+                                 // (Egregora, espaço social). Mesmo papel de chestPoi, mesma
+                                 // ausência de contrato público window.* — a modal (Track C) é
+                                 // aberta via window.OpenEgregoraModal() por fora deste módulo,
+                                 // não lê este campo.
         billboardPois: [],      // 2026-09-04 — [entryPoi, chestPoi].filter(Boolean), montada em
                                  // computePoiBounds(): todo POI que tem footprint desenhado como
-                                 // imagem 2D ancorada (drawTower/drawCemeteryGate), consumida pelo
-                                 // laço de varredura de tiles em render() pra achar "esta célula
-                                 // pertence a QUAL POI billboard" sem um if/else por POI.
+                                 // imagem 2D ancorada (drawTower/drawCemeteryGate/
+                                 // drawEgregoraLandmark — 10/09/2026, egregoraPoi entrou na mesma
+                                 // lista), consumida pelo laço de varredura de tiles em render()
+                                 // pra achar "esta célula pertence a QUAL POI billboard" sem um
+                                 // if/else por POI.
         loaded: false,          // true quando manifest E pois terminaram de carregar
                                  // (finalizeLoadIfReady) — Estágio 5: NÃO espera mais nenhum
                                  // chunk de tile em si, só o metadado (manifest) + POIs. Os
@@ -1149,7 +1156,10 @@
         // confirmar via console em teste ao vivo que window.OverworldSetInputLocked()
         // de fato muda o estado interno (mesmo espírito de getFacing/getZoom acima).
         getInputLocked: function () { return S.inputLocked; },
-        getChestPoi: function () { return S.chestPoi ? { id: S.chestPoi.id, bounds: S.chestPoi._bounds } : null; }
+        getChestPoi: function () { return S.chestPoi ? { id: S.chestPoi.id, bounds: S.chestPoi._bounds } : null; },
+        // 10/09/2026 (Egregora) — mesmo padrão de getChestPoi acima, pra confirmar via
+        // console em teste ao vivo que o POI carregou e teve _bounds calculado certo.
+        getEgregoraPoi: function () { return S.egregoraPoi ? { id: S.egregoraPoi.id, bounds: S.egregoraPoi._bounds } : null; }
     };
 
     // ======================= Carregamento dos dados ==========================
@@ -1254,6 +1264,7 @@
                             // não um array anônimo indexado por posição.
         var entryCandidates = [];
         var chestCandidates = [];
+        var egregoraCandidates = []; // 10/09/2026 (Egregora, espaço social) — mesmo padrão de chestCandidates.
         for (var i = 0; i < S.pois.length; i++) {
             var poi = S.pois[i];
             if (!poi || typeof poi.globalCol !== 'number' || typeof poi.globalRow !== 'number') {
@@ -1282,6 +1293,8 @@
                 entryCandidates.push(poi);
             } else if (poi.interaction && poi.interaction.kind === 'chest_entry') {
                 chestCandidates.push(poi);
+            } else if (poi.interaction && poi.interaction.kind === 'egregora_entry') {
+                egregoraCandidates.push(poi);
             }
         }
 
@@ -1302,6 +1315,21 @@
             }
             S.chestPoi = chestCandidates[0];
             S.billboardPois.push(S.chestPoi);
+        }
+
+        // 10/09/2026 (Egregora, espaço social) — mesmo padrão do bloco chest_entry
+        // acima: POI opcional e independente da torre, por isso este bloco roda
+        // ANTES do early-return de entryCandidates abaixo (senão Egregora sumiria
+        // do desenho sempre que a torre estivesse ausente, acoplamento que não
+        // existe de verdade entre os dois POIs).
+        if (egregoraCandidates.length === 0) {
+            console.log('[Overworld] nenhum POI com interaction.kind="egregora_entry" encontrado — Egregora ausente (ok se ainda não foi adicionado a pois.json).');
+        } else {
+            if (egregoraCandidates.length > 1) {
+                console.warn('[Overworld] mais de um POI "egregora_entry" encontrado — usando o primeiro (' + egregoraCandidates[0].id + ').');
+            }
+            S.egregoraPoi = egregoraCandidates[0];
+            S.billboardPois.push(S.egregoraPoi);
         }
 
         if (entryCandidates.length === 0) {
@@ -2455,13 +2483,38 @@
         drawPoiBillboard(ctx, footX, footY, CEMETERY_IMG_URL, CEMETERY_BILLBOARD_TARGET_H * z);
     }
 
+    // ======================= Egregora (espaço social) — 2026-09-10 ==============
+    // Terceiro POI billboard do arquivo (torre + cemitério já existiam). Mesma
+    // técnica fina de drawCemeteryGate() acima (imagem 2D ancorada na base do
+    // footprint, sem farol/beacon) — link do Instagram + quadro de mensagens
+    // compartilhado vivem na modal (Track C, window.OpenEgregoraModal()), não
+    // neste módulo.
+    var EGREGORA_IMG_URL = 'assets/overworld/gg_egregora.png';
+    // Altura-alvo estimada (09/09/2026) - vão da porta/arco de entrada medido visualmente na imagem
+    // (não houve detecção automática confiável de pixel escuro, a arte tem muitas áreas escuras -
+    // figuras encapuzadas, sombras - que a técnica simples usada na torre não isola sozinha).
+    // gg_egregora.png tem 1024x1024px, vão estimado em y~330 a y~490 (altura~160px),
+    // doorFraction~0.156, EGREGORA_BILLBOARD_TARGET_H = 46/0.156 ~ 295.
+    // PRECISA DE CONFIRMAÇÃO AO VIVO (fantasma parado na porta, comparar altura, zoom 0.5 e 1.0 via
+    // window.OverworldDebug.setZoom() - mesmo roteiro da torre/cemitério) antes de considerar definitivo.
+    var EGREGORA_BILLBOARD_TARGET_H = 295;
+
+    function drawEgregoraLandmark(ctx, cx, cy, pal, tSec, poi, camOffsetX, camOffsetY) {
+        var z = S.zoomLevel;
+        var fp = (poi && poi.footprint) || { widthTiles: 3, heightTiles: 3 };
+        var hh = HALF_H * fp.heightTiles * z;
+        var footX = cx, footY = cy + hh;
+        drawPoiBillboard(ctx, footX, footY, EGREGORA_IMG_URL, EGREGORA_BILLBOARD_TARGET_H * z);
+    }
+
     // Dispatcher genérico de desenho billboard por interaction.kind — mesmo
     // princípio de POI_INTERACTION_HANDLERS mais abaixo (dispatch por
     // interaction.kind em vez de um if/else por POI), só que pro DESENHO em vez
     // da interação de entrada. Consumido pelo laço de depth-sort em render().
     var POI_BILLBOARD_DRAW_HANDLERS = {
         episode_entry: drawTower,
-        chest_entry: drawCemeteryGate
+        chest_entry: drawCemeteryGate,
+        egregora_entry: drawEgregoraLandmark
     };
 
     // Nome flutuando perto da torre — item 3 do pedido original ("nome de local
@@ -3811,6 +3864,18 @@
                 window.OpenChestModal();
             } else {
                 console.log('[Overworld] jogador entrou no POI "' + poi.id + '", mas window.OpenChestModal ainda não existe (ok em teste isolado sem ui_manager.js).');
+            }
+        },
+        // 10/09/2026 (Egregora, espaço social) — kind NOVO, mesmo padrão de
+        // chest_entry acima: dispara window.OpenEgregoraModal() (Track C, ainda não
+        // implementada neste ponto) em vez de EnterEpisode1FromOverworld()/
+        // OpenChestModal(). Só loga quando a modal ainda não existe — comportamento
+        // esperado em teste isolado antes da Track C landar.
+        egregora_entry: function (poi) {
+            if (typeof window.OpenEgregoraModal === 'function') {
+                window.OpenEgregoraModal();
+            } else {
+                console.log('[Overworld] jogador entrou no POI "' + poi.id + '", mas window.OpenEgregoraModal ainda não existe (ok em teste isolado sem ui_manager.js).');
             }
         }
     };

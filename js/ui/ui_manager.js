@@ -770,6 +770,157 @@ window.UpdateNavbarEquip = UpdateNavbarEquip;
 window.UnequipItemSlot = UnequipItemSlot;
 window.DeleteItem = DeleteItem;
 
+// --- Egregora (POI social do overworld, 10/09/2026) ---
+// Modal com link do Instagram + mural de mensagens compartilhado entre
+// jogadores. Overlay/mount fullscreen-safe = mesmo padrão de OpenChestModal()/
+// CloseChestModal() acima (ver comentário longo em OpenChestModal sobre por que
+// não pode ser só document.body). Request/resposta via emitProfileRequest()
+// (js/web2/profile.js:259), mesmo helper que get_diary_entries/post_diary_entry
+// já usam. escapeHTML() (mais abaixo neste arquivo) em playerName/content de
+// TODA mensagem antes de innerHTML — vem de outro jogador, é a superfície de
+// XSS mais óbvia deste recurso. Contrato de rede com o servidor (Track A,
+// server/index.js): post_egregora_message({content}) -> egregora_message_posted
+// / egregora_error; get_egregora_messages({limit?, beforeId?}) ->
+// egregora_messages_loaded({messages, hasMore}) / egregora_error.
+var g_egregoraMessages = []; // cache local da última leitura, pra não precisar refazer get_egregora_messages a cada render
+
+function OpenEgregoraModal() {
+    try {
+        var mountTarget = document.fullscreenElement || document.body;
+        var overlay = document.getElementById('egregoraModalOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'egregoraModalOverlay';
+            overlay.className = 'tutorial-modal-overlay';
+            mountTarget.appendChild(overlay);
+        } else if (overlay.parentElement !== mountTarget) {
+            mountTarget.appendChild(overlay);
+        }
+        overlay.style.display = 'block';
+        RenderEgregoraModal(); // mostra estado de "carregando" ou o cache antigo primeiro
+        LoadEgregoraMessages(); // busca a lista fresca do servidor
+        if (typeof window.OverworldSetInputLocked === 'function') window.OverworldSetInputLocked(true);
+    } catch (err) {
+        console.warn('OpenEgregoraModal Error', err);
+    }
+}
+
+function CloseEgregoraModal() {
+    try {
+        var overlay = document.getElementById('egregoraModalOverlay');
+        if (overlay) overlay.style.display = 'none';
+        if (typeof window.OverworldSetInputLocked === 'function') window.OverworldSetInputLocked(false);
+    } catch (err) {
+        console.warn('CloseEgregoraModal Error', err);
+    }
+}
+window.OpenEgregoraModal = OpenEgregoraModal;
+window.CloseEgregoraModal = CloseEgregoraModal;
+
+function LoadEgregoraMessages() {
+    if (typeof window.emitProfileRequest !== 'function') return;
+    window.emitProfileRequest('get_egregora_messages', {}, 'egregora_messages_loaded', 'egregora_error',
+        function (result) {
+            g_egregoraMessages = (result && Array.isArray(result.messages)) ? result.messages : [];
+            RenderEgregoraModal();
+        },
+        function (err) {
+            console.warn('LoadEgregoraMessages error', err);
+        }
+    );
+}
+
+function PostEgregoraMessage() {
+    var input = document.getElementById('egregoraMessageInput');
+    var content = input ? input.value.trim() : '';
+    if (!content) return;
+    if (typeof window.emitProfileRequest !== 'function') return;
+    window.emitProfileRequest('post_egregora_message', { content: content }, 'egregora_message_posted', 'egregora_error',
+        function (entry) {
+            if (entry) g_egregoraMessages.unshift(entry); // nova mensagem no topo, sem esperar um get novo
+            if (input) input.value = '';
+            RenderEgregoraModal();
+        },
+        function (err) {
+            alert((err && err.message) || 'Erro ao enviar mensagem.');
+        }
+    );
+}
+window.PostEgregoraMessage = PostEgregoraMessage;
+
+// Mesmo formato de FormatDiaryDate() (js/web2/profile.js:861), mas em pt-BR —
+// diferente do modal de perfil (traduzido pro inglês em 31/08/2026), o mural do
+// Egregora segue o português do resto deste arquivo ("Baú da Conta", "SEU
+// INVENTÁRIO" etc.).
+function formatEgregoraTimestamp(raw) {
+    if (!raw) return '';
+    var d = new Date(raw);
+    if (isNaN(d.getTime())) return String(raw);
+    try {
+        return d.toLocaleString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+        return d.toLocaleString();
+    }
+}
+
+function RenderEgregoraModal() {
+    try {
+        var overlay = document.getElementById('egregoraModalOverlay');
+        if (!overlay) return;
+
+        var messages = Array.isArray(g_egregoraMessages) ? g_egregoraMessages : [];
+
+        var instagramHTML =
+            "<a href='https://www.instagram.com/egregorarj?stkn=NjVtYjN0YTh4ejR3' target='_blank' rel='noopener' " +
+            "class='bag-equip-btn' style='display:block; box-sizing:border-box; text-align:center; text-decoration:none; " +
+            "background:var(--magenta-neon); margin:0 0 16px 0;'>@egregorarj — SEGUIR NO INSTAGRAM</a>";
+
+        var messagesHTML;
+        if (messages.length === 0) {
+            messagesHTML = "<div style='text-align:center; color:var(--text-muted); font-size:12px; padding:20px 0;'>Nenhum recado ainda — seja o primeiro!</div>";
+        } else {
+            messagesHTML = "<div style='display:flex; flex-direction:column; gap:10px; max-height:260px; overflow-y:auto; padding-right:4px; margin-bottom:16px;'>";
+            for (var mi = 0; mi < messages.length; mi++) {
+                var msg = messages[mi] || {};
+                messagesHTML +=
+                    "<div style='border:1px solid rgba(255,0,255,0.25); border-radius:4px; padding:8px 10px; background:rgba(0,0,0,0.3);'>" +
+                    "<div style='display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:4px;'>" +
+                    "<span style='color:var(--cyan-neon); font-weight:bold; font-size:12px; font-family:var(--font-title); letter-spacing:0.5px;'>" + escapeHTML(msg.playerName || 'Ghost') + "</span>" +
+                    "<span style='color:var(--text-muted); font-size:10px; font-family:\"Courier New\", monospace; white-space:nowrap;'>" + formatEgregoraTimestamp(msg.createdAt) + "</span>" +
+                    "</div>" +
+                    "<div style='color:#FFF; font-size:13px; font-family:\"Courier New\", monospace; line-height:1.4; word-break:break-word; white-space:pre-wrap;'>" + escapeHTML(msg.content || '') + "</div>" +
+                    "</div>";
+            }
+            messagesHTML += "</div>";
+        }
+
+        var formHTML =
+            "<textarea id='egregoraMessageInput' maxlength='300' placeholder='Deixe um recado para a comunidade...' " +
+            "style='width:100%; min-height:60px; resize:vertical; background:rgba(0,0,0,0.4); border:1px solid var(--cyan-neon); " +
+            "border-radius:4px; color:#FFF; font-family:\"Courier New\", monospace; font-size:13px; padding:8px; box-sizing:border-box;'></textarea>" +
+            "<button class='bag-equip-btn' onclick='PostEgregoraMessage()'>ENVIAR</button>";
+
+        var bodyHTML =
+            "<div style='padding:16px;'>" +
+            instagramHTML +
+            "<h3 style='margin:0 0 8px 0; color:var(--yellow-neon); font-size:13px; font-family:var(--font-title); letter-spacing:1px;'>MURAL DE RECADOS</h3>" +
+            messagesHTML +
+            formHTML +
+            "</div>";
+
+        overlay.innerHTML =
+            "<div class='tutorial-modal-container' style='max-width:560px; height:auto; max-height:88vh; margin:30px auto;'>" +
+            "<div class='tutorial-modal-header'>" +
+            "<h2>Egregora</h2>" +
+            "<button class='tutorial-close-btn' onclick='CloseEgregoraModal()'>Fechar [X]</button>" +
+            "</div>" +
+            "<div class='tutorial-modal-body' style='display:block; overflow-y:auto;'>" + bodyHTML + "</div>" +
+            "</div>";
+    } catch (err) {
+        console.warn('RenderEgregoraModal Error', err);
+    }
+}
+
 // --- Live Global Chat System ---
 var g_mqttClient = null;
 var g_chatHistory = [];

@@ -139,6 +139,26 @@ function ensureTableReady() {
         `)).then(() => pool.query(`
             CREATE INDEX IF NOT EXISTS idx_diary_entries_email_created ON diary_entries(email, created_at DESC)
         `)).then(() => pool.query(`
+            -- Egregora (10/09/2026, terceiro POI do overworld, Track A/backend-architect): mural
+            -- GLOBAL, molde de diary_entries acima só que sem o filtro por email na leitura — todo
+            -- jogador escreve e todo jogador lê o MESMO quadro. player_name é gravado no momento do
+            -- post (snapshot do nome de quem escreveu, NUNCA um JOIN com players.name na leitura) —
+            -- se o jogador trocar de nome depois, mensagens antigas continuam mostrando o nome de
+            -- quando foram escritas; intencional, pedido explícito do usuário foi "a mensagem deve
+            -- ter registrado o nome do jogador pra outros saberem quem escreveu".
+            CREATE TABLE IF NOT EXISTS egregora_messages (
+                id SERIAL PRIMARY KEY,
+                email TEXT NOT NULL REFERENCES players(email) ON DELETE CASCADE,
+                player_name TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT now()
+            )
+        `)).then(() => pool.query(`
+            -- Paginação por id DESC, não created_at — mesmo raciocínio já documentado no comentário
+            -- de getDiaryEntries (linha ~1005 abaixo): id é SERIAL, cresce exatamente na ordem de
+            -- inserção, sem o risco de empate que created_at teria.
+            CREATE INDEX IF NOT EXISTS idx_egregora_messages_created ON egregora_messages(id DESC)
+        `)).then(() => pool.query(`
             CREATE TABLE IF NOT EXISTS friendships (
                 id SERIAL PRIMARY KEY,
                 requester_email TEXT NOT NULL REFERENCES players(email) ON DELETE CASCADE,
@@ -195,7 +215,7 @@ function ensureTableReady() {
                 PRIMARY KEY (email, requirement_type)
             )
         `)).then(() => seedBadgeCatalog()).then(() => {
-            console.log('[DB] Players/characters/diary_entries/friendships/badges/player_stat_progress tables ready.');
+            console.log('[DB] Players/characters/diary_entries/egregora_messages/friendships/badges/player_stat_progress tables ready.');
         }).catch((err) => {
             console.error('[DB] Error creating table:', err.message);
             tableReadyPromise = null; // permite tentar de novo na próxima chamada, em vez de travar pra sempre
@@ -1038,6 +1058,68 @@ async function getDiaryEntries(email, options) {
     return { entries: rows.slice(0, limit), hasMore };
 }
 
+const EGREGORA_CONTENT_MAX_LENGTH = 300; // recado de mural, não post de diário longo (diário usa 5000)
+const EGREGORA_DEFAULT_LIMIT = 50;
+const EGREGORA_MAX_LIMIT = 50;
+
+// Publica uma mensagem no mural GLOBAL do Egregora (10/09/2026, terceiro POI do overworld, Track
+// A/backend-architect). Molde de postDiaryEntry acima: created_at vem do DEFAULT now() da coluna
+// (nunca do cliente), e lança erro de validação (mensagem segura de expor, mesmo padrão de
+// postDiaryEntry/loginPlayer/createPlayer) em vez de rejeitar em silêncio. player_name é gravado
+// agora — snapshot do nome de quem escreveu neste momento, não um JOIN com players.name (ver
+// comentário da tabela em ensureTableReady() pro raciocínio completo).
+async function postEgregoraMessage(email, playerName, content) {
+    await ensureTableReady();
+    if (typeof content !== 'string' || content.length < 1 || content.length > EGREGORA_CONTENT_MAX_LENGTH) {
+        throw new Error(`Message must be between 1 and ${EGREGORA_CONTENT_MAX_LENGTH} characters.`);
+    }
+    if (typeof playerName !== 'string' || playerName.length < 1) {
+        playerName = 'Ghost'; // mesmo fallback genérico já usado em outros lugares do jogo pra nome ausente
+    }
+    const { rows } = await pool.query(
+        `INSERT INTO egregora_messages (email, player_name, content) VALUES ($1, $2, $3)
+         RETURNING id, player_name AS "playerName", content, created_at AS "createdAt"`,
+        [email, playerName, content]
+    );
+    return rows[0];
+}
+
+// Lista o mural GLOBAL do Egregora, paginado (10/09/2026). Diferente de getDiaryEntries acima, SEM
+// parâmetro de filtro por email: todo jogador escreve no mesmo quadro, todo jogador lê o mesmo
+// quadro. Mesma lógica de paginação por id DESC e "busca limit+1 pra saber se tem próxima página
+// sem precisar de COUNT(*) separado" que getDiaryEntries já usa (ver comentário lá, linha ~1005) —
+// comportamento propositalmente idêntico, só sem o WHERE email.
+async function getEgregoraMessages(options) {
+    await ensureTableReady();
+    const opts = isPlainObject(options) ? options : {};
+
+    let limit = Number(opts.limit);
+    if (!Number.isFinite(limit) || limit <= 0) limit = EGREGORA_DEFAULT_LIMIT;
+    limit = Math.min(Math.floor(limit), EGREGORA_MAX_LIMIT);
+
+    let rows;
+    if (opts.beforeId !== undefined && opts.beforeId !== null) {
+        const beforeId = Number(opts.beforeId);
+        if (!Number.isFinite(beforeId)) {
+            throw new Error('Invalid beforeId.');
+        }
+        ({ rows } = await pool.query(
+            `SELECT id, player_name AS "playerName", content, created_at AS "createdAt" FROM egregora_messages
+             WHERE id < $1 ORDER BY id DESC LIMIT $2`,
+            [beforeId, limit + 1]
+        ));
+    } else {
+        ({ rows } = await pool.query(
+            `SELECT id, player_name AS "playerName", content, created_at AS "createdAt" FROM egregora_messages
+             ORDER BY id DESC LIMIT $1`,
+            [limit + 1]
+        ));
+    }
+
+    const hasMore = rows.length > limit;
+    return { messages: rows.slice(0, limit), hasMore };
+}
+
 // ============================================================================
 // Sistema de amizades (31/08/2026). status só assume 'pending'/'accepted' — um pedido recusado
 // é DELETADO (não vira um registro 'rejected' pra sempre bloquear um pedido futuro entre os
@@ -1425,6 +1507,8 @@ module.exports = {
     updateProfile,
     postDiaryEntry,
     getDiaryEntries,
+    postEgregoraMessage,
+    getEgregoraMessages,
     searchPlayers,
     sendFriendRequest,
     getFriendRequests,
