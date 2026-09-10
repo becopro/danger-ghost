@@ -877,7 +877,7 @@
     // disco/servidor. Mesma lógica de version-bump manual que overworld.js?v=N já
     // usa — sobe este número sempre que os dados de data/overworld/ mudarem de
     // verdade (regeração de chunk, reposição de POI etc.).
-    var OVERWORLD_DATA_VERSION = 16; // bump 2026-09-10 (v15->v16): POI "egregora" corrigido - escala do billboard recalculada (EGREGORA_BILLBOARD_TARGET_H 295->620, medição precisa da porta) e reposicionado (globalCol/globalRow 31/52->31/49, defaultSpawn 33/53->33/50) pra sair de cima da rua, mudando pois.json + chunks/0_0.json:grid.rows (linhas 48-51) + este arquivo (mesma classe de fix já documentada nos bumps v13->v14/v14->v15 acima: sem bumpar isto, o navegador serve manifest/pois/chunk em cache e a correção nunca aparece pra quem já tinha jogado antes desta mudança).
+    var OVERWORLD_DATA_VERSION = 17; // bump 2026-09-10 (v16->v17): POI "egregora" ajustado de novo (terceira rodada) - escala reduzida 1/3 (EGREGORA_BILLBOARD_TARGET_H 620->413) e footprint apertado de 3x3 pra 2x2 (globalCol/globalRow 31/49->30/48, defaultSpawn 33/50->32/48), mudando pois.json + chunks/0_0.json:grid.rows (linhas 48-50) + este arquivo (mesma classe de fix já documentada nos bumps v13->v16 acima: sem bumpar isto, o navegador serve manifest/pois/chunk em cache e a correção nunca aparece pra quem já tinha jogado antes desta mudança).
     var MANIFEST_URL = 'data/overworld/manifest.json?v=' + OVERWORLD_DATA_VERSION;
     // Estágio 2 do plano de overworld expansível (POI data-driven) — ver
     // C:\Users\Klara\.claude\plans\crystalline-launching-goose.md §4. Carregado em
@@ -2496,8 +2496,10 @@
     // porta é pequena em relação à imagem inteira). gg_egregora.png tem 1024x1024px, vão real (arco
     // entre as colunas, sob o texto "EGREGORA") de y≈413 a y≈489 (altura≈76px), doorFraction≈0.0742,
     // EGREGORA_BILLBOARD_TARGET_H = 46/0.0742 ≈ 620. Confirmado pelo usuário como correto -
-    // não precisa mais de confirmação ao vivo pendente.
-    var EGREGORA_BILLBOARD_TARGET_H = 620; // recalculado 10/09/2026 com medicao precisa do vao da porta (pixel scan + inspecao visual, nao estimativa): doorFraction~0.0742 (vao y~413-489 de 1024px), 46/0.0742~620. Valor anterior (295) subestimava o quanto a porta e pequena em relacao a imagem inteira.
+    // não precisa mais de confirmação ao vivo pendente. Ajuste adicional (10/09/2026): usuário viu
+    // 620 ao vivo e achou grande demais - reduzido 1/3 (ver comentário da linha abaixo). A medição
+    // da porta acima continua sendo a referência original; só a escala final mudou.
+    var EGREGORA_BILLBOARD_TARGET_H = 413; // reduzido 1/3 (10/09/2026, pedido explicito do usuario apos ver 620 ao vivo) - 620 * 2/3 ~ 413. A medicao da porta (doorFraction~0.0742, ver historico do comentario anterior) continua sendo a referencia original, mas o usuario achou o resultado grande demais na pratica e pediu reducao proporcional; nao remedido de novo, so escalado pelo fator pedido.
 
     function drawEgregoraLandmark(ctx, cx, cy, pal, tSec, poi, camOffsetX, camOffsetY) {
         var z = S.zoomLevel;
