@@ -877,7 +877,7 @@
     // disco/servidor. Mesma lógica de version-bump manual que overworld.js?v=N já
     // usa — sobe este número sempre que os dados de data/overworld/ mudarem de
     // verdade (regeração de chunk, reposição de POI etc.).
-    var OVERWORLD_DATA_VERSION = 19; // bump 2026-09-10 (v18->v19): POI "egregora" com footprint aumentado pra bater com o chão/plataforma real desenhado em gg_egregora.png (quinta rodada) - footprint 2x2->6x6 (medido por varredura de pixel real da plataforma na arte, ver pois.json:_position_note), globalCol/globalRow 27/50->25/48 (recalculado só pra manter footX/footY - a arte não se move na tela, só a área de gatilho cresce), defaultSpawn inalterado (28/52, canto SE do footprint não mudou), mudando pois.json + chunks/0_0.json:grid.rows (linhas 46-51) + este arquivo (mesma classe de fix já documentada nos bumps v13->v18 acima: sem bumpar isto, o navegador serve manifest/pois/chunk em cache e a correção nunca aparece pra quem já tinha jogado antes desta mudança).
+    var OVERWORLD_DATA_VERSION = 20; // bump 2026-09-11 (v19->v20): drawTowerStreetLabel() generalizada pra aceitar qualquer POI (era hardcoded em S.entryPoi) e chamada também pro cemitério/Egregora; pois.json ganhou visual.towerLabel em ambos ({main:"Cemitério",sub:"Baú"} e {main:"Egregora"}) - mudando pois.json + este arquivo (mesma classe de fix já documentada nos bumps v13->v19 acima: sem bumpar isto, o navegador serve manifest/pois/overworld.js em cache e a correção nunca aparece pra quem já tinha jogado antes desta mudança).
     var MANIFEST_URL = 'data/overworld/manifest.json?v=' + OVERWORLD_DATA_VERSION;
     // Estágio 2 do plano de overworld expansível (POI data-driven) — ver
     // C:\Users\Klara\.claude\plans\crystalline-launching-goose.md §4. Carregado em
@@ -2542,8 +2542,16 @@
     // já desenha "Rua Doutor Beltrão" sozinha, direto sobre a curva da rua —
     // repetir aqui também seria redundante (duas etiquetas com o mesmo texto
     // empilhadas uma em cima da outra).
-    function drawTowerStreetLabel(ctx, pal, camOffsetX, camOffsetY, tSec) {
-        var poi = S.entryPoi;
+    //
+    // GENERALIZADA em 11/09/2026 (pedido do usuário: cemitério e Egregora também
+    // devem ter uma placa igual à da torre) — `poi` virou parâmetro (era
+    // hardcoded pra S.entryPoi); os 3 chamadores (torre/cemitério/Egregora, ver
+    // render()) passam sua própria S.<x>Poi. Nome da função e do campo
+    // `visual.towerLabel` ficaram como estavam (legado da torre, mesmo critério
+    // já documentado pro nome "DeSo" em CLAUDE.md §1 — nome antigo, uso atual
+    // mais amplo) pra não precisar tocar os outros ~10 comentários deste arquivo
+    // que já citam "drawTowerStreetLabel" por nome.
+    function drawTowerStreetLabel(ctx, pal, camOffsetX, camOffsetY, tSec, poi) {
         if (!poi || !poi._bounds) return;
         var tl = poi.visual && poi.visual.towerLabel;
         var mainText = tl && tl.main;
@@ -3365,7 +3373,9 @@
             }
         }
 
-        drawTowerStreetLabel(ctx, pal, camOffsetX, camOffsetY, tSec);
+        drawTowerStreetLabel(ctx, pal, camOffsetX, camOffsetY, tSec, S.entryPoi);
+        drawTowerStreetLabel(ctx, pal, camOffsetX, camOffsetY, tSec, S.chestPoi);
+        drawTowerStreetLabel(ctx, pal, camOffsetX, camOffsetY, tSec, S.egregoraPoi);
 
         if (macroZoom) {
             // ============ CAMADA DE BAIRRO (item 4a do pedido de zoom) ============
