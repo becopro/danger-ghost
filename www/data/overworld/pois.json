@@ -31,7 +31,9 @@
       "interaction": { "kind": "chest_entry", "triggerOn": "enter", "_note": "kind NOVO (não reusa episode_entry) — despachado por checkPoiInteractions()/dispatchPoiInteraction() (genéricos por POI desde o Estágio 2, nenhuma mudança neles foi necessária) pro handler POI_INTERACTION_HANDLERS.chest_entry em overworld.js, que chama window.OpenChestModal() (js/ui/ui_manager.js) em vez de EnterEpisode1FromOverworld()." },
       "visual": {
         "beacon": false,
-        "_visualNote": "Sem farol pulsante (beacon:false) — diferente da torre, o cemitério não precisa ser visível 'de longe' como ponto de entrada de fase; drawCemeteryGate() (overworld.js) desenha só a imagem 2D ancorada na base do footprint, mesmo padrão de drawPoiBillboard() usado por drawTower()."
+        "_visualNote": "Sem farol pulsante (beacon:false) — diferente da torre, o cemitério não precisa ser visível 'de longe' como ponto de entrada de fase; drawCemeteryGate() (overworld.js) desenha só a imagem 2D ancorada na base do footprint, mesmo padrão de drawPoiBillboard() usado por drawTower().",
+        "towerLabel": { "main": "Cemitério", "sub": "Baú" },
+        "_towerLabelNote": "Adicionado 11/09/2026 (pedido do usuário: o cemitério também deve ter uma placa como a da torre). Campo reaproveitado tal e qual do padrão da torre — drawTowerStreetLabel() (overworld.js), generalizada nesta mesma rodada pra aceitar qualquer POI via parâmetro em vez de só S.entryPoi."
       }
     },
     {
@@ -46,7 +48,9 @@
       "interaction": { "kind": "egregora_entry", "triggerOn": "enter" },
       "visual": {
         "beacon": false,
-        "_visualNote": "Sem farol pulsante, mesmo raciocínio do cemitério — não é ponto de entrada de fase, não precisa ser visível de longe."
+        "_visualNote": "Sem farol pulsante, mesmo raciocínio do cemitério — não é ponto de entrada de fase, não precisa ser visível de longe.",
+        "towerLabel": { "main": "Egregora" },
+        "_towerLabelNote": "Adicionado 11/09/2026 (pedido do usuário: a Egregora também deve ter uma placa escrito 'Egregora'). Sem `sub` de propósito (usuário só pediu o nome) — drawTowerStreetLabel() já trata sub ausente como rótulo de 1 linha só, sem mudança de código necessária pra esse caso."
       }
     }
   ]
