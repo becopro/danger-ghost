@@ -10,13 +10,7 @@
     window.g_desoPendingTransactionType = null;
     window.g_isEvolvedMintActive = false;
 
-    // Overwrite CheckVIPStatus to bypass network requests in Web2 mode
-    window.CheckVIPStatus = async function(pubKey) {
-        window.g_hasCreatorCoin = true;
-        console.log("[Web2 Mock] VIP Access Granted locally!");
-    };
-
-    // Load local public key to simulate wallet login
+    // Carrega a chave local do jogador (nome de storage legado, sem relação com blockchain)
     try {
         var savedKey = localStorage.getItem("dg_deso_public_key");
         if (savedKey) {
@@ -302,28 +296,6 @@
         }, 400);
     }
     window.LoadRPGStateFromDeSo = LoadRPGStateFromDeSo;
-
-    // Mock NFT creation
-    function CreateDeSoNFTForRPG(postHashHex, buttonId) {
-        console.log("[Web2 Mock] CreateDeSoNFTForRPG called");
-        var btn = document.getElementById("rpgSaveBtn") || document.getElementById("btnNavSave");
-        if (btn) {
-            btn.innerText = "NFT MINTED SUCCESSFULLY (LOCAL)";
-            btn.style.background = "#00FFFF";
-            btn.style.color = "#000";
-            btn.disabled = true;
-            setTimeout(function() {
-                if (window.UpdateNavbarEquip) window.UpdateNavbarEquip();
-            }, 2000);
-        }
-    }
-    window.CreateDeSoNFTForRPG = CreateDeSoNFTForRPG;
-
-    // Mock save with image
-    function ExecuteDeSoRPGSaveWithImage(jwt, blob, saveObj) {
-        console.log("[Web2 Mock] ExecuteDeSoRPGSaveWithImage called");
-    }
-    window.ExecuteDeSoRPGSaveWithImage = ExecuteDeSoRPGSaveWithImage;
 
     // Descarta um fantasma forjado — nome antigo "BurnGhostNFT" é da era DeSo, mantido só pra
     // não quebrar o onclick já existente nos cartões da Ghostdex.

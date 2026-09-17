@@ -1,7 +1,24 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 const bcrypt = require('bcryptjs');
 
 const BCRYPT_HASH_RE = /^\$2[aby]\$/;
+
+// BIGINT (int8, OID 20) volta do driver `pg` como STRING por padrão, não como número — o driver faz
+// isso porque um int8 genérico pode passar de Number.MAX_SAFE_INTEGER e perder precisão ao virar
+// Number. Sem esta linha, no instante em que server/migrate_level_bigint.js converter level/
+// atributos/points_to_distribute pra BIGINT, loadCharacters() passaria a devolver `level: "42"` em
+// vez de `level: 42` pro cliente — e JavaScript esconde metade desse estrago em silêncio:
+// ("42" - 1) dá 41 certinho, mas ("42" + 1) dá "421", e um level-up viraria concatenação de string.
+// Seria um bug de save/progresso disparado por uma migração de tipo, dias depois, sem nenhum erro
+// visível no meio do caminho.
+//
+// Converter pra Number é seguro NESTE schema, e a conta é fechada: o maior int8 que este jogo pode
+// guardar é um atributo no teto teórico (~5e11, ver NUMERIC_BOUNDS), quatro ordens de grandeza
+// abaixo de Number.MAX_SAFE_INTEGER (9.007e15). Se algum dia entrar uma coluna int8 que possa
+// passar disso (id de snowflake, saldo em unidades mínimas de uma blockchain própria, etc.), NÃO
+// remova esta linha — registre um parser específico pra aquela coluna, porque tirar daqui volta a
+// quebrar level/atributos.
+types.setTypeParser(20, (value) => (value === null ? null : Number(value)));
 
 // Usa variáveis separadas (dbhost/dbport/dbuser/dbpass/dbname) em vez de uma
 // única DATABASE_URL — a connection string tem `:`, `@` e maiúsculas, que
@@ -36,11 +53,22 @@ function ensureTableReady() {
                 email TEXT PRIMARY KEY,
                 name TEXT,
                 password TEXT DEFAULT '',
-                level INTEGER DEFAULT 1,
+                -- BIGINT, não INTEGER (16/09/2026): o nível máximo de personagem é 100.000.000.000
+                -- e INTEGER estoura em ~2,15 bilhões. ATENÇÃO: este CREATE TABLE é IF NOT EXISTS —
+                -- ele só vale pra um banco NOVO (deploy do zero). O banco de produção que já existe
+                -- continua com INTEGER até alguém rodar server/migrate_level_bigint.js à mão. NÃO
+                -- adicione um "ALTER TABLE ... TYPE BIGINT" nesta cadeia pra "resolver sozinho":
+                -- isso reescreveria as tabelas de save de jogadores reais no próximo restart do
+                -- servidor, sem ninguém decidir por isso (CLAUDE.md §7 — mudança de banco exige
+                -- alinhamento explícito com o usuário antes).
+                level BIGINT DEFAULT 1,
                 xp DOUBLE PRECISION DEFAULT 0,
                 mana DOUBLE PRECISION DEFAULT 100,
                 max_mana DOUBLE PRECISION DEFAULT 100,
-                lives INTEGER DEFAULT 3,
+                -- BIGINT junto com os atributos: getMaxLivesCap() = 4 + vit (+1 de elmo), ou seja
+                -- lives acompanha vit e estoura INTEGER pelo mesmo motivo. Mesma ressalva de banco
+                -- novo vs. banco de produção das colunas acima.
+                lives BIGINT DEFAULT 3,
                 equipped_skills JSONB DEFAULT '[0,0,0,0]',
                 ghostdex_progress JSONB DEFAULT '{}',
                 favorites JSONB DEFAULT '[]',
@@ -105,15 +133,23 @@ function ensureTableReady() {
                 email TEXT NOT NULL REFERENCES players(email) ON DELETE CASCADE,
                 character_id TEXT NOT NULL,
                 name TEXT,
-                level INTEGER DEFAULT 1,
+                -- BIGINT pelo mesmo motivo de players.level acima (teto de 100 bilhões), e
+                -- points_to_distribute idem (5 pontos/nível acumulados chegam a ~5e11). Mesma
+                -- ressalva: só vale pra banco novo; o de produção precisa do
+                -- server/migrate_level_bigint.js rodado à mão.
+                level BIGINT DEFAULT 1,
                 xp DOUBLE PRECISION DEFAULT 0,
                 xp_required DOUBLE PRECISION DEFAULT 100,
-                points_to_distribute INTEGER DEFAULT 0,
-                vit INTEGER DEFAULT 1,
-                agi INTEGER DEFAULT 1,
-                "int" INTEGER DEFAULT 1,
-                pow INTEGER DEFAULT 1,
-                mag INTEGER DEFAULT 1,
+                points_to_distribute BIGINT DEFAULT 0,
+                -- Atributos também BIGINT (16/09/2026): são alimentados pelos mesmos 5 pontos por
+                -- nível, então num único atributo 1e11 níveis somam ~5e11 — 233x acima do teto de
+                -- INTEGER. Mesma ressalva das colunas acima: banco novo nasce certo, banco de
+                -- produção só muda rodando server/migrate_level_bigint.js à mão.
+                vit BIGINT DEFAULT 1,
+                agi BIGINT DEFAULT 1,
+                "int" BIGINT DEFAULT 1,
+                pow BIGINT DEFAULT 1,
+                mag BIGINT DEFAULT 1,
                 equipped_skills JSONB DEFAULT '[0,1,2,3]',
                 equipped_runes JSONB DEFAULT '[0,0,0,0]',
                 equipped_passives JSONB DEFAULT '[-1,-1]',
@@ -379,37 +415,65 @@ function normalizeCharacterId(rawId) {
 // segurança: hoje nada impede um jogador de abrir o console e mandar level: 999999999, arma com
 // damage: 999999, etc. — isso gravava direto e ficava pra sempre). Não é um catálogo de itens
 // completo (seria uma reescrita maior) — é bom senso calibrado a partir das regras reais do jogo
-// (rpg_system.js/ghostdex_data.js), não um número arbitrário:
-//   - level: teto alinhado ao maxLevel=1e11 (100 bilhões) já hardcoded no cliente como trava de
-//     loop infinito (decisão do usuário, 31/08/2026, pro emblema "Entidade Máxima" do sistema de
-//     medalhas ser um alvo real, ainda que praticamente inalcançável por gameplay legítimo — a
-//     curva de XP exponencial já torna isso simbólico). ATENÇÃO: isso remove a proteção anti-cheat
-//     específica contra um level fabricado no console — só o teto numérico mudou, o resto da
-//     validação (xp/atributos/mana/vidas abaixo) continua no mesmo padrão de antes.
-//   - xp/xpRequired: tetados um pouco acima de xpRequired(999) (~6.3M) por folga — não escalados
-//     junto com o teto de level (fora do pedido, e escalar isso removeria proteção real que
-//     ninguém pediu pra remover); na prática nenhum level acima de ~999 vai ter xp/xpRequired
-//     consistentes com ele, mas isso não trava o save (campo implausível vira "ausente", não
-//     rejeita o save inteiro) — só relevante pra levels que nenhum jogador real vai alcançar mesmo.
-//   - vit/agi/int/pow/mag: cada nível dá 5 pontos; nem 998 níveis inteiros num único atributo
-//     (4990 pontos) chegam perto de 9999.
-//   - pointsToDistribute: mesmo teto de 5 pontos/nível, com folga.
-//   - mana/maxMana: getMaxMana() = 100 + mag*20; com mag no teto (9999) isso é ~200 mil.
-//   - lives: getMaxLivesCap() = 4 + vit + bônus de elmo; com vit no teto isso é ~10 mil.
-//   - score: sem fórmula fechada (kills, level-up = level*200, etc.) — teto generoso mas finito.
-//   - weapon.damage: upgradeWeapon() soma 10 por upgrade, custo cresce a cada vez; nenhum jogador
-//     real chega nem perto de 100 mil de dano.
+// (rpg_system.js/ghostdex_data.js), não um número arbitrário.
+//
+// RECALIBRAÇÃO 16/09/2026 (backend-architect, nível máximo de 100 bilhões — docs/AAA_MASTER_PLAN_
+// 2026-09-16.md §7): o teto de level já estava em 1e11 desde 31/08, mas na época ele era SIMBÓLICO
+// (o resto dos tetos continuou calibrado pra ~level 999) e isso está documentado no comentário
+// antigo desta mesma constante. Agora o nível de 100 bilhões é LITERAL e alcançável por gameplay
+// real sob a curva de lei de potência nova, então todo teto derivado do level precisa escalar
+// junto — senão o servidor passa a DESCARTAR EM SILÊNCIO campos legítimos de um save real.
+// O modo de falha importa: um campo implausível vira "ausente" (sanitizeCharacterPayload deleta o
+// campo), e o COALESCE de saveCharacters então PRESERVA o valor antigo do banco. Ou seja: não é um
+// erro visível, é progresso do jogador congelando sem ninguém perceber — exatamente a classe de
+// bug de save/sync que este projeto já pagou caro pra corrigir uma vez.
+//
+//   - level: teto de 1e11 (100 bilhões) confirmado — bate com o maxLevel hardcoded no cliente e
+//     com a decisão finalizada do usuário. Não mudou nesta passagem.
+//   - xp/xpRequired: XPRequired(L) = 100 * L^1.45 chega a ~8.9e17 em L=1e11. Teto de 1e19 dá uma
+//     ordem de grandeza de folga e continua MUITO abaixo de Number.MAX_SAFE_INTEGER*1000, então
+//     ainda pega um valor forjado grosseiro (Infinity, 1e300) — que é o que esta checagem sempre
+//     se propôs a pegar. As colunas xp/xp_required já são DOUBLE PRECISION, cabem sem migração.
+//   - vit/agi/int/pow/mag: 5 pontos discricionários por nível chegam a ~5e11 num único atributo em
+//     L=1e11, mais o crescimento passivo por espécie que o rpg_system.js está ganhando na mesma
+//     leva (floor((stat_espécie/65) * (level-1) * 0.6), ~9e10 no teto). O teto antigo de 9999
+//     estourava já por volta do nível 2000 — qualquer personagem acima disso teria os atributos
+//     silenciosamente congelados. 1e13 cobre os dois termos somados com ~20x de folga.
+//   - pointsToDistribute: mesma conta (5/nível acumulados, ~5e11 se o jogador nunca gastar), mesmo
+//     teto de 1e13. A coluna points_to_distribute é INTEGER no schema e PRECISA virar BIGINT —
+//     ver server/migrate_level_bigint.js (escrito, NÃO executado; decisão do usuário, CLAUDE.md §7).
+//   - mana/maxMana: getMaxMana() = 100 + mag*20; com mag no teto novo (1e13) isso é 2e14 — teto de
+//     1e15 pra cobrir com folga.
+//   - lives: getMaxLivesCap() = 4 + vit + bônus de elmo; escala junto com vit pelo mesmo motivo.
+//   - score: ScoreGrant(L) = 200 * L^0.5 por level-up, acumulado ao longo de um histórico de jogo
+//     muito longo chega na casa de 1e13-1e15. Teto de 1e16 com folga. Coluna já é DOUBLE PRECISION.
+//   - time/deaths/worldLevel: NÃO escalados de propósito. Nenhum dos três é derivado do nível —
+//     worldLevel é o contador de episódio de dungeon (1-33, teto 999 já folgado demais), e
+//     time/deaths são contadores de sessão cujos tetos atuais (3 anos de jogo, 1 milhão de mortes)
+//     continuam acima de qualquer histórico real. Mexer neles seria remover proteção sem motivo.
+//   - weapon.damage: CONFIRMADO (16/09/2026) que refreshWeaponDamage() agora PERSISTE o valor
+//     calculado (10 * nível^1.85 * 1.12^tier) em state.weapon.damage a cada level-up/upgrade/load,
+//     e ele entra no hash anti-cheat — não é mais o antigo "+10 por upgrade" acumulado à mão. No
+//     nível máximo (1e11) com tier 60 isso já passa de ~2e24; sem o teto de 100 mil de antes ter
+//     subido, todo save de personagem no meio-fim de jogo teria o campo weapon inteiro rejeitado
+//     (isPlausibleWeapon → false → campo tratado como ausente na sanitização). Teto subiu pra 1e30
+//     pra cobrir com folga mesmo além do tier 60 (tier não é hard-capped no cliente). Nota: como
+//     weapon é um campo JSONB, não uma coluna tipada, não precisa de migração de schema — só o
+//     teto de validação em JS mesmo. Acima de Number.MAX_SAFE_INTEGER (~9e15) o valor guardado
+//     perde precisão exata de ponto flutuante (comum em jogos com números desse porte); isso é
+//     cosmético, não corrompe o save nem afeta a comparação de hash (que serializa o mesmo valor
+//     igual dos dois lados).
 const NUMERIC_BOUNDS = {
     level: [1, 100000000000],
-    xp: [0, 7000000],
-    xpRequired: [0, 7000000],
-    pointsToDistribute: [0, 6000],
-    vit: [0, 9999],
-    agi: [0, 9999],
-    int: [0, 9999],
-    pow: [0, 9999],
-    mag: [0, 9999],
-    score: [0, 2000000000],
+    xp: [0, 1e19],
+    xpRequired: [0, 1e19],
+    pointsToDistribute: [0, 1e13],
+    vit: [0, 1e13],
+    agi: [0, 1e13],
+    int: [0, 1e13],
+    pow: [0, 1e13],
+    mag: [0, 1e13],
+    score: [0, 1e16],
     time: [0, 100000000],
     worldLevel: [1, 999],
     deaths: [0, 1000000]
@@ -417,9 +481,9 @@ const NUMERIC_BOUNDS = {
 const PLAYER_NUMERIC_BOUNDS = {
     level: NUMERIC_BOUNDS.level,
     xp: NUMERIC_BOUNDS.xp,
-    mana: [0, 250000],
-    maxMana: [0, 250000],
-    lives: [0, 15000]
+    mana: [0, 1e15],
+    maxMana: [0, 1e15],
+    lives: [0, 1e14]
 };
 // Teto do baú de conta (04/09/2026) — número de negócio do pedido do usuário (Cemitério + Baú),
 // não calibrado de uma faixa plausível de gameplay como PLAYER_NUMERIC_BOUNDS acima. Usado em
@@ -427,7 +491,7 @@ const PLAYER_NUMERIC_BOUNDS = {
 // comentário lá pro raciocínio completo de por que rejeitar o payload inteiro é mais seguro que
 // truncar pros primeiros 1000.
 const MAX_CHEST_ITEMS = 1000;
-const WEAPON_DAMAGE_BOUNDS = [0, 100000];
+const WEAPON_DAMAGE_BOUNDS = [0, 1e30];
 
 function isPlausibleNumber(value, bounds) {
     const n = Number(value);
@@ -775,7 +839,7 @@ async function verifyAndMigratePassword(email, row, password) {
             : row.password === password; // legado em texto puro, ver migração abaixo
 
         if (!matches) {
-            throw new Error("Senha incorreta para o e-mail " + email + "! Verifique sua senha.");
+            throw new Error("Incorrect password for " + email + "! Please check your password.");
         }
 
         if (!isBcryptHash) {
@@ -794,7 +858,7 @@ async function verifyAndMigratePassword(email, row, password) {
 // erro claro pedindo pra criar uma conta primeiro, em vez de criar silenciosamente.
 async function loginPlayer(email, password) {
     if (!password || typeof password !== 'string' || password.length < 6 || password.length > 12) {
-        throw new Error("A senha deve ter entre 6 e 12 caracteres.");
+        throw new Error("Password must be between 6 and 12 characters.");
     }
     await ensureTableReady();
 
@@ -807,7 +871,7 @@ async function loginPlayer(email, password) {
     );
     const row = rows[0];
     if (!row) {
-        throw new Error("Não existe conta cadastrada com esse e-mail. Crie uma conta primeiro.");
+        throw new Error("No account found with this email. Please create an account first.");
     }
 
     await verifyAndMigratePassword(email, row, password);
@@ -816,11 +880,87 @@ async function loginPlayer(email, password) {
     return row;
 }
 
+// ---------------------------------------------------------------------------------------------
+// GHOST #001 INICIAL (16/09/2026) — toda conta nova nasce com o Polterstalk.
+//
+// Reverte formalmente a decisão de 21/08/2026 ("sem Ghost #001 automático, o jogador forja o
+// primeiro fantasma de propósito"), confirmada pelo usuário como reversão intencional em
+// docs/AAA_MASTER_PLAN_2026-09-16.md §5. O fantasma concedido CONTA como um dos 5 slots (não é um
+// 6º de graça) — decisão do usuário. Isso não exige nenhum código novo de limite: o teto de 5 é
+// checado no cliente (js/web2/game_core.js, `localChars.length >= 5`) contra a lista que vem do
+// BANCO, então um ghost_001 gravado aqui já entra na contagem sozinho.
+//
+// stats_base embutido de propósito, não lido de js/game/ghostdex_data.js: aquele arquivo é do
+// navegador (`window.g_ghostdexDB = [...]`), não é um módulo requerível do Node, e o padrão que
+// este servidor já usa pra dado estático é um módulo LOCAL do server/ (server/seed_badges.js, o
+// catálogo de emblemas — mesmo raciocínio, "igual ghostdex_data.js do cliente mas server-side").
+// Ler o arquivo do cliente em runtime inventaria uma dependência de caminho relativo frágil (o
+// server/patch.js já mostra o problema: quebra se o processo não subir de dentro de server/).
+// Se o stats_base do #001 mudar no Ghostdex, mude AQUI TAMBÉM — é uma cópia consciente, com a
+// origem documentada, não uma fonte de verdade concorrente.
+const STARTER_GHOST = {
+    id: '001',
+    name: 'Polterstalk',
+    // js/game/ghostdex_data.js, entrada id "001" (Urban Haunt, o 3º mais fraco dos 101 — starter).
+    statsBase: { hp: 44, ataque: 40, defesa: 43, atq_especial: 41, def_especial: 39, velocidade: 49 }
+};
+
+// Mesma conversão stats_base -> atributos de RPG que window.UnlockGhostForPlayer() já usa no
+// cliente (js/game/ghost_inventory.js) e que GhostRPG.getGhostBaseStats() espelha: Math.ceil(x/10)
+// por atributo. Portada pro servidor em vez de reimplementada com outra regra — duas fórmulas de
+// semente diferentes pro MESMO fantasma dariam atributos diferentes dependendo de por onde ele
+// entrou (captura em combate vs. conta nova), que é exatamente o tipo de divergência silenciosa
+// que este arquivo existe pra impedir.
+//
+// Omite inventory/equipment DE PROPÓSITO, pelo mesmo motivo já documentado no cliente (achado
+// 27/08/2026): campo AUSENTE é preservado pelo COALESCE de saveCharacters; campo presente-porém-
+// vazio SOBRESCREVE progresso real. Numa conta recém-criada não existe progresso pra proteger,
+// mas manter a forma idêntica à do cliente significa que esta função continua segura se um dia
+// for chamada em cima de uma conta que já tem esse fantasma (ex: auto-reparo de conta antiga).
+// Também omite xpRequired/pointsToDistribute: os DEFAULT da coluna (100 e 0) já são os valores
+// corretos de nível 1 sob a curva nova (XPRequired(1) = 100 * 1^1.45 = 100), e deixar a curva de
+// XP fora daqui mantém o rpg_system.js como dono único dela.
+function buildStarterCharacter() {
+    const s = STARTER_GHOST.statsBase;
+    return {
+        characterId: 'ghost_' + STARTER_GHOST.id, // "ghost_001", a forma prefixada canônica
+        name: STARTER_GHOST.name,
+        level: 1,
+        xp: 0,
+        vit: Math.ceil(s.hp / 10),
+        agi: Math.ceil(s.velocidade / 10),
+        int: Math.ceil(s.atq_especial / 10),
+        pow: Math.ceil(s.ataque / 10),
+        mag: Math.ceil(s.def_especial / 10)
+    };
+}
+
+// Grava o starter e devolve a lista de personagens COMO ELA ESTÁ NO BANCO (não o objeto que
+// acabamos de montar em memória). Três motivos, todos já pagos caro neste projeto:
+//   1. Passa por saveCharacters(), que é o ÚNICO caminho de escrita na tabela characters — logo o
+//      normalizeCharacterId()/dedupe/sanitização continuam valendo, sem abrir uma segunda porta.
+//   2. O SELECT de volta garante que o payload devolvido ao cliente na criação de conta tem
+//      EXATAMENTE a mesma forma do payload de um login (mesmos aliases, mesmos DEFAULT de coluna,
+//      mesmo updated_at) — sem isso, "conta nova" e "login" devolveriam objetos sutilmente
+//      diferentes pro mesmo estado, que é como divergência entre aparelhos começa.
+//   3. Se a gravação falhar, o cliente NÃO recebe um fantasma que não existe no banco. O banco é a
+//      única fonte da verdade: a conta é criada mesmo assim (login funciona, o jogador só forja o
+//      primeiro ghost à mão como antes), e o erro fica logado alto pra investigação.
+async function seedStarterCharacter(email) {
+    try {
+        await saveCharacters(email, [buildStarterCharacter()]);
+        return await loadCharacters(email);
+    } catch (err) {
+        console.error(`[DB] Falha ao conceder o Ghost #001 inicial para ${email}: ${err.message}. Conta criada mesmo assim, sem personagem inicial.`);
+        return [];
+    }
+}
+
 // CRIAR CONTA (30/08/2026). Cadastra um e-mail novo — NUNCA "loga" em cima de um e-mail que já
 // existe. Se o e-mail já tiver conta, erro claro pedindo pra usar LOGIN em vez de criar de novo.
 async function createPlayer(email, profileName, password) {
     if (!password || typeof password !== 'string' || password.length < 6 || password.length > 12) {
-        throw new Error("A senha deve ter entre 6 e 12 caracteres.");
+        throw new Error("Password must be between 6 and 12 characters.");
     }
     await ensureTableReady();
 
@@ -833,10 +973,15 @@ async function createPlayer(email, profileName, password) {
         );
     } catch (err) {
         if (err.code === '23505') {
-            throw new Error("Esse e-mail já está cadastrado. Use LOGIN para recuperar sua conta.");
+            throw new Error("This email is already registered. Use LOGIN to access your account.");
         }
         throw err;
     }
+    // Conta criada: concede o Ghost #001 (Polterstalk) antes de devolver, pra o jogador já entrar
+    // com um personagem jogável (16/09/2026 — ver comentário de STARTER_GHOST acima). Continua sem
+    // "adoção" de personagens que só existiam no localStorage do aparelho: o único fantasma que
+    // nasce com a conta é este, montado no servidor a partir do Ghostdex.
+    const characters = await seedStarterCharacter(email);
     return {
         email, name: defaultName, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0, 0, 0, 0],
         ghostdexProgress: {}, favorites: [], avatarUrl: null, galleryUrls: [],
@@ -844,9 +989,8 @@ async function createPlayer(email, profileName, password) {
         chestItems: [], // conta nova: baú vazio (mesmo default '[]' da coluna chest_items) — objeto
                          // devolvido direto ao cliente aqui, sem passar por um SELECT de volta ao
                          // banco, então precisa espelhar o DEFAULT da coluna manualmente
-        characters: [] // conta nova de verdade: nenhum fantasma no banco ainda — o jogador forja o
-                        // primeiro (30/08/2026: não existe mais criação automática de um "Ghost
-                        // #001" nem adoção de personagens que só existiam no localStorage).
+        characters // vem do banco (SELECT de volta), não do objeto montado em memória — ver
+                   // seedStarterCharacter(). Array vazio só se a gravação do starter tiver falhado.
     };
 }
 
@@ -857,7 +1001,7 @@ async function createPlayer(email, profileName, password) {
 // Google configurado de verdade — ver CLAUDE.md), mas a função continua pronta pra quando for.
 async function loadOrCreatePlayer(email, profileName, password) {
     if (!password || typeof password !== 'string' || password.length < 6 || password.length > 12) {
-        throw new Error("A senha deve ter entre 6 e 12 caracteres.");
+        throw new Error("Password must be between 6 and 12 characters.");
     }
     await ensureTableReady();
 
@@ -891,10 +1035,14 @@ async function loadOrCreatePlayer(email, profileName, password) {
             }
             throw err;
         }
+        // Mesma concessão de Ghost #001 do createPlayer (16/09/2026) — paridade deliberada: se um
+        // dia o caminho Google OAuth voltar a ser usado, uma conta criada por ele tem que nascer
+        // idêntica a uma criada pelo CRIAR CONTA de e-mail/senha, não com regra própria.
+        const characters = await seedStarterCharacter(email);
         return { status: 'created', data: {
             email, name: defaultName, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0, 0, 0, 0],
             avatarUrl: null, galleryUrls: [],
-            characters: []
+            characters
         } };
     }
 }
@@ -1376,11 +1524,11 @@ async function incrementPlayerStat(email, type, amount) {
     await ensureTableReady();
     const column = STAT_COLUMN_BY_INCREMENT_TYPE[type];
     if (!column) {
-        throw new Error(`Tipo de estatística desconhecido: ${type}`);
+        throw new Error(`Unknown stat type: ${type}`);
     }
     const n = Number(amount);
     if (!Number.isInteger(n) || n < 1 || n > INCREMENT_STAT_MAX_PER_CALL) {
-        throw new Error(`Quantidade inválida para incremento de estatística (1-${INCREMENT_STAT_MAX_PER_CALL}): ${amount}`);
+        throw new Error(`Invalid amount for stat increment (1-${INCREMENT_STAT_MAX_PER_CALL}): ${amount}`);
     }
     await pool.query(
         `UPDATE players SET ${column} = ${column} + $1, updated_at = now() WHERE email = $2`,
@@ -1527,5 +1675,11 @@ module.exports = {
     // projeto. isPlausibleNumber é o predicado que os dois lados usam pra checar contra elas.
     PLAYER_NUMERIC_BOUNDS,
     NUMERIC_BOUNDS,
-    isPlausibleNumber
+    isPlausibleNumber,
+    // 16/09/2026 (Ghost #001 inicial): exportados pra um teste ponta a ponta (conta descartável,
+    // ver skill e2e-db-verification) poder afirmar a forma EXATA do starter contra a mesma fonte
+    // que o servidor usa, em vez de redigitar "vit: 5, agi: 5, ..." num arquivo de teste e os dois
+    // divergirem no dia em que o stats_base do #001 mudar.
+    STARTER_GHOST,
+    buildStarterCharacter
 };

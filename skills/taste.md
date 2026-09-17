@@ -19,7 +19,7 @@ A habilidade *Taste* fornece os critérios estéticos qualitativos que elevam o 
 *   **Contraste Legível:** Nunca use cinza claro em cima de ciano, ou branco em cima de amarelo brilhante. Garanta legibilidade instantânea sob qualquer condição de luz.
 *   **Monospace vs. Sans-serif:** 
     *   Use fontes sem serifa (`Outfit`, `Inter`) para menus e painéis de narrativa.
-    *   Use fontes monoespaçadas (`Courier New`, `monospace`) para chaves públicas, logs, timers e valores de atributos do RPG, dando um visual técnico/hackish adequado ao DeSo.
+    *   Use fontes monoespaçadas (`Courier New`, `monospace`) para chaves públicas, logs, timers e valores de atributos do RPG, dando um visual técnico/hackish do HUD.
 
 ---
 

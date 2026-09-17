@@ -285,7 +285,7 @@ function submitCloudSaveAuth(eventName, payload, loadingText, submitBtn) {
 
     var socket = window.NetworkState && window.NetworkState.socket;
     if (!socket) {
-        showLoginError("Erro: Não foi possível conectar ao servidor.");
+        showLoginError("Error: Could not connect to the server.");
         if (loadingModal) loadingModal.style.display = "none";
         return;
     }
@@ -314,7 +314,7 @@ function submitCloudSaveAuth(eventName, payload, loadingText, submitBtn) {
         if (finished) return;
         cleanup();
         if (loadingModal) loadingModal.style.display = "none";
-        showLoginError("O servidor demorou demais para responder. Verifique sua internet e tente novamente.");
+        showLoginError("The server took too long to respond. Check your internet connection and try again.");
     }, 15000);
 
     function handleSuccess(data) {
@@ -332,7 +332,7 @@ function submitCloudSaveAuth(eventName, payload, loadingText, submitBtn) {
         if (finished) return;
         cleanup();
         console.warn("[CloudSave] Erro recebido do servidor:", data && data.message);
-        showLoginError((data && data.message) || "Falha ao acessar o Cloud Save.");
+        showLoginError((data && data.message) || "Failed to access Cloud Save.");
         if (loadingModal) loadingModal.style.display = "none";
     }
 
@@ -346,15 +346,15 @@ function CloudSaveLogin(btn) {
     var password = document.getElementById('loginInputPassword') ? document.getElementById('loginInputPassword').value.trim() : "";
 
     if (!email) {
-        showLoginError("Por favor, digite o e-mail da sua conta.");
+        showLoginError("Please enter your account email.");
         return;
     }
     if (!password || password.length < 6 || password.length > 12) {
-        showLoginError("A senha deve ter entre 6 e 12 caracteres.");
+        showLoginError("Password must be between 6 and 12 characters.");
         return;
     }
 
-    submitCloudSaveAuth("cloud_save_login", { email: email, password: password }, "Verificando senha e resgatando progresso...", btn);
+    submitCloudSaveAuth("cloud_save_login", { email: email, password: password }, "Verifying password and restoring progress...", btn);
 }
 window.CloudSaveLogin = CloudSaveLogin;
 window.LoginDeveloperFallback = CloudSaveLogin;
@@ -365,15 +365,15 @@ function CloudSaveSignup(btn) {
     var password = document.getElementById('loginInputPassword') ? document.getElementById('loginInputPassword').value.trim() : "";
 
     if (!email) {
-        showLoginError("Por favor, digite um e-mail para a sua conta nova.");
+        showLoginError("Please enter an email for your new account.");
         return;
     }
     if (!password || password.length < 6 || password.length > 12) {
-        showLoginError("A senha deve ter entre 6 e 12 caracteres para proteger o seu Cloud Save.");
+        showLoginError("Password must be between 6 and 12 characters to protect your Cloud Save.");
         return;
     }
 
-    submitCloudSaveAuth("cloud_save_signup", { email: email, name: name || 'Ghost', password: password }, "Criando sua conta...", btn);
+    submitCloudSaveAuth("cloud_save_signup", { email: email, name: name || 'Ghost', password: password }, "Creating your account...", btn);
 }
 window.CloudSaveSignup = CloudSaveSignup;
 

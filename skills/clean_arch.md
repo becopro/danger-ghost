@@ -8,21 +8,21 @@
 No desenvolvimento de jogos 2D para a web em nível profissional (AAA), a estrutura de arquivos e o acoplamento do estado são fatores determinantes para a manutenibilidade, extensibilidade e performance do jogo. 
 
 A arquitetura original do *Danger Ghost* concentra mais de 4.300 linhas de código no `index.html`. Isso viola praticamente todos os princípios de design de software limpo:
-*   **Violação do SRP (Princípio da Responsabilidade Única)**: O arquivo inicial gerencia renderização em canvas, loop físico, rede HTTP, listeners de teclas, salvamento Web3 e renderização de elementos de interface do usuário (DOM).
-*   **Escopo Global Poluído**: Variáveis globais mutáveis (`g_gameState`, `g_score`, `DeSoGhost`) controlam as regras de transição. Sob lag ou interrupções de rede, essas variáveis podem entrar em estados inconsistentes (Race Conditions).
+*   **Violação do SRP (Princípio da Responsabilidade Única)**: O arquivo inicial gerencia renderização em canvas, loop físico, rede HTTP, listeners de teclas, persistência de save e renderização de elementos de interface do usuário (DOM).
+*   **Escopo Global Poluído**: Variáveis globais mutáveis (`g_gameState`, `g_score`, `DeSoGhost` — nome legado do objeto do jogador, não tem relação com blockchain) controlam as regras de transição. Sob lag ou interrupções de rede, essas variáveis podem entrar em estados inconsistentes (Race Conditions).
 *   **Acoplamento Forte (Tight Coupling)**: Alterações nos assets gráficos ou nas fórmulas do RPG forçam a modificação de lógicas físicas e rotinas de rede no mesmo arquivo.
 
 ---
 
 ## 2. A Estrutura de Arquitetura Limpa (SOLID)
 
-Para converter o monólito em um sistema extensível, devemos aplicar a **Clean Architecture** (Arquitetura Limpa), separando o núcleo de regras do jogo das tecnologias de entrega (Canvas, DOM, APIs de Blockchain).
+Para converter o monólito em um sistema extensível, devemos aplicar a **Clean Architecture** (Arquitetura Limpa), separando o núcleo de regras do jogo das tecnologias de entrega (Canvas, DOM, camada de persistência).
 
 ```mermaid
 graph TD
     subgraph Drivers & Infrastructure (Camada Externa)
         Canvas[Canvas 2D Renderer]
-        Identity[DeSo Identity Iframe]
+        Storage[Browser localStorage]
         DOMUI[DOM Panels & Layout]
         Kbd[Keyboard Event Listeners]
     end
@@ -30,7 +30,7 @@ graph TD
     subgraph Adapters & Controllers (Camada de Adaptação)
         GI[InputManagerAdapter]
         GR[CanvasRenderAdapter]
-        GW[Web3SaveAdapter]
+        GW[LocalStorageAdapter]
         GU[DOMUIController]
     end
 
@@ -75,13 +75,16 @@ src/
 ├── interfaces/            # Contratos de abstração (DIP)
 │   ├── IRenderer.ts       # Interface gráfica
 │   ├── IInput.ts          # Interface de controle (teclado/joystick)
-│   └── ISaveStorage.ts    # Interface de persistência (Local/Blockchain)
+│   └── ISaveStorage.ts    # Interface de persistência (o contrato de save)
 ├── adapters/              # Conversores para o ecossistema externo
-│   ├── Canvas2DRender.ts  # Implementação do IRenderer em Canvas
-│   ├── KeyboardInput.ts   # Implementação do IInput capturando eventos
-│   └── DeSoBlockchain.ts  # Implementação do ISaveStorage via DeSo Node
+│   ├── Canvas2DRender.ts       # Implementação do IRenderer em Canvas
+│   ├── KeyboardInput.ts        # Implementação do IInput capturando eventos
+│   ├── LocalStorageAdapter.ts  # ISaveStorage via localStorage — o caminho real hoje
+│   └── ProprietaryChainAdapter.ts # ISaveStorage via blockchain própria — futuro, pós-Episódio 2
 └── main.ts                # Inicialização e Injeção de Dependências
 ```
+
+`ISaveStorage` é o exemplo mais útil de DIP neste projeto justamente porque o segundo adapter ainda não existe. Hoje só `LocalStorageAdapter` está implementado; a blockchain proprietária de propósito específico prevista para depois do Episódio 2 (ver `CLAUDE.md` §2) é trabalho não iniciado. Se o núcleo do jogo depender da interface e não do `localStorage` direto, trocar ou somar o segundo adapter depois não encosta em uma linha de regra de jogo — que é exatamente o ponto do princípio.
 
 ---
 

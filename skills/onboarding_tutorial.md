@@ -1,11 +1,11 @@
-# Skill: Tutorial Interativo, UX de Onboarding e Integração Web3
+# Skill: Tutorial Interativo e UX de Onboarding
 ## Especialidade: Senior Onboarding & Tutorial Specialist (senior-tutorial-expert)
 
 ---
 
-## 1. Introdução: O Desafio do Onboarding em Jogos Web3/RPG
+## 1. Introdução: O Desafio do Onboarding em um Platformer com RPG
 
-Para que um jogo atinja o padrão Triple-A (AAA), a experiência inicial do usuário (FTUE - First-Time User Experience) deve ser impecável. Jogos que misturam mecânicas de plataforma retrô, progressão de atributos de RPG e autenticação Web3 (como *Danger Ghost* via DeSo) sofrem de uma alta taxa de rejeição inicial devido à sobrecarga cognitiva (cognitive overload).
+Para que um jogo atinja o padrão Triple-A (AAA), a experiência inicial do usuário (FTUE - First-Time User Experience) deve ser impecável. Jogos que misturam mecânicas de plataforma retrô com progressão de atributos de RPG, como *Danger Ghost*, sofrem de alta taxa de rejeição inicial por sobrecarga cognitiva (cognitive overload).
 
 O monólito atual exibe instruções em texto estático na tela inicial (`DrawStartScreen`) e usa pop-ups intrusivos (`alert()`, `prompt()`) que quebram o fluxo e o gamefeel:
 
@@ -15,13 +15,13 @@ alert("⚠️ ACCESS DENIED (TOKEN-GATING): This feature is exclusively for $Dan
 var pw = prompt("ENTER VIP PASSWORD");
 ```
 
-O papel do **senior-tutorial-expert** é substituir essa abordagem por um sistema de **Integração Dinâmica Contextual**, onde o jogador aprende a jogar jogando, e o fluxo de carteira Web3 é introduzido de forma fluida e assistida.
+O papel do **senior-tutorial-expert** é substituir essa abordagem por um sistema de **Integração Dinâmica Contextual**, onde o jogador aprende a jogar jogando.
 
 ---
 
 ## 2. Pilares de Habilidades Recomendadas para o Agente de Tutorial
 
-Propomos o mapeamento e modelagem de quatro competências avançadas no ecossistema DragaMP:
+Propomos o mapeamento e modelagem de três competências avançadas no ecossistema DragaMP:
 
 ### 2.1. Design de Tutorial Ativo e Progressivo (`skill-active-onboarding`)
 - **Anti-Wall of Text**: Banir textos estáticos longos. As mecânicas de movimento básico (andar, pular) e combate devem ser liberadas e ensinadas em estágios (Progressive Disclosure).
@@ -32,11 +32,7 @@ Propomos o mapeamento e modelagem de quatro competências avançadas no ecossist
 - **Detecção de Frustração**: Monitoramento de inputs em tempo real. Se o jogador falha em subir uma plataforma após 3 tentativas ou fica parado em frente a um obstáculo por mais de 5 segundos, o jogo renderiza uma dica visual.
 - **Destaque Visual Dinâmico**: Renderização de círculos de foco ou flechas piscando no canvas apontando para portas, colecionáveis ou elementos HUD.
 
-### 2.3. Onboarding Web3 Facilitado (`skill-web3-onboarding-ux`)
-- **Fluxo Assistido de Conexão**: Explicação passo a passo em pop-ups customizados dentro do DOM (sem usar `alert` nativo) sobre por que o iframe da DeSo está abrindo e como as taxas de rede funcionam.
-- **Fallback para Visitantes**: Permitir jogar os níveis iniciais localmente antes de forçar o login na carteira, reduzindo a fricção de entrada e demonstrando valor de jogo primeiro.
-
-### 2.4. Overlays Gráficos no Canvas (`skill-canvas-overlay`)
+### 2.3. Overlays Gráficos no Canvas (`skill-canvas-overlay`)
 - Desenhar caixas de diálogo estilizadas na camada de topo do canvas sem interferir na renderização de física dos sprites inferiores.
 - Alinhamento de coordenadas responsivo que se adapta a redimensionamentos da tela do navegador.
 
@@ -158,60 +154,6 @@ export class TutorialManager {
         ctx.fillText(this.activeZone.instructionText, rectX + rectW / 2, rectY + rectH / 2);
 
         ctx.restore();
-    }
-}
-```
-
----
-
-## 4. Blueprint de Experiência: Conexão Assistida Web3/DeSo (HTML/CSS)
-
-Para evitar que o usuário aborte o login ao se deparar com a tela de aprovação de transações on-chain, o onboarding deve contar com um guia explicativo em sobreposição no HTML antes de acionar a carteira.
-
-```html
-<!-- Componente UI de Onboarding Web3 (Inserido de forma não obstrutiva no RPG Panel) -->
-<div id="web3WelcomePanel" style="
-    background: #0f0a18; 
-    border: 2px solid #00FFFF; 
-    border-radius: 8px; 
-    padding: 15px; 
-    box-shadow: 0 0 15px rgba(0, 255, 255, 0.4); 
-    max-width: 320px; 
-    font-family: 'Courier New', monospace; 
-    color: #FFF;
-">
-    <h4 style="color: #00FF00; margin-top: 0; text-align: center; font-size: 14px;">🔑 EVOLUÇÃO ON-CHAIN</h4>
-    <p style="font-size: 11px; line-height: 1.4; color: #BBB;">
-        Danger Ghost utiliza a blockchain descentralizada <b>DeSo</b> para salvar permanentemente o nível, atributos e itens do seu herói na forma de um NFT exclusivo na sua carteira.
-    </p>
-    <div style="background: rgba(0, 255, 255, 0.1); border-left: 3px solid #00FFFF; padding: 6px; font-size: 10px; margin-bottom: 12px;">
-        💡 <b>Como funciona:</b> Ao clicar em salvar, um pop-up de identidade seguro da DeSo será aberto. Você assina a transação localmente e seus dados são criptografados na rede.
-    </div>
-    <button onclick="TriggerWalletConnection()" style="
-        width: 100%; 
-        padding: 8px; 
-        background: #00FF00; 
-        color: #000; 
-        font-weight: bold; 
-        border: none; 
-        border-radius: 4px; 
-        cursor: pointer;
-        font-family: 'Courier New';
-    ">
-        CONECTAR E JOGAR
-    </button>
-</div>
-```
-
-### Script de Fallback e Transição
-```javascript
-function TriggerWalletConnection() {
-    // 1. Ocultar painel de explicação com transição suave
-    document.getElementById("web3WelcomePanel").style.display = "none";
-    
-    // 2. Disparar fluxo original do Iframe e Popup da DeSo
-    if (typeof window.LoginDeSo === "function") {
-        window.LoginDeSo();
     }
 }
 ```

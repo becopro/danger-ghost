@@ -85,30 +85,6 @@
 				// 	ToggleNavbarTab('controls');
 				// } catch(e) {}
 
-				// Restaura sessão DeSo anterior se disponível para manter o login consistente entre atualizações
-				try {
-					var savedKey = localStorage.getItem("dg_deso_public_key");
-					var savedObj = localStorage.getItem("dg_deso_user_obj");
-					if (savedKey) {
-						window.g_desoPublicKey = savedKey;
-						if (savedObj) {
-							window.g_desoUserObj = JSON.parse(savedObj);
-						}
-						
-						var dBtn = document.getElementById("desoBtn");
-						if (dBtn) {
-							dBtn.innerText = "LOGGED IN: " + window.g_desoPublicKey.substring(0,8) + "...";
-							dBtn.style.borderColor = "#00FF00";
-							dBtn.style.color = "#00FF00";
-						}
-						CheckVIPStatus(window.g_desoPublicKey);
-						if (typeof LoadRPGStateFromDeSo === "function") {
-							LoadRPGStateFromDeSo(window.g_desoPublicKey);
-						}
-					}
-				} catch(sessionErr) {
-					console.warn("Failed to restore DeSo session:", sessionErr);
-				}
 			});
 
 
@@ -258,10 +234,10 @@
 			var fireballLeftImg = new Image(); fireballLeftImg.src = 'assets/sprites/Bola de fogo esquerda.webp';
 			window.fireballRightImg = fireballRightImg;
 			window.fireballLeftImg = fireballLeftImg;
-			var spellSparkImg = new Image(); spellSparkImg.src = 'assets/sprites/spell_spark.png';
-			var spellGhostImg = new Image(); spellGhostImg.src = 'assets/sprites/spell_ghost.png';
-			var spellOrbImg = new Image(); spellOrbImg.src = 'assets/sprites/spell_orb.png';
-			var spellPhantomImg = new Image(); spellPhantomImg.src = 'assets/sprites/spell_phantom.png';
+			var spellSparkImg = new Image(); spellSparkImg.src = 'assets/sprites/spell_spark.webp';
+			var spellGhostImg = new Image(); spellGhostImg.src = 'assets/sprites/spell_ghost.webp';
+			var spellOrbImg = new Image(); spellOrbImg.src = 'assets/sprites/spell_orb.webp';
+			var spellPhantomImg = new Image(); spellPhantomImg.src = 'assets/sprites/spell_phantom.webp';
 
 
 
@@ -291,9 +267,6 @@
 			function SetGameState(newState) {
 				if (g_gameState === newState) return;
 				g_gameState = newState;
-				
-				var btn = document.getElementById("desoBtn");
-				if (btn) btn.style.display = (g_gameState == G_START || g_gameState == G_WIN) ? "inline-block" : "none";
 				
 				var gBtn = document.getElementById("guestBtn");
 				if (gBtn) gBtn.style.display = (g_gameState == G_START) ? "inline-block" : "none";
@@ -984,6 +957,15 @@
 			}
 			window.spawnCave1Diamonds = spawnCave1Diamonds;
 
+			// PhaseFactor(phase) = 1 + (phase-1) * 0.05  (16/09/2026, redesenho do teto de 100 bilhões
+			// de níveis). Antes o retorno era a própria fase crua (1..32, linear) — com o HP agora
+			// escalando por L^1.90 no nível do personagem, repetir uma escala linear de 32x em cima
+			// disso empilhava duas curvas de dificuldade. O fator de fase virou um tempero suave
+			// (fase 32 = 2.55x, não 32x); a curva de verdade é o expoente do nível.
+			// Fase 33 (chefe final) e CAVE1 (área secreta) continuam com os valores fixos de sempre —
+			// são exceções intencionais, não parte da curva, e NÃO foram tocados.
+			// Fora de 1..33/CAVE1 (o personagem passa de longe do que qualquer dungeon atual oferece,
+			// só existem 33 episódios + CAVE1 hoje) o fator é 1.
 			function getPhaseMultiplier(levelNum) {
 				if (levelNum === "cave1" || levelNum === "CAVE1") {
 					return 500;
@@ -991,10 +973,8 @@
 				var lvl = parseInt(levelNum, 10);
 				if (isNaN(lvl)) return 1;
 				if (lvl === 33) return 666;
-				// 27/08/2026: removido o "* 10" nas fases 10-32 — era um degrau artificial de
-				// HP (20x de uma fase pra outra), não uma curva desenhada. Multiplicador agora é
-				// linear (= número da fase) em toda a faixa 1-32; fase 33 e CAVE1 continuam fixos.
-				return lvl;
+				if (lvl < 1 || lvl > 32) return 1;
+				return 1 + (lvl - 1) * 0.05;
 			}
 
 			function c_Boss(l_x, l_y, type) {
@@ -1006,9 +986,16 @@
 				var stats = GhostRPG.getStats();
 				this.level = stats.level || 1;
 				
+				// HP(L, enemyType, phase) = baseHp(enemyType) * L^1.90 * PhaseFactor(phase)  (16/09/2026).
+				// O termo linear em "level" virou expoente 1.90. "L" continua sendo o MESMO valor de
+				// nível do jogador que this.level já lia — o acoplamento é intencional e não deve ser
+				// desfeito: num desenho idle de 100 bilhões de níveis, "a dificuldade do conteúdo
+				// acompanha o nível do próprio jogador" é a forma certa. O problema real (corrigido
+				// na mesma passada) era o dano de SAÍDA também ser reduzido pelo nível — duplo
+				// negativo. Ver a remoção do levelReduction nos 4 pontos de colisão abaixo.
 				var baseHp = (this.type === "cactus") ? 9 : ((this.type === "skull") ? 33 : 4);
 				var phaseMult = getPhaseMultiplier(g_currentLevel);
-				this.maxHp = baseHp * this.level * phaseMult;
+				this.maxHp = Math.max(1, Math.floor(baseHp * Math.pow(this.level, 1.90) * phaseMult));
 				this.lives = this.maxHp;
 				
 				this.width = (this.type === "cactus") ? 288 : ((this.type === "skull") ? 168 : 48); 
@@ -1086,15 +1073,22 @@
 					if (!this.alive) return;
 					
 					// Update status ticks
+					// 16/09/2026: os dois blocos abaixo disparavam só a partícula — a runa de
+					// fogo e a de veneno pintavam o chefe e NÃO tiravam um ponto de vida
+					// sequer. Agora cada pulso aplica o dano calculado em
+					// computeDotTickDamage() no momento em que o efeito foi aplicado
+					// (~85% de um acerto direto somando a duração inteira).
 					if (this.burnTicks > 0) {
 						this.burnTicks--;
 						if (this.burnTicks % 15 === 0) {
+							this.lives -= (this.burnTickDmg || 1);
 							var _fx = createExplosionEffect(this.xPos + this.width/2, this.yPos + this.height/2, "#FF4500", 6); if (_fx) g_visualEffects.push(_fx);
 						}
 					}
 					if (this.poisonTicks > 0) {
 						this.poisonTicks--;
 						if (this.poisonTicks % 20 === 0) {
+							this.lives -= (this.poisonTickDmg || 1);
 							var _fx = createExplosionEffect(this.xPos + this.width/2, this.yPos + this.height/2, "#32CD32", 4); if (_fx) g_visualEffects.push(_fx);
 						}
 					}
@@ -1212,11 +1206,14 @@
 				// Vitalidade não substitui "lives", coexiste como camada nova por cima: um hit agora
 				// tira 1 ponto de Vitalidade em vez de matar na hora; só quando ela chega a 0 é que
 				// dispara a morte de verdade (this.alive=false) que já existia — que por sua vez
-				// continua custando 1 "life" em respawn(), exatamente como antes. Fixo em 3, sem
-				// escalar com o atributo RPG "vit": "vit" já tem papel definido hoje via
-				// GhostRPG.getMaxLivesCap() (aumenta o TETO de lives carregáveis) — usá-lo aqui
-				// também faria o mesmo ponto de atributo comprar dois bônus ao mesmo tempo.
-				this.maxVitality = 3;
+				// continua custando 1 "life" em respawn(), exatamente como antes.
+				// 16/09/2026: DEIXOU de ser fixo em 3. A barra agora escala com o atributo "vit"
+				// (GhostRPG.getMaxVitality() = 3 + vit), recalculada todo frame em move(), do mesmo
+				// jeito que maxMana já fazia com "mag" (getMaxMana() = 100 + mag*20). O comentário
+				// antigo aqui justificava o valor fixo pra "vit" não comprar dois bônus de uma vez
+				// (o outro sendo o teto de lives em getMaxLivesCap) — essa decisão foi revertida de
+				// propósito: "vit" agora dá OS DOIS, e o bônus de teto de lives CONTINUA existindo.
+				this.maxVitality = (typeof GhostRPG !== 'undefined' && GhostRPG.getMaxVitality) ? GhostRPG.getMaxVitality() : 3;
 				this.vitality = this.maxVitality;
 				this.vitalityDisplayed = this.maxVitality; // barra "fantasma": segue vitality com atraso suave (chip damage)
 				this.vitalityFlashTimer = 0; // frames restantes do flash de "acabou de tomar dano"
@@ -1312,7 +1309,43 @@
 				this.takeDamage = function (amount, emitsBossCollision) {
 					if (!this.alive) return;
 					if (this.ghostMode || this.phantomFormTimer > 0) return; // já imune hoje nesses estados
-					this.vitality -= (amount || 1);
+
+					// ------------------------------------------------------------------
+					// MITIGAÇÃO POR DEFESA (16/09/2026) — ponto de integração com o
+					// equipamento. Só o dano que o JOGADOR recebe passa por aqui; dano do
+					// jogador PRA chefe não usa isso (chefe não tem equipamento).
+					// Fórmula de retornos decrescentes padrão: 200 de defesa = 50% de
+					// redução, teto de 75% pra nunca virar quase-imunidade.
+					// GhostRPG.getTotalDefense() é implementado em rpg_system.js (outro
+					// agente, em paralelo) — o typeof deixa este arquivo rodar sozinho
+					// antes disso, tratando "sem defesa" como 1.0 (dano cheio).
+					var totalDef = (typeof GhostRPG !== 'undefined' && typeof GhostRPG.getTotalDefense === 'function')
+						? GhostRPG.getTotalDefense('player')
+						: 0;
+					if (!(totalDef > 0)) totalDef = 0;
+					var defenseMult = 1 - Math.min(0.75, totalDef / (totalDef + 200));
+
+					// A Vitalidade é um contador DISCRETO e pequeno, e todo chamador de
+					// takeDamage() hoje passa amount=1. Multiplicar e truncar daria
+					// Math.floor(1 * 0.5) = 0 -> invulnerabilidade total. Em vez disso a
+					// fração mitigada se acumula: com 50% de redução o jogador perde 1 de
+					// Vitalidade a cada 2 acertos, com 75% a cada 4. O teto de 0.75 garante
+					// que o acumulador sempre avança, então nunca existe imunidade real.
+					// Sem defesa (defenseMult === 1) o comportamento é idêntico ao antigo,
+					// bit a bit: carry += 1.0 -> aplica exatamente 1.
+					var raw = (amount || 1);
+					this._mitigationCarry = (this._mitigationCarry || 0) + raw * defenseMult;
+					var applied = Math.floor(this._mitigationCarry + 1e-9);
+					this._mitigationCarry -= applied;
+
+					if (applied <= 0) {
+						// Acerto absorvido pela defesa: pisca mesmo assim, pra leitura do
+						// jogador ("o golpe me acertou e não doeu") em vez de silêncio.
+						this.vitalityFlashTimer = 14;
+						return;
+					}
+
+					this.vitality -= applied;
 					this.vitalityFlashTimer = 14;
 					if (this.vitality <= 0) {
 						this.vitality = 0;
@@ -1336,6 +1369,9 @@
 					g_projectiles = [];
 					g_visualEffects = [];
 					this.skillCooldowns = [0, 0, 0, 0];
+					// Fração de dano mitigado que ainda não completou 1 ponto de Vitalidade
+					// (ver this.takeDamage) — zera na morte pra não vazar entre tentativas.
+					this._mitigationCarry = 0;
 					this.phantomFormTimer = 0;
 					this.ghostMode = false;
 					this.alive = true; this.xPos = 48; this.yPos = 150;
@@ -1403,6 +1439,25 @@
 					// Mana management
 					var stats = GhostRPG.getStats();
 					this.maxMana = GhostRPG.getMaxMana();
+					// Vitalidade recalculada todo frame pelo MESMO caminho da mana (16/09/2026) —
+					// era o motivo de a barra do HUD viver travada em 3 enquanto a de mana escalava.
+					// Sobe o valor atual junto quando o máximo cresce (ganhar "vit" não pode deixar
+					// o jogador com a barra maior e o HP relativo menor), mas nunca cura acima do
+					// que ele já tinha em relação ao máximo antigo.
+					if (GhostRPG.getMaxVitality) {
+						var newMaxVit = GhostRPG.getMaxVitality();
+						if (newMaxVit !== this.maxVitality) {
+							var gained = newMaxVit - this.maxVitality;
+							this.maxVitality = newMaxVit;
+							if (gained > 0) {
+								this.vitality = Math.min(newMaxVit, this.vitality + gained);
+								this.vitalityDisplayed = Math.min(newMaxVit, this.vitalityDisplayed + gained);
+							} else {
+								this.vitality = Math.min(this.vitality, newMaxVit);
+								this.vitalityDisplayed = Math.min(this.vitalityDisplayed, newMaxVit);
+							}
+						}
+					}
 					if (this.ghostMode && this.alive) {
 						var consumeRate = Math.max(0.5, 3 - (stats.int * 0.15));
 						this.mana -= consumeRate;
@@ -1412,6 +1467,9 @@
 						}
 					} else if (this.alive) {
 						var regenRate = 0.001 + (stats.int * 0.10);
+						if (typeof GhostRPG !== 'undefined' && typeof GhostRPG.getModifiedManaRegen === 'function') {
+							regenRate = GhostRPG.getModifiedManaRegen(regenRate);
+						}
 						this.mana = Math.min(this.maxMana, this.mana + regenRate);
 					}
 
@@ -1423,16 +1481,27 @@
 								if (self.xPos + 20 > boss.xPos && self.xPos + 4 < boss.xPos + boss.width &&
 									self.yPos + 24 > boss.yPos && self.yPos < boss.yPos + boss.height) {
 									if (self.jumpNum == 2 && (self.yPos + 24) < (boss.yPos + boss.height / 2)) {
+										// 16/09/2026: REMOVIDA a redução de dano por nível
+										// (Math.min(0.70, (boss.level-1)*0.04), até -70% já por volta do
+										// nível 19, usando o MESMO valor de nível do jogador). Era o bug
+										// que uma auditoria anterior apontou: subir de nível deixava o
+										// seu próprio golpe mais fraco. O conserto certo é o dano do
+										// jogador escalar PRA CIMA com o nível (WeaponDamage(L, tier) =
+										// 10 * L^1.85 * 1.12^tier, rpg_system.js) — não empilhar as duas
+										// coisas. Se você encontrar outra cópia deste bloco em algum
+										// lugar, ela é uma sobra: remova também.
 										var dmg = GhostRPG.getBossJumpDamage();
 										var finalDmg = dmg;
-										if (boss.level > 1) {
-											var reduction = Math.min(0.70, (boss.level - 1) * 0.04);
-											finalDmg = Math.max(1, Math.floor(dmg * (1 - reduction)));
-										}
 										if (boss.phantomFormTimer > 0) {
 											finalDmg = 0;
 										} else if (boss.type === "demon_fly" || boss.type === "slime") {
 											finalDmg = Math.max(1, Math.floor(finalDmg / 2));
+										}
+										// O "-30% de defesa enquanto envenenado" do tutorial vale pra
+										// TODAS as fontes de dano, não só pro veneno — o pisão inclusive.
+										// Sem elemento aqui: um pisão não carrega runa nem magia.
+										if (finalDmg > 0 && boss.poisonTicks > 0) {
+											finalDmg = Math.max(1, Math.floor(finalDmg * 1.3));
 										}
 
 										self.jumpNum = 1; self.jumpCounter = 2;
@@ -1466,16 +1535,18 @@
 						if (this.xPos + 20 > g_boss.xPos && this.xPos + 4 < g_boss.xPos + g_boss.width &&
 							this.yPos + 24 > g_boss.yPos && this.yPos < g_boss.yPos + g_boss.height) {
 							if (this.jumpNum == 2 && (this.yPos + 24) < (g_boss.yPos + g_boss.height / 2)) {
+								// 16/09/2026: mesma remoção do levelReduction do bloco g_bosses acima,
+								// versão singleton (g_boss). Ver comentário completo lá.
 								var dmg = GhostRPG.getBossJumpDamage();
 								var finalDmg = dmg;
-								if (g_boss.level > 1) {
-									var reduction = Math.min(0.70, (g_boss.level - 1) * 0.04);
-									finalDmg = Math.max(1, Math.floor(dmg * (1 - reduction)));
-								}
 								if (g_boss.phantomFormTimer > 0) {
 									finalDmg = 0;
 								} else if (g_boss.type === "demon_fly" || g_boss.type === "slime") {
 									finalDmg = Math.max(1, Math.floor(finalDmg / 2));
+								}
+								// Mesmo amplificador de veneno do bloco g_bosses acima (singleton).
+								if (finalDmg > 0 && g_boss.poisonTicks > 0) {
+									finalDmg = Math.max(1, Math.floor(finalDmg * 1.3));
 								}
 
 								this.jumpNum = 1; this.jumpCounter = 2;
@@ -1995,10 +2066,11 @@
 				var stats = GhostRPG.getStats();
 				var skillId = stats.equippedSkills[slotIndex];
 				var runeId = stats.equippedRunes[slotIndex];
+				var cdMult = (typeof GhostRPG.getCooldownMultiplier === 'function') ? GhostRPG.getCooldownMultiplier() : 1;
 
 				if (skillId === 0) { // Spectral Spark (V)
 					fireProjectile("spark", runeId);
-					DeSoGhost.skillCooldowns[slotIndex] = 15; // 0.5s cooldown
+					DeSoGhost.skillCooldowns[slotIndex] = Math.max(1, Math.round(15 * cdMult)); // 0.5s cooldown, CDR-adjusted
 					// BADGE HOOK ("Faísca em Movimento"): resolve o skillId de verdade (equipável por
 					// slot), não a tecla crua — então continua certo mesmo se o jogador reatribuir V.
 					if ((DeSoGhost.moveLeft || DeSoGhost.moveRight) && window.BadgeTracker) {
@@ -2021,7 +2093,7 @@
 					if (DeSoGhost.mana >= manaCost) {
 						DeSoGhost.mana -= manaCost;
 						fireProjectile("orb", runeId);
-						DeSoGhost.skillCooldowns[slotIndex] = 45; // 1.5s cooldown
+						DeSoGhost.skillCooldowns[slotIndex] = Math.max(1, Math.round(45 * cdMult)); // 1.5s cooldown, CDR-adjusted
 					}
 				}
 				else if (skillId === 3) { // Phantom Form (R)
@@ -2029,7 +2101,7 @@
 					if (DeSoGhost.mana >= manaCost) {
 						DeSoGhost.mana -= manaCost;
 						DeSoGhost.phantomFormTimer = 150; // 5s duration
-						DeSoGhost.skillCooldowns[slotIndex] = 450; // 15s cooldown
+						DeSoGhost.skillCooldowns[slotIndex] = Math.max(1, Math.round(450 * cdMult)); // 15s cooldown, CDR-adjusted
 						// BADGE HOOK ("Velocidade Máxima Sustentada" / "Reflexos do Além"): reseta os
 						// flags de "ficou em movimento o tempo todo" e "já contou esse contato" pra
 						// esta nova ativação — sem isso, sobreviver a um SEGUNDO contato com o mesmo
@@ -2138,11 +2210,14 @@
 
 										if (canHit) {
 											p.hits[boss.uid] = g_count;
+											// "-30% de defesa enquanto envenenado" prometido no tutorial:
+											// lido ANTES de qualquer status novo ser aplicado, pra que o
+											// próprio golpe que envenena não se amplifique (o bônus vale
+											// pros acertos SEGUINTES, de qualquer fonte).
+											var wasPoisoned = (boss.poisonTicks > 0);
+											// 16/09/2026: levelReduction removido daqui também (caminho
+											// de projétil/magia). Ver comentário no bloco de pisão acima.
 											var finalDmg = p.damage;
-											if (boss.level > 1) {
-												var reduction = Math.min(0.70, (boss.level - 1) * 0.04);
-												finalDmg = Math.max(1, Math.floor(p.damage * (1 - reduction)));
-											}
 											if (boss.phantomFormTimer > 0) {
 												finalDmg = 0;
 											} else if (boss.type === "demon_fly" || boss.type === "slime") {
@@ -2155,8 +2230,33 @@
 												boss.slowTimer = 180;
 											} else if (p.type === "spell_wood") {
 												boss.poisonTicks = 300;
+												boss.poisonTickDmg = computeDotTickDamage(p.damage, 300, 20);
+											}
+											// Multiplicador elemental + amplificador de veneno. O guard
+											// finalDmg > 0 preserva a imunidade do Phantom Form: sem ele,
+											// o Math.max(1, ...) transformaria os 0 de dano em 1.
+											var elementalMult = getElementalMultiplier(p, boss);
+											var poisonAmpMult = wasPoisoned ? 1.3 : 1.0;
+											// 17/09/2026 — BÔNUS ELEMENTAL DE EQUIPAMENTO. Não confundir com o
+											// elementalMult logo acima: aquele é MATCHUP (ELEMENT_MATCHUP, runa
+											// contra o elemento do chefe), este é um bônus PLANO vindo do gear
+											// (affixes Fiery/Glacial + aura de raridade Rare/Epic/Legendary,
+											// getTierElementalBonus). São sistemas distintos e valem os dois,
+											// multiplicativamente. GhostRPG.getElementalDamageMultiplier existia
+											// desde 16/09/2026 e não tinha NENHUM chamador: o tooltip "Legendary
+											// Aura: +15% elemental damage" prometia um efeito que nunca chegava
+											// ao dano (só a metade de life leech do mesmo tooltip funcionava).
+											// getAttackElement(p) devolve null pro golpe "pelado" (sem runa e sem
+											// magia) -> normalizeElement o trata como 'neutral' -> multiplicador
+											// 1.0, ou seja, dano físico não herda bônus elemental.
+											var gearElementalMult = (typeof GhostRPG !== 'undefined' && typeof GhostRPG.getElementalDamageMultiplier === 'function') ? GhostRPG.getElementalDamageMultiplier(getAttackElement(p)) : 1.0;
+											if (finalDmg > 0) {
+												finalDmg = Math.max(1, Math.floor(finalDmg * elementalMult * poisonAmpMult * gearElementalMult));
 											}
 											boss.lives -= finalDmg;
+											if (typeof GhostRPG !== 'undefined' && typeof GhostRPG.applyLifeLeech === 'function') {
+												GhostRPG.applyLifeLeech(finalDmg);
+											}
 											if (window.emitPlayerAttack) {
 												window.emitPlayerAttack({ bossId: boss.id || 0, damage: finalDmg, type: p.type });
 											}
@@ -2175,7 +2275,11 @@
 												DeSoGhost.mana = Math.min(DeSoGhost.maxMana, DeSoGhost.mana + genAmount);
 											}
 
-											applyRuneEffectsToBoss(boss, p.runeId);
+											// p.damage (não finalDmg) é a base do dano-ao-longo-do-tempo:
+											// "85% de um acerto direto" tem de ser do acerto NOMINAL da
+											// magia, sem empilhar por cima o bônus elemental/veneno que
+											// já foi aplicado ao golpe direto logo acima.
+											applyRuneEffectsToBoss(boss, p.runeId, p.damage);
 											var _fx = createExplosionEffect(p.x, p.y, color, (p.type === "spark" ? 5 : 10)); if (_fx) g_visualEffects.push(_fx);
 
 											if (!p.penetrates) {
@@ -2205,11 +2309,11 @@
 
 								if (canHit) {
 									p.hits[g_boss.uid] = g_count;
+									// Mesmo "-30% de defesa enquanto envenenado" do bloco g_bosses
+									// acima, versão singleton. Lido antes de aplicar status novo.
+									var wasPoisoned = (g_boss.poisonTicks > 0);
+									// 16/09/2026: quarta e última cópia do levelReduction, removida.
 									var finalDmg = p.damage;
-									if (g_boss.level > 1) {
-										var reduction = Math.min(0.70, (g_boss.level - 1) * 0.04);
-										finalDmg = Math.max(1, Math.floor(p.damage * (1 - reduction)));
-									}
 									if (g_boss.type === "demon_fly" || g_boss.type === "slime") {
 										finalDmg = Math.max(1, Math.floor(finalDmg / 2));
 									}
@@ -2223,8 +2327,24 @@
 										g_boss.slowTimer = 180;
 									} else if (p.type === "spell_wood") {
 										g_boss.poisonTicks = 300;
+										g_boss.poisonTickDmg = computeDotTickDamage(p.damage, 300, 20);
+									}
+									// Multiplicador elemental + amplificador de veneno (ver bloco
+									// g_bosses acima pro porquê do guard finalDmg > 0).
+									var elementalMult = getElementalMultiplier(p, g_boss);
+									var poisonAmpMult = wasPoisoned ? 1.3 : 1.0;
+									// Mesmo bônus elemental de equipamento do bloco g_bosses acima (ver o
+									// comentário longo lá pro porquê de ser OUTRA coisa que o elementalMult),
+									// versão singleton. Os DOIS pontos de colisão de projétil têm que aplicá-lo,
+									// senão o gear elemental valeria só contra um dos dois tipos de chefe.
+									var gearElementalMult = (typeof GhostRPG !== 'undefined' && typeof GhostRPG.getElementalDamageMultiplier === 'function') ? GhostRPG.getElementalDamageMultiplier(getAttackElement(p)) : 1.0;
+									if (finalDmg > 0) {
+										finalDmg = Math.max(1, Math.floor(finalDmg * elementalMult * poisonAmpMult * gearElementalMult));
 									}
 									g_boss.lives -= finalDmg;
+									if (typeof GhostRPG !== 'undefined' && typeof GhostRPG.applyLifeLeech === 'function') {
+										GhostRPG.applyLifeLeech(finalDmg);
+									}
 									if (window.emitPlayerAttack) {
 										window.emitPlayerAttack({ bossId: g_boss.id || 0, damage: finalDmg, type: p.type });
 									}
@@ -2243,7 +2363,7 @@
 										DeSoGhost.mana = Math.min(DeSoGhost.maxMana, DeSoGhost.mana + genAmount);
 									}
 
-									applyRuneEffectsToBoss(g_boss, p.runeId);
+									applyRuneEffectsToBoss(g_boss, p.runeId, p.damage);
 									var _fx = createExplosionEffect(p.x, p.y, color, (p.type === "spark" ? 5 : 10)); if (_fx) g_visualEffects.push(_fx);
 
 									if (!p.penetrates) {
@@ -2319,11 +2439,99 @@
 				}
 			}
 
-			function applyRuneEffectsToBoss(boss, runeId) {
-				if (runeId === 1) boss.burnTicks = 150;
+			// ================================================================
+			// SISTEMA ELEMENTAL (16/09/2026)
+			// Reaproveita EXATAMENTE os 5 elementos que o sistema de runas já usa
+			// (runeId 1..5 abaixo, em applyRuneEffectsToBoss) — nenhum vocabulário
+			// novo foi inventado. O elemento do ALVO vem de ghostdex_data.js
+			// ("elemento", um dos mesmos 5) para as 101 espécies, e da tabela
+			// STORY_BOSS_ELEMENT para os 5 chefes de história hardcoded.
+			// ================================================================
+
+			// Runa equipada -> elemento do ataque. Esta é a fonte do mapa; qualquer
+			// código novo que precise do elemento de uma runa deve ler daqui.
+			var RUNE_ELEMENT = { 1: "fire", 2: "ice", 3: "lightning", 4: "poison", 5: "arcane" };
+
+			// As magias de anel/livro viajam com runeId 0 (ver as chamadas de
+			// obtainProjectile nos handlers das teclas 1/2/3), então o elemento delas
+			// tem de vir do TIPO do projétil, não do runeId.
+			var SPELL_ELEMENT = { spell_fireball: "fire", spell_ice: "ice", spell_wood: "poison" };
+
+			// Os 5 chefes de história são hardcoded (c_Boss) e não têm ghostId nem
+			// entrada na Ghostdex — precisam desta tabela própria.
+			var STORY_BOSS_ELEMENT = { crow: "ice", skull: "arcane", cactus: "poison", demon_fly: "lightning", slime: "poison" };
+
+			// Ciclo fechado: Fire > Ice > Lightning > Poison > Fire.
+			// Arcane é neutro nos DOIS sentidos (1.0 atacando e 1.0 defendendo) — é o
+			// elemento "sem matchup", de propósito: dano confiável, nunca explosivo.
+			var ELEMENT_MATCHUP = {
+				fire:      { fire: 0.5, ice: 1.5, lightning: 1.0, poison: 0.5, arcane: 1.0 },
+				ice:       { fire: 0.5, ice: 0.5, lightning: 1.5, poison: 1.0, arcane: 1.0 },
+				lightning: { fire: 1.0, ice: 0.5, lightning: 0.5, poison: 1.5, arcane: 1.0 },
+				poison:    { fire: 1.5, ice: 1.0, lightning: 0.5, poison: 0.5, arcane: 1.0 },
+				arcane:    { fire: 1.0, ice: 1.0, lightning: 1.0, poison: 1.0, arcane: 1.0 }
+			};
+
+			// Ataque SEM runa e SEM tipo de magia (spark/orb "pelado") fica sem
+			// elemento de propósito -> multiplicador 1.0. Equipar uma runa é o que
+			// liga o sistema elemental; sem isso o golpe básico não muda de valor.
+			function getAttackElement(p) {
+				if (!p) return null;
+				if (p.type && SPELL_ELEMENT[p.type]) return SPELL_ELEMENT[p.type];
+				return RUNE_ELEMENT[p.runeId] || null;
+			}
+
+			// Resolve (e memoiza em boss.elemento) o elemento do alvo.
+			function getBossElement(boss) {
+				if (!boss) return null;
+				if (boss.elemento) return boss.elemento;
+				// Chefe de captura do Episódio 1: o elemento é o da espécie na Ghostdex.
+				// Usa o MESMO window.GetGhostdexEntry que SpawnEpisode1Ghost já usa pro
+				// speciesFactor de HP — sem re-derivar o formato canônico do id.
+				if (boss.ghostId && typeof window.GetGhostdexEntry === 'function') {
+					var entry = window.GetGhostdexEntry(boss.ghostId);
+					if (entry && entry.elemento) { boss.elemento = entry.elemento; return boss.elemento; }
+				}
+				if (boss.type && STORY_BOSS_ELEMENT[boss.type]) {
+					boss.elemento = STORY_BOSS_ELEMENT[boss.type];
+					return boss.elemento;
+				}
+				return null;
+			}
+
+			function getElementalMultiplier(p, boss) {
+				var atk = getAttackElement(p);
+				var def = getBossElement(boss);
+				if (!atk || !def) return 1.0;
+				var row = ELEMENT_MATCHUP[atk];
+				return (row && row[def]) || 1.0;
+			}
+
+			// Dano-ao-longo-do-tempo (queimadura/veneno): o TOTAL da duração inteira vale
+			// 85% de UM acerto direto da mesma magia que aplicou o efeito. Fica relevante
+			// (antes era 0 — só o tint visual) sem passar a dominar o acerto direto.
+			// O divisor é a contagem real de pulsos: os blocos de tick decrementam ANTES
+			// de testar o módulo, então burn (150/15) dá exatamente 10 pulsos, poison de
+			// runa (240/20) dá 12 e poison de spell_wood (300/20) dá 15 — calcular por
+			// duração mantém o total em ~85% qualquer que seja a fonte.
+			var DOT_TOTAL_FRACTION = 0.85;
+			function computeDotTickDamage(sourceDamage, durationTicks, intervalTicks) {
+				var pulses = Math.max(1, Math.floor(durationTicks / intervalTicks));
+				var src = Math.max(0, sourceDamage || 0);
+				return Math.max(1, Math.round((src * DOT_TOTAL_FRACTION) / pulses));
+			}
+
+			function applyRuneEffectsToBoss(boss, runeId, sourceDamage) {
+				if (runeId === 1) {
+					boss.burnTicks = 150;
+					boss.burnTickDmg = computeDotTickDamage(sourceDamage, 150, 15);
+				}
 				else if (runeId === 2) boss.slowTimer = 200;
 				else if (runeId === 3) boss.shockTimer = Math.random() < 0.40 ? 60 : 20;
-				else if (runeId === 4) boss.poisonTicks = 240;
+				else if (runeId === 4) {
+					boss.poisonTicks = 240;
+					boss.poisonTickDmg = computeDotTickDamage(sourceDamage, 240, 20);
+				}
 			}
 
 			function updateVisualEffects() {
@@ -2457,7 +2665,11 @@
 					g_ctx.font = "bold 9px 'Courier New'";
 					g_ctx.fillStyle = vitCritical ? "#FF5555" : "#FFFFFF";
 					g_ctx.textAlign = "left";
-					g_ctx.fillText("VITALITY", vitBarX + vitBarW + 6, vitBarY + vitBarH);
+					// Leitura numérica abreviada ao lado do rótulo (16/09/2026). Com "vit" escalando
+					// a barra, o par atual/máximo passa a valer mais que o rótulo sozinho — e
+					// formatBigNumber (rpg_system.js) evita o número cru de 12 dígitos.
+					var fmtVit = (typeof window.formatBigNumber === 'function') ? window.formatBigNumber : function(v) { return String(Math.floor(v)); };
+					g_ctx.fillText("VITALITY " + fmtVit(Math.floor(curVit)) + "/" + fmtVit(Math.floor(maxVit)), vitBarX + vitBarW + 6, vitBarY + vitBarH);
 				}
 
 				g_ctx.font = "bold 18px 'Courier New'"; g_ctx.fillStyle = "#FF00FF";
@@ -2503,8 +2715,23 @@
 				// Pontos e Nível no topo (Mudado para Roxo)
 				g_ctx.fillStyle = "#FF00FF"; g_ctx.fillText("SCORE: " + g_score.toString().padStart(6, '0'), 10, 20);
 				
-				// Texto completo do Level com os dois pontos para alinhar perfeitamente com a fonte
+				// Texto completo do Level com os dois pontos para alinhar perfeitamente com a fonte.
+				// ATENÇÃO: este "LEVEL" é o EPISÓDIO (g_currentLevel, 1..33/cave1), não o nível do
+				// personagem — nomes iguais, números completamente diferentes.
 				g_ctx.fillText("LEVEL : " + g_currentLevel, 200, 20);
+
+				// Nível do PERSONAGEM (16/09/2026): não existia no HUD, e agora é o número que pode
+				// chegar a 100.000.000.000 — abreviado por formatBigNumber pra não virar uma faixa de
+				// 12 dígitos atravessando a tela. getLevel() é o acessor leve (getStats() faz
+				// deep-copy do state e isto aqui roda todo frame).
+				if (typeof GhostRPG !== 'undefined' && GhostRPG.getLevel) {
+					var fmtLvl = (typeof window.formatBigNumber === 'function') ? window.formatBigNumber : function(v) { return String(v); };
+					g_ctx.save();
+					g_ctx.font = "bold 14px 'Courier New'";
+					g_ctx.fillStyle = "#00FFFF";
+					g_ctx.fillText("LV " + fmtLvl(GhostRPG.getLevel()), 200, 34);
+					g_ctx.restore();
+				}
 				
 				// Draw Active Ghost Name at the top right
 				var activeGhostName = "Unknown Ghost";
@@ -2862,13 +3089,11 @@
 				}
 			}
 
-			// --- DESO WEB3 INTEGRATION ---
+			// --- ESTADO DO SAVE LOCAL ---
+			// Nomes com prefixo "deso" são legado; não há blockchain envolvida.
+			// Estes quatro continuam em uso pelo fluxo de save local (js/web2/game_core.js,
+			// js/ui/ui_manager.js) — não renomear sem atualizar os chamadores.
 			window.g_desoPublicKey = null;
-			window.g_desoUserObj = null;
-			window.g_desoIdentityWindow = null;
-			window.g_desoPendingAction = null; 
-			window.g_desoPendingTransactionHex = null;
-			window.g_hasCreatorCoin = false;
 			window.g_desoLastPostHashHex = null;
 			window.g_desoPendingTransactionType = null;
 			window.g_desoCharactersLoading = false;
@@ -3000,7 +3225,18 @@
 				} else if (typeof g_currentLevel === 'number') {
 					lvlNum = g_currentLevel;
 				}
-				boss.maxHp = Math.floor(100 * 10 * Math.pow(1.15, lvlNum));
+				// 16/09/2026: o HP deste chefe ignorava POR COMPLETO qual espécie estava sendo
+				// enfrentada — um fantasma frágil e um tanque tinham exatamente o mesmo HP. Agora
+				// entra o fator de espécie, lido do MESMO window.g_ghostdexDB que getGhostBaseStats
+				// já usa (window.GetGhostdexEntry, exportado por rpg_system.js, faz esse lookup de
+				// id com o formato canônico, sem re-derivar). 390 é o total de referência: uma
+				// espécie exatamente mediana continua com o HP antigo, bit a bit.
+				var dbGhost = (typeof window.GetGhostdexEntry === 'function') ? window.GetGhostdexEntry(ghostId) : null;
+				var speciesFactor = 1;
+				if (dbGhost && dbGhost.stats_base) {
+					speciesFactor = (dbGhost.stats_base.total || 390) / 390;
+				}
+				boss.maxHp = Math.floor(100 * 10 * Math.pow(1.15, lvlNum) * speciesFactor);
 				boss.lives = boss.maxHp;
 
 				boss.vx = (epx < 0) ? 2 : -2;
@@ -3030,8 +3266,73 @@
 				var bossImgL = new Image(); bossImgL.src = 'assets/sprites/ghost_' + ghostId + '_l.webp?v=31';
 
 				boss.update = function () {
+					if (!this.alive) return;
+
+					// ------------------------------------------------------------------
+					// STATUS DE RUNA (16/09/2026) — porte da estrutura de tick/gate de
+					// c_Boss.update(). Antes deste porte, EnemyBoss ZERAVA as 5 runas: o
+					// construtor criava burnTicks/poisonTicks/slowTimer/shockTimer e nada
+					// mais lia esses campos, exceto a piscada de alpha do shockTimer no
+					// draw(). Queimar, envenenar, lentar e paralisar um fantasma do
+					// Episódio 1 não fazia absolutamente nada. Agora se comporta igual ao
+					// c_Boss para as 5.
+					// ------------------------------------------------------------------
+					if (this.burnTicks > 0) {
+						this.burnTicks--;
+						if (this.burnTicks % 15 === 0) {
+							this.lives -= (this.burnTickDmg || 1);
+							if (typeof createExplosionEffect === "function") {
+								var _bfx = createExplosionEffect(this.xPos + this.width / 2, this.yPos + this.height / 2, "#FF4500", 6);
+								if (_bfx) g_visualEffects.push(_bfx);
+							}
+						}
+					}
+					if (this.poisonTicks > 0) {
+						this.poisonTicks--;
+						if (this.poisonTicks % 20 === 0) {
+							this.lives -= (this.poisonTickDmg || 1);
+							if (typeof createExplosionEffect === "function") {
+								var _pfx = createExplosionEffect(this.xPos + this.width / 2, this.yPos + this.height / 2, "#32CD32", 4);
+								if (_pfx) g_visualEffects.push(_pfx);
+							}
+						}
+					}
+					if (this.slowTimer > 0) this.slowTimer--;
+					if (this.shockTimer > 0) this.shockTimer--;
+
+					// A checagem de morte subiu pro topo (era o último bloco do update).
+					// Tinha de subir: com o gate de shock abaixo dando return, um fantasma
+					// morto pela queimadura/veneno ENQUANTO paralisado nunca chegaria neste
+					// bloco e não seria capturado pra Ghostdex.
+					if (this.lives <= 0) {
+						if (this.alive) {
+							this.alive = false;
+							if (window.emitKillBoss) window.emitKillBoss(this.id || 0);
+							if (typeof GhostRPG !== 'undefined' && GhostRPG.addXp) GhostRPG.addXp(Math.floor(this.maxHp * 5));
+							if (window.RollEnemyDrop) window.RollEnemyDrop(g_currentLevel);
+
+							// CAPTURE THE GHOST!
+							if (window.UnlockGhostForPlayer) {
+								window.UnlockGhostForPlayer(this.ghostId);
+								if (typeof window.PushChatMessage === "function") {
+									window.PushChatMessage("SYSTEM", "Ghost #" + this.ghostId + " captured and sent to Ghostdex!", "#00FF00");
+								}
+							}
+						}
+						return;
+					}
+
+					// Gate de paralisia: nem move nem ataca enquanto o choque durar,
+					// exatamente como c_Boss.update().
+					if (this.shockTimer > 0) return;
+
+					// Lentidão aplicada à velocidade, não ao this.vx guardado — a lógica de
+					// quique nas bordas usa Math.abs(this.vx) e seria corrompida se o vetor
+					// em si fosse reescalado a cada frame.
+					var speedMult = (this.slowTimer > 0) ? 0.5 : 1;
+
 					this.vy += 0.5; // gravity
-					this.xPos += this.vx;
+					this.xPos += this.vx * speedMult;
 					this.yPos += this.vy;
 
 					if (this.yPos >= this.groundY) {
@@ -3095,25 +3396,8 @@
 						else if (this.xPos >= this.maxX) { this.vx = -Math.abs(this.vx) * speedMod; }
 					}
 
-					if (this.shockTimer > 0) this.shockTimer--;
-
-					if (this.lives <= 0) {
-						if (this.alive) {
-							this.alive = false;
-							if (window.emitKillBoss) window.emitKillBoss(this.id || 0);
-							if (typeof GhostRPG !== 'undefined' && GhostRPG.addXp) GhostRPG.addXp(Math.floor(this.maxHp * 5));
-							if (window.RollEnemyDrop) window.RollEnemyDrop(g_currentLevel);
-							
-							// CAPTURE THE GHOST!
-							if (window.UnlockGhostForPlayer) {
-								window.UnlockGhostForPlayer(this.ghostId);
-								if (typeof window.PushChatMessage === "function") {
-									window.PushChatMessage("SYSTEM", "Ghost #" + this.ghostId + " captured and sent to Ghostdex!", "#00FF00");
-								}
-							}
-						}
-						return;
-					}
+					// (o decremento de shockTimer e a checagem de morte que ficavam aqui
+					// subiram pro topo do update — ver o bloco de status de runa.)
 				};
 
 				boss.draw = function() {
@@ -3757,7 +4041,10 @@ var g_binaryBits = [];
 								var stats = GhostRPG.getStats();
 								var intPowMult = 1 + (stats.int + stats.pow) * 0.05;
 								var spellDmg = Math.round(25 * intPowMult);
-								
+								if (typeof GhostRPG.getRingBonus === 'function') {
+									spellDmg = Math.round(spellDmg * GhostRPG.getRingBonus('ring1'));
+								}
+
 								var p = obtainProjectile(px, py, vx, 0, "spell_ice", 0, 16, 16, 120, spellDmg, true);
 								g_projectiles.push(p);
 								
@@ -3781,7 +4068,10 @@ var g_binaryBits = [];
 								var stats = GhostRPG.getStats();
 								var intPowMult = 1 + (stats.int + stats.pow) * 0.05;
 								var spellDmg = Math.round(30 * intPowMult);
-								
+								if (typeof GhostRPG.getRingBonus === 'function') {
+									spellDmg = Math.round(spellDmg * GhostRPG.getRingBonus('ring2'));
+								}
+
 								var p = obtainProjectile(px, py, vx, 0, "spell_wood", 0, 16, 16, 120, spellDmg, true);
 								g_projectiles.push(p);
 								
@@ -4524,7 +4814,7 @@ var g_binaryBits = [];
 				}, 150);
 			}
 
-			// Blockchain Save Simulator step-by-step logic
+			// Local Save Simulator step-by-step logic
 			function RunTutorialSaveSimulation() {
 				var simBtn = document.getElementById("simSaveBtn");
 				var consoleBox = document.getElementById("tutorialConsole");
@@ -4563,7 +4853,7 @@ var g_binaryBits = [];
 					if (node2) { node2.classList.remove("active"); node2.classList.add("success"); }
 					var node3 = document.getElementById("simNode3");
 					if (node3) node3.classList.add("active");
-					consoleBox.innerHTML += "> [IDENTITY] Derived Key Signature generated:\n  Signing hexadecimal payload via secp256k1 elliptic curve...\n";
+					consoleBox.innerHTML += "> [STORAGE] Preparing character data for browser storage...\n";
 				}, 1800);
 
 				// Step 4
@@ -4572,7 +4862,7 @@ var g_binaryBits = [];
 					if (node3) { node3.classList.remove("active"); node3.classList.add("success"); }
 					var node4 = document.getElementById("simNode4");
 					if (node4) node4.classList.add("active");
-					consoleBox.innerHTML += "> [NETWORK] Transmitting data (Base64) to DeSo Blockchain node...\n";
+					consoleBox.innerHTML += "> [STORAGE] Writing save data (Base64) to local browser storage...\n";
 				}, 2600);
 
 				// Final
@@ -4581,9 +4871,8 @@ var g_binaryBits = [];
 					if (node4) { node4.classList.remove("active"); node4.classList.add("success"); }
 					
 					var mockPayload = "eyJsZXZlbCI6NDIsInhwIjoxNTAwLCJjaGFyYWN0ZXJJZCI6ImRnX2ZhbnRhc21hIiwiYXR0cmlidXRlcyI6eyJ2aXQiOjE1LCJhZ2kiOjIwLCJpbnQiOjEwLCJwb3ciOjgsIm1hZyI6MTJ9fQ==";
-					consoleBox.innerHTML += "\n✅ SUCCESS: Save Post Published! PostHashHex: 5b4c73ef2...\n";
 					consoleBox.innerHTML += "> Payload: " + mockPayload + "\n";
-					consoleBox.innerHTML += "> Status: SYNCHRONIZED ON BLOCKCHAIN PERMANENTLY 🏆";
+					consoleBox.innerHTML += "\n✅ SAVE COMPLETE — your progress is safe on this device 💾";
 					simBtn.disabled = false;
 				}, 3500);
 			}
@@ -4690,6 +4979,16 @@ var g_binaryBits = [];
 				DeSoGhost.vitality = DeSoGhost.maxVitality;
 				DeSoGhost.vitalityDisplayed = DeSoGhost.maxVitality;
 				DeSoGhost.vitalityFlashTimer = 0;
+				return true;
+			};
+			// Cura parcial (não pro máximo) usada pelo roubo de vida dos afixos de
+			// equipamento — GhostRPG.applyLifeLeech() chama isto com quantos pontos de
+			// Vitalidade curar. Diferente de TryHealLiveVitality (semântica de elixir,
+			// cura tudo de uma vez), este soma n e nunca ultrapassa o teto atual.
+			window.HealLiveVitality = function(n) {
+				if (typeof DeSoGhost === 'undefined' || !DeSoGhost || !(n > 0)) return false;
+				DeSoGhost.vitality = Math.min(DeSoGhost.maxVitality, DeSoGhost.vitality + n);
+				DeSoGhost.vitalityDisplayed = DeSoGhost.vitality;
 				return true;
 			};
 			})(); // Fecha IIFE Caixa Preta

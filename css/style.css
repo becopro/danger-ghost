@@ -3124,3 +3124,564 @@ body {
 
 
 
+
+/* =========================================================
+   INVENTORY MODAL — BAG / EQUIP / SPELLS / STATUS (16/09/2026)
+   =========================================================
+   Por que uma MODAL e nao o .overlay-panel de sempre: .overlay-panel e
+   travado em 300x300px com !important (ver bloco "Overlays Glassmorphism"
+   no topo deste arquivo) e e COMPARTILHADO com chat/controles/Ghostdex —
+   afrouxar o tamanho la quebraria os tres. Esta tela reaproveita o shell
+   de modal que o bau da conta ja usa e que ja resolveu o mount em
+   fullscreen (.tutorial-modal-overlay/-container/-header/-close-btn).
+
+   Regra visual central: os 11 icones .webp de equipamento/magia NAO tem
+   alpha de verdade (o JPEG de origem tinha fundo pintado) — sao quadrados
+   opacos. Entao a raridade NUNCA e um brilho em volta da silhueta: e a
+   MOLDURA (border 3px + box-shadow) desenhada em volta do quadrado, em
+   repouso, sem depender de hover/selecao.
+   ========================================================= */
+
+.dg-inv-container {
+    max-width: 1000px;
+    width: 96%;
+    margin: 24px auto;
+    min-height: 0;
+}
+
+.dg-inv-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 10px 16px 0 16px;
+    border-bottom: 1px solid var(--border-light);
+    flex-wrap: wrap;
+}
+
+.dg-inv-tab {
+    background: transparent;
+    border: 1px solid var(--border-light);
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    color: var(--text-muted);
+    font-family: var(--font-title);
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    padding: 9px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+}
+
+.dg-inv-tab:hover { color: var(--white); background: rgba(255,255,255,0.05); }
+
+.dg-inv-tab.active {
+    color: var(--cyan-neon);
+    border-color: var(--cyan-neon);
+    background: rgba(0, 255, 255, 0.08);
+    box-shadow: 0 -2px 12px rgba(0, 255, 255, 0.25);
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
+}
+
+.dg-inv-body {
+    display: flex;
+    gap: 18px;
+    padding: 16px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.dg-inv-col-main { flex: 1 1 420px; min-width: 280px; }
+.dg-inv-col-side { flex: 0 0 280px; min-width: 240px; }
+
+.dg-inv-section-title {
+    margin: 0 0 10px 0;
+    font-family: var(--font-title);
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--cyan-neon);
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.35);
+}
+
+/* ---------- RARIDADE: a moldura E o sinal ----------------------------
+   Seletor composto (.dg-item-frame.dg-rarity-*) de proposito: .dg-item-frame
+   declara `border` no atalho, que tem a MESMA especificidade de um
+   `border-color` solto e venceria por ordem no arquivo — a cor da raridade
+   simplesmente nao aparecia. */
+.dg-rarity-common,
+.dg-item-frame.dg-rarity-common {
+    border-color: var(--text-muted);
+    box-shadow: none;
+}
+.dg-rarity-rare,
+.dg-item-frame.dg-rarity-rare {
+    border-color: var(--cyan-neon);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.55), inset 0 0 6px rgba(0, 255, 255, 0.25);
+}
+.dg-rarity-epic,
+.dg-item-frame.dg-rarity-epic {
+    border-color: var(--magenta-neon);
+    box-shadow: 0 0 12px rgba(255, 0, 255, 0.6), inset 0 0 7px rgba(255, 0, 255, 0.3);
+}
+.dg-rarity-legendary,
+.dg-item-frame.dg-rarity-legendary {
+    border-color: var(--yellow-neon);
+    animation: dgLegendaryPulse 1.7s ease-in-out infinite;
+}
+
+@keyframes dgLegendaryPulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(255, 213, 0, 0.5), inset 0 0 6px rgba(255, 213, 0, 0.25); }
+    50%      { box-shadow: 0 0 22px rgba(255, 213, 0, 0.95), inset 0 0 11px rgba(255, 213, 0, 0.45); }
+}
+
+/* ---------- Moldura de item (grid do Bag e slots do paperdoll) -------- */
+.dg-item-frame {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border: 3px solid var(--text-muted);
+    border-radius: 6px;
+    /* Respiro escuro entre a arte e a moldura: os icones sao quadrados opacos e
+       cheios de neon proprio — encostados na borda, a cor da raridade sumia no
+       meio do brilho da propria arte. */
+    padding: 3px;
+    background: rgba(7, 6, 13, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+    box-sizing: border-box;
+}
+
+.dg-item-frame:hover { transform: scale(1.06); z-index: 3; }
+
+.dg-item-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    image-rendering: auto;
+    position: relative;
+    z-index: 1;
+}
+
+/* Glifo que fica ATRAS da imagem: se o .webp/.png do item nao existir mais (save
+   antigo com caminho velho), a imagem se esconde no onerror e sobra isto, em vez
+   do icone de "imagem quebrada" do navegador. */
+.dg-icon-fallback {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    opacity: 0.55;
+    z-index: 0;
+}
+
+.dg-item-frame .dg-item-count {
+    position: absolute;
+    bottom: 1px;
+    right: 2px;
+    font-size: 9px;
+    font-weight: bold;
+    background: #000;
+    color: #FFA500;
+    padding: 0 3px;
+    border-radius: 2px;
+    border: 1px solid #FFA500;
+    line-height: 1.4;
+}
+
+.dg-item-frame.dg-selected {
+    outline: 2px solid var(--white);
+    outline-offset: 1px;
+}
+
+/* Slot vazio: contorno tracejado apagado (padrao que o jogo ja usava) */
+.dg-item-frame.dg-empty {
+    border-style: dashed;
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(0, 0, 0, 0.35);
+    box-shadow: none;
+    animation: none;
+    color: rgba(255, 255, 255, 0.25);
+    font-size: 10px;
+    font-family: var(--font-title);
+    text-align: center;
+    letter-spacing: 0.05em;
+    padding: 2px;
+}
+
+.dg-item-frame.dg-empty:hover {
+    border-color: rgba(0, 255, 255, 0.5);
+    color: var(--cyan-neon);
+}
+
+/* ---------- BAG: grade maior que a do painel antigo ------------------- */
+.dg-bag-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+    max-height: 46vh;
+    overflow-y: auto;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.dg-bag-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.dg-filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-title);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    color: var(--yellow-neon);
+    border: 1px solid var(--yellow-neon);
+    background: rgba(255, 213, 0, 0.08);
+    border-radius: 999px;
+    padding: 4px 12px;
+    text-transform: uppercase;
+}
+
+.dg-filter-pill button {
+    background: transparent;
+    border: none;
+    color: var(--yellow-neon);
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+}
+
+/* ---------- Tooltip de hover (desktop) -------------------------------- */
+#dgItemTooltip {
+    position: fixed;
+    display: none;
+    z-index: 2500;
+    pointer-events: none;
+    max-width: 300px;
+    background: rgba(7, 6, 12, 0.97);
+    border: 1px solid var(--cyan-neon);
+    border-radius: 8px;
+    box-shadow: 0 0 22px rgba(0, 255, 255, 0.25);
+    padding: 10px 12px;
+    font-family: var(--font-text);
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--white);
+}
+
+.dg-tip-name {
+    font-family: var(--font-title);
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+}
+
+.dg-tip-sub {
+    color: var(--text-muted);
+    font-size: 10px;
+    font-family: var(--font-title);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.dg-tip-desc { color: #d7d7e0; margin-bottom: 6px; font-style: italic; }
+.dg-tip-stat { color: var(--cyan-neon); }
+.dg-tip-affix { color: #FFD54F; }
+.dg-tip-req { color: #FF5555; font-size: 10px; margin-top: 5px; }
+.dg-tip-effect { color: #FF8C00; font-size: 10px; margin-top: 5px; font-style: italic; }
+
+.dg-tip-compare {
+    margin-top: 7px;
+    padding-top: 6px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.2);
+}
+
+.dg-tip-compare-title {
+    font-family: var(--font-title);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 3px;
+}
+
+.dg-up   { color: #00FF66; font-weight: bold; }
+.dg-down { color: #FF3B5C; font-weight: bold; }
+.dg-same { color: var(--text-muted); }
+
+/* ---------- EQUIP: paperdoll ------------------------------------------ */
+.dg-paperdoll {
+    position: relative;
+    width: 340px;
+    height: 400px;
+    margin: 0 auto;
+}
+
+.dg-paperdoll-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.dg-doll-slot {
+    position: absolute;
+    width: 64px;
+    height: 64px;
+}
+
+.dg-doll-label {
+    position: absolute;
+    bottom: -14px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-family: var(--font-title);
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
+.dg-slot-head     { top: 2px;   left: 50%; transform: translateX(-50%); }
+/* O amuleto comeca ABAIXO do pescoco desenhado (y 78-92 no viewBox) — colado
+   mais pra cima ele cobria as duas linhas do pescoco e a cabeca parecia solta,
+   flutuando acima do corpo. */
+.dg-slot-amulet   { top: 100px; left: 50%; transform: translateX(-50%); }
+.dg-slot-chest    { top: 176px; left: 50%; transform: translateX(-50%); }
+.dg-slot-mainhand { top: 150px; left: 6px; }
+.dg-slot-offhand  { top: 150px; right: 6px; }
+.dg-slot-ring1    { top: 258px; left: 58px; }
+.dg-slot-ring2    { top: 258px; right: 58px; }
+
+/* ---------- SPELLS: tiles clicaveis no lugar dos <select> ------------- */
+.dg-spell-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.dg-spell-tile {
+    position: relative;
+    width: 120px;
+    background: rgba(24, 18, 36, 0.7);
+    border: 2px solid var(--border-light);
+    border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.dg-spell-tile:hover { border-color: var(--cyan-neon); box-shadow: 0 0 12px rgba(0, 255, 255, 0.3); }
+.dg-spell-tile.dg-open { border-color: var(--magenta-neon); box-shadow: 0 0 14px rgba(255, 0, 255, 0.45); }
+
+.dg-spell-icon-wrap {
+    position: relative;
+    width: 84px;
+    height: 84px;
+    margin: 0 auto 6px auto;
+    border: 3px solid var(--cyan-neon);
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+}
+
+.dg-spell-icon-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.dg-spell-key {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    background: rgba(0, 0, 0, 0.85);
+    border: 1px solid var(--yellow-neon);
+    color: var(--yellow-neon);
+    font-family: var(--font-title);
+    font-size: 10px;
+    font-weight: bold;
+    border-radius: 3px;
+    padding: 1px 5px;
+    z-index: 2;
+}
+
+.dg-spell-name {
+    font-family: var(--font-title);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--white);
+    line-height: 1.3;
+}
+
+.dg-spell-rune {
+    font-family: var(--font-title);
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    margin-top: 3px;
+    text-transform: uppercase;
+}
+
+.dg-spell-flyout {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    width: 320px;
+    max-width: calc(100vw - 40px);
+    max-height: 260px;
+    overflow-y: auto;
+    background: rgba(7, 6, 12, 0.98);
+    border: 1px solid var(--magenta-neon);
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
+    padding: 8px;
+    text-align: left;
+}
+
+.dg-flyout-cols {
+    display: flex;
+    gap: 10px;
+}
+
+.dg-flyout-cols > div {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.dg-flyout-title {
+    font-family: var(--font-title);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin: 2px 0 5px 0;
+}
+
+.dg-flyout-opt {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    color: var(--white);
+    font-family: var(--font-text);
+    font-size: 11px;
+    padding: 5px 6px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
+}
+
+.dg-flyout-opt:hover { background: rgba(255, 255, 255, 0.07); border-color: var(--cyan-neon); }
+.dg-flyout-opt.dg-current { border-color: var(--green-neon); background: rgba(0, 255, 0, 0.08); }
+
+.dg-rune-dot {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+/* Variacao de cor de runa SEM arte nova por runa: filtro sobre o MESMO icone
+   base (spell_*.webp). hue-rotate e barato e nao depende de alpha. */
+.dg-rune-0 { filter: none; }
+.dg-rune-1 { filter: hue-rotate(-35deg) saturate(1.7) brightness(1.05); }
+.dg-rune-2 { filter: hue-rotate(155deg) saturate(1.4); }
+.dg-rune-3 { filter: hue-rotate(65deg) saturate(1.8) brightness(1.1); }
+.dg-rune-4 { filter: hue-rotate(105deg) saturate(1.6); }
+.dg-rune-5 { filter: hue-rotate(255deg) saturate(1.5); }
+
+/* ---------- STATUS: totais derivados do gear -------------------------- */
+.dg-derived-box {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(0, 255, 255, 0.25);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.dg-derived-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 12px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dg-derived-row:last-child { border-bottom: none; }
+
+.dg-derived-label {
+    font-family: var(--font-title);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.dg-derived-value { color: var(--cyan-neon); font-weight: bold; }
+.dg-derived-split { color: var(--text-muted); font-size: 10px; font-weight: normal; }
+
+/* ---------- Mobile / touch ------------------------------------------- */
+@media (max-width: 860px) {
+    .dg-inv-body { padding: 12px; gap: 12px; }
+    .dg-inv-col-side { flex: 1 1 100%; min-width: 0; }
+    .dg-bag-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); max-height: 38vh; }
+    .dg-paperdoll { width: 300px; height: 360px; }
+    .dg-doll-slot { width: 56px; height: 56px; }
+    .dg-slot-amulet   { top: 92px; }
+    .dg-slot-chest    { top: 160px; }
+    .dg-slot-mainhand { top: 136px; left: 2px; }
+    .dg-slot-offhand  { top: 136px; right: 2px; }
+    .dg-slot-ring1    { top: 232px; left: 48px; }
+    .dg-slot-ring2    { top: 232px; right: 48px; }
+    .dg-spell-tile { width: 104px; }
+    .dg-spell-icon-wrap { width: 72px; height: 72px; }
+    .dg-inv-tab { padding: 8px 11px; font-size: 11px; }
+}
+
+/* Sem hover de verdade (touch): nunca mostra o tooltip flutuante — o painel
+   de detalhes por clique (ja existia no Bag) e o caminho nessas telas. */
+@media (hover: none) {
+    #dgItemTooltip { display: none !important; }
+    .dg-item-frame:hover { transform: none; }
+    /* Nao prometa hover pra quem nao tem mouse. */
+    .dg-hover-hint { display: none !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dg-rarity-legendary { animation: none; box-shadow: 0 0 14px rgba(255, 213, 0, 0.7); }
+    .dg-item-frame, .dg-spell-tile, .dg-inv-tab { transition: none !important; }
+    .dg-item-frame:hover { transform: none; }
+}

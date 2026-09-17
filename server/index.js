@@ -391,12 +391,10 @@ const PLAYER_PROFILE_MAX_ATTEMPTS = 30;
 // dado protegido (players[socket.id]) também já é por conexão, não por IP.
 const PLAYER_MOVE_MAX_ATTEMPTS = 20;
 const PLAYER_MOVE_RATE_WINDOW_MS = 1000;
-const RATE_LIMIT_MESSAGE = 'Muitas tentativas, aguarde um momento.';
-// Mesmo texto de RATE_LIMIT_MESSAGE, só que em inglês — pedido do usuário (31/08/2026) foi
-// traduzir só as mensagens de perfil/diário/upload/amizades pro inglês, sem mexer nas de
-// login/cadastro/sessão (fora de escopo), que continuam usando RATE_LIMIT_MESSAGE em português.
-// Como o bucket de rate limit é o mesmo mecanismo (isRateLimited) pros dois grupos de eventos,
-// a mensagem tem que ser escolhida por CONSTANTE, nunca por tradução da mesma string.
+// Mensagem única de rate limit para TODOS os eventos (perfil/diário/upload/amizades e também
+// login/cadastro/sessão). Até 16/09/2026 existia uma segunda constante RATE_LIMIT_MESSAGE em
+// português usada só pelos eventos de auth; com a decisão de deixar o jogo 100% em inglês ela
+// foi removida e todos os call sites passaram a apontar para esta.
 const RATE_LIMIT_MESSAGE_EN = 'Too many attempts, please wait a moment.';
 const rateLimitBuckets = new Map(); // chave "evento:ip" -> array de timestamps (ms) das tentativas recentes
 
@@ -686,7 +684,7 @@ io.on('connection', (socket) => {
     socket.on('auth_google_token', async (data) => {
         try {
             if (!data || !data.token || typeof data.token !== 'string') {
-                socket.emit('auth_google_error', { message: 'Token do Google ausente ou inválido.' });
+                socket.emit('auth_google_error', { message: 'Missing or invalid Google token.' });
                 return;
             }
 
@@ -714,7 +712,7 @@ io.on('connection', (socket) => {
             socket.emit('auth_google_success', buildAuthSuccessPayload(email, result.data));
         } catch (error) {
             console.error('[Auth] Error processing Google Token:', error);
-            socket.emit('auth_google_error', { message: error.message || 'Falha ao verificar login do Google.' });
+            socket.emit('auth_google_error', { message: error.message || 'Failed to verify Google login.' });
         }
     });
 
@@ -725,11 +723,11 @@ io.on('connection', (socket) => {
     socket.on('cloud_save_login', async (data) => {
         try {
             if (isRateLimited('cloud_save_login:' + socket.handshake.address, LOGIN_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
-                socket.emit('cloud_save_error', { message: RATE_LIMIT_MESSAGE });
+                socket.emit('cloud_save_error', { message: RATE_LIMIT_MESSAGE_EN });
                 return;
             }
             if (!data || !data.email) {
-                socket.emit('cloud_save_error', { message: 'E-mail inválido para o Cloud Save.' });
+                socket.emit('cloud_save_error', { message: 'Invalid email for Cloud Save.' });
                 return;
             }
             const email = String(data.email).trim().toLowerCase();
@@ -742,7 +740,7 @@ io.on('connection', (socket) => {
             socket.emit('cloud_save_success', buildAuthSuccessPayload(email, playerData));
         } catch (error) {
             console.error('[CloudSave] Error processing login:', error);
-            socket.emit('cloud_save_error', { message: error.message || 'Falha ao acessar o Cloud Save.' });
+            socket.emit('cloud_save_error', { message: error.message || 'Failed to access Cloud Save.' });
         }
     });
 
@@ -752,11 +750,11 @@ io.on('connection', (socket) => {
     socket.on('cloud_save_signup', async (data) => {
         try {
             if (isRateLimited('cloud_save_signup:' + socket.handshake.address, SIGNUP_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
-                socket.emit('cloud_save_error', { message: RATE_LIMIT_MESSAGE });
+                socket.emit('cloud_save_error', { message: RATE_LIMIT_MESSAGE_EN });
                 return;
             }
             if (!data || !data.email) {
-                socket.emit('cloud_save_error', { message: 'E-mail inválido para criar conta.' });
+                socket.emit('cloud_save_error', { message: 'Invalid email to create account.' });
                 return;
             }
             const email = String(data.email).trim().toLowerCase();
@@ -770,7 +768,7 @@ io.on('connection', (socket) => {
             socket.emit('cloud_save_success', buildAuthSuccessPayload(email, playerData));
         } catch (error) {
             console.error('[CloudSave] Error processing signup:', error);
-            socket.emit('cloud_save_error', { message: error.message || 'Falha ao criar conta.' });
+            socket.emit('cloud_save_error', { message: error.message || 'Failed to create account.' });
         }
     });
 
@@ -780,24 +778,24 @@ io.on('connection', (socket) => {
     socket.on('session_login', async (data) => {
         try {
             if (isRateLimited('session_login:' + socket.handshake.address, LOGIN_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
-                socket.emit('session_login_error', { message: RATE_LIMIT_MESSAGE });
+                socket.emit('session_login_error', { message: RATE_LIMIT_MESSAGE_EN });
                 return;
             }
             if (!data || !data.token) {
-                socket.emit('session_login_error', { message: 'Token ausente.' });
+                socket.emit('session_login_error', { message: 'Missing token.' });
                 return;
             }
             let payload;
             try {
                 payload = jwt.verify(data.token, JWT_SECRET);
             } catch (jwtErr) {
-                socket.emit('session_login_error', { message: 'Sessão expirada, faça login novamente.' });
+                socket.emit('session_login_error', { message: 'Session expired, please log in again.' });
                 return;
             }
             const email = payload.email;
             const playerData = await loadPlayerByEmail(email);
             if (!playerData) {
-                socket.emit('session_login_error', { message: 'Conta não encontrada.' });
+                socket.emit('session_login_error', { message: 'Account not found.' });
                 return;
             }
             console.log(`[Auth] Login automático por sessão para: ${email}`);
@@ -807,7 +805,7 @@ io.on('connection', (socket) => {
             socket.emit('session_login_success', buildAuthSuccessPayload(email, playerData));
         } catch (error) {
             console.error('[Auth] Erro no login por sessão:', error);
-            socket.emit('session_login_error', { message: 'Falha ao validar sessão.' });
+            socket.emit('session_login_error', { message: 'Failed to validate session.' });
         }
     });
 
@@ -850,7 +848,7 @@ io.on('connection', (socket) => {
                 }
             } catch (error) {
                 console.error('[DB] Save error:', error);
-                socket.emit('save_error', { message: 'Erro ao salvar progresso.' });
+                socket.emit('save_error', { message: 'Failed to save progress.' });
             }
         });
         // Nunca deixa uma rejeição não tratada quebrar a fila pra sempre — o catch acima já
@@ -885,7 +883,7 @@ io.on('connection', (socket) => {
             return;
         }
         if (!data || !data.characterId) {
-            socket.emit('delete_character_error', { message: 'ID do personagem ausente.' });
+            socket.emit('delete_character_error', { message: 'Missing character ID.' });
             return;
         }
 
@@ -897,7 +895,7 @@ io.on('connection', (socket) => {
                 socket.emit('delete_character_success', { characterId: data.characterId });
             } catch (error) {
                 console.error('[DB] Delete character error:', error);
-                socket.emit('delete_character_error', { message: 'Erro ao apagar personagem.' });
+                socket.emit('delete_character_error', { message: 'Failed to delete character.' });
             }
         });
         saveQueues[socket.id] = current.catch(() => {});
@@ -1132,7 +1130,7 @@ io.on('connection', (socket) => {
         const type = data && data.type;
         const amount = data && data.amount;
         if (!VALID_STAT_TYPES.includes(type) || !Number.isInteger(amount) || amount < 1) {
-            socket.emit('increment_stat_error', { message: 'Payload inválido para increment_stat.' });
+            socket.emit('increment_stat_error', { message: 'Invalid payload for increment_stat.' });
             return;
         }
 
@@ -1147,7 +1145,7 @@ io.on('connection', (socket) => {
                 }
             } catch (error) {
                 console.error('[Badges] Erro em increment_stat:', error);
-                socket.emit('increment_stat_error', { message: error.message || 'Erro ao registrar estatística.' });
+                socket.emit('increment_stat_error', { message: error.message || 'Failed to record statistic.' });
             }
         });
         saveQueues[socket.id] = current.catch(() => {});
@@ -1187,7 +1185,7 @@ io.on('connection', (socket) => {
         const requirementType = data && data.requirement_type;
         const value = data && data.value;
         if (typeof requirementType !== 'string' || !/^[a-zA-Z0-9_]{1,64}$/.test(requirementType) || typeof value !== 'number' || !isFinite(value)) {
-            socket.emit('badge_progress_error', { message: 'Payload inválido para badge_progress.' });
+            socket.emit('badge_progress_error', { message: 'Invalid payload for badge_progress.' });
             return;
         }
 
@@ -1201,7 +1199,7 @@ io.on('connection', (socket) => {
                 }
             } catch (error) {
                 console.error('[Badges] Erro em badge_progress:', error);
-                socket.emit('badge_progress_error', { message: error.message || 'Erro ao registrar progresso de emblema.' });
+                socket.emit('badge_progress_error', { message: error.message || 'Failed to record badge progress.' });
             }
         });
         saveQueues[socket.id] = current.catch(() => {});

@@ -68,19 +68,75 @@ Este projeto tem repositórios grandes (`engine.js` sozinho tem ~220KB, duplicad
 
 ## 8. Equipe de Agentes Especialistas
 
-Criada em 30/08/2026, a pedido do usuário: um time de subagentes com escopo de responsabilidade claro, cada um carregando o histórico real de bugs/decisões deste projeto (não conhecimento genérico) em `danger ghost/.claude/agents/*.md`. Invoque via `Agent` com `subagent_type` = o nome do arquivo:
+Criada em 30/08/2026 (10 agentes iniciais) e expandida em 15/09/2026, a pedido do usuário, a partir do time de departamentos descrito em `docs/orquestrador-ghost-games.md` (o "MP" — documento original de referência, cópia trazida de fora do projeto) — agora **39 arquivos** em `danger ghost/.claude/agents/*.md`, cada um com 40+ anos de experiência de persona e carregando o histórico real de bugs/decisões deste projeto (não conhecimento genérico). Invoque via `Agent` com `subagent_type` = o nome do arquivo. Para um pedido amplo/multi-departamento onde não está óbvio quem acionar, invoque `mp-orchestrator` primeiro — ele só faz a triagem (quem, em que ordem, por quê) e devolve o plano; ele não implementa nem substitui os especialistas.
 
+**Alguns papéis do MD original existem hoje sem pipeline ativo neste projeto** (jogo é 2D Canvas vanilla JS, sem 3D/dublagem/engine comercial) — `3d-modeler` e `texture-artist` ficam restritos à presença separada no metaverso Hyperfy (`hyperfy.io/desoghostmansion`), e `voice-actor` fica dormante até o jogo realmente ter um sistema de VO. Isso é intencional (o usuário pediu o time completo como visão de longo prazo), não um erro — cada um desses três arquivos já deixa essa limitação explícita e redireciona pro agente certo quando o pedido é, na real, sobre outra coisa.
+
+### Design
 | Agente | Escopo |
 |---|---|
-| `game-director` | Escopo de feature, decisões de design, revisão do resultado final contra o pedido original. Não escreve código. |
+| `game-director` | **("Diretor Criativo" do MP)** Escopo de feature, decisões de design, revisão/reconciliação final do resultado contra o pedido original. Não escreve código. |
+| `game-designer` | Curvas de progressão, fórmulas de dano/stat, balanceamento de runas e mana — no papel, antes da implementação. |
+| `level-designer` | Layout de dungeon, ritmo de dificuldade dos 33 episódios, posicionamento de segredos/boss, mapa isométrico overworld (Niterói). |
+| `narrative-designer` | Lore da Ghostdex, nomenclatura de espécies, tom do texto voltado ao jogador. |
+| `ui-ux-designer` | HUD, modais, responsividade mobile, identidade visual neon/vaporwave. |
+
+### Programação
+| Agente | Escopo |
+|---|---|
 | `gameplay-engineer` | Mecânicas, sistema de RPG, `engine.js`/`rpg_system.js`, Ghostdex (jogabilidade). |
+| `engine-programmer` | Loop principal (`Game_Loop`/`Game_Step`), máquina de estados (`SetGameState`), ciclo de vida do canvas. |
+| `graphics-programmer` | Desenho Canvas 2D — draw order, sprites, efeitos visuais, "binary background". Sem shaders (não há WebGL no stack). |
+| `ai-programmer` | Comportamento de boss/inimigo (`c_Boss`), padrões de ataque — não os números de HP/dano (isso é `game-designer`). |
+| `network-programmer` | Sync multiplayer do lado **cliente** (interpolação, reconexão, chat global). Servidor/Socket.io é `backend-architect`. |
 | `backend-architect` | `server/db.js`, `server/index.js`, schema Postgres/Supabase, eventos Socket.io, auth. |
 | `mobile-platform-engineer` | Paridade site↔mobile, build Capacitor/Android, as duas pastas-armadilha já documentadas na §3. |
+| `tools-programmer` | Scripts internos — seed/migração (`seed_badges.js`, `migratetosupabase.js`), build-time da conversão OSM. |
+| `physics-programmer` | Colisão (bitmap de tiles), física de pulo/gravidade, movimento de projétil. |
 | `security-engineer` | Revisão de auth/validação/integridade — não implementa, revisa e aponta cenário concreto de abuso. |
+
+### Arte e Visual
+| Agente | Escopo |
+|---|---|
+| `concept-artist` | Direção visual antes do asset final — silhueta, paleta, mood de uma nova espécie/tela. |
+| `2d-artist` | Especificação de sprite/ícone final (`.webp`/`.png`) — não gera arquivo binário, escreve spec executável. |
+| `animator` | Animação de sprite e o sistema de cutscene via GIF (`StartCutscene`/`EndCutscene`, `cutsceneGif`). |
+| `vfx-artist` | Direção visual de efeitos (cor, partículas, duração) — implementação real é `graphics-programmer`. |
+| `technical-artist` | Ponte arte↔código, pipeline de asset, performance de carregamento (hoje sem spritesheet/atlas). |
+| `3d-modeler` | **Só** o espaço Hyperfy (`desoghostmansion`) — não há pipeline 3D no jogo em si. |
+| `texture-artist` | **Só** ao lado de `3d-modeler` no Hyperfy — não há malha 3D no jogo em si pra texturizar. |
+
+### Áudio
+| Agente | Escopo |
+|---|---|
+| `sound-designer` | Direção de efeitos sonoros (SFX) — spec, não gera áudio. |
+| `composer` | Direção de trilha sonora — hoje um track confirmado (`Ghostly Quest 8-Bit.mp3`). |
+| `audio-programmer` | Código de playback (`PlayBGM`/`ToggleMute`), autoplay policy, wiring de novo som/track. |
+| `voice-actor` | **Dormante** — não existe sistema de dublagem/VO no jogo hoje; redireciona pra `narrative-designer` se o pedido for sobre texto. |
+
+### Produção, Gestão e Qualidade
+| Agente | Escopo |
+|---|---|
+| `producer` | Priorização macro — o que entra no mês, o que é cortado/adiado, escopo realista de dev solo. |
+| `project-manager` | Sequenciamento de um trabalho já escopado entre os especialistas certos, na ordem certa. |
+| `qa-tester` | Playtesting geral e feedback de balanceamento — bugs do dia a dia, fora do escopo save/auth/sync. |
 | `qa-lead` | Verificação ponta a ponta antes de qualquer deploy que toque save/auth/sync — método real, não "parece que funciona". |
 | `forensic-analyst` | Investigação forense de largo espectro (40 anos) — assume que nada está de fato corrigido até rastrear a cadeia causal completa; usado quando um sistema (ex: save/sync) já foi remendado várias vezes e pode ter irmãos do mesmo bug em outro lugar. Não é substituto do `qa-lead` (verificação de UMA mudança antes do deploy) nem do `backend-architect` (implementação) — é auditoria adversarial ampla. |
-| `ui-ux-designer` | HUD, modais, responsividade mobile, identidade visual neon/vaporwave. |
-| `narrative-designer` | Lore da Ghostdex, nomenclatura de espécies, tom do texto voltado ao jogador. |
+
+### Publicação, Negócios e Pós-Lançamento
+| Agente | Escopo |
+|---|---|
+| `marketing` | Divulgação nos canais reais já existentes (Twitter `@GhostGamesnit`, Telegram, YouTube). |
+| `game-economy-designer` | Economia de score/badges (333 badges) — hoje **sem** monetização real em dinheiro no código. |
+| `publisher-bizdev` | Realidade de distribuição hoje: APK direto pelo site, **sem** loja/publisher confirmado — não presumir Play Store. |
+| `localization` | **Achado real confirmado**: a tela inicial mistura PT (`RESGATAR PROGRESSO`) e EN (`PRESS SPACE TO START`) hoje — precisa de decisão do usuário sobre estratégia de idioma antes de "corrigir". |
+| `community-manager` | Chat global in-game (`InitGlobalChat`), canais externos — interação do dia a dia com jogadores. |
+| `live-ops` | Cadência de conteúdo pós-lançamento reaproveitando sistemas existentes (badges, overworld). |
 | `skills-curator` | Pesquisa e mantém as Skills compartilhadas em `danger ghost/.claude/skills/` — não escreve código de jogo. |
 
-Skills já criadas (carregadas pelos agentes acima quando relevante): `e2e-db-verification` (metodologia de teste contra o Supabase real, com conta descartável, simulando "outro aparelho"), `crossplatform-deploy` (checklist de espelhar pro mobile, recompilar o APK, cache-busting, e o deploy na VPS com as pegadinhas do teclado remoto) e `forensic-root-cause-analysis` (mapeamento de cadeia causal, causa raiz vs. gatilho, diagnóstico de race condition a partir do estado bruto, caça a "irmãos" do mesmo tipo de bug — carregada pelo `forensic-analyst` antes de `e2e-db-verification`). Peça ao `skills-curator` pra criar novas conforme o time encontrar mais processos repetíveis.
+### Orquestrador
+| Agente | Escopo |
+|---|---|
+| `mp-orchestrator` | Triagem de um pedido amplo/multi-departamento — lê o roster completo acima, decide quem aciona e em que ordem, sinaliza risco de escopo. Não implementa e não invoca outros agentes sozinho; devolve o plano pro fio principal executar via `Agent`. Fecha sempre delegando a síntese final pro `game-director` (o "Diretor Criativo"). |
+
+Skills já criadas (carregadas pelos agentes acima quando relevante): `e2e-db-verification` (metodologia de teste contra o Supabase real, com conta descartável, simulando "outro aparelho"), `crossplatform-deploy` (checklist de espelhar pro mobile, recompilar o APK, cache-busting, e o deploy na VPS com as pegadinhas do teclado remoto), `forensic-root-cause-analysis` (mapeamento de cadeia causal, causa raiz vs. gatilho, diagnóstico de race condition a partir do estado bruto, caça a "irmãos" do mesmo tipo de bug — carregada pelo `forensic-analyst` antes de `e2e-db-verification`), `isometric-canvas-rendering` (projeção grid↔tela do overworld, draw-order, e a regra de nunca rodar o loop do overworld concorrente com o de `engine.js` no mesmo canvas) e `osm-to-game-grid` (conversão de dados OpenStreetMap reais em grid do overworld, build-time only). Peça ao `skills-curator` pra criar novas conforme o time encontrar mais processos repetíveis.

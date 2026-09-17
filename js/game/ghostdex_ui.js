@@ -222,6 +222,77 @@ window.ShowGhostdexDetail = function(ghostId) {
     h += st === 2 ? ghost.habitat : '???';
     h += '</div>';
 
+    // ---- HIERARQUIA DE CATEGORIA (17/09/2026) --------------------------------
+    // Mostra o eixo de vantagem/desvantagem construído sobre o campo
+    // "categoria" (ver js/game/ghostdex_hierarchy.js pro desenho completo).
+    // Ciclo: Signal > Concrete > Residue > Signal, em multiplicadores 1.25/0.8.
+    //
+    // NÃO confundir com o campo "elemento" (fire/ice/lightning/poison/arcane) e
+    // sua ELEMENT_MATCHUP em engine.js: aquele é o eixo da RUNA que o jogador
+    // equipa e já vale em combate hoje. Este aqui é o eixo da identidade do
+    // fantasma inteiro e existe como preparo pras batalhas FANTASMA vs FANTASMA,
+    // que ainda não foram construídas. Os dois convivem de propósito.
+    // Hoje esta seção é o único consumidor da tabela — é a prova visível de que
+    // o dado é real, e não um JSON parado esperando uma feature futura.
+    var catProfile = (typeof window.GetCategoriaProfile === 'function')
+        ? window.GetCategoriaProfile(ghost.categoria)
+        : null;
+
+    if (catProfile) {
+        var dCol = catProfile.domainColor;
+        var pill = function (txt, col, bg) {
+            return '<span style="display:inline-block; background:' + bg + '; color:' + col +
+                '; border:1px solid ' + col + '; padding:1px 6px; border-radius:8px;' +
+                ' font-size:9px; margin:1px 2px 1px 0; white-space:nowrap;">' + txt + '</span>';
+        };
+
+        h += '<div style="margin-bottom:10px; padding:8px; background:#0B0B12;' +
+             ' border:1px solid ' + dCol + '; border-radius:5px;' +
+             ' box-shadow:0 0 8px ' + dCol + '33;">';
+
+        // Linha 1: rótulo + categoria + selo do domínio
+        h += '<div style="display:flex; justify-content:space-between; align-items:center;' +
+             ' gap:6px; margin-bottom:5px; flex-wrap:wrap;">';
+        h += '<div style="font-family:Orbitron,sans-serif; font-size:11px; color:#FFF;">' +
+             ghost.categoria + '</div>';
+        h += '<div style="font-size:9px; font-weight:bold; letter-spacing:1px; color:' + dCol +
+             '; text-shadow:0 0 6px ' + dCol + ';">' + catProfile.domainLabel.toUpperCase() +
+             ' DOMAIN</div>';
+        h += '</div>';
+
+        // Linha 2: por que esta espécie pertence a este domínio
+        h += '<div style="font-size:10px; color:#8A8AA0; line-height:1.35; margin-bottom:6px;">' +
+             catProfile.why + '</div>';
+
+        // Linha 3/4: contra quem é forte e contra quem é fraca
+        h += '<div style="display:flex; align-items:flex-start; margin-bottom:3px;">';
+        h += '<div style="width:52px; flex-shrink:0; font-size:9px; font-weight:bold;' +
+             ' color:#00FF88; padding-top:2px;">STRONG</div>';
+        h += '<div style="flex-grow:1;">';
+        catProfile.strongAgainst.forEach(function (c) {
+            h += pill(c, '#00FF88', '#00FF8815');
+        });
+        h += '</div></div>';
+
+        h += '<div style="display:flex; align-items:flex-start;">';
+        h += '<div style="width:52px; flex-shrink:0; font-size:9px; font-weight:bold;' +
+             ' color:#FF3366; padding-top:2px;">WEAK</div>';
+        h += '<div style="flex-grow:1;">';
+        catProfile.weakAgainst.forEach(function (c) {
+            h += pill(c, '#FF3366', '#FF336615');
+        });
+        h += '</div></div>';
+
+        // Rodapé: o ciclo inteiro, pro jogador entender a regra e não só o caso dele
+        h += '<div style="margin-top:6px; padding-top:5px; border-top:1px solid #222;' +
+             ' font-size:9px; color:#666; text-align:center;">' +
+             'Signal &gt; Concrete &gt; Residue &gt; Signal' +
+             '</div>';
+
+        h += '</div>';
+    }
+    // ---- fim da hierarquia de categoria --------------------------------------
+
     // Stats bars
     var stats = [
         { label: 'HP', val: ghost.stats_base.hp },

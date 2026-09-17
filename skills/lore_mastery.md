@@ -1,11 +1,13 @@
 # Skill: Maestria de Lore, Escrita Narrativa e Integração de RPG (Gótico-Cyberpunk)
 ## Especialidade: Senior Lore Master (senior-lore-master)
 
+> **Cópia de segurança:** as seções 2 e 4 deste arquivo (pilares estéticos, mapeamento atributo→ficção e as fichas de lore de Cactus, Crow e do Level 26) também estão preservadas em `docs/SALVAGED_LORE_2026-09-16.md`, com notas de contexto. Se editar uma, atualize a outra.
+
 ---
 
 ## 1. Introdução: O Papel da Narrativa no Ecossistema DragaMP
 
-Em ecossistemas de jogos AAA e Web3, a lore não é apenas um adorno estético, mas o tecido que une mecânicas de jogo (RPG), colecionáveis digitais (NFTs na DeSo) e a experiência de imersão do jogador (worldbuilding). 
+A lore é o que amarra as mecânicas de RPG à imersão: sem ela, atributos viram planilha e fantasmas viram sprites. O jogo é 100% Web2 — não há colecionável on-chain nem token envolvido em nada descrito aqui.
 
 Para o jogo *Danger Ghost*, o **senior-lore-master** deve orquestrar a fusão temática entre:
 1. **A Estética Neo RJ (Beco Pro / Klara Kopi)**: A cultura urbana carioca (skateboarding na Praça XV, grafite, pixação, música urbana da banda *Chemical Noise*) mesclada com a decadência industrial de Neo Tokyo (luzes neon magenta/ciano saturadas, fumaça densa, cabos expostos, telas digitais).
@@ -44,7 +46,7 @@ Modelagem dos monstros e cenários de forma modular em formatos estruturados (JS
 
 ## 3. Blueprint do Codex: Serialização de Entidades (JSON Schema)
 
-O Codex não deve ser apenas texto corrido. Ele deve ser estruturado deterministicamente para que a Engine do jogo ou o frontend do inventário possa ler e associar metadados aos cards de personagens e NFTs da DeSo.
+O Codex não deve ser apenas texto corrido. Ele deve ser estruturado deterministicamente para que a Engine do jogo ou o frontend do inventário possa ler e associar metadados aos cards de personagens.
 
 ```json
 {
@@ -67,8 +69,7 @@ O Codex não deve ser apenas texto corrido. Ele deve ser estruturado determinist
     "metadata": {
       "type": "object",
       "properties": {
-        "associatedAsset": { "type": "string", "description": "Caminho do sprite ou NFT" },
-        "desoNFTPostHash": { "type": "string" }
+        "associatedAsset": { "type": "string", "description": "Caminho do sprite" }
       }
     }
   },
@@ -102,19 +103,3 @@ Abaixo estão as fichas definitivas de lore para os principais chefes e mecânic
 ### 4.3. O Mistério do **Level 26 (Matrix/BecoPro Staging)**
 - **Lore**: 
   O nível 26 de Danger Ghost não é uma fase convencional. É o "BecoPro Staging Area", um "glitch" proposital inserido no código do jogo por Beco Pro durante a exposição "Lugar Nenhum". As paredes físicas são substituídas por cascatas de bits binários verde-saturados que rolam em alta velocidade (simulando a tela do Matrix Background). O nível serve como um portal de staging onde o fantasma adquire consciência das regras de criptografia do ecossistema DragaMP.
-
----
-
-## 5. Integração Web3: Metadados Lore on-chain
-
-Para criar verdadeiro valor colecionável no ecossistema DeSo, o `senior-lore-master` deve trabalhar em conjunto com o `senior-web3-dev` para serializar trechos da história diretamente no `PostExtraData` no momento em que um Ghost ou Screenshot é mintado como NFT.
-
-### Exemplo de Estrutura de Metadados de Lore no PostExtraData:
-```json
-{
-  "DangerGhost_CharacterID": "dg_xyz8827a",
-  "DangerGhost_LorePiece": "atob('RXN0ZSBmYW50YXNtYSByZW5hc2NldSBkb3Mgc3ByYXlzIGRhIFByYcOnYSBYVi4uLg==')",
-  "DangerGhost_LoreSignature": "0xabcde12345..."
-}
-```
-Isso garante que cada NFT seja único não apenas por seus atributos de RPG, mas por conter um fragmento exclusivo de narrativa e lore criptografado on-chain.

@@ -1,4 +1,4 @@
-# Skill: Automação de Testes QA, Mocks Web3 e Prevenção de XSS
+# Skill: Automação de Testes QA e Prevenção de XSS
 ## Especialidade: Senior QA Expert (senior-qa-expert)
 
 ---
@@ -7,8 +7,8 @@
 
 O ambiente de testes atual em *Danger Ghost* baseia-se em emulações leves com `JSDOM` (`test_jsdom_errors.js`). Embora seja rápido para verificar erros de sintaxe básicos, apresenta lacunas severas de garantia de qualidade:
 1. **Mocking Estático Incompleto**: Não testa interações visuais complexas, como renderização real no canvas HTML5, colisões sob taxas de quadros oscilantes e timing de sincronização de áudio.
-2. **Ignorância da Comunicação Cross-Origin**: O jogo se comunica com o iframe `identity.deso.org` por meio de `window.postMessage`. O JSDOM não simula com fidelidade a segurança de origem do navegador, sandboxing de iframes e restrições de referenciadores.
-3. **Vulnerabilidade a XSS Armazenado (Cross-Site Scripting)**: Na exibição do ranking global (Leaderboard), o jogo extrai os nomes de usuários inseridos via inputs on-chain e os renderiza no HTML. Se um atacante subir uma transação com um nome malicioso (ex: `<img src=x onerror=alert(document.cookie)>`), e o sistema de escape falhar, a conta de todos os jogadores que visualizarem o placar pode ser comprometida.
+2. **Fidelidade de Rede e Sessão**: o JSDOM não reproduz o comportamento real de `fetch`, cookies e sessão do navegador contra o backend (Express + Socket.io), então falhas de auth e de sync de save passam despercebidas.
+3. **Vulnerabilidade a XSS Armazenado (Cross-Site Scripting)**: na exibição do ranking global (Leaderboard) e no chat global, o jogo renderiza no HTML nomes de usuário vindos do servidor. Se um jogador registrar um nome malicioso (ex: `<img src=x onerror=alert(document.cookie)>`) e o escape falhar, a conta de todos que virem o placar pode ser comprometida.
 
 ---
 
@@ -16,24 +16,21 @@ O ambiente de testes atual em *Danger Ghost* baseia-se em emulações leves com 
 
 A automação de nível AAA exige testes de ponta a ponta (E2E) rodando em navegadores reais (Chromium, Firefox, WebKit) via **Playwright**. Isso nos permite auditar o comportamento real da física, do canvas, do áudio e de injeções de script no DOM.
 
-### 2.1. Arquitetura de Intercepção e Mocking Web3
-Como não podemos realizar transações financeiras reais ou depender da rede DeSo ativa durante testes de CI/CD, o Playwright interceptará chamadas de rede e simulará as respostas do iframe de identidade.
+### 2.1. Arquitetura de Intercepção e Mocking de Auth
+Testes de CI/CD não podem depender do Supabase real nem criar contas de verdade a cada rodada. O Playwright intercepta as chamadas de autenticação do cliente e devolve uma sessão simulada, deixando o save local (`localStorage`) rodar de ponta a ponta sem rede.
 
 ```mermaid
 sequenceDiagram
     participant Test as Playwright Runner
     participant App as Danger Ghost (App)
-    participant Iframe as Iframe Mock (identity.deso.org)
-    participant API as API Mock (node.deso.org)
+    participant API as API Mock (backend Express)
 
-    Test->>App: Injetar Mocks Globais (g_desoPublicKey)
+    Test->>App: Interceptar rota de login e injetar sessão fake
     Test->>App: Iniciar Jogo e Ganhar Pontuação
-    App->>API: POST /api/v0/submit-post (dados do save)
-    Note over Test: Playwright intercepta requisição<br/>e retorna mock com TransactionHex
-    API-->>App: { TransactionHex: "010a3f..." }
-    App->>Iframe: postMessage (get_jwt)
-    Note over Test: Playwright escuta e responde postMessage<br/>originando de identity.deso.org
-    Iframe-->>App: postMessage (jwt token assinado)
+    App->>API: POST /login (e-mail + senha)
+    Note over Test: Playwright intercepta e retorna<br/>usuário autenticado sem tocar o Supabase
+    API-->>App: { ok: true, user: {...} }
+    App->>App: Grava o save em localStorage (Base64)
     App->>App: Atualiza UI com sucesso de salvamento
     Test->>App: Assert: Mensagem de progresso salvo visível
 ```
@@ -74,73 +71,35 @@ export default defineConfig({
 });
 ```
 
-### 3.2. Suíte de Testes E2E, Mocks Web3 e Scanner de XSS (`tests/game.spec.ts`)
+### 3.2. Suíte de Testes E2E, Mock de Auth e Scanner de XSS (`tests/game.spec.ts`)
 ```typescript
 import { test, expect, Page } from "@playwright/test";
 
-// Mock da Chave Pública de Testes
-const MOCK_PUBLIC_KEY = "BC1YLheA3Zd65n6sE7364s7E63d76as73d6as73d6asd7a";
+const MOCK_USER = { id: 1, email: "qa@dangerghost.test", username: "QA_Runner" };
 
 /**
- * Injeta o comportamento simulado do Iframe do DeSo Identity
+ * Intercepta o login local de e-mail/senha e devolve uma sessão autenticada,
+ * sem tocar o backend nem o Supabase real.
  */
-async function mockDeSoIdentity(page: Page) {
-  await page.addInitScript((publicKey) => {
-    // Escuta mensagens enviadas ao window
-    window.addEventListener("message", (event) => {
-      if (event.origin !== "https://identity.deso.org") return;
-      
-      const data = event.data;
-      if (data && data.method === "jwt") {
-        // Responder simulando a aprovação e assinatura de JWT pelo iframe
-        window.postMessage(
-          {
-            id: data.id,
-            service: "identity",
-            payload: {
-              jwt: "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.mockPayload.mockSignature"
-            }
-          },
-          "*"
-        );
-      }
-    });
+async function mockLocalAuth(page: Page) {
+  await page.route("**/login", async (route) => {
+    await route.fulfill({ json: { ok: true, user: MOCK_USER } });
+  });
 
-    // Mock das propriedades de login no objeto global
-    (window as any).g_desoPublicKey = publicKey;
-    (window as any).g_desoUserObj = {
-      accessLevel: 4,
-      accessLevelHmac: "hmachash",
-      encryptedSeedHex: "seedhex"
-    };
-  }, MOCK_PUBLIC_KEY);
+  await page.addInitScript((user) => {
+    // Estado de sessão que o cliente espera encontrar já logado
+    (window as any).g_currentUser = user;
+  }, MOCK_USER);
 }
 
 test.describe("Danger Ghost - Suíte de Testes AAA & Segurança", () => {
   
   test.beforeEach(async ({ page }) => {
-    // Interceptar e simular chamadas de API do Nó DeSo
-    await page.route("https://node.deso.org/api/v0/submit-post", async (route) => {
-      const json = {
-        TransactionHex: "f1a23b4c5d6e",
-        PostHashHex: "posthashhex123456789"
-      };
-      await route.fulfill({ json });
-    });
-
-    await page.route("https://node.deso.org/api/v0/upload-image", async (route) => {
-      await route.fulfill({
-        json: { ImageURL: "https://images.deso.org/mocked_ghost.jpg" }
-      });
-    });
-
-    // Configurar mocks do Identity
-    await mockDeSoIdentity(page);
+    await mockLocalAuth(page);
     await page.goto("/");
   });
 
-  test("Deve inicializar o jogo com carteira conectada e carregar HUD", async ({ page }) => {
-    // Verificar se o botão de conectar DeSo mudou para o painel de status do herói
+  test("Deve inicializar o jogo autenticado e carregar HUD", async ({ page }) => {
     const statusHeader = page.locator("#rpgPanelContent h3");
     await expect(statusHeader).toBeVisible();
     await expect(statusHeader).toHaveText("🛡️ HERO STATUS");
@@ -192,7 +151,9 @@ test.describe("Danger Ghost - Suíte de Testes AAA & Segurança", () => {
 
 ## 4. Estratégias de Sanitização de Entradas (Anti-XSS)
 
-A injeção de strings maliciosas ocorre quando o código do jogo utiliza `.innerHTML` para inserir dados obtidos da rede (como o feed de posts do blockchain DeSo) sem tratamento.
+<!-- TODO(security-engineer): esta seção é uma referência teórica escrita fora do código. Verificar contra o código ao vivo se `escapeHTML` existe de fato, onde é chamado, e se o leaderboard e o chat global realmente passam por ele antes de qualquer `.innerHTML`. -->
+
+A injeção de strings maliciosas ocorre quando o código do jogo utiliza `.innerHTML` para inserir dados vindos do servidor (nomes no leaderboard, mensagens do chat global) sem tratamento.
 
 ### 4.1. Função de Sanitização Robusta
 Para anular injeções em nível de produção, substitua rotinas frágeis pela sanitização baseada em whitelist ou utilize APIs nativas seguras.
@@ -227,25 +188,3 @@ export class Sanitizer {
     }
 }
 ```
-
----
-
-## 5. Sandboxing e Política de Segurança de Conteúdo (CSP)
-
-Para mitigar danos em caso de vazamento de credenciais ou vulnerabilidades de XSS remanescentes, adote cabeçalhos HTTP de segurança estritos e sandboxing de iframes.
-
-### 5.1. Tag Meta CSP Recomendada para o `index.html`
-```html
-<meta http-equiv="Content-Security-Policy" content="
-  default-src 'self';
-  script-src 'self' 'unsafe-inline' https://identity.deso.org;
-  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-  img-src 'self' data: https://images.deso.org https://node.deso.org;
-  connect-src 'self' https://node.deso.org https://identity.deso.org;
-  frame-src 'self' https://identity.deso.org;
-  sandbox allow-forms allow-scripts allow-popups allow-same-origin;
-">
-```
-- **`frame-src`**: Restringe os iframes permitidos apenas para a origem do DeSo Identity.
-- **`sandbox`**: Impede que scripts injetados acessem cookies de outras páginas ou executem plugins inseguros de terceiros.
-- **`connect-src`**: Restringe requisições de rede (fetch/xhr) apenas para nós DeSo oficiais.
