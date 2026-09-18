@@ -1677,8 +1677,36 @@ function DGCanHover() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// DGOverlayHost() — 18/09/2026 — DIVERGENCIA DELIBERADA DO SITE (mobile-only)
+// ---------------------------------------------------------------------------
+// Bug relatado no APK: tocar em STAT/SPL/BAG/EQP "nao fazia nada".
+// A modal ABRIA de verdade — g_dgInvOpen=true, overlay com display:block,
+// conteudo renderizado, zero erro no console. Ela so era PINTADA ATRAS do menu.
+// Motivo: esses 4 botoes vivem em #mobileMainMenuGameBtns, que e filho de
+// #mobileMainMenu (www/index.html) — um position:fixed de tela cheia, fundo
+// OPACO (#000) e z-index 9999. O overlay da modal (.tutorial-modal-overlay,
+// css/style.css l.877) e z-index 2000 preso em document.body. 2000 < 9999,
+// entao o menu opaco cobria a modal inteira.
+// Por que o site nao tem o bug: #mobileMainMenu NAO EXISTE em `danger ghost/`
+// (0 ocorrencias) — e um elemento exclusivo do app. O mesmo codigo funciona la
+// e falha aqui. Mesma familia do bug de z-index do menu de pausa mobile ja
+// corrigido antes (ver comentario em css/style.css ~l.2935).
+// A correcao segue o MESMO idioma que o `document.fullscreenElement` que este
+// arquivo ja usava logo abaixo ("em fullscreen, um overlay preso no body
+// simplesmente nao aparece"): ancorar o overlay no elemento que de fato esta no
+// topo da tela, em vez de disputar numero de z-index com o app shell.
+// Overlay e tooltip precisam do MESMO host, senao o tooltip (z-index 2500 no
+// body) volta a ficar atras do menu quando a modal e aberta pelo menu.
+function DGOverlayHost() {
+    if (document.fullscreenElement) return document.fullscreenElement;
+    var menu = document.getElementById('mobileMainMenu');
+    if (menu && getComputedStyle(menu).display !== 'none') return menu;
+    return document.body;
+}
+
 function DGTooltipNode() {
-    var target = document.fullscreenElement || document.body;
+    var target = DGOverlayHost();
     var tip = document.getElementById('dgItemTooltip');
     if (!tip) {
         tip = document.createElement('div');
@@ -1801,7 +1829,11 @@ function OpenInventoryModal(tab) {
         // Mesmo alvo dinâmico de OpenChestModal(): em fullscreen, só a subárvore
         // do elemento em fullscreen é renderizada — um overlay preso em
         // document.body simplesmente não aparece.
-        var target = document.fullscreenElement || document.body;
+        // 18/09/2026 — o alvo agora vem de DGOverlayHost(), que cobre tambem o
+        // caso mobile-only de #mobileMainMenu (z-index 9999, opaco) engolindo a
+        // modal aberta pelos botoes STAT/SPL/BAG/EQP. Ver o comentario longo em
+        // DGOverlayHost().
+        var target = DGOverlayHost();
         var overlay = document.getElementById('dgInventoryOverlay');
         if (!overlay) {
             overlay = document.createElement('div');
