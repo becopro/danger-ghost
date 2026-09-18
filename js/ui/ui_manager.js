@@ -2079,24 +2079,17 @@ function DGUnequipSlot(slot) {
 // ---------------------------------------------------------------------------
 // ABA EQUIP — paperdoll
 // ---------------------------------------------------------------------------
-// Silhueta: SVG inline, contorno simples em gradiente cyan->magenta. É
-// deliberadamente barata (nenhum arquivo novo de arte, nenhum request extra) —
-// o protagonista visual são as molduras de raridade em volta dos ícones.
+// Silhueta: em vez de um boneco humanoide generico, e a silhueta REAL do
+// Ghost #001 (Polterstalk) — o ghost padrao de todo jogador novo, entao e
+// literalmente o personagem que a maioria vai ver aqui primeiro. Reaproveita
+// o sprite ja existente (assets/sprites/ghost_001_r.webp, mesmo arquivo usado
+// no Ghostdex/overworld) como CSS mask-image tingida no mesmo gradiente
+// cyan->magenta de antes (ver .dg-paperdoll-svg em css/style.css) — continua
+// deliberadamente barata: nenhum arquivo novo de arte, nenhum request extra
+// (o sprite ja esta carregado), so uma div mascarada. O protagonista visual
+// seguem sendo as molduras de raridade em volta dos icones.
 function DGPaperdollSvg() {
-    return "<svg class='dg-paperdoll-svg' viewBox='0 0 340 400' xmlns='http://www.w3.org/2000/svg' aria-hidden='true'>" +
-        "<defs><linearGradient id='dgDollGrad' x1='0' y1='0' x2='0' y2='1'>" +
-        "<stop offset='0%' stop-color='#00FFFF' stop-opacity='0.9'/>" +
-        "<stop offset='100%' stop-color='#FF00FF' stop-opacity='0.55'/>" +
-        "</linearGradient></defs>" +
-        "<g fill='none' stroke='url(#dgDollGrad)' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'>" +
-        "<ellipse cx='170' cy='42' rx='36' ry='38'/>" +
-        "<path d='M158 78 l0 14'/><path d='M182 78 l0 14'/>" +
-        "<path d='M158 92 C 128 98, 108 124, 108 160 L108 288 c0 10 9 13 15 5 l9 -11 c5 -6 13 -6 18 0 l9 11 c5 6 13 6 18 0 l9 -11 c5 -6 13 -6 18 0 l9 11 c6 8 15 5 15 -5 L228 160 C228 124, 208 98, 182 92 Z'/>" +
-        "<path d='M112 146 C 84 152, 60 166, 48 186'/>" +
-        "<path d='M224 146 C 252 152, 276 166, 288 186'/>" +
-        "</g>" +
-        "<g fill='#00FFFF' opacity='0.5'><ellipse cx='156' cy='40' rx='5' ry='7'/><ellipse cx='184' cy='40' rx='5' ry='7'/></g>" +
-        "</svg>";
+    return "<div class='dg-paperdoll-svg' aria-hidden='true'></div>";
 }
 
 function DGRenderEquipTab() {

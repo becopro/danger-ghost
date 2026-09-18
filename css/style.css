@@ -3438,6 +3438,11 @@ body {
     margin: 0 auto;
 }
 
+/* Silhueta = sprite real do Ghost #001 (Polterstalk) usado como mascara,
+   tingido no mesmo gradiente cyan->magenta que a antiga silhueta humanoide
+   desenhava via stroke. Sem arquivo novo: reaproveita o webp que o
+   Ghostdex/overworld ja carregam. mask-size:contain mantem a silhueta
+   inteira visivel (sem cortar) e centralizada dentro do paperdoll. */
 .dg-paperdoll-svg {
     position: absolute;
     top: 0;
@@ -3446,6 +3451,15 @@ body {
     height: 100%;
     opacity: 0.55;
     pointer-events: none;
+    background: linear-gradient(180deg, rgba(0, 255, 255, 0.9) 0%, rgba(255, 0, 255, 0.55) 100%);
+    -webkit-mask-image: url('../assets/sprites/ghost_001_r.webp');
+    mask-image: url('../assets/sprites/ghost_001_r.webp');
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center center;
+    mask-position: center center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
 }
 
 .dg-doll-slot {
