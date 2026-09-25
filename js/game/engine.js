@@ -997,6 +997,12 @@
 				var phaseMult = getPhaseMultiplier(g_currentLevel);
 				this.maxHp = Math.max(1, Math.floor(baseHp * Math.pow(this.level, 1.90) * phaseMult));
 				this.lives = this.maxHp;
+				// XP fixo por fase (decisão A15, 24/09/2026 — LEGACY_GAME_MASTER_PLAN_2026-09-24.md
+				// Seção 2.14): matar este inimigo deve dar o MESMO XP que na fase 1, em qualquer uma
+				// das 33 fases ou na CAVE1 (getPhaseMultiplier("cave1") também cai aqui). Por isso o
+				// XP usa getPhaseMultiplier(1) (=1x) em vez do phaseMult real acima — HP/dificuldade
+				// (this.maxHp) continuam escalando normalmente, só a base de XP fica presa na fase 1.
+				this.xpHpBase = Math.max(1, Math.floor(baseHp * Math.pow(this.level, 1.90) * getPhaseMultiplier(1)));
 				
 				this.width = (this.type === "cactus") ? 288 : ((this.type === "skull") ? 168 : 48); 
 				this.height = (this.type === "cactus") ? 288 : ((this.type === "skull") ? 168 : 48);
@@ -1102,7 +1108,7 @@
 								window.emitKillBoss(this.id || 0);
 							}
 							if (typeof GhostRPG !== 'undefined' && GhostRPG.addXp) {
-								GhostRPG.addXp(Math.floor(this.maxHp * 5));
+								GhostRPG.addXp(Math.floor(this.xpHpBase * 5));
 							}
 							if (this.type === "skull") {
 								if (typeof spawnCave1Diamonds === 'function') spawnCave1Diamonds();
@@ -3238,6 +3244,10 @@
 				}
 				boss.maxHp = Math.floor(100 * 10 * Math.pow(1.15, lvlNum) * speciesFactor);
 				boss.lives = boss.maxHp;
+				// XP fixo por fase (decisão A15, 24/09/2026 — mesma regra do c_Boss acima): captura/
+				// derrota deste fantasma do Episódio 1 dá o MESMO XP que na fase 1, não importa a fase
+				// atual (lvlNum). HP/dificuldade (boss.maxHp) continuam escalando com lvlNum normalmente.
+				boss.xpHpBase = Math.floor(100 * 10 * Math.pow(1.15, 1) * speciesFactor);
 
 				boss.vx = (epx < 0) ? 2 : -2;
 				boss.vy = 2;
@@ -3308,7 +3318,7 @@
 						if (this.alive) {
 							this.alive = false;
 							if (window.emitKillBoss) window.emitKillBoss(this.id || 0);
-							if (typeof GhostRPG !== 'undefined' && GhostRPG.addXp) GhostRPG.addXp(Math.floor(this.maxHp * 5));
+							if (typeof GhostRPG !== 'undefined' && GhostRPG.addXp) GhostRPG.addXp(Math.floor(this.xpHpBase * 5));
 							if (window.RollEnemyDrop) window.RollEnemyDrop(g_currentLevel);
 
 							// CAPTURE THE GHOST!
