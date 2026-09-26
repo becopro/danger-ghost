@@ -997,12 +997,10 @@
 				var phaseMult = getPhaseMultiplier(g_currentLevel);
 				this.maxHp = Math.max(1, Math.floor(baseHp * Math.pow(this.level, 1.90) * phaseMult));
 				this.lives = this.maxHp;
-				// XP fixo por fase (decisão A15, 24/09/2026 — LEGACY_GAME_MASTER_PLAN_2026-09-24.md
-				// Seção 2.14): matar este inimigo deve dar o MESMO XP que na fase 1, em qualquer uma
-				// das 33 fases ou na CAVE1 (getPhaseMultiplier("cave1") também cai aqui). Por isso o
-				// XP usa getPhaseMultiplier(1) (=1x) em vez do phaseMult real acima — HP/dificuldade
-				// (this.maxHp) continuam escalando normalmente, só a base de XP fica presa na fase 1.
-				this.xpHpBase = Math.max(1, Math.floor(baseHp * Math.pow(this.level, 1.90) * getPhaseMultiplier(1)));
+				// XP fixo e literal (decisão dono, 26/09/2026 — docs/legacy-plan/00_BRIEF.md §11):
+				// todo c_Boss dá exatamente 666 de XP, sempre — não importa fase, nível do inimigo
+				// ou nível do jogador. Substitui a fórmula "= o que a fase 1 daria" de 24/09/2026.
+				// HP/dificuldade (this.maxHp) continuam escalando normalmente, só o XP é fixo.
 				
 				this.width = (this.type === "cactus") ? 288 : ((this.type === "skull") ? 168 : 48); 
 				this.height = (this.type === "cactus") ? 288 : ((this.type === "skull") ? 168 : 48);
@@ -1108,7 +1106,7 @@
 								window.emitKillBoss(this.id || 0);
 							}
 							if (typeof GhostRPG !== 'undefined' && GhostRPG.addXp) {
-								GhostRPG.addXp(Math.floor(this.xpHpBase * 5));
+								GhostRPG.addXp(666); // XP fixo (decisão dono, 26/09/2026 — 00_BRIEF.md §11)
 							}
 							if (this.type === "skull") {
 								if (typeof spawnCave1Diamonds === 'function') spawnCave1Diamonds();
@@ -3244,10 +3242,9 @@
 				}
 				boss.maxHp = Math.floor(100 * 10 * Math.pow(1.15, lvlNum) * speciesFactor);
 				boss.lives = boss.maxHp;
-				// XP fixo por fase (decisão A15, 24/09/2026 — mesma regra do c_Boss acima): captura/
-				// derrota deste fantasma do Episódio 1 dá o MESMO XP que na fase 1, não importa a fase
-				// atual (lvlNum). HP/dificuldade (boss.maxHp) continuam escalando com lvlNum normalmente.
-				boss.xpHpBase = Math.floor(100 * 10 * Math.pow(1.15, 1) * speciesFactor);
+				// XP fixo e literal (decisão dono, 26/09/2026 — docs/legacy-plan/00_BRIEF.md §11):
+				// toda captura/derrota deste fantasma (Episódio 1, 33 fases + CAVE1) dá exatamente
+				// 1300 de XP, sempre. HP/dificuldade (boss.maxHp) continuam escalando com lvlNum.
 
 				boss.vx = (epx < 0) ? 2 : -2;
 				boss.vy = 2;
@@ -3318,7 +3315,7 @@
 						if (this.alive) {
 							this.alive = false;
 							if (window.emitKillBoss) window.emitKillBoss(this.id || 0);
-							if (typeof GhostRPG !== 'undefined' && GhostRPG.addXp) GhostRPG.addXp(Math.floor(this.xpHpBase * 5));
+							if (typeof GhostRPG !== 'undefined' && GhostRPG.addXp) GhostRPG.addXp(1300); // XP fixo (decisão dono, 26/09/2026 — 00_BRIEF.md §11)
 							if (window.RollEnemyDrop) window.RollEnemyDrop(g_currentLevel);
 
 							// CAPTURE THE GHOST!
