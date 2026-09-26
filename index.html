@@ -229,7 +229,21 @@
                 </button>
             </a>
         </div>
-        
+
+        <!-- Legacy Game Summary (dono aprovou o texto em PT, traduzido pro EN aqui — ver
+             danger ghost/docs/legacy-plan/00_BRIEF.md §13. Reaproveita o padrão visual já
+             usado na bio da equipe (~linha 809): borda fina + itálico + cyan-neon, discreto
+             de propósito, sem título grande. -->
+        <div class="legacy-game-summary" style="max-width: 640px; margin: 15px auto 0; padding: 0 15px; box-sizing: border-box;">
+            <div style="font-family: var(--font-title); font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; text-align: center;">Legacy Game</div>
+            <div style="border-left: 2px solid var(--cyan-neon); padding-left: 12px; text-align: left;">
+                <p style="font-size: 13px; color: var(--cyan-neon); font-style: italic; font-family: var(--font-text); line-height: 1.6; margin: 0 0 10px 0;">An account passed from player to player, each one playing as much as they want and freely deciding whether to pass it on. No one is obligated to continue, or to accept it. It's different from an ordinary game because the journey outlasts a single life — no one finishes it alone.</p>
+                <p style="font-size: 13px; color: var(--cyan-neon); font-style: italic; font-family: var(--font-text); line-height: 1.6; margin: 0 0 10px 0;">Right now, in Episode 1, XP is fixed: every common enemy is worth the same, every ghost capture is worth the same, on any stage. No shortcuts, no better place to grind.</p>
+                <p style="font-size: 13px; color: var(--cyan-neon); font-style: italic; font-family: var(--font-text); line-height: 1.6; margin: 0 0 10px 0;">Growth doesn't come from numbers quietly climbing on what already exists — it comes from new content. Each future Episode brings enemies and ghosts worth more XP than the ones before.</p>
+                <p style="font-size: 13px; color: var(--cyan-neon); font-style: italic; font-family: var(--font-text); line-height: 1.6; margin: 0;">The game doesn't end with you — and it doesn't have to.</p>
+            </div>
+        </div>
+
         <!-- Leaderboard Modal (Hidden by default) -->
         <div id="leaderboardModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 2000; align-items: center; justify-content: center;">
             <div style="background: #181224; border: 2px solid #FF00FF; border-radius: 10px; padding: 30px; width: 90%; max-width: 450px; box-sizing: border-box; box-shadow: 0 0 20px rgba(255, 0, 255, 0.3); font-family: var(--font-text); color: #FFF;">
