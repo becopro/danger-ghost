@@ -2645,6 +2645,13 @@
         ];
     }
 
+    // 10/09/2026 (correção do fix anterior — ver tryNext abaixo): sentinela pra marcar
+    // "este id não tem sprite válido nenhum, sempre desviar pro #001" — um objeto único,
+    // nunca confundível com uma Image de verdade (.complete/.naturalWidth ambos
+    // undefined nele, então drawGhostBillboard trata como "não pronto" com segurança no
+    // pior caso).
+    var GHOST_SPRITE_NO_ART = {};
+
     // Carrega (com cache local, chave 'ghost:<id>') o sprite de um fantasma pelo ID,
     // tentando os caminhos em ordem até um carregar. Retorna imediatamente um
     // <img> "placeholder" (ainda sem naturalWidth) na primeira chamada — quem chama
@@ -2653,6 +2660,12 @@
     function loadGhostSpriteById(id) {
         var key = 'ghost:' + id;
         var cached = S.avatarImgCache[key];
+        // 10/09/2026: `id` já foi tentado antes e não tem sprite válido — busca o estado
+        // ATUAL de '001' a cada chamada (não uma referência travada), ver motivo
+        // detalhado no comentário de tryNext abaixo.
+        if (cached === GHOST_SPRITE_NO_ART) {
+            return id !== '001' ? loadGhostSpriteById('001') : cached;
+        }
         if (cached) return cached;
 
         var placeholder = new Image();
@@ -2667,11 +2680,32 @@
                 // (ex.: ghost forjado "dg_local_..." sem nenhum arquivo de sprite próprio,
                 // portrait nem _r.webp). Antes disso ficava preso no placeholder pra sempre
                 // (fallback pro marcador genérico, drawPlayerToken — o "borrão"/ponto que o
-                // jogador via em vez de um fantasma). '001' sempre tem sprite (portrait no
-                // site, _r.webp em qualquer plataforma) — reaproveita o MESMO cache
-                // (loadGhostSpriteById), sem chamada de rede nova. Guarda id!=='001' pra não
-                // entrar em loop se um dia o próprio '001' também falhar.
-                if (id !== '001') S.avatarImgCache[key] = loadGhostSpriteById('001');
+                // jogador via em vez de um fantasma).
+                //
+                // 10/09/2026 (CORREÇÃO do fix do dia anterior — achado real reportado pelo
+                // usuário, print mostrando o marcador genérico continuando mesmo com o fix
+                // aplicado): `S.avatarImgCache[key] = loadGhostSpriteById('001')` tinha um
+                // bug de referência — se '001' ainda não tinha sido carregado por NINGUÉM
+                // antes (primeira vez na sessão), essa chamada devolvia o PLACEHOLDER
+                // PRÓPRIO de '001' (ainda carregando), e essa referência específica ficava
+                // gravada aqui. Quando o carregamento de '001' terminava de verdade, só a
+                // chave 'ghost:001' do cache era atualizada (dentro do onload de '001', que
+                // roda numa Image() SEPARADA do placeholder) — esta chave (`key`, o id
+                // quebrado) nunca via a atualização, ficava presa apontando pro placeholder
+                // morto pra sempre. Corrigido: marca com o sentinel GHOST_SPRITE_NO_ART (não
+                // uma imagem) — toda chamada futura (o resto do jogo já chama isto a cada
+                // frame) refaz loadGhostSpriteById('001') e pega o estado FRESCO de verdade,
+                // pronto ou não, sem depender de uma referência capturada uma única vez.
+                //
+                // 26/09/2026 — este fix de 10/09 tinha sido aplicado SÓ no mobile
+                // (danger_ghost_mobile/www/js/game/overworld.js) e nunca espelhado aqui no
+                // site; os dois arquivos divergiam exatamente e somente nisto. Resultado: no
+                // site, qualquer conta já usada cujo characterId não tem arquivo de sprite
+                // (auto-login/retomada de sessão popula window.g_currentPlayerGhost em
+                // js/web2/auth.js:199 com o characterId real do Supabase, e NÃO popula
+                // window.g_customPlayerGhostRight) continuava vendo a bolinha ciano pra
+                // sempre. Reproduzido ao vivo e corrigido nos dois arquivos nesta data.
+                if (id !== '001') S.avatarImgCache[key] = GHOST_SPRITE_NO_ART;
                 return;
             }
             var img = new Image();
