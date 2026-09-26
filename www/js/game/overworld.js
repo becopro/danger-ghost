@@ -2645,11 +2645,13 @@
         ];
     }
 
-    // 10/09/2026 (mobile only, correção do fix anterior — ver tryNext abaixo):
-    // sentinela pra marcar "este id não tem sprite válido nenhum, sempre desviar pro
-    // #001" — um objeto único, nunca confundível com uma Image de verdade
-    // (.complete/.naturalWidth ambos undefined nele, então drawGhostBillboard trata
-    // como "não pronto" com segurança no pior caso).
+    // 10/09/2026 (correção do fix anterior — ver tryNext abaixo): sentinela pra marcar
+    // "este id não tem sprite válido nenhum, sempre desviar pro #001" — um objeto único,
+    // nunca confundível com uma Image de verdade (.complete/.naturalWidth ambos
+    // undefined nele, então drawGhostBillboard trata como "não pronto" com segurança no
+    // pior caso).
+    // 26/09/2026 — deixou de ser "mobile only": espelhado no site
+    // (danger ghost/js/game/overworld.js) nesta data. Os dois arquivos estão iguais aqui.
     var GHOST_SPRITE_NO_ART = {};
 
     // Carrega (com cache local, chave 'ghost:<id>') o sprite de um fantasma pelo ID,
@@ -2660,9 +2662,9 @@
     function loadGhostSpriteById(id) {
         var key = 'ghost:' + id;
         var cached = S.avatarImgCache[key];
-        // 10/09/2026 (mobile only): `id` já foi tentado antes e não tem sprite válido —
-        // busca o estado ATUAL de '001' a cada chamada (não uma referência travada),
-        // ver motivo detalhado no comentário de tryNext abaixo.
+        // 10/09/2026: `id` já foi tentado antes e não tem sprite válido — busca o estado
+        // ATUAL de '001' a cada chamada (não uma referência travada), ver motivo
+        // detalhado no comentário de tryNext abaixo.
         if (cached === GHOST_SPRITE_NO_ART) {
             return id !== '001' ? loadGhostSpriteById('001') : cached;
         }
@@ -2682,7 +2684,7 @@
                 // (fallback pro marcador genérico, drawPlayerToken — o "borrão"/ponto que o
                 // jogador via em vez de um fantasma).
                 //
-                // 10/09/2026 (mobile only, CORREÇÃO do fix de ontem — achado real
+                // 10/09/2026 (CORREÇÃO do fix do dia anterior — achado real
                 // reportado pelo usuário, print mostrando o marcador genérico continuando
                 // mesmo com o fix aplicado): `S.avatarImgCache[key] =
                 // loadGhostSpriteById('001')` tinha um bug de referência — se '001' ainda
