@@ -98,6 +98,14 @@ function completeCloudLogin(email, name, playerData, token) {
         level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0, 0, 0, 0]
     };
 
+    // SELO OG (27/09/2026) — espelho EXATO de js/web2/auth.js do site (CLAUDE.md §3: as duas
+    // pastas não sincronizam sozinhas). Honorífico visual de conta antiga, decidido
+    // EXCLUSIVAMENTE pelo servidor (server/db.js, isOGAccount() sobre players.created_at) — o
+    // backend é o mesmo pras duas plataformas, então o booleano chega igual aqui. Global de
+    // escopo CONTA, de propósito fora de GhostRPG e de qualquer payload de save (dado da conta,
+    // não do personagem ativo). Quem desenha: engine.js (Episódio 1) e overworld.js (nameplate).
+    window.g_isOGAccount = safeData.isOG === true;
+
     try {
         localStorage.setItem("dg_cloud_email", email);
         localStorage.setItem("playerName", safeData.name || name || "Ghost");

@@ -2779,11 +2779,63 @@
     // referência de imagem que g_customPlayerGhostRight), então espelhar a única
     // imagem que existe é o único jeito real de "virar" o fantasma — não uma
     // aproximação escondida, é como o resto do jogo já faz isso.
-    function drawGhostBillboard(ctx, cx, cy, img, isSelf, label, pal, facingRight) {
+    // ============================================================================
+    // SELO OG (27/09/2026, pedido do dono) — espelho EXATO de js/game/overworld.js do site
+    // (CLAUDE.md §3: as duas pastas não sincronizam sozinhas). Honorífico PURAMENTE VISUAL de
+    // conta antiga, exibido ACIMA da linha do nível no nameplate. Sem efeito de jogo nenhum.
+    //
+    // Quem decide é SEMPRE o servidor (o mesmo backend serve site e app — server/db.js,
+    // isOGAccount() sobre players.created_at):
+    //   - jogador local -> window.g_isOGAccount (js/web2/auth.js, payload de login)
+    //   - outro jogador -> item.data.isOG (payload 'overworld_players_update')
+    // Este arquivo nunca compara data nenhuma; só recebe um booleano e desenha ou não desenha.
+    //
+    // Dourado (#FFD700) com glow curto: o rótulo já é branco sobre sombra preta, e ciano/magenta
+    // ali significam "eu" vs. "outro" (drawPlayerToken) — o selo destaca sem virar 4º código.
+    var OG_BADGE_TEXT = '★ OG'; // "★ OG"
+    var OG_BADGE_COLOR = '#FFD700';
+
+    // Desenhador único dos rótulos flutuantes multi-linha, extraído em 27/09/2026 dos DOIS laços
+    // idênticos que drawGhostBillboard e drawPlayerToken tinham (comentários preservados nas duas
+    // chamadas). Pra quem NÃO é OG o resultado é pixel-idêntico ao de antes: mesma âncora
+    // (baseY = a linha de baixo), mesmo empilhamento de baixo pra cima, mesmo estilo herdado.
+    //
+    // Com isOG === true, o selo entra como linha EXTRA imediatamente ACIMA da ÚLTIMA linha — que
+    // é sempre "Lv.N" nos dois call sites de render() ('other' e 'player') — então fica exatamente
+    // entre o nome e o nível. Nenhuma linha existente muda de ordem; o rótulo só sobe 11px.
+    function drawLabelLines(ctx, label, cx, baseY, lineH, isOG) {
+        var lines = String(label).split('\n');
+        var badgeIndex = -1;
+        if (isOG === true) {
+            badgeIndex = lines.length - 1; // índice que o selo VAI ocupar depois do splice
+            lines.splice(badgeIndex, 0, OG_BADGE_TEXT);
+        }
+        for (var li = lines.length - 1; li >= 0; li--) {
+            var lineY = baseY - (lines.length - 1 - li) * lineH;
+            if (li === badgeIndex) {
+                // save/restore só nesta linha: dourado e glow não podem vazar pras linhas de
+                // nome/nível da mesma passada (elas seguem brancas com sombra preta).
+                ctx.save();
+                ctx.font = 'bold 9px "Courier New", monospace';
+                ctx.fillStyle = OG_BADGE_COLOR;
+                ctx.shadowColor = OG_BADGE_COLOR;
+                ctx.shadowBlur = 6;
+                ctx.fillText(lines[li], cx, lineY);
+                ctx.restore();
+            } else {
+                ctx.fillText(lines[li], cx, lineY);
+            }
+        }
+    }
+
+    function drawGhostBillboard(ctx, cx, cy, img, isSelf, label, pal, facingRight, isOG) {
         var footY = cy;
         var ready = img && img.complete && img.naturalWidth > 0;
         if (!ready) {
-            drawPlayerToken(ctx, cx, cy, pal, label, isSelf ? pal.cyan : pal.magenta, isSelf);
+            // isOG repassado pro fallback também (27/09/2026): sem isto, um jogador OG cujo sprite
+            // ainda não carregou perderia o selo até a imagem chegar — o selo é da CONTA, não do
+            // estado de carregamento de um asset.
+            drawPlayerToken(ctx, cx, cy, pal, label, isSelf ? pal.cyan : pal.magenta, isSelf, isOG);
             return;
         }
 
@@ -2840,17 +2892,15 @@
             // Desenha de baixo pra cima a partir de "footY - h - 6" (mesma âncora de
             // sempre, pro caso de 1 linha só continuar pixel-idêntico a antes) e empilha
             // linhas anteriores acima dela.
-            var labelLines = String(label).split('\n');
+            // 27/09/2026: o laço saiu daqui pra drawLabelLines() (acima), compartilhado com
+            // drawPlayerToken — mesma matemática de antes, mais a linha do selo OG.
             var LABEL_LINE_H = 11;
-            for (var li = labelLines.length - 1; li >= 0; li--) {
-                var lineY = (footY - h - 6) - (labelLines.length - 1 - li) * LABEL_LINE_H;
-                ctx.fillText(labelLines[li], cx, lineY);
-            }
+            drawLabelLines(ctx, label, cx, footY - h - 6, LABEL_LINE_H, isOG);
             ctx.restore();
         }
     }
 
-    function drawPlayerToken(ctx, cx, cy, pal, label, color, isSelf) {
+    function drawPlayerToken(ctx, cx, cy, pal, label, color, isSelf, isOG) {
         var z = S.zoomLevel;
         var footY = cy;
         var bodyH = 20 * z;
@@ -2888,12 +2938,10 @@
             // string — canvas fillText não quebra linha sozinho, então o rótulo
             // saía ilegível/cortado. Mesma âncora de sempre (footY - bodyH - 16)
             // pro caso de 1 linha só continuar idêntico a antes.
-            var tokenLabelLines = String(label).split('\n');
+            // 27/09/2026: laço substituído por drawLabelLines() (acima), o mesmo que
+            // drawGhostBillboard usa — inclui a linha do selo OG quando isOG === true.
             var TOKEN_LABEL_LINE_H = 11;
-            for (var tli = tokenLabelLines.length - 1; tli >= 0; tli--) {
-                var tokenLineY = (footY - bodyH - 16) - (tokenLabelLines.length - 1 - tli) * TOKEN_LABEL_LINE_H;
-                ctx.fillText(tokenLabelLines[tli], cx, tokenLineY);
-            }
+            drawLabelLines(ctx, label, cx, footY - bodyH - 16, TOKEN_LABEL_LINE_H, isOG);
             ctx.restore();
         }
     }
@@ -3366,7 +3414,12 @@
                 // 'overworld_players_update' agora carrega item.data.facingRight de verdade (ver
                 // server/index.js, merge de vizinhança, e js/game/network.js, emissor de
                 // overworld_move) — só faltava ler aqui em vez de omitir o argumento.
-                drawGhostBillboard(ctx, screenS2.x, screenS2.y, otherImg, false, otherLabel, pal, item.data.facingRight);
+                // 27/09/2026: 9º parâmetro = selo OG do OUTRO jogador. Chega em item.data.isOG
+                // pelo mesmo caminho que ghostLevel/facingRight acima (payload
+                // 'overworld_players_update' -> window.OverworldOtherPlayers, filtro de
+                // js/game/network.js preserva o objeto inteiro), e o servidor o calcula de
+                // players.created_at — nunca de nada que o cliente mande.
+                drawGhostBillboard(ctx, screenS2.x, screenS2.y, otherImg, false, otherLabel, pal, item.data.facingRight, item.data.isOG);
             } else if (item.type === 'player') {
                 var s3 = gridToScreen(S.playerDrawCol, S.playerDrawRow); // posição DESENHADA (interpolada) — nunca a lógica aqui, ver nota no topo de render().
                 var screenS3 = worldToScreen(s3.x, s3.y, camOffsetX, camOffsetY);
@@ -3393,7 +3446,11 @@
                 var selfName = (localStorage.getItem('playerName') || 'Ghost').replace(GHOST_ID_SUFFIX_RE, '').trim();
                 var selfStats = (window.GhostRPG && window.GhostRPG.getStats) ? window.GhostRPG.getStats() : {};
                 var selfLabel = selfName + '\nLv.' + (selfStats.level || 1);
-                drawGhostBillboard(ctx, screenS3.x, screenS3.y, selfImg, true, selfLabel, pal, S.facingRight);
+                // 27/09/2026: selo OG do jogador local — window.g_isOGAccount, gravado por
+                // js/web2/auth.js com o booleano que veio do servidor no login (NÃO calculado
+                // aqui, NÃO lido de localStorage). Antes de qualquer login concluir ele é
+                // undefined, e drawLabelLines só desenha o selo com `=== true`.
+                drawGhostBillboard(ctx, screenS3.x, screenS3.y, selfImg, true, selfLabel, pal, S.facingRight, window.g_isOGAccount);
                 // 2026-09-04 (uso de magia/item no overworld) — desenhado DEPOIS do billboard,
                 // na mesma âncora (screenS3), pra ficar por cima do sprite (glow/partículas
                 // sobre o jogador, não atrás). Ver tryUseAbilitySlot()/spawnAbilityEffect().

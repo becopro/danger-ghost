@@ -1250,6 +1250,12 @@
 						g_ctx.font = "bold 9px Arial"; // 27/08/2026: portado do site — sem isso herdava a fonte do nome
 						g_ctx.fillText("Lv. " + ghostLvl, this.xPos + map_offset + 12, this.yPos - 22);
 
+						// SELO OG (27/09/2026) — espelho do site (CLAUDE.md §3). ACIMA da linha do
+						// nível (yPos-34, mesmo passo de 12px que separa nome de "Lv.").
+						// window.g_isOGAccount vem de js/web2/auth.js com o booleano que o SERVIDOR
+						// resolveu de players.created_at — o cliente nunca compara data nenhuma.
+						drawOGBadge(this.xPos + map_offset + 12, this.yPos - 34, window.g_isOGAccount);
+
 						// Renderização da animação de Level Up
 						if (this.isLevelingUpAnim && this.isLevelingUpAnim > 0) {
 							g_ctx.fillStyle = (Math.floor(Date.now() / 100) % 2 === 0) ? "#FFFF00" : "#00FF00";
@@ -3652,6 +3658,31 @@ var g_binaryBits = [];
 			}
 
 			window.g_otherGhostImages = window.g_otherGhostImages || {};
+			// SELO OG (27/09/2026, pedido do dono) — espelho EXATO de js/game/engine.js do site
+			// (CLAUDE.md §3: as duas pastas não sincronizam sozinhas). Honorífico PURAMENTE VISUAL
+			// de conta antiga, sem nenhum efeito de jogo. Três sítios de chamada: o nameplate do
+			// jogador local (c_DeSoGhost.draw) e os dois blocos de nameplate de outros jogadores em
+			// drawOtherPlayers() abaixo (esses dois já eram duplicados antes deste selo).
+			//
+			// `isOG` SEMPRE vem do servidor (o mesmo backend serve site e app):
+			//   - jogador local  -> window.g_isOGAccount (js/web2/auth.js, payload de login)
+			//   - outro jogador  -> pos.isOG (sync_state, que carrega players[id].isOG do servidor)
+			// `=== true` explícito: payload antigo, ou socket que nunca logou, não desenha nada.
+			//
+			// Dourado (#FFD700) com glow curto: ciano, magenta e verde já significam outras coisas
+			// no HUD. save/restore obrigatório por mexer em shadow* — sem isso o glow vazaria pro
+			// próximo fillText do mesmo frame. textAlign "center" é herdado de quem chamou.
+			function drawOGBadge(centerX, y, isOG) {
+				if (isOG !== true) return;
+				g_ctx.save();
+				g_ctx.fillStyle = "#FFD700";
+				g_ctx.shadowColor = "#FFD700";
+				g_ctx.shadowBlur = 4;
+				g_ctx.font = "bold 8px Arial";
+				g_ctx.fillText("★ OG", centerX, y);
+				g_ctx.restore();
+			}
+
 			function getOtherPlayerGhostSprite(ghostId) {
 				if (!ghostId) return null;
 				var cached = window.g_otherGhostImages[ghostId];
@@ -3722,6 +3753,7 @@ var g_binaryBits = [];
 								g_ctx.fillStyle = "#FFFF00";
 								g_ctx.font = "bold 9px Arial"; // 27/08/2026: portado do site — sem isso herdava a fonte do nome
 								g_ctx.fillText("Lv. " + (pos.ghostLevel || 1), pos.x + map_offset + 12, pos.y - 22);
+								drawOGBadge(pos.x + map_offset + 12, pos.y - 34, pos.isOG);
 							}
 						} else {
 							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
@@ -3737,6 +3769,7 @@ var g_binaryBits = [];
 							g_ctx.fillStyle = "#FFFF00";
 							g_ctx.font = "bold 9px Arial"; // 27/08/2026: portado do site — sem isso herdava a fonte do nome
 							g_ctx.fillText("Lv. " + (pos.ghostLevel || 1), pos.x + map_offset + 12, pos.y - 22);
+							drawOGBadge(pos.x + map_offset + 12, pos.y - 34, pos.isOG);
 						}
 					}
 				}
