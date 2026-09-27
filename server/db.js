@@ -809,6 +809,49 @@ async function deleteCharacter(email, characterId) {
     return result.rowCount;
 }
 
+// ---------------------------------------------------------------------------------------------
+// SELO "OG" (27/09/2026, decisão do dono) — honorífico PURAMENTE VISUAL pra contas antigas.
+//
+// Regra única e completa: a conta é OG se `players.created_at` for ANTERIOR (estritamente) ao
+// instante de corte abaixo. Nada de Merkle tree, prova criptográfica, ancoragem em blockchain
+// nem carimbo externo — isto é só a data de criação que a coluna já guarda desde sempre, lida
+// como booleano. Nenhuma coluna nova, nenhuma migração.
+//
+// O CORTE: 2027-08-26T03:00:00Z = meia-noite de Brasília (UTC-3) entrando no dia 26/08/2027.
+// EXCLUSIVO: uma conta criada exatamente nesse instante NÃO é OG (comparação `<`, não `<=`).
+// Hoje (27/09/2026) essa data ainda está no futuro, então praticamente toda conta existente é
+// elegível — é o esperado, e para de valer pra quem se cadastrar depois de 26/08/2027.
+//
+// QUEM DECIDE É O SERVIDOR, sempre. O cliente recebe um booleano `isOG` já resolvido e só
+// desenha (ou não) o selo; ele nunca vê o corte nem recalcula a data — mesmo princípio de
+// "nunca confie no cliente pra nada que importa" que o resto deste arquivo segue. O selo não dá
+// nenhum benefício de jogo: nada de XP, stat, item ou acesso depende dele.
+//
+// Escopo CONTA, não personagem: a data mora em `players`, então todos os ghosts de uma conta
+// elegível mostram o selo. Nada é gravado em `characters` por causa disto.
+const OG_CUTOFF_ISO = '2027-08-26T03:00:00Z';
+const OG_CUTOFF_MS = Date.parse(OG_CUTOFF_ISO);
+
+// `createdAt` chega como objeto Date pelo driver `pg` (TIMESTAMPTZ), mas aceita string ISO
+// também pra poder ser testada isoladamente. Qualquer coisa ausente/ilegível vira `false` — na
+// dúvida o jogador NÃO ganha o selo, em vez de ganhar por acidente.
+function isOGAccount(createdAt) {
+    if (createdAt === null || createdAt === undefined) return false;
+    const ms = createdAt instanceof Date ? createdAt.getTime() : Date.parse(createdAt);
+    if (!Number.isFinite(ms)) return false;
+    return ms < OG_CUTOFF_MS;
+}
+
+// Resolve o selo em cima de uma linha de `players` recém-lida e APAGA o created_at cru do
+// objeto devolvido: o cliente recebe exatamente um campo novo (`isOG`), nunca a data nem o
+// corte. Assim o contrato de rede cresce o mínimo possível e não existe caminho pelo qual o
+// cliente possa "recalcular" a elegibilidade por conta própria.
+function attachOGFlag(row) {
+    row.isOG = isOGAccount(row.createdAt);
+    delete row.createdAt;
+    return row;
+}
+
 // Carrega um jogador só pelo e-mail, sem checar senha — usado pelo login por token de sessão
 // (30/08/2026): quem chama aqui já provou a identidade validando a assinatura do JWT antes,
 // então repetir a senha seria redundante. Nunca seleciona a coluna password (nem pra apagar
@@ -818,12 +861,14 @@ async function loadPlayerByEmail(email) {
     const { rows } = await pool.query(
         `SELECT email, name, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills",
             ghostdex_progress AS "ghostdexProgress", favorites, avatar_url AS "avatarUrl", gallery_urls AS "galleryUrls",
-            overworld_grid_x AS "overworldGridX", overworld_grid_y AS "overworldGridY", chest_items AS "chestItems"
+            overworld_grid_x AS "overworldGridX", overworld_grid_y AS "overworldGridY", chest_items AS "chestItems",
+            created_at AS "createdAt"
          FROM players WHERE email = $1`,
         [email]
     );
     const row = rows[0];
     if (!row) return null;
+    attachOGFlag(row); // selo OG (ver comentário acima) — calculado aqui, nunca no cliente
     row.characters = await loadCharacters(email);
     return row;
 }
@@ -865,7 +910,8 @@ async function loginPlayer(email, password) {
     const { rows } = await pool.query(
         `SELECT email, name, password, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills",
             ghostdex_progress AS "ghostdexProgress", favorites, avatar_url AS "avatarUrl", gallery_urls AS "galleryUrls",
-            overworld_grid_x AS "overworldGridX", overworld_grid_y AS "overworldGridY", chest_items AS "chestItems"
+            overworld_grid_x AS "overworldGridX", overworld_grid_y AS "overworldGridY", chest_items AS "chestItems",
+            created_at AS "createdAt"
          FROM players WHERE email = $1`,
         [email]
     );
@@ -876,6 +922,7 @@ async function loginPlayer(email, password) {
 
     await verifyAndMigratePassword(email, row, password);
     delete row.password; // nunca devolver o hash pro cliente
+    attachOGFlag(row); // selo OG (ver comentário de OG_CUTOFF_ISO) — decidido pelo servidor
     row.characters = await loadCharacters(email);
     return row;
 }
@@ -966,11 +1013,17 @@ async function createPlayer(email, profileName, password) {
 
     const defaultName = profileName || 'Ghost';
     const passwordHash = bcrypt.hashSync(password, 10);
+    // RETURNING created_at (27/09/2026, selo OG): o created_at real é o DEFAULT now() da coluna,
+    // decidido pelo BANCO. Pegar ele de volta no próprio INSERT é mais honesto que carimbar um
+    // `new Date()` do processo Node aqui — se o relógio do app e o do Postgres divergirem, quem
+    // manda é o banco, que é a mesma linha que todo login futuro vai ler pra recalcular o selo.
+    let createdAt = null;
     try {
-        await pool.query(
-            'INSERT INTO players (email, name, password) VALUES ($1, $2, $3)',
+        const inserted = await pool.query(
+            'INSERT INTO players (email, name, password) VALUES ($1, $2, $3) RETURNING created_at AS "createdAt"',
             [email, defaultName, passwordHash]
         );
+        createdAt = inserted.rows[0] ? inserted.rows[0].createdAt : null;
     } catch (err) {
         if (err.code === '23505') {
             throw new Error("This email is already registered. Use LOGIN to access your account.");
@@ -985,6 +1038,11 @@ async function createPlayer(email, profileName, password) {
     return {
         email, name: defaultName, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0, 0, 0, 0],
         ghostdexProgress: {}, favorites: [], avatarUrl: null, galleryUrls: [],
+        // Selo OG calculado do created_at que o banco acabou de devolver (ver OG_CUTOFF_ISO): uma
+        // conta criada AGORA é OG enquanto 27/09/2026 < 26/08/2027, e deixa de ser automaticamente
+        // depois do corte, sem nenhuma mudança de código. Mesmo valor que o próximo login vai
+        // recalcular da mesma linha — este payload não pode divergir do de loginPlayer().
+        isOG: isOGAccount(createdAt),
         overworldGridX: null, overworldGridY: null, // conta nova: nunca esteve no overworld, cliente usa a torre como spawn
         chestItems: [], // conta nova: baú vazio (mesmo default '[]' da coluna chest_items) — objeto
                          // devolvido direto ao cliente aqui, sem passar por um SELECT de volta ao
@@ -1007,7 +1065,7 @@ async function loadOrCreatePlayer(email, profileName, password) {
 
     const { rows } = await pool.query(
         `SELECT email, name, password, level, xp, mana, max_mana AS "maxMana", lives, equipped_skills AS "equippedSkills",
-            avatar_url AS "avatarUrl", gallery_urls AS "galleryUrls"
+            avatar_url AS "avatarUrl", gallery_urls AS "galleryUrls", created_at AS "createdAt"
          FROM players WHERE email = $1`,
         [email]
     );
@@ -1016,16 +1074,19 @@ async function loadOrCreatePlayer(email, profileName, password) {
     if (row) {
         await verifyAndMigratePassword(email, row, password);
         delete row.password;
+        attachOGFlag(row); // selo OG — mesma regra dos outros dois caminhos de login, sem exceção
         row.characters = await loadCharacters(email);
         return { status: 'loaded', data: row };
     } else {
         const defaultName = profileName || 'Ghost';
         const passwordHash = bcrypt.hashSync(password, 10);
+        let createdAt = null; // ver comentário do RETURNING created_at em createPlayer()
         try {
-            await pool.query(
-                'INSERT INTO players (email, name, password) VALUES ($1, $2, $3)',
+            const inserted = await pool.query(
+                'INSERT INTO players (email, name, password) VALUES ($1, $2, $3) RETURNING created_at AS "createdAt"',
                 [email, defaultName, passwordHash]
             );
+            createdAt = inserted.rows[0] ? inserted.rows[0].createdAt : null;
         } catch (err) {
             if (err.code === '23505') {
                 // Condição de corrida: dois logins Google em paralelo no primeiro acesso, os dois
@@ -1042,6 +1103,7 @@ async function loadOrCreatePlayer(email, profileName, password) {
         return { status: 'created', data: {
             email, name: defaultName, level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0, 0, 0, 0],
             avatarUrl: null, galleryUrls: [],
+            isOG: isOGAccount(createdAt), // paridade com createPlayer() — mesma regra, mesma fonte
             characters
         } };
     }
@@ -1643,6 +1705,12 @@ async function getUnlockedBadgeIds(email) {
 }
 
 module.exports = {
+    // Selo OG (27/09/2026) — exportados pra poder testar a regra de elegibilidade ISOLADAMENTE,
+    // com datas variadas, sem precisar criar conta nenhuma no banco (ver comentário de
+    // OG_CUTOFF_ISO). Nenhum outro módulo do servidor precisa deles: index.js só repassa o
+    // booleano `isOG` que já vem pronto dentro do playerData.
+    OG_CUTOFF_ISO,
+    isOGAccount,
     loginPlayer,
     createPlayer,
     loadOrCreatePlayer,

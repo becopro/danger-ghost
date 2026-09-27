@@ -1285,6 +1285,13 @@
 						g_ctx.font = "bold 9px Arial";
 						g_ctx.fillText("Lv. " + ghostLvl, this.xPos + map_offset + 12, this.yPos - 22);
 
+						// SELO OG (27/09/2026) — ACIMA da linha do nível (yPos-34, mesmo passo de
+						// 12px que separa nome de "Lv."). Fonte da verdade: window.g_isOGAccount,
+						// gravado por js/web2/auth.js com o booleano que o SERVIDOR já resolveu
+						// (server/db.js, isOGAccount() sobre players.created_at) — o cliente nunca
+						// compara data nenhuma. Ver drawOGBadge() mais abaixo.
+						drawOGBadge(this.xPos + map_offset + 12, this.yPos - 34, window.g_isOGAccount);
+
 						// Renderização da animação de Level Up
 						if (this.isLevelingUpAnim && this.isLevelingUpAnim > 0) {
 							g_ctx.fillStyle = (Math.floor(Date.now() / 100) % 2 === 0) ? "#FFFF00" : "#00FF00";
@@ -3730,6 +3737,35 @@ var g_binaryBits = [];
 			}
 
 			window.g_otherGhostImages = window.g_otherGhostImages || {};
+			// SELO OG (27/09/2026, pedido do dono) — honorífico PURAMENTE VISUAL de conta antiga.
+			// Um só lugar desenha o selo no Episódio 1, chamado por três sítios: o nameplate do
+			// jogador local (c_DeSoGhost.draw) e os dois blocos de nameplate de outros jogadores em
+			// drawOtherPlayers() logo abaixo (esses dois já eram duplicados antes deste selo — o
+			// nome e o "Lv." também são desenhados duas vezes lá; mantido igual pra não misturar
+			// uma refatoração com esta feature).
+			//
+			// `isOG` SEMPRE vem do servidor, nunca de conta/cálculo local:
+			//   - jogador local  -> window.g_isOGAccount (js/web2/auth.js, payload de login)
+			//   - outro jogador  -> pos.isOG (sync_state, que carrega players[id].isOG do servidor)
+			// `=== true` explícito: payload antigo/sem o campo, ou socket que nunca logou, não
+			// desenha nada. Não existe efeito de jogo nenhum atrelado a isto.
+			//
+			// Dourado (#FFD700) com glow curto em vez de mais um neon da paleta — ciano, magenta e
+			// verde já significam outras coisas no HUD; o selo precisa se destacar sem competir com
+			// a leitura do nível. save/restore obrigatório porque mexe em shadow*: sem isso o glow
+			// vazaria pro próximo fillText do mesmo frame. textAlign continua "center", herdado do
+			// mesmo bloco que desenhou nome/nível (as três linhas compartilham o eixo X).
+			function drawOGBadge(centerX, y, isOG) {
+				if (isOG !== true) return;
+				g_ctx.save();
+				g_ctx.fillStyle = "#FFD700";
+				g_ctx.shadowColor = "#FFD700";
+				g_ctx.shadowBlur = 4;
+				g_ctx.font = "bold 8px Arial";
+				g_ctx.fillText("★ OG", centerX, y);
+				g_ctx.restore();
+			}
+
 			function getOtherPlayerGhostSprite(ghostId) {
 				if (!ghostId) return null;
 				var cached = window.g_otherGhostImages[ghostId];
@@ -3794,6 +3830,7 @@ var g_binaryBits = [];
 									g_ctx.font = "bold 9px Arial";
 									g_ctx.fillText("Lv. " + pos.ghostLevel, pos.x + map_offset + 12, pos.y - 22);
 								}
+								drawOGBadge(pos.x + map_offset + 12, pos.y - 34, pos.isOG);
 							}
 						} else {
 							var sprite = pos.isFacingRight !== false ? desoGhostRight : desoGhostLeft;
@@ -3811,6 +3848,7 @@ var g_binaryBits = [];
 								g_ctx.font = "bold 9px Arial";
 								g_ctx.fillText("Lv. " + pos.ghostLevel, pos.x + map_offset + 12, pos.y - 22);
 							}
+							drawOGBadge(pos.x + map_offset + 12, pos.y - 34, pos.isOG);
 						}
 					}
 				}

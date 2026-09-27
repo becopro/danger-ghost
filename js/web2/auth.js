@@ -82,6 +82,16 @@ function completeCloudLogin(email, name, playerData, token) {
         level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0,0,0,0]
     };
 
+    // SELO OG (27/09/2026) — honorífico visual de conta antiga, decidido EXCLUSIVAMENTE pelo
+    // servidor (server/db.js, isOGAccount() sobre players.created_at). Aqui o cliente só guarda o
+    // booleano que chegou pronto, num global de escopo CONTA — deliberadamente FORA de
+    // GhostRPG/applyCloudSave e fora de qualquer payload de save, porque isto é dado da conta, não
+    // do personagem ativo (este projeto já pagou duas vezes por misturar os dois — ver
+    // .claude/agents/gameplay-engineer.md). Nada aqui compara datas: se um dia o corte mudar, muda
+    // só no servidor. `=== true` garante que um payload antigo/sem o campo vire false, não
+    // undefined. Quem desenha: engine.js (Episódio 1) e overworld.js (nameplate isométrico).
+    window.g_isOGAccount = safeData.isOG === true;
+
     try {
         localStorage.setItem("dg_cloud_email", email);
         localStorage.setItem("playerName", safeData.name || name || "Ghost");

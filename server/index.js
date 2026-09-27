@@ -709,6 +709,7 @@ io.on('connection', (socket) => {
             ensurePlayerRecord(socket.id).email = email;
             players[socket.id].name = result.data.name;
             players[socket.id].avatarUrl = result.data.avatarUrl || null; // usado pelo payload de overworld_players_update
+            players[socket.id].isOG = result.data.isOG === true; // selo OG — ver comentário em cloud_save_login
             socket.emit('auth_google_success', buildAuthSuccessPayload(email, result.data));
         } catch (error) {
             console.error('[Auth] Error processing Google Token:', error);
@@ -737,6 +738,14 @@ io.on('connection', (socket) => {
             ensurePlayerRecord(socket.id).email = email;
             players[socket.id].name = playerData.name;
             players[socket.id].avatarUrl = playerData.avatarUrl || null; // usado pelo payload de overworld_players_update
+            // Selo OG (27/09/2026) — `playerData.isOG` já vem RESOLVIDO do banco (server/db.js,
+            // isOGAccount() sobre players.created_at); aqui só é copiado pra sessão em memória pra
+            // que os DOIS broadcasts de multiplayer possam mostrar o selo de outros jogadores:
+            // sync_state (Episódio 1 — emite o dicionário `players` inteiro) e
+            // overworld_players_update (merge de vizinhança 3x3, mais abaixo, que monta um objeto
+            // novo e precisa do campo listado explicitamente). `=== true` em vez de `||`: nunca
+            // deixa um undefined virar valor "quase verdadeiro" no payload.
+            players[socket.id].isOG = playerData.isOG === true;
             socket.emit('cloud_save_success', buildAuthSuccessPayload(email, playerData));
         } catch (error) {
             console.error('[CloudSave] Error processing login:', error);
@@ -765,6 +774,7 @@ io.on('connection', (socket) => {
             ensurePlayerRecord(socket.id).email = email;
             players[socket.id].name = playerData.name;
             players[socket.id].avatarUrl = playerData.avatarUrl || null; // usado pelo payload de overworld_players_update
+            players[socket.id].isOG = playerData.isOG === true; // selo OG — ver comentário em cloud_save_login
             socket.emit('cloud_save_success', buildAuthSuccessPayload(email, playerData));
         } catch (error) {
             console.error('[CloudSave] Error processing signup:', error);
@@ -802,6 +812,7 @@ io.on('connection', (socket) => {
             ensurePlayerRecord(socket.id).email = email;
             players[socket.id].name = playerData.name;
             players[socket.id].avatarUrl = playerData.avatarUrl || null; // usado pelo payload de overworld_players_update
+            players[socket.id].isOG = playerData.isOG === true; // selo OG — ver comentário em cloud_save_login
             socket.emit('session_login_success', buildAuthSuccessPayload(email, playerData));
         } catch (error) {
             console.error('[Auth] Erro no login por sessão:', error);
@@ -1388,7 +1399,15 @@ setInterval(() => {
                             // de vizinhança, mesmo espírito de ghostLevel acima. Fallback true casa com
                             // o default inicial de S.facingRight (overworld.js) pra quem ainda não deu
                             // nenhum passo (overworldFacingRight ainda undefined nesse caso).
-                            facingRight: p.overworldFacingRight !== undefined ? p.overworldFacingRight : true
+                            facingRight: p.overworldFacingRight !== undefined ? p.overworldFacingRight : true,
+                            // 27/09/2026: selo OG (honorífico visual de conta antiga). Vem de
+                            // players[socket.id].isOG, gravado nos handlers de login a partir do
+                            // booleano que server/db.js já calculou de players.created_at — NUNCA
+                            // de nada que o cliente mande, então não existe como forjar o selo de
+                            // outro jogador por aqui (diferente de ghostLevel acima, que vem de
+                            // player_move e por isso precisa de clamp). Um socket sem login não
+                            // tem o campo: `=== true` devolve false e o cliente não desenha nada.
+                            isOG: p.isOG === true
                         });
                     }
                 });
