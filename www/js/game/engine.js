@@ -61,7 +61,6 @@
 			// --- PREMIUM HORIZONTAL NAVBAR CONTROLS ---
 			var g_activeTab = null;
 			var g_lastTabClickTick = 0; // Tick-based event loop guard to prevent double-firing in Triple-Redundant click architectures
-			var g_hasFetchedLeaderboard = false;
 
 			// UI MOVED TO js/ui/ui_manager.js
 
@@ -3049,14 +3048,6 @@
 			window.g_desoPendingTransactionType = null;
 			window.g_desoCharactersLoading = false;
 
-
-			// --- PROMISE-BASED RESILIENT FETCH WITH TIMEOUT ---
-			function fetchWithTimeout(url, options, timeoutMs = 6000) {
-				return Promise.race([
-					fetch(url, options),
-					new Promise((_, reject) => setTimeout(() => reject(new Error("RPC Timeout - Node slow or offline")), timeoutMs))
-				]);
-			}
 
 			// [Web2] CreateDeSoNFT and SubmitSignedTransaction removed — see js/web2/game_core.js
 
