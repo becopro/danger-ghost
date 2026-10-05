@@ -9,7 +9,7 @@ let dotenvLoadResult = null;
 try {
     // quiet: true suprime o log de boot do dotenv (que inclui "tips" promocionais aleatórios
     // impressos no console de produção, um deles apontando pra um domínio de terceiros não
-    // relacionado ao dotenvx.com oficial — ver investigação de 03/09/2026). Não afeta
+    // relacionado ao dotenvx.com oficial — comportamento do dotenv 17.4.x, removido na 18.x). Não afeta
     // dotenvLoadResult.error/.parsed, usados abaixo para diagnóstico real.
     dotenvLoadResult = require('dotenv').config({ quiet: true });
 } catch (err) {
