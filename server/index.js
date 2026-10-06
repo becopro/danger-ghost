@@ -347,6 +347,10 @@ const saveQueues = {};
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 5;
 const SIGNUP_MAX_ATTEMPTS = 8;
+// session_login (05/10/2026): só confere um JWT assinado pelo servidor, que não dá para adivinhar
+// por tentativa. Com o limite de senha (5/min) ele travava redes compartilhadas (Wi-Fi de evento,
+// escola) e celulares que reconectam muito. 30/min ainda barra um script martelando o servidor.
+const SESSION_LOGIN_MAX_ATTEMPTS = 30;
 // post_diary_entry não fazia parte da auditoria de 27/08/2026 (não existia ainda), mas é o mesmo
 // tipo de escrita repetível e barata (insert de até 5000 caracteres) que um script poderia abusar
 // pra encher a tabela — reusa o mesmo mecanismo de isRateLimited() já existente, com uma janela
@@ -795,7 +799,7 @@ io.on('connection', (socket) => {
     // assinatura do JWT já prova a identidade; só recusa se a conta não existir mais (ex: apagada).
     socket.on('session_login', async (data) => {
         try {
-            if (isRateLimited('session_login:' + socketClientIp(socket), LOGIN_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+            if (isRateLimited('session_login:' + socketClientIp(socket), SESSION_LOGIN_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
                 socket.emit('session_login_error', { message: RATE_LIMIT_MESSAGE_EN });
                 return;
             }
