@@ -347,6 +347,10 @@ const saveQueues = {};
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 5;
 const SIGNUP_MAX_ATTEMPTS = 8;
+// session_login (05/10/2026): só confere um JWT assinado pelo servidor, que não dá para adivinhar
+// por tentativa. Com o limite de senha (5/min) ele travava redes compartilhadas (Wi-Fi de evento,
+// escola) e celulares que reconectam muito. 30/min ainda barra um script martelando o servidor.
+const SESSION_LOGIN_MAX_ATTEMPTS = 30;
 // post_diary_entry não fazia parte da auditoria de 27/08/2026 (não existia ainda), mas é o mesmo
 // tipo de escrita repetível e barata (insert de até 5000 caracteres) que um script poderia abusar
 // pra encher a tabela — reusa o mesmo mecanismo de isRateLimited() já existente, com uma janela
@@ -397,6 +401,24 @@ const PLAYER_MOVE_RATE_WINDOW_MS = 1000;
 // foi removida e todos os call sites passaram a apontar para esta.
 const RATE_LIMIT_MESSAGE_EN = 'Too many attempts, please wait a moment.';
 const rateLimitBuckets = new Map(); // chave "evento:ip" -> array de timestamps (ms) das tentativas recentes
+
+// IP real do cliente para os limites de tentativa (05/10/2026). Atrás do nginx, o socket sempre
+// vem de 127.0.0.1, então todos os jogadores caíam no MESMO balde: 5 logins (inclusive o login
+// automático session_login de quem só abriu o site) em 1 minuto travavam o login de todo mundo.
+// O nginx (server/setup-https.sh) manda o IP original em X-Real-IP. Esse cabeçalho só é aceito
+// quando a conexão vem do próprio servidor (loopback): quem acessasse a porta 3000 direto não
+// consegue inventar um IP para escapar do limite.
+const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+function clientIpFrom(remoteAddress, headers) {
+    const realIp = headers && headers['x-real-ip'];
+    if (LOOPBACK_ADDRESSES.has(remoteAddress) && typeof realIp === 'string' && realIp.trim()) {
+        return realIp.trim().slice(0, 64);
+    }
+    return remoteAddress || 'unknown';
+}
+function socketClientIp(socket) {
+    return clientIpFrom(socket.handshake.address, socket.handshake.headers);
+}
 
 function isRateLimited(bucketKey, maxAttempts, windowMs) {
     const now = Date.now();
@@ -723,7 +745,7 @@ io.on('connection', (socket) => {
     // criar uma conta primeiro, em vez de criar silenciosamente como o código antigo fazia.
     socket.on('cloud_save_login', async (data) => {
         try {
-            if (isRateLimited('cloud_save_login:' + socket.handshake.address, LOGIN_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+            if (isRateLimited('cloud_save_login:' + socketClientIp(socket), LOGIN_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
                 socket.emit('cloud_save_error', { message: RATE_LIMIT_MESSAGE_EN });
                 return;
             }
@@ -758,7 +780,7 @@ io.on('connection', (socket) => {
     // "notificação de e-mail já cadastrado" pedida pelo usuário.
     socket.on('cloud_save_signup', async (data) => {
         try {
-            if (isRateLimited('cloud_save_signup:' + socket.handshake.address, SIGNUP_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+            if (isRateLimited('cloud_save_signup:' + socketClientIp(socket), SIGNUP_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
                 socket.emit('cloud_save_error', { message: RATE_LIMIT_MESSAGE_EN });
                 return;
             }
@@ -787,7 +809,7 @@ io.on('connection', (socket) => {
     // assinatura do JWT já prova a identidade; só recusa se a conta não existir mais (ex: apagada).
     socket.on('session_login', async (data) => {
         try {
-            if (isRateLimited('session_login:' + socket.handshake.address, LOGIN_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+            if (isRateLimited('session_login:' + socketClientIp(socket), SESSION_LOGIN_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
                 socket.emit('session_login_error', { message: RATE_LIMIT_MESSAGE_EN });
                 return;
             }
@@ -964,7 +986,7 @@ io.on('connection', (socket) => {
             socket.emit('diary_error', { message: 'Not authenticated.' });
             return;
         }
-        if (isRateLimited('post_diary_entry:' + socket.handshake.address, DIARY_POST_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+        if (isRateLimited('post_diary_entry:' + socketClientIp(socket), DIARY_POST_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
             socket.emit('diary_error', { message: RATE_LIMIT_MESSAGE_EN });
             return;
         }
@@ -1025,7 +1047,7 @@ io.on('connection', (socket) => {
             socket.emit('egregora_error', { message: 'Not authenticated.' });
             return;
         }
-        if (isRateLimited('post_egregora_message:' + socket.handshake.address, EGREGORA_POST_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+        if (isRateLimited('post_egregora_message:' + socketClientIp(socket), EGREGORA_POST_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
             socket.emit('egregora_error', { message: RATE_LIMIT_MESSAGE_EN });
             return;
         }
@@ -1072,7 +1094,7 @@ io.on('connection', (socket) => {
             socket.emit('player_profile_error', { message: 'Not authenticated.' });
             return;
         }
-        if (isRateLimited('get_player_profile:' + socket.handshake.address, PLAYER_PROFILE_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+        if (isRateLimited('get_player_profile:' + socketClientIp(socket), PLAYER_PROFILE_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
             socket.emit('player_profile_error', { message: RATE_LIMIT_MESSAGE_EN });
             return;
         }
@@ -1233,7 +1255,7 @@ io.on('connection', (socket) => {
             socket.emit('friend_search_error', { message: 'Not authenticated.' });
             return;
         }
-        if (isRateLimited('search_players:' + socket.handshake.address, FRIEND_SEARCH_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+        if (isRateLimited('search_players:' + socketClientIp(socket), FRIEND_SEARCH_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
             socket.emit('friend_search_error', { message: RATE_LIMIT_MESSAGE_EN });
             return;
         }
@@ -1710,7 +1732,7 @@ app.options('/api/upload-profile-image', allowUploadCors, (req, res) => res.send
 
 app.post('/api/upload-profile-image', allowUploadCors, parseUploadBody, async (req, res) => {
     try {
-        if (isRateLimited('upload_profile_image:' + req.ip, UPLOAD_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
+        if (isRateLimited('upload_profile_image:' + clientIpFrom(req.socket.remoteAddress, req.headers), UPLOAD_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)) {
             return res.status(429).json({ message: RATE_LIMIT_MESSAGE_EN });
         }
 
