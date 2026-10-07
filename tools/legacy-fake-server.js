@@ -8,7 +8,6 @@
 // Escuta só em 127.0.0.1:8090. Aceita a origem http://localhost:8080 (o jogo local).
 //
 // Rotas extras de teste (/dev/...):
-//   GET  /dev/mock-wallet.js                    carteira de teste (só para localhost)
 //   POST /dev/fail   { route, status, code, times, extra }  força erro nas próximas `times` chamadas
 //                    route = "METHOD /api/..." com ":asset" no lugar do endereço (ex.: "PUT /api/save/:asset")
 //   POST /dev/pending { route, times }          responde 202 nas próximas `times` chamadas
@@ -21,8 +20,6 @@
 
 const http = require('http');
 const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
 
 const PORT = Number(process.env.PORT || 8090);
 const ALLOWED_ORIGINS = new Set(['http://localhost:8080', 'http://localhost:' + PORT]);
@@ -146,10 +143,6 @@ const server = http.createServer(async (req, res) => {
 
     // ---- rotas de teste ----
     if (url.pathname.startsWith('/dev/')) {
-        if (req.method === 'GET' && url.pathname === '/dev/mock-wallet.js') {
-            res.writeHead(200, { 'Content-Type': 'text/javascript', 'Cache-Control': 'no-store' });
-            return res.end(fs.readFileSync(path.join(__dirname, 'legacy-mock-wallet.js')));
-        }
         if (req.method === 'GET' && url.pathname === '/dev/state') {
             return send(res, 200, { ghosts: [...ghosts.values()], failures, pendings, sessions: sessions.size });
         }

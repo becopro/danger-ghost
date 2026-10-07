@@ -80,7 +80,7 @@
     function loadSession() {
         try {
             var s = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
-            if (s && typeof s.token === 'string' && isB58(s.wallet) && Date.parse(s.expires_at) > Date.now()) return s;
+            if (s && typeof s.token === 'string' && isB58(s.wallet)) return s;
             sessionStorage.removeItem(SESSION_KEY);
         } catch (e) {}
         return null;
@@ -94,10 +94,8 @@
         S.ghosts = null;
         try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
     }
-    function sessionValid() {
-        if (S.session && Date.parse(S.session.expires_at) <= Date.now()) clearSession();
-        return !!S.session;
-    }
+    // A validade do token é decidida pelo serviço (401 auth_required), não pelo relógio do navegador.
+    function sessionValid() { return !!S.session; }
 
     function getPending() {
         try {
@@ -199,6 +197,10 @@
         }
     }
 
+    // A carteira não conta ao site em qual rede está. Fora da devnet, a Phantom mostra "Solana",
+    // "not enough SOL" e uma opção de confirmar "não seguro": o aviso vem antes da janela abrir.
+    var DEVNET_CHECK = 'If your wallet shows mainnet, "not enough SOL" or "unable to simulate", press Cancel and switch it to Devnet (Testnet Mode) first.';
+
     function needsSolHint() { return S.balance !== null && S.balance === BigInt(0); }
 
     async function requireWalletWithSol(min, what) {
@@ -292,7 +294,7 @@
         var signature = await walletCall(function () { return window.GGWallet.signMessage(n.message); });
         if (walletState().address !== st.address) throw uiError('Your wallet account changed. Please sign in again.');
         var v = (await api('POST', '/api/auth/verify', { wallet: st.address, nonce: n.nonce, signature: signature })).data;
-        if (!v || typeof v.token !== 'string' || v.wallet !== st.address || !(Date.parse(v.expires_at) > Date.now())) throw new LegacyError('bad_response');
+        if (!v || typeof v.token !== 'string' || v.wallet !== st.address) throw new LegacyError('bad_response');
         saveSession({ token: v.token, wallet: v.wallet, expires_at: v.expires_at });
         setMsg('ok', 'Signed in as ' + short(v.wallet) + '.');
         if (play && play.blocked === 'auth') { play.blocked = null; play.dirty = true; queueSave(play, null); }
@@ -317,13 +319,12 @@
     }
 
     // ----- Forge -----
-    function currentCharacterSave(species, attributes) {
+    // Personagem atual do jogo, ou null se o jogador ainda não tem personagem (aí o primeiro save
+    // usa as sementes da espécie, lidas de GET /api/save depois do confirm).
+    function currentCharacterSave(species) {
         var hasChar = false;
         try { hasChar = !!(window.GhostRPG && window.GhostRPG.getStats().characterId); } catch (e) {}
-        if (hasChar) return buildSaveData(species);
-        var a = attributes || {};
-        var n = function (k, d) { var v = parseInt(a[k], 10); return Number.isFinite(v) && v >= 0 ? v : d; };
-        return { level: 1, xp: 0, vit: n('VIT', 5), agi: n('AGI', 5), int: n('INT', 5), pow: n('POW', 4), mag: n('MAG', 4), characterId: species, name: speciesName(species) };
+        return hasChar ? buildSaveData(species) : null;
     }
 
     async function forge() {
@@ -333,10 +334,10 @@
         var r = (await api('POST', '/api/forge', {}, true)).data;
         if (!r || !isAddress(r.asset) || typeof r.transaction !== 'string') throw new LegacyError('bad_response');
         var species = r.attributes && /^\d{3}$/.test(r.attributes.species) ? r.attributes.species : '001';
-        var saveData = currentCharacterSave(species, r.attributes);
-        setMsg('info', 'Approve the transaction in your wallet. You pay a small devnet fee.');
+        var saveData = currentCharacterSave(species);
+        setMsg('info', 'Approve the transaction in your wallet. You pay a small devnet fee. ' + DEVNET_CHECK);
         var signature = await walletCall(function () { return window.GGWallet.signAndSendBase64Transaction(r.transaction); });
-        var pending = { kind: 'forge', asset: r.asset, signature: signature, wallet: wallet, save: saveData };
+        var pending = { kind: 'forge', asset: r.asset, signature: signature, wallet: wallet, species: species, save: saveData };
         setPending(pending);
         await finishForge(pending);
     }
@@ -349,12 +350,18 @@
             { href: explorerTx(p.signature), text: 'View transaction' },
         ];
         var firstSaveError = null;
-        if (p.save) {
-            try {
-                await api('PUT', '/api/save/' + p.asset, { save_data: p.save, expected_version: 0 }, true);
-            } catch (e) {
-                if (e.code !== 'version_conflict') firstSaveError = e; // version_conflict: o primeiro save já tinha sido feito
+        try {
+            var firstSave = p.save;
+            if (!firstSave) {
+                var g = (await api('GET', '/api/save/' + p.asset, undefined, true)).data;
+                if (!g || !Number.isInteger(g.save_version)) throw new LegacyError('bad_response');
+                firstSave = g.save_version === 0 ? starterSave(g, p.species || '001') : null;
             }
+            if (firstSave) {
+                await api('PUT', '/api/save/' + p.asset, { save_data: firstSave, expected_version: 0 }, true);
+            }
+        } catch (e) {
+            if (e.code !== 'version_conflict') firstSaveError = e; // version_conflict: o primeiro save já tinha sido feito
         }
         clearPending();
         if (firstSaveError) {
@@ -397,7 +404,7 @@
         var wallet = S.session.wallet;
         var r = (await api('POST', '/api/transfer/prepare', { asset: t.asset, to: t.to }, true)).data;
         if (!r || typeof r.transaction !== 'string') throw new LegacyError('bad_response');
-        setMsg('info', 'Approve the transfer in your wallet. You pay a small devnet fee.');
+        setMsg('info', 'Approve the transfer in your wallet. You pay a small devnet fee. ' + DEVNET_CHECK);
         var signature = await walletCall(function () { return window.GGWallet.signAndSendBase64Transaction(r.transaction); });
         var pending = { kind: 'transfer', asset: t.asset, signature: signature, wallet: wallet, to: t.to,
             before: { owner: r.owner, generation: r.generation } };
@@ -453,14 +460,58 @@
         return d;
     }
 
-    function applySaveToGame(d, species) {
+    // O save vem de fora do jogo (depois de uma transferência, quem escreveu foi o dono anterior):
+    // copia campo por campo, só com tipos JSON simples, sem chaves especiais e sem caracteres de HTML
+    // nos textos, antes de qualquer coisa chegar ao state do jogo ou à interface.
+    var BLOCKED_KEYS = { __proto__: true, constructor: true, prototype: true };
+    function cleanValue(v, depth) {
+        if (depth > 8) return null;
+        if (typeof v === 'string') return v.replace(/[<>"'`&\\]/g, '').slice(0, 200);
+        if (typeof v === 'number') return isFinite(v) ? v : 0;
+        if (typeof v === 'boolean' || v === null) return v;
+        if (Array.isArray(v)) return v.slice(0, 500).map(function (x) { return cleanValue(x, depth + 1); });
+        if (typeof v === 'object') {
+            var o = {};
+            Object.keys(v).slice(0, 100).forEach(function (k) {
+                if (BLOCKED_KEYS[k] === true || !/^[A-Za-z0-9_ .-]{1,64}$/.test(k)) return;
+                o[k] = cleanValue(v[k], depth + 1);
+            });
+            return o;
+        }
+        return null;
+    }
+    function numberList(v) {
+        return Array.isArray(v) ? v.slice(0, 16).map(Number).filter(function (n) { return isFinite(n); }) : undefined;
+    }
+    function objectOrNull(v) {
+        return v && typeof v === 'object' && !Array.isArray(v) ? cleanValue(v, 1) : undefined;
+    }
+    function readSave(raw, species) {
+        var d = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+        var num = function (v, def) { var n = Number(v); return isFinite(n) && n >= 0 ? n : def; };
+        return {
+            level: Math.max(1, Math.floor(num(d.level, 1))),
+            xp: num(d.xp, 0),
+            pointsToDistribute: Math.floor(num(d.pointsToDistribute, 0)),
+            vit: num(d.vit, 1), agi: num(d.agi, 1), int: num(d.int, 1), pow: num(d.pow, 1), mag: num(d.mag, 1),
+            equippedSkills: numberList(d.equippedSkills),
+            equippedRunes: numberList(d.equippedRunes),
+            equippedPassives: numberList(d.equippedPassives),
+            weapon: objectOrNull(d.weapon),
+            inventory: Array.isArray(d.inventory) ? cleanValue(d.inventory, 1).filter(function (x) { return x && typeof x === 'object' && !Array.isArray(x); }) : undefined,
+            equipment: objectOrNull(d.equipment),
+            name: typeof d.name === 'string' && cleanValue(d.name, 0) ? cleanValue(d.name, 0).slice(0, 40) : speciesName(species),
+        };
+    }
+
+    function applySaveToGame(raw, species) {
+        var d = readSave(raw, species);
         applyingSave = true;
         try {
             window.g_currentPlayerGhost = species;
             window.GhostRPG.loadBlockchainState(
                 d.level, d.vit, d.agi, d.int, d.pow, species, d.xp, d.pointsToDistribute, d.mag,
-                d.equippedSkills, d.equippedRunes, d.equippedPassives, d.weapon, d.inventory, d.equipment,
-                typeof d.name === 'string' && d.name ? d.name : speciesName(species)
+                d.equippedSkills, d.equippedRunes, d.equippedPassives, d.weapon, d.inventory, d.equipment, d.name
             );
         } finally {
             applyingSave = false;
@@ -470,7 +521,7 @@
     function starterSave(resp, species) {
         var seeds = (resp.ghost && resp.ghost.seeds) || {};
         var n = function (k, d) { return Number.isFinite(seeds[k]) && seeds[k] >= 0 ? seeds[k] : d; };
-        return { level: 1, xp: 0, vit: n('VIT', 5), agi: n('AGI', 5), int: n('INT', 5), pow: n('POW', 4), mag: n('MAG', 4), characterId: species, name: speciesName(species) };
+        return { level: 1, xp: 0, xpRequired: 100, pointsToDistribute: 0, vit: n('VIT', 5), agi: n('AGI', 5), int: n('INT', 5), pow: n('POW', 4), mag: n('MAG', 4), characterId: species, name: speciesName(species) };
     }
 
     async function playGhost(asset) {
@@ -485,20 +536,20 @@
         var species = resp.ghost && /^\d{3}$/.test(resp.ghost.species) ? resp.ghost.species : '001';
         var data = resp.save_data && typeof resp.save_data === 'object' ? resp.save_data : starterSave(resp, species);
 
-        var prevCharId = null;
+        var own;
         var prevGhost = window.g_currentPlayerGhost;
         if (play) {
-            prevCharId = play.prevCharId;
+            own = play.own;
             prevGhost = play.prevGhost;
             leavePlay();
         } else {
-            try { prevCharId = localStorage.getItem('dg_deso_character_id') || window.GhostRPG.getStats().characterId || null; } catch (e) {}
             window.GhostRPG.saveLocalStorage(); // guarda o personagem do jogador antes da troca (save normal)
+            own = snapshotOwnCharacter();
         }
 
         play = {
             asset: asset, species: species, version: resp.save_version, generation: resp.generation,
-            prevCharId: prevCharId, prevGhost: prevGhost,
+            own: own, prevGhost: prevGhost,
             dirty: false, timer: null, lastPutAt: 0, chain: Promise.resolve(), saving: false,
             blocked: null, error: null, savedAt: null,
         };
@@ -583,15 +634,33 @@
             setMsg('info', 'Saving your legacy ghost…');
             await Promise.race([p.chain, sleep(8000)]);
         }
+        var o = p.own;
+        if (!o || !o.characterId) {
+            window.location.reload(); // sem foto: recarrega o personagem do jogador do save normal, que não foi tocado
+            return;
+        }
+        // Devolve a foto tirada no Play (não a lista g_ownedCharacters, que é do momento do login e pode
+        // estar atrás do progresso). O saveLocalStorage no fim de loadBlockchainState regrava o mesmo estado.
         window.g_currentPlayerGhost = p.prevGhost;
-        var owned = window.g_ownedCharacters || [];
-        var canRestore = p.prevCharId && typeof window.SelectCharacterToPlay === 'function' &&
-            owned.some(function (c) { return c && c.characterId === p.prevCharId; });
-        if (canRestore) {
-            window.SelectCharacterToPlay(p.prevCharId);
-            if (!skipWait) setMsg('ok', 'Back to your own ghost.');
-        } else {
-            window.location.reload(); // recarrega o personagem do jogador do save normal, que não foi tocado
+        window.GhostRPG.loadBlockchainState(
+            o.level, o.vit, o.agi, o.int, o.pow, o.characterId, o.xp, o.pointsToDistribute, o.mag,
+            o.equippedSkills, o.equippedRunes, o.equippedPassives, o.weapon, o.inventory, o.equipment, o.name
+        );
+        try { localStorage.setItem('dg_deso_character_id', String(o.characterId)); } catch (e) {}
+        if (!skipWait) setMsg('ok', 'Back to your own ghost.');
+    }
+
+    // Foto do personagem do próprio jogador, com os atributos puros (getStats() soma o equipamento).
+    function snapshotOwnCharacter() {
+        try {
+            var s = JSON.parse(JSON.stringify(window.GhostRPG.getStats()));
+            ['vit', 'agi', 'int', 'pow', 'mag'].forEach(function (k) {
+                var baseKey = 'base' + k.charAt(0).toUpperCase() + k.slice(1);
+                if (typeof s[baseKey] === 'number') s[k] = s[baseKey];
+            });
+            return s;
+        } catch (e) {
+            return null;
         }
     }
 
@@ -920,7 +989,7 @@
         buildShell();
         render();
 
-        var mock = USE_MOCK_WALLET ? loadScript(LEGACY_API_DEV + '/dev/mock-wallet.js').catch(function () {}) : Promise.resolve();
+        var mock = USE_MOCK_WALLET ? loadScript('tools/legacy-mock-wallet.js').catch(function () {}) : Promise.resolve();
         mock.then(function () { return loadScript('js/legacy/wallet.bundle.js?v=1'); }).then(function () {
             S.walletReady = !!window.GGWallet;
             S.walletLoadError = !window.GGWallet;

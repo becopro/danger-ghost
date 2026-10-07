@@ -1,6 +1,6 @@
 // SÓ PARA DESENVOLVIMENTO. Carteira de teste (Wallet Standard) para testar o painel Legacy num
-// navegador sem Phantom. Servida pelo servidor falso (tools/legacy-fake-server.js) e injetada pelo
-// painel só em localhost com ?legacy=1&mockwallet=N (N = 1, 2, ... escolhe a carteira A, B, ...).
+// navegador sem Phantom. Injetada pelo painel (js/legacy/legacy.js) a partir do jogo local, só em
+// localhost com ?legacy=1&mockwallet=N (N = 1, 2, ... escolhe a carteira A, B, ...).
 // A chave é derivada de um texto público ("gg-legacy-mock-wallet-N"): não tem fundos, não é segredo
 // e não serve para nada fora deste teste. Nada é gravado no navegador.
 //
