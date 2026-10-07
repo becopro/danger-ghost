@@ -1250,6 +1250,9 @@ var GhostRPG = (function() {
             return false;
         },
         saveLocalStorage: function() {
+            // Painel Legacy (js/legacy/legacy.js, só com ?legacy=1): com um ghost legado carregado, o
+            // progresso vai para o serviço Legacy, nunca para o personagem local/banco do jogador.
+            if (window.LegacyMode && window.LegacyMode.active) { window.LegacyMode.onAutoSave(); return; }
             try {
                 // Sincroniza a fase atual antes de salvar (30/08/2026, achado numa auditoria
                 // pedida pelo usuário: "salvar a fase também"). window.g_currentLevel é a fase
@@ -1447,6 +1450,7 @@ var GhostRPG = (function() {
         },
 
         applyCloudSave: function(cloudData) {
+            if (window.LegacyMode && window.LegacyMode.active) window.LegacyMode.exit();
             try {
                 // NÃO seta state.name aqui (20/08/2026) — cloudData.name é o nome da CONTA, não
                 // de um personagem específico. Setar isso no state ativo vazava o nome da conta
@@ -1482,6 +1486,8 @@ var GhostRPG = (function() {
             if (name) state.name = name;
         },
         loadBlockchainState: function(lvl, vit, agi, int, pow, characterId, xp, pointsToDistribute, mag, equippedSkills, equippedRunes, equippedPassives, weapon, inventory, equipment, name) {
+            // Carregar outro personagem sai do modo legado antes de trocar o state (ver saveLocalStorage).
+            if (window.LegacyMode && window.LegacyMode.active) window.LegacyMode.exit();
             var maxLevel = 100000000000;
             
             var parsedLvl = parseInt(lvl, 10);
@@ -1844,6 +1850,7 @@ var GhostRPG = (function() {
         },
         SwitchActiveGhost: function(ghostId) {
             this.saveLocalStorage();
+            if (window.LegacyMode && window.LegacyMode.active) window.LegacyMode.exit();
             state.characterId = ghostId;
             this.loadLocalStorage(ghostId);
             if (typeof RenderRPGStatusDrawer === "function") RenderRPGStatusDrawer();

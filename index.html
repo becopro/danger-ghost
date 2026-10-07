@@ -42,9 +42,9 @@
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
     <script src="js/game/network.js?v=65"></script>
     <script src="js/game/badge_tracker.js?v=1"></script>
-    <script src="js/web2/game_core.js?v=52"></script>
+    <script src="js/web2/game_core.js?v=53"></script>
     <script src="js/web2/scores.js?v=44"></script>
-    <script src="rpg_system.js?v=61"></script>
+    <script src="rpg_system.js?v=62"></script>
     <script src="js/ui/ui_manager.js?v=57"></script>
     <script src="js/game/ghostdex_data.js?v=45"></script>
     <!-- Hierarquia de categoria (ciclo Signal>Concrete>Residue) — tem de vir
@@ -1457,6 +1457,9 @@
          profile.js, reaproveita emitProfileRequest() de lá em vez de duplicar o helper.
          Ver contrato com o backend e a regra de geração de ícone no topo do arquivo. -->
     <script src="js/web2/badges.js?v=4"></script>
+    <!-- Painel Legacy (Solana devnet). Só faz algo com ?legacy=1 na URL; sem isso, sai na primeira
+         linha e não carrega mais nada. Ver js/legacy/legacy.js. -->
+    <script src="js/legacy/legacy.js?v=1"></script>
 
 </body>
 </html>

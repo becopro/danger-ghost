@@ -68,6 +68,8 @@
 
     // Mock Save
     function TriggerRPGSaveToDeSo() {
+        // Ghost legado carregado (js/legacy/legacy.js): o botão SAVE salva no serviço Legacy.
+        if (window.LegacyMode && window.LegacyMode.active) { window.LegacyMode.saveNow(); return; }
         var btn = document.getElementById("rpgSaveBtn") || document.getElementById("btnNavSave");
         if (btn) {
             btn.innerText = "SAVING...";
