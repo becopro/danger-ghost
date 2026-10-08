@@ -7,7 +7,9 @@
 //     reconexão acontecer em poucos segundos de página travada (em produção: 15 s + 8 s).
 // A página "trava" como em produção: alert() real segurado aberto, ou um laço ocupado.
 //
-// Uso (na pasta "danger ghost", com as portas 3000, 8080 e 8090 livres):
+// Uso (na pasta "danger ghost", com as portas 3000, 8080 e 8090 livres: desligue antes o
+// servidor do jogo, a pré-visualização e qualquer legacy-fake-server já aberto). Precisa de
+// internet: o index.html carrega o cliente socket.io de cdn.socket.io.
 //   node tests/legacy-reconnect.spec.js
 'use strict';
 
@@ -125,13 +127,14 @@ async function main() {
     const stat = await startStatic();
     const game = await startGameServer();
     const legacy = await startLegacyFake();
-    const browser = await chromium.launch({ headless: true });
+    let browser = null;
     try {
+        browser = await chromium.launch({ headless: true });
         // ===== Com ?legacy=1 =====
         const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
         let holdDialog = 0;
         page.on('dialog', async (d) => { if (holdDialog) await sleep(holdDialog); await d.accept().catch(() => {}); });
-        await page.goto(SITE + '/?legacy=1&mockwallet=1');
+        await page.goto(SITE + '/?legacy=1&mockwallet=1', { waitUntil: 'domcontentloaded' });
         await waitFor(() => page.evaluate(() => !!(window.GhostRPG && window.LegacyMode)), 15000, 'jogo e painel carregados');
         await login(page);
 
@@ -211,13 +214,25 @@ async function main() {
             await waitRelogin(before);
             await stillLegacy('durante o Pass on');
         });
+        await check('6. login de OUTRA conta com o ghost legado em jogo continua saindo do modo Legacy', async () => {
+            await page.evaluate((acc) => window.completeCloudLogin('outra@local.invalid', 'Outra',
+                Object.assign({}, acc, { email: 'outra@local.invalid' }), 'fake-test-token-2'), serverAccount);
+            await sleep(1500);
+            const g = await readGame(page);
+            expectEq('modo Legacy ativo', g.legacy, false);
+            expectEq('ghost ativo (o mais recente da outra conta)', g.ghost, 'dg_local_test1');
+        });
         await page.close();
 
         // ===== Controle: sem ?legacy=1 o comportamento é o de hoje =====
-        await check('6. controle sem ?legacy=1: o relogin continua carregando o personagem do servidor (igual a antes)', async () => {
+        // ATENÇÃO: isto confere o comportamento ATUAL do jogo normal, que ainda tem o bug do item 2
+        // (o relogin troca o personagem pela cópia do servidor). Quando o item 2 for consertado,
+        // este cenário tem que mudar junto: aqui ele só prova que este conserto não mexeu no jogo
+        // normal.
+        await check('7. controle sem ?legacy=1: o relogin continua carregando o personagem do servidor (igual a antes)', async () => {
             const p2 = await (await browser.newContext()).newPage();
             p2.on('dialog', (d) => d.accept().catch(() => {}));
-            await p2.goto(SITE + '/');
+            await p2.goto(SITE + '/', { waitUntil: 'domcontentloaded' });
             await waitFor(() => p2.evaluate(() => !!window.GhostRPG), 15000, 'jogo carregado');
             expectEq('window.LegacyMode', await p2.evaluate(() => typeof window.LegacyMode), 'undefined');
             await login(p2);
@@ -232,7 +247,7 @@ async function main() {
             await p2.close();
         });
     } finally {
-        await browser.close();
+        if (browser) await browser.close();
         legacy.kill();
         game.io.close();
         stat.close();

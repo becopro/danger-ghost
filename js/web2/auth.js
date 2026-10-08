@@ -43,6 +43,11 @@ window.hideLoginError = hideLoginError;
 // chamam esta função em vez de decidir a visibilidade cada um à sua maneira.
 window.g_hasAuthenticatedThisPageLoad = false;
 
+// E-mail da conta que completou o login NESTA aba (memória, não localStorage: dg_cloud_email é
+// compartilhado entre abas e muda quando outra aba entra em outra conta). Usado em
+// completeCloudLogin() para saber se um relogin é da mesma conta (painel Legacy, 08/10/2026).
+var g_tabAccountEmail = null;
+
 function UpdateLoginButtonsVisibility() {
     var container = document.getElementById("loginButtonsContainer");
     if (!container) return;
@@ -89,10 +94,8 @@ function completeCloudLogin(email, name, playerData, token) {
     // modo legado e trocavam o ghost pelo personagem mais recente da conta (nível 1 na tela, fase
     // reiniciada) toda vez que a aba travava por alguns segundos (aviso de SUCCESS aberto, PC
     // pesado). Login de OUTRA conta segue o caminho normal. Sem ?legacy=1 nada muda aqui.
-    var keepLegacyGhost = false;
-    try {
-        keepLegacyGhost = !!(window.LegacyMode && window.LegacyMode.active) && localStorage.getItem("dg_cloud_email") === email;
-    } catch (e) {}
+    var keepLegacyGhost = !!(window.LegacyMode && window.LegacyMode.active) && g_tabAccountEmail === email;
+    g_tabAccountEmail = email;
 
     try {
         localStorage.setItem("dg_cloud_email", email);
@@ -126,12 +129,12 @@ function completeCloudLogin(email, name, playerData, token) {
     // é confirmado, então é aqui que os botões "RESGATAR PROGRESSO" / "CRIAR CONTA NOVA" somem.
     UpdateLoginButtonsVisibility();
 
-    if (keepLegacyGhost) {
-        // ghost legado continua em jogo (ver keepLegacyGhost acima)
-    } else if (window.GhostRPG && window.GhostRPG.applyCloudSave) {
-        try { window.GhostRPG.applyCloudSave(safeData); } catch(e) {}
-    } else {
-        window.cloudSave = safeData;
+    if (!keepLegacyGhost) {
+        if (window.GhostRPG && window.GhostRPG.applyCloudSave) {
+            try { window.GhostRPG.applyCloudSave(safeData); } catch(e) {}
+        } else {
+            window.cloudSave = safeData;
+        }
     }
 
     // O banco manda, sempre (30/08/2026: sem "adotar" progresso local — login virou obrigatório
