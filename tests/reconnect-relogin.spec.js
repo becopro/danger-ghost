@@ -1,16 +1,18 @@
-// Teste do painel Legacy (?legacy=1): o ghost legado não pode ser trocado pelo personagem próprio
-// quando o socket do jogo reconecta e o login é refeito sozinho (TryAutoLoginFromSession ->
-// completeCloudLogin). Sem banco, sem Phantom, sem serviço real:
+// Relogin depois de uma reconexão do socket do jogo (TryAutoLoginFromSession -> completeCloudLogin):
+// o personagem em jogo não pode ser trocado, nem o ghost legado do painel Legacy (?legacy=1), nem o
+// personagem do jogo normal; e o progresso feito enquanto o servidor recusava os saves tem que ser
+// reenviado depois do relogin. Sem banco, sem Phantom, sem serviço real:
 //   - site estático na 8080 (esta pasta);
 //   - serviço Legacy falso na 8090 (tools/legacy-fake-server.js) + carteira de teste (?mockwallet=1);
-//   - servidor de jogo FALSO na 3000: só responde session_login, com ping curto (1 s + 1 s) para a
-//     reconexão acontecer em poucos segundos de página travada (em produção: 15 s + 8 s).
+//   - servidor de jogo FALSO na 3000: responde session_login e, como o servidor real, recusa
+//     save_game_state de socket ainda sem login; ping curto (1 s + 1 s) para a reconexão acontecer
+//     em poucos segundos de página travada (em produção: 15 s + 8 s).
 // A página "trava" como em produção: alert() real segurado aberto, ou um laço ocupado.
 //
 // Uso (na pasta "danger ghost", com as portas 3000, 8080 e 8090 livres: desligue antes o
 // servidor do jogo, a pré-visualização e qualquer legacy-fake-server já aberto). Precisa de
 // internet: o index.html carrega o cliente socket.io de cdn.socket.io.
-//   node tests/legacy-reconnect.spec.js
+//   node tests/reconnect-relogin.spec.js
 'use strict';
 
 const http = require('http');
@@ -54,14 +56,21 @@ const serverAccount = {
         { characterId: 'dg_local_test1', name: 'Ghost', level: 1, xp: 0, vit: 1, agi: 1, int: 1, pow: 1, mag: 1, pointsToDistribute: 0, updatedAt: '2026-10-07T23:00:00Z' },
     ],
 };
-const gameServer = { logins: 0 };
+const gameServer = { logins: 0, rejectedSaves: 0, lastSave: null };
 function startGameServer() {
     const srv = http.createServer();
     const io = new Server(srv, { pingInterval: 1000, pingTimeout: 1000, cors: { origin: SITE } });
     io.on('connection', (s) => {
+        let authed = false;
         s.on('session_login', () => {
             gameServer.logins++;
+            authed = true;
             s.emit('session_login_success', { email: EMAIL, playerData: JSON.parse(JSON.stringify(serverAccount)), token: 'fake-test-token' });
+        });
+        // Igual a server/index.js: save de socket sem login é recusado sem resposta.
+        s.on('save_game_state', (data) => {
+            if (!authed) { gameServer.rejectedSaves++; return; }
+            gameServer.lastSave = data;
         });
     });
     return new Promise((ok) => srv.listen(3000, () => ok({ srv, io })));
@@ -224,12 +233,11 @@ async function main() {
         });
         await page.close();
 
-        // ===== Controle: sem ?legacy=1 o comportamento é o de hoje =====
-        // ATENÇÃO: isto confere o comportamento ATUAL do jogo normal, que ainda tem o bug do item 2
-        // (o relogin troca o personagem pela cópia do servidor). Quando o item 2 for consertado,
-        // este cenário tem que mudar junto: aqui ele só prova que este conserto não mexeu no jogo
-        // normal.
-        await check('7. controle sem ?legacy=1: o relogin continua carregando o personagem do servidor (igual a antes)', async () => {
+        // ===== Jogo normal (sem ?legacy=1): item 2 do issue de 07/10 =====
+        // Em produção: subiu ao nível 9, gastou os pontos e voltou ao 8 com 35 AP. Aqui: a página
+        // trava, o jogador sobe 1 nível e gasta 5 pontos logo em seguida (o servidor recusa esses
+        // saves porque o socket novo ainda não tem login), e o relogin chega depois.
+        await check('7. jogo normal: depois da travada o relogin mantém personagem, nível e pontos, e reenvia o estado', async () => {
             const p2 = await (await browser.newContext()).newPage();
             p2.on('dialog', (d) => d.accept().catch(() => {}));
             await p2.goto(SITE + '/', { waitUntil: 'domcontentloaded' });
@@ -239,12 +247,61 @@ async function main() {
             await p2.evaluate(() => window.SelectCharacterToPlay('001'));
             await sleep(500);
             const before = gameServer.logins;
-            await p2.evaluate((ms) => { var end = Date.now() + ms; while (Date.now() < end) {} }, FREEZE_MS);
+            const rejectedBefore = gameServer.rejectedSaves;
+            const played = await p2.evaluate((ms) => {
+                var end = Date.now() + ms; while (Date.now() < end) {}
+                var s = window.GhostRPG.getStats();
+                window.GhostRPG.addXp(s.xpRequired - s.xp);
+                for (var i = 0; i < 5; i++) window.GhostRPG.allocateAttribute('agi');
+                s = window.GhostRPG.getStats();
+                return { level: s.level, points: s.pointsToDistribute, agi: s.baseAgi };
+            }, FREEZE_MS);
             await waitRelogin(before);
-            const g = await readGame(p2);
-            expectEq('personagem ativo depois do relogin (o mais recente do servidor)', g.ghost, 'dg_local_test1');
-            expectEq('nível', g.level, 1);
+            const g = await p2.evaluate(() => {
+                var s = window.GhostRPG.getStats();
+                return { char: s.characterId, level: s.level, points: s.pointsToDistribute, agi: s.baseAgi };
+            });
+            expectEq('personagem ativo', g.char, '001');
+            expectEq('nível', g.level, played.level);
+            expectEq('pontos livres', g.points, played.points);
+            expectEq('AGI', g.agi, played.agi);
+            if (gameServer.rejectedSaves <= rejectedBefore) throw new Error('o servidor falso não recusou nenhum save (o teste não criou a janela sem login)');
+            const sent = gameServer.lastSave || {};
+            const sentChar = (sent.characters || [])[0] || {};
+            expectEq('servidor recebeu o personagem depois do relogin', sentChar.characterId, '001');
+            expectEq('nível recebido pelo servidor', sentChar.level, played.level);
+            expectEq('pontos recebidos pelo servidor', sentChar.pointsToDistribute, played.points);
             await p2.close();
+        });
+
+        // O contrário: enquanto esta aba estava desconectada, o jogador avançou o mesmo personagem
+        // em outro aparelho. O relogin tem que trazer a cópia do banco e não reenviar a velha.
+        await check('8. jogo normal: se o banco está à frente (outro aparelho), o relogin carrega o banco e não sobrescreve', async () => {
+            const p3 = await (await browser.newContext()).newPage();
+            p3.on('dialog', (d) => d.accept().catch(() => {}));
+            await p3.goto(SITE + '/', { waitUntil: 'domcontentloaded' });
+            await waitFor(() => p3.evaluate(() => !!window.GhostRPG), 15000, 'jogo carregado');
+            await login(p3);
+            await p3.evaluate(() => window.SelectCharacterToPlay('001'));
+            await sleep(500);
+            const tabLevel = await p3.evaluate(() => window.GhostRPG.getLevel());
+            const own = serverAccount.characters[0];
+            const saved = Object.assign({}, own);
+            Object.assign(own, { level: tabLevel + 5, xp: 0, pointsToDistribute: 0, updatedAt: new Date().toISOString() });
+            try {
+                const before = gameServer.logins;
+                gameServer.lastSave = null;
+                await p3.evaluate((ms) => { var end = Date.now() + ms; while (Date.now() < end) {} }, FREEZE_MS);
+                await waitRelogin(before);
+                const g = await p3.evaluate(() => { var s = window.GhostRPG.getStats(); return { char: s.characterId, level: s.level }; });
+                expectEq('personagem ativo', g.char, '001');
+                expectEq('nível (o do banco)', g.level, tabLevel + 5);
+                const sentChar = ((gameServer.lastSave || {}).characters || [])[0];
+                if (sentChar && sentChar.level < tabLevel + 5) throw new Error('a aba reenviou o nível velho ' + sentChar.level + ' por cima do banco');
+            } finally {
+                Object.assign(own, saved);
+                await p3.close();
+            }
         });
     } finally {
         if (browser) await browser.close();
