@@ -43,6 +43,30 @@ window.hideLoginError = hideLoginError;
 // chamam esta função em vez de decidir a visibilidade cada um à sua maneira.
 window.g_hasAuthenticatedThisPageLoad = false;
 
+// E-mail da conta que completou o login NESTA aba (memória, não localStorage: dg_cloud_email é
+// compartilhado entre abas e muda quando outra aba entra em outra conta). Usado em
+// completeCloudLogin() para saber se um relogin é da mesma conta (painel Legacy, 08/10/2026).
+var g_tabAccountEmail = null;
+
+// true se a lista vinda do banco tem o personagem em jogo com mais progresso (nível, depois XP)
+// do que o da memória. O servidor guarda ids numéricos como "ghost_" + id (normalizeCharacterId
+// em server/db.js), então "001" e "ghost_001" são o mesmo personagem.
+function serverCopyIsAhead(cloudCharacters) {
+    try {
+        var current = window.GhostRPG ? window.GhostRPG.getStats() : null;
+        if (!current || !current.characterId || !Array.isArray(cloudCharacters)) return false;
+        var normalize = function(id) { id = String(id); return /^\d+$/.test(id) ? "ghost_" + id : id; };
+        var currentId = normalize(current.characterId);
+        var saved = cloudCharacters.find(function(c) { return c && normalize(c.characterId) === currentId; });
+        if (!saved) return false;
+        var savedLevel = Number(saved.level) || 0;
+        var currentLevel = Number(current.level) || 0;
+        return savedLevel > currentLevel || (savedLevel === currentLevel && (Number(saved.xp) || 0) > (Number(current.xp) || 0));
+    } catch (e) {
+        return false;
+    }
+}
+
 function UpdateLoginButtonsVisibility() {
     var container = document.getElementById("loginButtonsContainer");
     if (!container) return;
@@ -82,6 +106,26 @@ function completeCloudLogin(email, name, playerData, token) {
         level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0,0,0,0]
     };
 
+    // Relogin da MESMA conta nesta aba (08/10/2026): o caso típico é o automático depois de uma
+    // reconexão do socket (js/game/network.js), que acontece sempre que a aba trava por alguns
+    // segundos (aviso de SUCCESS aberto, PC pesado, 4G). Nesse caso o que está em memória é o
+    // estado mais novo: o servidor recusa os saves que chegam antes do relogin terminar, então o
+    // banco pode estar atrás. Antes, os blocos abaixo que checam keepCurrentCharacter trocavam o
+    // personagem em jogo pela cópia do banco (ou por OUTRO ghost, o de updatedAt mais recente),
+    // reiniciavam a fase e tiravam o ghost legado do painel Legacy: o jogador voltava de nível e
+    // perdia pontos (ex.: nível 9 -> 8 com 35 AP). Agora só renova a sessão e, no fim, reenvia o
+    // estado atual. Primeiro login da aba e login de OUTRA conta seguem "o banco manda".
+    // Também segue "o banco manda" quando a cópia do banco deste MESMO personagem está à frente
+    // (nível, depois XP): o jogador continuou em outro aparelho enquanto esta aba estava
+    // desconectada, e reenviar o estado desta aba apagaria aquele progresso. O ghost legado não
+    // entra nessa comparação: ele não está na lista de personagens da conta e o serviço Legacy
+    // tem a própria checagem de versão.
+    var keepCurrentCharacter = g_tabAccountEmail === email;
+    if (keepCurrentCharacter && !(window.LegacyMode && window.LegacyMode.active) && serverCopyIsAhead(safeData.characters)) {
+        keepCurrentCharacter = false;
+    }
+    g_tabAccountEmail = email;
+
     try {
         localStorage.setItem("dg_cloud_email", email);
         localStorage.setItem("playerName", safeData.name || name || "Ghost");
@@ -114,23 +158,28 @@ function completeCloudLogin(email, name, playerData, token) {
     // é confirmado, então é aqui que os botões "RESGATAR PROGRESSO" / "CRIAR CONTA NOVA" somem.
     UpdateLoginButtonsVisibility();
 
-    if (window.GhostRPG && window.GhostRPG.applyCloudSave) {
-        try { window.GhostRPG.applyCloudSave(safeData); } catch(e) {}
-    } else {
-        window.cloudSave = safeData;
+    if (!keepCurrentCharacter) {
+        if (window.GhostRPG && window.GhostRPG.applyCloudSave) {
+            try { window.GhostRPG.applyCloudSave(safeData); } catch(e) {}
+        } else {
+            window.cloudSave = safeData;
+        }
     }
 
     // O banco manda, sempre (30/08/2026: sem "adotar" progresso local — login virou obrigatório
     // pra jogar, não existe mais um cenário legítimo de progresso real só no localStorage antes
     // de logar, então não tem o que adotar). A lista de personagens, o progresso da Ghostdex e
     // os favoritos vindos do servidor sempre substituem o que estava local, ponto.
+    // Exceção: relogin da mesma conta nesta aba (keepCurrentCharacter, ver acima).
     var cloudCharacters = Array.isArray(safeData.characters) ? safeData.characters : [];
-    try {
-        localStorage.setItem("dg_local_characters", JSON.stringify(cloudCharacters));
-        window.g_ownedCharacters = cloudCharacters;
-        localStorage.setItem("ghostdex_progress", JSON.stringify(safeData.ghostdexProgress || {}));
-        localStorage.setItem("DangerGhost_Favorites", JSON.stringify(safeData.favorites || []));
-    } catch (e) { console.error("[CloudSave] Falha ao aplicar dados do banco:", e); }
+    if (!keepCurrentCharacter) {
+        try {
+            localStorage.setItem("dg_local_characters", JSON.stringify(cloudCharacters));
+            window.g_ownedCharacters = cloudCharacters;
+            localStorage.setItem("ghostdex_progress", JSON.stringify(safeData.ghostdexProgress || {}));
+            localStorage.setItem("DangerGhost_Favorites", JSON.stringify(safeData.favorites || []));
+        } catch (e) { console.error("[CloudSave] Falha ao aplicar dados do banco:", e); }
+    }
 
     // forceShowOverlay = false (22/08/2026, pedido do usuário: login/cadastro deve ir DIRETO
     // pro jogo, sem tela intermediária). Antes era true (30/08/2026) por uma regra de outra
@@ -143,7 +192,7 @@ function completeCloudLogin(email, name, playerData, token) {
     // disparar, então o auto-select pega o personagem certo (testado em 22/08/2026 com 2+
     // personagens e updatedAt genuinamente diferentes — ver e2e-db-verification). Conta nova
     // (zero personagens) cai na tela de seleção/forja vazia, que é o esperado.
-    if (typeof window.LoadRPGStateFromDeSo === 'function') {
+    if (!keepCurrentCharacter && typeof window.LoadRPGStateFromDeSo === 'function') {
         window.LoadRPGStateFromDeSo(null, false);
     }
 
@@ -170,7 +219,7 @@ function completeCloudLogin(email, name, playerData, token) {
     // direto, sem repetir o efeito de UI/estado de jogo que o LoadRPGStateFromDeSo acima já pode
     // ter disparado.
     try {
-        if (cloudCharacters.length > 0 && window.GhostRPG && window.GhostRPG.loadBlockchainState) {
+        if (!keepCurrentCharacter && cloudCharacters.length > 0 && window.GhostRPG && window.GhostRPG.loadBlockchainState) {
             var mostRecentChar = cloudCharacters.reduce(function(latest, c) {
                 var cTime = c.updatedAt ? new Date(c.updatedAt).getTime() : 0;
                 var latestTime = latest ? new Date(latest.updatedAt || 0).getTime() : -1;
@@ -200,6 +249,15 @@ function completeCloudLogin(email, name, playerData, token) {
             }
         }
     } catch (e) { console.error("[CloudSave] Falha ao carregar o personagem mais recente:", e); }
+
+    // Relogin da mesma conta: reenvia o personagem em jogo agora que o socket está autenticado,
+    // cobrindo os saves que o servidor recusou entre a reconexão e este relogin. Com um ghost
+    // legado em jogo, saveLocalStorage() manda para o serviço Legacy (js/legacy/legacy.js).
+    if (keepCurrentCharacter && window.GhostRPG && window.GhostRPG.saveLocalStorage) {
+        try {
+            if (window.GhostRPG.getStats().characterId) window.GhostRPG.saveLocalStorage();
+        } catch (e) { console.error("[CloudSave] Falha ao reenviar o personagem depois do relogin:", e); }
+    }
 }
 window.completeCloudLogin = completeCloudLogin;
 
