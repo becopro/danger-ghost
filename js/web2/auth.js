@@ -82,6 +82,18 @@ function completeCloudLogin(email, name, playerData, token) {
         level: 1, xp: 0, mana: 100, maxMana: 100, lives: 3, equippedSkills: [0,0,0,0]
     };
 
+    // Painel Legacy (js/legacy/legacy.js, só com ?legacy=1), 08/10/2026: com um ghost legado em
+    // jogo, um relogin da MESMA conta (o automático depois de uma reconexão do socket, ver
+    // js/game/network.js) só renova a sessão. Sem isto, os três blocos abaixo que checam
+    // keepLegacyGhost (applyCloudSave, LoadRPGStateFromDeSo, personagem mais recente) saíam do
+    // modo legado e trocavam o ghost pelo personagem mais recente da conta (nível 1 na tela, fase
+    // reiniciada) toda vez que a aba travava por alguns segundos (aviso de SUCCESS aberto, PC
+    // pesado). Login de OUTRA conta segue o caminho normal. Sem ?legacy=1 nada muda aqui.
+    var keepLegacyGhost = false;
+    try {
+        keepLegacyGhost = !!(window.LegacyMode && window.LegacyMode.active) && localStorage.getItem("dg_cloud_email") === email;
+    } catch (e) {}
+
     try {
         localStorage.setItem("dg_cloud_email", email);
         localStorage.setItem("playerName", safeData.name || name || "Ghost");
@@ -114,7 +126,9 @@ function completeCloudLogin(email, name, playerData, token) {
     // é confirmado, então é aqui que os botões "RESGATAR PROGRESSO" / "CRIAR CONTA NOVA" somem.
     UpdateLoginButtonsVisibility();
 
-    if (window.GhostRPG && window.GhostRPG.applyCloudSave) {
+    if (keepLegacyGhost) {
+        // ghost legado continua em jogo (ver keepLegacyGhost acima)
+    } else if (window.GhostRPG && window.GhostRPG.applyCloudSave) {
         try { window.GhostRPG.applyCloudSave(safeData); } catch(e) {}
     } else {
         window.cloudSave = safeData;
@@ -143,7 +157,7 @@ function completeCloudLogin(email, name, playerData, token) {
     // disparar, então o auto-select pega o personagem certo (testado em 22/08/2026 com 2+
     // personagens e updatedAt genuinamente diferentes — ver e2e-db-verification). Conta nova
     // (zero personagens) cai na tela de seleção/forja vazia, que é o esperado.
-    if (typeof window.LoadRPGStateFromDeSo === 'function') {
+    if (!keepLegacyGhost && typeof window.LoadRPGStateFromDeSo === 'function') {
         window.LoadRPGStateFromDeSo(null, false);
     }
 
@@ -170,7 +184,7 @@ function completeCloudLogin(email, name, playerData, token) {
     // direto, sem repetir o efeito de UI/estado de jogo que o LoadRPGStateFromDeSo acima já pode
     // ter disparado.
     try {
-        if (cloudCharacters.length > 0 && window.GhostRPG && window.GhostRPG.loadBlockchainState) {
+        if (!keepLegacyGhost && cloudCharacters.length > 0 && window.GhostRPG && window.GhostRPG.loadBlockchainState) {
             var mostRecentChar = cloudCharacters.reduce(function(latest, c) {
                 var cTime = c.updatedAt ? new Date(c.updatedAt).getTime() : 0;
                 var latestTime = latest ? new Date(latest.updatedAt || 0).getTime() : -1;
