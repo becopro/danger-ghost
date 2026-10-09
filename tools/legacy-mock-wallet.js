@@ -7,6 +7,8 @@
 // Controles (console do navegador), para simular erros:
 //   GGMockWallet.rejectNext = true          a próxima assinatura é recusada (como "Cancel" na Phantom)
 //   GGMockWallet.balanceLamports = 0        saldo mostrado pelo painel (?mockbal=0 na URL faz o mesmo)
+//   GGMockWallet.failNext = 'Blockhash not found'   a próxima transação falha com esta mensagem
+//   GGMockWallet.delayMs = 5000             a carteira demora este tempo para responder às transações
 (function () {
     'use strict';
     var params = new URLSearchParams(location.search);
@@ -29,6 +31,8 @@
 
     var controls = {
         rejectNext: false,
+        failNext: null,
+        delayMs: 0,
         balanceLamports: params.get('mockbal') !== null ? Number(params.get('mockbal')) : 2000000000,
         address: null,
     };
@@ -91,7 +95,9 @@
                 version: '1.0.0',
                 supportedTransactionVersions: ['legacy', 0],
                 signAndSendTransaction: async function () {
+                    if (controls.delayMs > 0) await new Promise(function (r) { setTimeout(r, controls.delayMs); });
                     if (controls.rejectNext) { controls.rejectNext = false; throw rejected(); }
+                    if (controls.failNext) { var msg = String(controls.failNext); controls.failNext = null; throw new Error(msg); }
                     if (controls.balanceLamports < 3000000) throw new Error('Insufficient funds for fee');
                     return [{ signature: crypto.getRandomValues(new Uint8Array(64)) }];
                 },

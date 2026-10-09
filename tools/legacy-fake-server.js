@@ -14,6 +14,10 @@
 //   POST /dev/chain-owner { asset, owner }      muda o dono "na rede" sem passar pelo confirm
 //   POST /dev/bump-version { asset }            simula um save feito em outra aba
 //   POST /dev/offline { seconds }               responde como serviço fora do ar (fecha a conexão)
+//   POST /dev/expire-prepare { times, offsetMs } as próximas `times` respostas do transfer/prepare vêm com
+//                    expiresAt = agora + offsetMs (padrão -1000: já vencido). Sem isso: agora + 30 s.
+//   Transação vencida no confirm (contrato v1.2):
+//                    POST /dev/fail { route: "POST /api/transfer/confirm", status: 400, code: "tx_expired" }
 //   POST /dev/reset                             apaga tudo
 //   GET  /dev/state                             estado atual (sem tokens)
 'use strict';
@@ -50,7 +54,7 @@ const isSig = (s) => { const b = b58decode(s); return !!b && b.length === 64; };
 const randomAddr = () => b58encode(crypto.randomBytes(32));
 
 // ---------- estado em memória ----------
-let nonces, sessions, ghosts, failures, pendings, offlineUntil;
+let nonces, sessions, ghosts, failures, pendings, offlineUntil, expirePrepares, blockHeight;
 function reset() {
     nonces = new Map();   // nonce -> { wallet, origin, message, expires, used }
     sessions = new Map(); // token -> { wallet, expires }
@@ -58,6 +62,8 @@ function reset() {
     failures = [];        // { route, status, code, times, extra }
     pendings = [];        // { route, times }
     offlineUntil = 0;
+    expirePrepares = [];  // { times, offsetMs }
+    blockHeight = 496000000;
 }
 reset();
 
@@ -153,6 +159,7 @@ const server = http.createServer(async (req, res) => {
             case '/dev/pending': pendings.push({ route: b.route, times: b.times || 1 }); return send(res, 200, { ok: true });
             case '/dev/chain-owner': { const g = ghosts.get(b.asset); if (!g) return err(res, 404, 'not_found'); g.chainOwner = b.owner; return send(res, 200, { ok: true }); }
             case '/dev/bump-version': { const g = ghosts.get(b.asset); if (!g) return err(res, 404, 'not_found'); g.save_version += 1; return send(res, 200, { ok: true, save_version: g.save_version }); }
+            case '/dev/expire-prepare': expirePrepares.push({ times: b.times || 1, offsetMs: Number.isFinite(b.offsetMs) ? b.offsetMs : -1000 }); return send(res, 200, { ok: true });
             case '/dev/offline': offlineUntil = Date.now() + (b.seconds || 10) * 1000; return send(res, 200, { ok: true });
             case '/dev/reset': reset(); return send(res, 200, { ok: true });
             default: return err(res, 404, 'not_found');
@@ -283,7 +290,14 @@ const server = http.createServer(async (req, res) => {
             if (g.chainOwner !== session.wallet) return err(res, 403, 'not_owner');
             if (body.to === g.chainOwner) return err(res, 400, 'bad_request');
             g.pendingTo = body.to;
-            return send(res, 200, { transaction: crypto.randomBytes(200).toString('base64'), owner: g.chainOwner, generation: g.generation });
+            // Contrato v1.2: a transação vence (rede real: ~38 s); expiresAt = prepare + 30 s, com folga.
+            const forced = expirePrepares.find((x) => x.times > 0);
+            if (forced) forced.times -= 1;
+            blockHeight += 1;
+            return send(res, 200, {
+                transaction: crypto.randomBytes(200).toString('base64'), owner: g.chainOwner, generation: g.generation,
+                lastValidBlockHeight: blockHeight + 150, expiresAt: new Date(Date.now() + (forced ? forced.offsetMs : 30000)).toISOString(),
+            });
         }
 
         case 'POST /api/transfer/confirm': {

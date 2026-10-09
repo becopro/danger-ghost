@@ -171,12 +171,25 @@
     function isUserRejection(e) {
         return !!e && (e.code === 4001 || /reject|declin|cancel|denied|closed/i.test(String(e.message || '')));
     }
-    async function walletCall(fn) {
-        try { return await fn(); } catch (e) {
-            var err = new LegacyError(isUserRejection(e) ? 'wallet_rejected'
+    // Chama a carteira e mede quanto ela levou (a transação do Pass on vence: ver sendTransfer).
+    // expiresAtMs (opcional): prazo da transação; erro da carteira depois dele (sem ser "cancelar")
+    // vira tx_expired_wallet. O texto que a carteira devolveu fica em err.walletMessage e aparece na tela.
+    async function walletCall(fn, expiresAtMs) {
+        var t0 = Date.now();
+        try {
+            var out = await fn();
+            console.info('[Legacy] wallet: ok after', Date.now() - t0, 'ms');
+            return out;
+        } catch (e) {
+            var ms = Date.now() - t0;
+            var code = isUserRejection(e) ? 'wallet_rejected'
                 : /insufficient|lamport|not enough|funds|balance/i.test(String(e && e.message)) ? 'wallet_no_sol'
-                : 'wallet_failed');
+                : 'wallet_failed';
+            if (code !== 'wallet_rejected' && Number.isFinite(expiresAtMs) && Date.now() > expiresAtMs) code = 'tx_expired_wallet';
+            var err = new LegacyError(code);
             err.walletMessage = String((e && e.message) || '').slice(0, 160);
+            err.walletMs = ms;
+            console.warn('[Legacy] wallet:', err.code, err.walletMessage, 'after', ms, 'ms');
             throw err;
         }
     }
@@ -242,21 +255,29 @@
         bad_response: 'Unexpected answer from the Legacy service.',
         wallet_rejected: 'You cancelled in your wallet. Nothing was sent.',
         wallet_no_sol: 'Not enough devnet SOL to pay the fee. Put your wallet in Devnet mode (Testnet Mode) and get free devnet SOL from the faucet.',
-        wallet_failed: 'Your wallet could not finish this. Check that it is in Devnet mode (Testnet Mode) and has some devnet SOL.',
+        wallet_failed: 'Your wallet could not finish this. This usually happens when the wallet takes too long to open or approve. Press the button again and approve right away. If it keeps failing, check that your wallet is in Devnet mode.',
+        tx_expired_wallet: 'The transfer request expired while your wallet was opening. Nothing was sent. Press Pass on to try again.',
+        tx_expired: 'This transfer expired before it reached Solana devnet. Nothing changed. Press Pass on to try again.',
     };
     function describe(e) {
         if (e && e.code === 'ui') return { text: e.text, links: e.links };
         var text = (e && CODE_TEXT[e.code]) || ('Something went wrong (' + ((e && e.code) || 'error') + ').');
         if (e && e.code === 'rate_limited' && e.retryAfter) text = 'Too many requests. Try again in ' + e.retryAfter + ' s.';
         if (e && e.code === 'internal' && e.data && typeof e.data.error === 'string') text += ' (' + e.data.error.slice(0, 120) + ')';
-        var links = (e && (e.code === 'wallet_no_sol' || e.code === 'wallet_failed')) ? [{ href: FAUCET, text: 'Open the Solana faucet' }] : undefined;
-        return { text: text, links: links };
+        var links = (e && e.code === 'wallet_no_sol') ? [{ href: FAUCET, text: 'Open the Solana faucet' }] : undefined;
+        return { text: text, links: links, detail: walletDetail(e) };
     }
-    function setMsg(kind, text, links) { S.msg = { kind: kind, text: text, links: links || [] }; render(); }
+    // Linha menor embaixo da mensagem: o que a carteira respondeu e quanto ela levou.
+    function walletDetail(e) {
+        if (!e || typeof e.walletMessage !== 'string') return null;
+        return 'Wallet said: ' + (e.walletMessage || '(no message)') +
+            (Number.isFinite(e.walletMs) ? ' (after ' + (e.walletMs / 1000).toFixed(1) + ' s)' : '');
+    }
+    function setMsg(kind, text, links, detail) { S.msg = { kind: kind, text: text, links: links || [], detail: detail || null }; render(); }
     function showError(e) {
         if (!(e instanceof LegacyError)) { console.error('[Legacy]', e); e = new LegacyError('error'); }
         var d = describe(e);
-        setMsg('error', d.text, d.links);
+        setMsg('error', d.text, d.links, d.detail);
     }
 
     // ---------- ações (uma por vez; o botão sempre destrava) ----------
@@ -413,19 +434,38 @@
             await queueSave(play, null);
         }
         var wallet = S.session.wallet;
-        var r = (await api('POST', '/api/transfer/prepare', { asset: t.asset, to: t.to }, true)).data;
-        if (!r || typeof r.transaction !== 'string') throw new LegacyError('bad_response');
-        setMsg('info', 'Approve the transfer in your wallet. You pay a small devnet fee. ' + DEVNET_CHECK);
-        var signature = await walletCall(function () { return window.GGWallet.signAndSendBase64Transaction(r.transaction); });
+        // A transação do prepare vence (~38 s na devnet; expiresAt = prazo com folga, contrato v1.2).
+        // Pedir de novo é seguro: se já venceu antes de abrir a carteira, pede uma nova (uma vez só).
+        var r = await prepareTransfer(t);
+        if (Number.isFinite(r.expiresAtMs) && Date.now() > r.expiresAtMs) r = await prepareTransfer(t);
+        setMsg('info', 'Approve the transfer in your wallet. You pay a small devnet fee. Approve within about 30 seconds. ' + DEVNET_CHECK);
+        var signature = await walletCall(function () { return window.GGWallet.signAndSendBase64Transaction(r.transaction); }, r.expiresAtMs);
         var pending = { kind: 'transfer', asset: t.asset, signature: signature, wallet: wallet, to: t.to,
             before: { owner: r.owner, generation: r.generation } };
         setPending(pending);
         await finishTransfer(pending);
     }
 
+    async function prepareTransfer(t) {
+        var r = (await api('POST', '/api/transfer/prepare', { asset: t.asset, to: t.to }, true)).data;
+        if (!r || typeof r.transaction !== 'string') throw new LegacyError('bad_response');
+        r.expiresAtMs = typeof r.expiresAt === 'string' ? Date.parse(r.expiresAt) : NaN; // sem expiresAt: NaN, sem prazo
+        return r;
+    }
+
+    // Respostas do confirm que dizem que esta assinatura nunca vai valer: a pendente sai do navegador.
+    // Erros temporários (rede, 202, 429, 5xx) mantêm a pendente para "Finish pending transaction".
+    var TRANSFER_FINAL_CODES = { tx_expired: true, tx_failed: true, wrong_transaction: true };
+
     async function finishTransfer(p) {
         setMsg('info', 'Waiting for Solana devnet to confirm the transfer…');
-        var c = await untilConfirmed(function () { return api('POST', '/api/transfer/confirm', { asset: p.asset, signature: p.signature }, true); });
+        var c;
+        try {
+            c = await untilConfirmed(function () { return api('POST', '/api/transfer/confirm', { asset: p.asset, signature: p.signature }, true); });
+        } catch (e) {
+            if (e && TRANSFER_FINAL_CODES[e.code] === true) clearPending();
+            throw e;
+        }
         clearPending();
         var after = { owner: c && c.owner, generation: c && c.generation };
         S.transfer = null;
@@ -827,7 +867,9 @@
 
         if (S.msg) {
             ui.panel.appendChild(el('div', { class: 'gg-legacy-msg gg-legacy-msg-' + S.msg.kind, role: S.msg.kind === 'error' ? 'alert' : 'status' },
-                [el('div', { text: S.msg.text })].concat((S.msg.links || []).map(function (l) { return link(l.href, l.text); }))));
+                [el('div', { text: S.msg.text }),
+                    S.msg.detail ? el('div', { class: 'gg-legacy-hint gg-legacy-wallet-said', style: 'font-size:11px; margin-top:4px; word-break:break-word;', text: S.msg.detail }) : null,
+                ].concat((S.msg.links || []).map(function (l) { return link(l.href, l.text); }))));
         }
 
         ui.panel.appendChild(renderWallet());
