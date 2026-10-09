@@ -100,8 +100,9 @@ window.SpawnNativeGhosts = function(count) {
     var validIds = [];
     var level = window.g_currentLevel || 1;
     
-    // Pool 1: #001 to #030 (always valid on any level)
-    for (var i = 1; i <= 30; i++) validIds.push(i);
+    // Pool 1: #002 to #030 (always valid on any level). O #001 (Ftasma) é o ghost inicial de
+    // todo jogador e nunca nasce como alvo de captura.
+    for (var i = 2; i <= 30; i++) validIds.push(i);
     
     // Pool 2: #031 to #050 (Levels 20 to 30)
     if (level >= 20 && level <= 30) {
