@@ -40,11 +40,11 @@ For mobile, point `danger_ghost_mobile/www/js/game/network.js`'s `BACKEND_URL` a
 - If a new dependency was added in `server/`, remember `node_modules/` is gitignored — only `package.json`/`package-lock.json` travel in the commit, so the deploy needs an install step on the VPS. **Stop and ask the human first** (see §7).
 
 ## 7. Production deploy of the game (VPS)
-Two apps run on the same VPS: pm2 `ghost` (this game, `/home/becopro/danger-ghost`) and pm2 `legacy` (the separate `ghostgames-onchain` service, deployed its own way). **Never deploy both at the same time.** Every command on the VPS needs the human's explicit OK; the human runs them in their own terminal (`ssh -i "$HOME\.ssh\becopro_vps" becopro@<IP>`, IP in `dragaMP/saida_noite/D1_RUNBOOK.md`). Never read or print `.env`, `server/.jwtsecret` or any other secret.
+Two apps run on the same VPS: pm2 `ghost` (this game) and pm2 `legacy` (the separate `ghostgames-onchain` service, deployed its own way). **Never deploy both at the same time.** Every command on the VPS needs the human's explicit OK; the human runs them in their own terminal over SSH. The connection details and the game folder's path on the VPS are in the deploy runbook (`dragaMP/saida_noite/D1_RUNBOOK.md`, outside this repo) — never copy them into this repo. Never read or print `.env` files, key files or any other secret.
 
 **On the VPS the local branch is called `main` but points at the production commit.** Deploy = fetch + reset to the exact commit. **Never `git pull`** (it would merge GitHub's `main` into production), and never `deploy.sh` (wrong pm2 name, unpinned npm).
 ```
-cd /home/becopro/danger-ghost
+cd <game folder on the VPS>        # full path, from the runbook
 git rev-parse HEAD                 # write this down: it is the rollback point
 git status --short                 # a tracked file shown as " M" here would be wiped by the reset: STOP and ask
 pm2 list                           # note the restart count (↺) of ghost and legacy
@@ -60,7 +60,7 @@ git rev-parse HEAD
 
 The VPS repo fetches over HTTPS from the public GitHub repo. If `danger-ghost` becomes private, `git fetch` there stops working until a deploy key is set up and tested — deploy first, or plan the key.
 
-**If you use the hosting provider's web console instead of SSH: its keyboard drops Shift** — `~` silently becomes `` ` ``, breaking `cd ~/...`; use the absolute path (`/home/becopro/...`), and avoid typing `_`/uppercase where an all-lowercase alternative exists (this is also why this project's env vars are named `dbhost`/`jwtsecret` and not `DB_HOST`/`JWT_SECRET`).
+**If you use the hosting provider's web console instead of SSH: its keyboard drops Shift** — `~` silently becomes `` ` ``, breaking `cd ~/...`; use the full absolute path of the game folder, and avoid typing `_`/uppercase where an all-lowercase alternative exists (this is also why this project's env var names are all lowercase).
 
 ## 8. After deploy
 - From the PC (read-only): `curl -s https://ghostgames.club/` and confirm every bumped `?v=` from §4 is in the served `index.html`; `curl -sI` a couple of the changed files (expect 200).
