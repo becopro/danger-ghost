@@ -1925,6 +1925,13 @@ window.TransferChestItemToGhost = function(item, targetCharacterId) {
         console.warn('[RPG] TransferChestItemToGhost: item ou targetCharacterId ausente.');
         return false;
     }
+    // Ghost legado carregado (painel Legacy, ?legacy=1): o baú da conta fica fechado, ver
+    // RefuseChestInLegacyMode() em js/ui/ui_manager.js. O ghost legado usa o characterId da
+    // espécie ("001") só para as fórmulas de atributo; ele nunca é um personagem da conta.
+    if (window.LegacyMode && window.LegacyMode.active) {
+        if (typeof window.RefuseChestInLegacyMode === 'function') window.RefuseChestInLegacyMode();
+        return false;
+    }
 
     var activeCharId = (window.GhostRPG && GhostRPG.getStats) ? GhostRPG.getStats().characterId : null;
     var isActiveGhost = activeCharId != null && normalizeCharId(activeCharId) === normalizeCharId(targetCharacterId);

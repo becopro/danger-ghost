@@ -49,7 +49,7 @@
         ghosts: null,           // lista do serviço ou null
         busy: null,             // nome da ação em andamento (uma por vez)
         msg: null,              // { kind: 'info'|'ok'|'error', text, links: [{ href, text }] }
-        forgeConfirm: false,
+        forgeConfirm: false,    // false ou { hasChar, name, level } (aviso de consentimento aberto)
         transfer: null,         // { asset, to, before, error }
         transferResult: null,   // { asset, before, after }
     };
@@ -325,6 +325,17 @@
         var hasChar = false;
         try { hasChar = !!(window.GhostRPG && window.GhostRPG.getStats().characterId); } catch (e) {}
         return hasChar ? buildSaveData(species) : null;
+    }
+
+    // O que o aviso de consentimento do forge mostra (lido uma vez, no clique de "Forge on Solana").
+    function forgeConsentInfo() {
+        try {
+            var s = window.GhostRPG && window.GhostRPG.getStats();
+            if (s && s.characterId) {
+                return { hasChar: true, name: String(s.name || speciesName('001')).slice(0, 40), level: Math.max(1, Math.floor(Number(s.level) || 1)) };
+            }
+        } catch (e) {}
+        return { hasChar: false };
     }
 
     async function forge() {
@@ -889,15 +900,20 @@
         }
 
         if (S.forgeConfirm) {
+            var fc = S.forgeConfirm;
             box.appendChild(el('div', { class: 'gg-legacy-confirm' }, [
-                el('p', { text: 'Forge a legacy ghost (species #001) on Solana devnet. It starts with your current ghost\'s level and items; your own ghost stays as it is. Your wallet pays a small devnet fee (about 0.01 SOL).' }),
+                fc.hasChar
+                    ? el('p', { text: 'This copies your active character (level, items and name) into a Legacy ghost on Solana devnet. Whoever owns the ghost later can see and play it. The original character stays in your account for now.' })
+                    : el('p', { text: 'This forges a new Legacy ghost (species #001) on Solana devnet, starting at level 1. Whoever owns the ghost later can see and play it.' }),
+                fc.hasChar ? el('p', { class: 'gg-legacy-hint', text: 'Character: ' + fc.name + ' · level ' + fc.level }) : null,
+                el('p', { class: 'gg-legacy-hint', text: 'Your wallet pays a small devnet fee (about 0.01 SOL).' }),
                 el('div', { class: 'gg-legacy-row' }, [
-                    button('Forge now', action('forge', forge), { primary: true, busyKey: 'forge' }),
+                    button('I agree, forge now', action('forge', forge), { primary: true, busyKey: 'forge' }),
                     button('Cancel', function () { S.forgeConfirm = false; render(); }),
                 ]),
             ]));
         } else {
-            box.appendChild(button('Forge on Solana', function () { S.forgeConfirm = true; S.msg = null; render(); }, { primary: true, disabled: !canSign }));
+            box.appendChild(button('Forge on Solana', function () { S.forgeConfirm = forgeConsentInfo(); S.msg = null; render(); }, { primary: true, disabled: !canSign }));
             if (!canSign) box.appendChild(el('p', { class: 'gg-legacy-hint', text: 'Connect the wallet you signed in with to forge or pass on.' }));
         }
 
@@ -942,7 +958,7 @@
             oninput: function (e) { t.to = e.target.value; t.before = null; t.error = null; },
         });
         var form = el('div', { class: 'gg-legacy-transfer' }, [
-            el('p', { class: 'gg-legacy-hint', text: 'Pass this ghost on to another wallet. The new owner gets it with its progress; you can no longer play or save it.' }),
+            el('p', { class: 'gg-legacy-hint', text: 'Pass this ghost on to another wallet. The new owner gets it with its level, items and name; you can no longer play or save it.' }),
             input,
             t.error ? el('div', { class: 'gg-legacy-field-error', role: 'alert', text: t.error }) : null,
             t.before ? el('div', { class: 'gg-legacy-hint', text: 'Now: owner ' + short(t.before.owner) + ', generation ' + t.before.generation + '. After: owner ' + short(t.to) + ', generation ' + (Number(t.before.generation) + 1) + '.' }) : null,

@@ -392,8 +392,41 @@ function chestIconHtml(item) {
     return iconHtml || '';
 }
 
+// Painel Legacy (js/legacy/legacy.js, só com ?legacy=1): enquanto um ghost legado está
+// carregado, o progresso dele é salvo no serviço Legacy, fora da conta do jogo. O baú
+// da conta fica fechado nesse modo (abrir, guardar, transferir e descartar) e volta ao
+// normal no "Back to my ghost". Sem a flag, window.LegacyMode não existe e nada muda.
+var LEGACY_CHEST_TEXT = 'Account chest is disabled while playing a Legacy ghost. Press "Back to my ghost" in LEGACY to use it.';
+function RefuseChestInLegacyMode() {
+    if (!(window.LegacyMode && window.LegacyMode.active)) return false;
+    try {
+        // Aviso que não bloqueia a página (alert() no meio do movimento do overworld
+        // perde o keyup e deixa o personagem andando sozinho). Mesmo alvo de montagem
+        // do baú: dentro do elemento em tela cheia, se houver.
+        var mount = document.fullscreenElement || document.body;
+        var note = document.getElementById('chestLegacyNotice');
+        if (!note) {
+            note = document.createElement('div');
+            note.id = 'chestLegacyNotice';
+            note.setAttribute('role', 'alert');
+            note.style.cssText = 'position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:100000; max-width:90vw; padding:10px 14px; background:rgba(10,0,20,0.92); border:1px solid var(--magenta-neon, #ff00ff); color:#fff; font-size:13px; border-radius:6px; text-align:center;';
+        }
+        if (note.parentElement !== mount) mount.appendChild(note);
+        note.textContent = LEGACY_CHEST_TEXT;
+        note.style.display = 'block';
+        clearTimeout(RefuseChestInLegacyMode._timer);
+        RefuseChestInLegacyMode._timer = setTimeout(function () { note.style.display = 'none'; }, 5000);
+    } catch (err) {
+        console.warn('RefuseChestInLegacyMode Error', err);
+    }
+    return true;
+}
+window.RefuseChestInLegacyMode = RefuseChestInLegacyMode;
+
 function OpenChestModal() {
     try {
+        // Antes de travar o movimento: recusado, o overworld continua livre.
+        if (RefuseChestInLegacyMode()) return;
         // Re-sincroniza window.g_chestItems com dg_cloud_profile antes de renderizar —
         // cobre o caso de o login ter terminado DEPOIS do boot de engine.js (ver
         // comentário completo em js/game/engine.js:loadChestItemsFromCloudProfile).
@@ -654,6 +687,7 @@ function ChestModalNextPage() {
 // stack) não foi pedido, mesma granularidade de "guardar" que o resto do jogo
 // usa pra mover item inteiro entre listas.
 function StoreActiveGhostItemInChest(itemId) {
+    if (RefuseChestInLegacyMode()) return;
     if (!Array.isArray(window.g_chestItems)) window.g_chestItems = [];
     if (window.g_chestItems.length >= 1000) {
         alert('The chest is full (limit: 1000 items)!');
@@ -676,6 +710,7 @@ function StoreActiveGhostItemInChest(itemId) {
 // DESCARTAR — remove permanentemente do baú, mesmo confirm() de segurança que
 // DiscardBagItem() já usa pro Bag normal.
 function DiscardChestItem(globalIndex) {
+    if (RefuseChestInLegacyMode()) return;
     if (!Array.isArray(window.g_chestItems) || !window.g_chestItems[globalIndex]) return;
     var item = window.g_chestItems[globalIndex];
     if (!confirm("Are you sure you want to discard \"" + (item.name || item.id) + "\" from the chest? This action is permanent!")) return;
@@ -696,6 +731,7 @@ function CancelTransferChestItem() {
 }
 
 function ConfirmTransferChestItem(targetCharacterId) {
+    if (RefuseChestInLegacyMode()) return;
     if (g_chestTransferOpenForIndex === null || !Array.isArray(window.g_chestItems)) return;
     var item = window.g_chestItems[g_chestTransferOpenForIndex];
     if (item && window.TransferChestItemToGhost) {
