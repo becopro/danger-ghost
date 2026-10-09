@@ -339,8 +339,17 @@ window.ShowGhostdexDetail = function(ghostId) {
             var rawChars = localStorage.getItem("dg_local_characters");
             if (rawChars) {
                 var localChars = JSON.parse(rawChars);
-                var charId = "ghost_" + ghost.id;
-                var foundChar = localChars.find(function(c) { return c.characterId === charId; });
+                // O personagem da espécie pode estar gravado como "001" (save local) ou "ghost_001"
+                // (id do servidor), igual a busca de PlayAsGhost. Com os dois, vale o de mais
+                // progresso (nível, depois XP). Só leitura: nada é gravado aqui.
+                var foundChar = null;
+                localChars.forEach(function(c) {
+                    if (!c || (c.characterId !== ghost.id && c.characterId !== "ghost_" + ghost.id)) return;
+                    if (!foundChar || (Number(c.level) || 0) > (Number(foundChar.level) || 0) ||
+                        ((Number(c.level) || 0) === (Number(foundChar.level) || 0) && (Number(c.xp) || 0) > (Number(foundChar.xp) || 0))) {
+                        foundChar = c;
+                    }
+                });
                 if (foundChar) {
                     heroStats.level = foundChar.level || 1;
                     heroStats.xp = foundChar.xp || 0;
