@@ -945,7 +945,7 @@
             var fc = S.forgeConfirm;
             box.appendChild(el('div', { class: 'gg-legacy-confirm' }, [
                 fc.hasChar
-                    ? el('p', { text: 'This copies your active character (level, items and name) into a Legacy ghost on Solana devnet. Whoever owns the ghost later can see and play it. The original character stays in your account for now.' })
+                    ? el('p', { text: 'This forges a Legacy ghost on Solana devnet. In this demo it is always species #001 Ftasma. It takes the level, items and name of your active character. Your original character stays in your account for now. Whoever owns the ghost can play it.' })
                     : el('p', { text: 'This forges a new Legacy ghost (species #001) on Solana devnet, starting at level 1. Whoever owns the ghost later can see and play it.' }),
                 fc.hasChar ? el('p', { class: 'gg-legacy-hint', text: 'Character: ' + fc.name + ' · level ' + fc.level }) : null,
                 el('p', { class: 'gg-legacy-hint', text: 'Your wallet pays a small devnet fee (about 0.01 SOL).' }),

@@ -141,7 +141,7 @@ async function main() {
         await page.getByRole('button', { name: 'Sign in (free)' }).click();
         await page.getByRole('button', { name: 'Forge on Solana' }).click();
         await check('1. forge mostra o aviso de consentimento (nível, itens e nome) antes da carteira', async () => {
-            await page.getByText('This copies your active character (level, items and name) into a Legacy ghost on Solana devnet. Whoever owns the ghost later can see and play it. The original character stays in your account for now.').waitFor({ timeout: 3000 });
+            await page.getByText('This forges a Legacy ghost on Solana devnet. In this demo it is always species #001 Ftasma. It takes the level, items and name of your active character. Your original character stays in your account for now. Whoever owns the ghost can play it.').waitFor({ timeout: 3000 });
             await page.getByText('Character: MeuGhost · level 9').waitFor({ timeout: 3000 });
             expectEq('botão de confirmar', await page.getByRole('button', { name: 'I agree, forge now' }).count(), 1);
         });
