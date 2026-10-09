@@ -823,6 +823,15 @@
         document.body.appendChild(ui.toggle);
         document.body.appendChild(ui.panel);
         document.body.appendChild(ui.badge);
+        // Em tela cheia só aparece o que está dentro do elemento em tela cheia (o resto do jogo já
+        // monta seus avisos em document.fullscreenElement): o painel vai junto e volta ao sair.
+        document.addEventListener('fullscreenchange', function () {
+            var fe = document.fullscreenElement;
+            var host = fe && fe !== document.documentElement ? fe : document.body;
+            [ui.toggle, ui.panel, ui.badge].forEach(function (n) {
+                if (n.parentNode !== host) host.appendChild(n);
+            });
+        });
     }
 
     function onOpen() {

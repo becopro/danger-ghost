@@ -1641,11 +1641,28 @@ body {
     height: calc(100vh - 60px) !important;
     display: flex !important;
     align-items: center !important;
-    justify-content: center !important;
+    justify-content: flex-start !important;
     background: #000 !important;
     padding: 0 !important;
     margin: 0 !important;
     border: none !important;
+}
+/* Tela cheia mostra só o jogo. Título, botões de conta, nome, APK e resumo do Legacy entraram
+   no #game-section depois deste CSS e empurravam o canvas para trás do header. O LOGIN do
+   header continua disponível. */
+#fullscreenGameArea:fullscreen #game-section > h2,
+#fullscreenGameArea:fullscreen #loginButtonsContainer,
+#fullscreenGameArea:fullscreen .char-name-area,
+#fullscreenGameArea:fullscreen .mobile-app-download-area,
+#fullscreenGameArea:fullscreen .legacy-game-summary {
+    display: none !important;
+}
+/* O mute fica acima do canvas (top:-45px) e sumia atrás do header: vai para o lado do botão de tela cheia. */
+#fullscreenGameArea:fullscreen #muteBtn {
+    position: fixed !important;
+    top: 64px !important;
+    right: 62px !important;
+    z-index: 2000 !important;
 }
 #fullscreenGameArea:fullscreen .canvas-container {
     width: 100% !important;
