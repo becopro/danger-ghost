@@ -1,23 +1,15 @@
-# DeSoGhost: The 33-Level Saga
+# Danger Ghost
 
-Experience the definitive edition of DeSoGhost, now expanded to a massive 33-level campaign!
+Danger Ghost is a 2D action RPG made by Ghost Games (Niterói, Brazil). You play as Ftasma, a ghost fighting through the shifting dungeon of "Nowhere", collecting gear, runes and other ghosts.
 
-## What's New
-- **33 Hand-Crafted Levels:** Journey through the original levels, then face the new "Extreme Difficulty" islands (Levels 17-25) and "Ghost Mode Mastery" tight corridors (Levels 26-33).
-- **New State Machine:** Clean transitions between Start Screen, Gameplay, Victory, and Game Over states.
-- **Start Screen:** Professional title screen with clear instructions.
-- **Improved Mechanics:** Refined triple-jump logic and Ghost Mode (Phase through walls with 'F').
+## Current state
+- Web2 game in vanilla JavaScript and HTML5 Canvas, also packaged for Android (Capacitor).
+- Progress is saved on the device (browser `localStorage`) and, for players with an account, on our server.
+- Accounts and profiles use Supabase (Postgres).
+- Nothing in the game is on a blockchain today. Solana is planned as the ownership layer for ghosts.
 
-## How to Play
-1. Open `index.html` in any modern web browser.
-2. Press **SPACE** on the Start Screen to begin your journey.
-3. Use **WASD** or **Arrow Keys** to move and jump.
-4. Press **W** or **Up** while in mid-air for a triple jump (up to 3 times).
-5. Hold **F** to enter Ghost Mode and pass through solid walls (essential for later levels!).
-6. Reach the door at Level 33 to win!
+## How to play
+Open `index.html` in a modern browser, or visit the published site. Controls are listed in the in-game tutorial.
 
-## Technical Details
-This version features a robust game loop, optimized asset loading, and a dynamic level generation system for the expansion levels, all running at a smooth 60 FPS (capped by `setInterval` at 30ms).
-
----
-*Created with passion, refactored for excellence.*
+## History
+An earlier prototype called "DeSoGhost" used the DeSo blockchain. That integration was removed and is not part of this game.

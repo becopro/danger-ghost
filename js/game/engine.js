@@ -4348,12 +4348,12 @@ var g_binaryBits = [];
 			function SwitchTutorialTab(tabId) {
 				tutTab = tabId;
 				// Reset all tabs
-				var tabs = ["Sandbox", "Spells", "Blockchain", "GettingStarted"];
+				var tabs = ["Sandbox", "Spells", "GettingStarted"];
 				tabs.forEach(function(t) {
 					var btn = document.getElementById("tabBtn" + t);
 					if (btn) btn.classList.remove("active");
 				});
-				var panes = ["paneSandbox", "paneSpells", "paneBlockchain", "paneGettingStarted"];
+				var panes = ["paneSandbox", "paneSpells", "paneGettingStarted"];
 				panes.forEach(function(p) {
 					var pane = document.getElementById(p);
 					if (pane) pane.classList.remove("active");
@@ -4370,9 +4370,6 @@ var g_binaryBits = [];
 					document.getElementById("tabBtnSpells").classList.add("active");
 					document.getElementById("paneSpells").classList.add("active");
 					UpdateTutorialRunePreview();
-				} else if (tabId === "blockchain") {
-					document.getElementById("tabBtnBlockchain").classList.add("active");
-					document.getElementById("paneBlockchain").classList.add("active");
 				} else if (tabId === "start") {
 					document.getElementById("tabBtnGettingStarted").classList.add("active");
 					document.getElementById("paneGettingStarted").classList.add("active");
@@ -4821,76 +4818,12 @@ var g_binaryBits = [];
 				}, 150);
 			}
 
-			// Local Save Simulator step-by-step logic
-			function RunTutorialSaveSimulation() {
-				var simBtn = document.getElementById("simSaveBtn");
-				var consoleBox = document.getElementById("tutorialConsole");
-				if (!simBtn || !consoleBox) return;
-
-				simBtn.disabled = true;
-				consoleBox.innerHTML = "";
-
-				// Reset flow nodes
-				for (var i = 1; i <= 4; i++) {
-					var node = document.getElementById("simNode" + i);
-					if (node) {
-						node.classList.remove("active", "success");
-					}
-				}
-
-				// Step 1
-				setTimeout(function() {
-					var node = document.getElementById("simNode1");
-					if (node) node.classList.add("active");
-					consoleBox.innerHTML += "> [SYSTEM] Packaging RPG Game State:\n  level: 42, vit: 15, agi: 20, int: 10, pow: 8, mag: 12...\n";
-				}, 200);
-
-				// Step 2
-				setTimeout(function() {
-					var node1 = document.getElementById("simNode1");
-					if (node1) { node1.classList.remove("active"); node1.classList.add("success"); }
-					var node2 = document.getElementById("simNode2");
-					if (node2) node2.classList.add("active");
-					consoleBox.innerHTML += "> [ANTI-CHEAT] Generating integrity hash using random salt key:\n  Hash validation matches original save state.\n";
-				}, 1000);
-
-				// Step 3
-				setTimeout(function() {
-					var node2 = document.getElementById("simNode2");
-					if (node2) { node2.classList.remove("active"); node2.classList.add("success"); }
-					var node3 = document.getElementById("simNode3");
-					if (node3) node3.classList.add("active");
-					consoleBox.innerHTML += "> [STORAGE] Preparing character data for browser storage...\n";
-				}, 1800);
-
-				// Step 4
-				setTimeout(function() {
-					var node3 = document.getElementById("simNode3");
-					if (node3) { node3.classList.remove("active"); node3.classList.add("success"); }
-					var node4 = document.getElementById("simNode4");
-					if (node4) node4.classList.add("active");
-					consoleBox.innerHTML += "> [STORAGE] Writing save data (Base64) to local browser storage...\n";
-				}, 2600);
-
-				// Final
-				setTimeout(function() {
-					var node4 = document.getElementById("simNode4");
-					if (node4) { node4.classList.remove("active"); node4.classList.add("success"); }
-					
-					var mockPayload = "eyJsZXZlbCI6NDIsInhwIjoxNTAwLCJjaGFyYWN0ZXJJZCI6ImRnX2ZhbnRhc21hIiwiYXR0cmlidXRlcyI6eyJ2aXQiOjE1LCJhZ2kiOjIwLCJpbnQiOjEwLCJwb3ciOjgsIm1hZyI6MTJ9fQ==";
-					consoleBox.innerHTML += "> Payload: " + mockPayload + "\n";
-					consoleBox.innerHTML += "\n✅ SAVE COMPLETE — your progress is safe on this device 💾";
-					simBtn.disabled = false;
-				}, 3500);
-			}
-
 			// Expõe as funções globais do tutorial
 			window.OpenInteractiveTutorial = OpenInteractiveTutorial;
 			window.CloseInteractiveTutorial = CloseInteractiveTutorial;
 			window.SwitchTutorialTab = SwitchTutorialTab;
 			window.UpdateTutorialRunePreview = UpdateTutorialRunePreview;
 			window.TriggerTutorialRuneBlast = TriggerTutorialRuneBlast;
-			window.RunTutorialSaveSimulation = RunTutorialSaveSimulation;
 
 			Object.defineProperty(window, 'map', { get: function() { return map; }, configurable: true });
 			Object.defineProperty(window, 'DeSoGhost', { get: function() { return DeSoGhost; }, configurable: true });

@@ -491,7 +491,7 @@
                     </button>
                 </div>
                 <div class="lore-image-container">
-                    <img src="UI/1.png" alt="DeSo Eternal Ledger" class="lore-image" />
+                    <img src="UI/1.png" alt="Danger Ghost lore illustration" class="lore-image" />
                 </div>
             </div>
         </div>
@@ -786,7 +786,7 @@
                         He joined Web3 in 2020 and has built several NFT projects &mdash; including an early experiment called DeSoGhost on the DeSo blockchain, which is no longer active.
                     </p>
                     <p>
-                        He is currently developing Danger Ghost, a Web2 multiplayer RPG. Once Episode 2 ships, the plan is to build a new, purpose-built blockchain &mdash; not a revival of DeSo &mdash; to store created ghosts and save data.
+                        He is currently developing Danger Ghost, a Web2 multiplayer RPG. Solana is planned as the ownership layer for ghosts; a Layer 2 of its own is a long-term vision, not part of the current game.
                     </p>
                 </div>
             </div>
@@ -972,7 +972,6 @@
                 <div class="tutorial-sidebar">
                     <button id="tabBtnSandbox" class="tutorial-tab-btn active" onclick="SwitchTutorialTab('sandbox')">🎮 Play Sandbox</button>
                     <button id="tabBtnSpells" class="tutorial-tab-btn" onclick="SwitchTutorialTab('spells')">🔮 Spells &amp; Runes</button>
-                    <button id="tabBtnBlockchain" class="tutorial-tab-btn" onclick="SwitchTutorialTab('blockchain')">💾 Cloud Save</button>
                     <button id="tabBtnGettingStarted" class="tutorial-tab-btn" onclick="SwitchTutorialTab('start')">🚀 Getting Started</button>
                 </div>
                 <!-- Content panes -->
@@ -1034,51 +1033,6 @@
                     </div>
                 </div>
 
-                <div class="tutorial-content-pane" id="paneBlockchain">
-                    <h3 style="color: var(--yellow-neon); margin: 0 0 10px 0; text-transform: uppercase;">Blockchain Cloud Save Simulator</h3>
-                    <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 15px 0; line-height: 18px;">
-                        Understand how Ftasma records your attributes, weapons, and stages securely on the blockchain! See below how this technology works in simple gaming terms.
-                    </p>
-                    
-                    <div style="display: flex; gap: 15px; margin-top: 15px;">
-                        <!-- Analogy Cards -->
-                        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 5px;">
-                            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 10px; border-radius: 2px;">
-                                <span style="color: var(--cyan-neon); font-size: 13px; font-weight: bold;">🔑 Derived Keys (Temporary Access Key)</span>
-                                <p style="font-size: 11px; color: var(--text-muted); margin: 4px 0 0 0; line-height: 15px;">
-                                    Works like a temporary hotel key card! A temporary key that allows the game to save your progress automatically without typing your main password every time. Secure, free, and extremely simple!
-                                </p>
-                            </div>
-                            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 10px; border-radius: 2px;">
-                                <span style="color: var(--yellow-neon); font-size: 13px; font-weight: bold;">💾 On-Chain Record (Eternal Ledger)</span>
-                                <p style="font-size: 11px; color: var(--text-muted); margin: 4px 0 0 0; line-height: 15px;">
-                                    Works like an immutable ledger! Your game progress is securely recorded online in a decentralized way. Even if you change computers or clear your browser history, your level, attributes, and items will be saved forever!
-                                </p>
-                            </div>
-                            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); padding: 10px; border-radius: 2px;">
-                                <span style="color: var(--magenta-neon); font-size: 13px; font-weight: bold;">🏆 NFT Minting (Virtual Trophy Gallery)</span>
-                                <p style="font-size: 11px; color: var(--text-muted); margin: 4px 0 0 0; line-height: 15px;">
-                                    Works like your personal trophy gallery! Turn your best characters and achievements into exclusive digital items under your own ownership. You can showcase them to friends or trade them on the network!
-                                </p>
-                            </div>
-                        </div>
-                        
-                        <!-- Interactive simulator panel -->
-                        <div style="width: 280px; background: #000; border: 1px solid var(--border-light); padding: 15px; box-sizing: border-box; display: flex; flex-direction: column;">
-                            <div style="font-size: 11px; font-weight: bold; color: var(--yellow-neon); margin-bottom: 10px; text-transform: uppercase; text-align: center;">Transaction Sequencer</div>
-                            <div style="display: flex; flex-direction: column; gap: 6px; flex-grow: 1;">
-                                <div id="simNode1" class="tutorial-flow-node"><span>1.</span> Gather Level and Attributes</div>
-                                <div id="simNode2" class="tutorial-flow-node"><span>2.</span> Validate Integrity Hash</div>
-                                <div id="simNode3" class="tutorial-flow-node"><span>3.</span> Prepare Data for Storage</div>
-                                <div id="simNode4" class="tutorial-flow-node"><span>4.</span> Write Save to This Device</div>
-                            </div>
-                            <button id="simSaveBtn" onclick="RunTutorialSaveSimulation()" class="glass-action-btn" style="width: 100%; padding: 8px; margin-top: 10px; background: var(--yellow-neon); color: #000; font-weight: bold; border: none; cursor: pointer;">🔬 START SAVE SIMULATION</button>
-                        </div>
-                    </div>
-                    
-                    <div id="tutorialConsole" class="tutorial-console-output">Console ready. Click "START SAVE SIMULATION" to begin.</div>
-                </div>
-
                 <div class="tutorial-content-pane" id="paneGettingStarted">
                     <h3 style="color: var(--cyan-neon); margin: 0 0 10px 0; text-transform: uppercase;">Quick Start Guide - Danger Ghost</h3>
                     <div style="font-size: 13px; line-height: 20px; color: var(--text-muted);">
@@ -1107,7 +1061,7 @@
     </div>
 
     <!-- Script de inicialização Engine -->
-    <script src="js/game/engine.js?v=86"></script>
+    <script src="js/game/engine.js?v=88"></script>
     <!-- Overworld isométrico de Niterói (novo, autocontido — ver js/game/overworld.js).
          Canvas próprio, empilhado via CSS sobre #myCanvas; não compartilha g_canvas/g_ctx
          do engine.js. Fica inativo (canvas oculto, sem loop rodando) até window.ActivateOverworld()
