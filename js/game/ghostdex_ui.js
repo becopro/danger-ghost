@@ -20,6 +20,16 @@ function GetPlayerGhostdexProgress() {
     try { return JSON.parse(raw); } catch(e) { return {}; }
 }
 
+// O #001 (Ftasma) é o ghost inicial de todo jogador: aparece sempre como visto e capturado,
+// desde a criação da conta, mesmo sem registro em ghostdex_progress. (Conta nova recebe do
+// servidor o personagem "ghost_001", e o desbloqueio em game_core.js grava a chave "ghost_001",
+// diferente do id "001" da Ghostdex; contas mais antigas começaram com um ghost forjado
+// "dg_local_...".) Só a exibição usa esta regra: nada é gravado nem enviado ao banco.
+var GHOSTDEX_STARTER_ID = '001';
+function GhostdexState(progress, id) {
+    return id === GHOSTDEX_STARTER_ID ? 2 : (progress[id] || 0);
+}
+
 // Manda o progresso da Ghostdex e a lista de favoritos pro banco (30/08/2026) — antes disso
 // ficavam só no localStorage, nunca chegavam no servidor, então sumiam ao trocar de aparelho ou
 // eram perdidos se o navegador limpasse os dados. Mesmo padrão de "cache local + emit se
@@ -70,7 +80,7 @@ function RenderGhostdexInNavbar(db) {
     var seen = 0, caught = 0;
 
     db.forEach(function(ghost) {
-        var st = progress[ghost.id] || 0;
+        var st = GhostdexState(progress, ghost.id);
         if (st >= 1) seen++;
         if (st === 2) caught++;
     });
@@ -88,7 +98,7 @@ function RenderGhostdexInNavbar(db) {
     html += '<div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; max-height:220px; overflow-y:auto; padding:4px;">';
 
     db.forEach(function(ghost) {
-        var st = progress[ghost.id] || 0;
+        var st = GhostdexState(progress, ghost.id);
         var bg, border, opacity;
         if (st < 2) {
             bg = '#111'; border = '#333'; opacity = '0.5';
@@ -180,7 +190,7 @@ window.ShowGhostdexDetail = function(ghostId) {
     if (!ghost) return;
 
     var progress = GetPlayerGhostdexProgress();
-    var st = progress[ghostId] || 0;
+    var st = GhostdexState(progress, ghostId);
 
     if (st < 2) return; // Can't view undiscovered or just seen
 
