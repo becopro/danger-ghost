@@ -3118,12 +3118,9 @@
 
 
 			function StartEndCutscene() {
+				// Sem GIF de encerramento: vai direto para a tela de vitória (painel, save do score e SPACE iguais).
 				SetGameState(G_END_CUTSCENE);
-				var gif = document.getElementById("cutsceneGif");
-				gif.src = "";
-				gif.src = "assets/sprites/Dream 36 (1).gif"; // GIF de Encerramento
-				gif.style.display = "block";
-				g_cutsceneTimer = setTimeout(FinishEndCutscene, 16000); // 16 segundos
+				FinishEndCutscene();
 			}
 
 			function FinishEndCutscene() {
