@@ -1112,6 +1112,15 @@ body {
     object-fit: contain;
     filter: drop-shadow(0 0 5px var(--cyan-neon));
 }
+/* No desktop logo, título e botões do menu ficam numa linha só, com a mesma altura (~40px). */
+@media (min-width: 769px) {
+    .header-logo {
+        margin-right: 16px;
+    }
+    .header-logo-img {
+        height: 40px;
+    }
+}
 
 .neon-title {
     color: #fff;
@@ -1124,6 +1133,14 @@ body {
     display: inline-block;
     text-shadow: 0 0 10px var(--cyan-neon);
     transform: skewX(-5deg);
+}
+@media (min-width: 769px) {
+    .neon-title {
+        font-size: 22px !important;
+        letter-spacing: 4px;
+        line-height: 40px;
+        white-space: nowrap;
+    }
 }
 
 #gameNavbar {
