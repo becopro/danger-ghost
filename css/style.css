@@ -74,6 +74,22 @@ body {
     background-position: center;
 }
 
+/* Canvas escala com a janela (desktop), mantendo a proporção 640:300; a resolução interna continua
+   640x300. Largura = a menor entre janela-40px, altura útil*2.1333 e 1280px; mínimo 640px. */
+@media (min-width: 769px) {
+    #myCanvas {
+        width: min(calc(100vw - 40px), calc((100vh - 330px) * 2.1333), 1280px);
+        min-width: 640px;
+        height: auto;
+    }
+}
+/* Acima de 1500px os painéis laterais abrem fora do canvas (±320px): sobra espaço para eles. */
+@media (min-width: 1501px) {
+    #myCanvas {
+        width: min(calc(100vw - 680px), calc((100vh - 330px) * 2.1333), 1280px);
+    }
+}
+
 /* HUD Components */
 .hud-container {
     position: absolute;
@@ -1173,6 +1189,13 @@ body {
         margin: 0;
     }
 }
+/* Em ~1366px "CONTROLS" e "SAVE GAME" eram cortados com reticências: menos espaçamento cabe. */
+@media (min-width: 768px) and (max-width: 1440px) {
+    #gameNavbar button {
+        padding: 12px 2px !important;
+        letter-spacing: 0.5px;
+    }
+}
 
 /* Remove all individual button color overrides — image provides the visual */
 #btnNavControls, #btnNavRPG, #btnNavBag, #btnNavEquip,
@@ -2011,8 +2034,10 @@ body {
    painel aberto ultrapassava a viewport e era cortado; a regra abaixo (que já existia só
    dentro de @media max-width:768px) força os painéis a 100% de largura/altura ANTES desse
    ponto de corte real, numa faixa que cobre com folga o intervalo problemático (769px-1283px)
-   sem alterar o comportamento em telas menores, que já caíam aqui mesmo antes. */
-@media (max-width: 1300px) {
+   sem alterar o comportamento em telas menores, que já caíam aqui mesmo antes.
+   10/10/2026: limite subiu para 1500px porque o canvas agora cresce com a janela (regra do
+   #myCanvas no topo) e até 1500px não sobra espaço para o painel abrir ao lado. */
+@media (max-width: 1500px) {
     /* Make overlay panels cover the whole canvas area whenever the fixed -320px/320px
        flyout offset wouldn't fit the viewport without clipping. */
     .overlay-panel {

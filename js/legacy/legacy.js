@@ -901,6 +901,7 @@
             var wallets = window.GGWallet.listWallets();
             if (!wallets.length) {
                 box.appendChild(el('p', { text: 'No Solana wallet found. Install Phantom, Solflare or Backpack in this browser, then reload the page.' }));
+                box.appendChild(el('p', {}, [link('https://phantom.com/download', 'Install Phantom')]));
             } else {
                 box.appendChild(el('p', { class: 'gg-legacy-hint', text: 'Optional: connect a wallet to own your ghost on Solana devnet. Your game login does not change.' }));
                 wallets.forEach(function (w) {
