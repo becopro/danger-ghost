@@ -6,6 +6,9 @@
     <title>Ghost Games</title>
     <script>
     window.onerror = function(msg, url, line, col, error) {
+        console.error("[GlobalError]", msg, url + ":" + line + ":" + col, error);
+        // A caixa vermelha só aparece com ?debug=1 no endereço; sem isso, o erro fica só no console.
+        if (!/[?&]debug=1(&|$)/.test(location.search)) return;
         var errDiv = document.getElementById("debugCrashReport");
         if (!errDiv) {
             errDiv = document.createElement("div");
