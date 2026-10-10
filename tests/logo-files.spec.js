@@ -58,6 +58,11 @@ async function main() {
             const hs = await page.evaluate(() => ['.header-logo-img', '.neon-title', '#btnNavProfile'].map((s) => Math.round(document.querySelector(s).getBoundingClientRect().height)));
             hs.forEach((h) => { if (Math.abs(h - 40) > 2) throw new Error('alturas ' + JSON.stringify(hs)); });
         });
+        await check('1c. o menu do cabeçalho não tem botão LOGIN (o login fica no RESTORE PROGRESS)', async () => {
+            const r = await page.evaluate(() => ({ login: !!document.getElementById('btnNavLogin'),
+                restore: !!Array.from(document.querySelectorAll('#loginButtonsContainer button')).find((b) => /RESTORE PROGRESS/i.test(b.textContent)) }));
+            expectEq('cabeçalho', r, { login: false, restore: true });
+        });
         await check('2. favicon aponta para favicon.png e é a imagem de 64x64', async () => {
             const href = await page.evaluate(() => document.querySelector('link[rel="icon"]').getAttribute('href'));
             expectEq('href', href, 'favicon.png');

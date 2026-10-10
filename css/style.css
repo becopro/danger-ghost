@@ -1688,8 +1688,8 @@ body {
     border: none !important;
 }
 /* Tela cheia mostra só o jogo. Título, botões de conta, nome, APK e resumo do Legacy entraram
-   no #game-section depois deste CSS e empurravam o canvas para trás do header. O LOGIN do
-   header continua disponível. */
+   no #game-section depois deste CSS e empurravam o canvas para trás do header. Desde 10/10/2026
+   o header não tem mais botão LOGIN: para entrar, sair da tela cheia e usar RESTORE PROGRESS. */
 #fullscreenGameArea:fullscreen #game-section > h2,
 #fullscreenGameArea:fullscreen #loginButtonsContainer,
 #fullscreenGameArea:fullscreen .char-name-area,
