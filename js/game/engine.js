@@ -2739,8 +2739,9 @@
 				
 				// Draw Active Ghost Name at the top right
 				var activeGhostName = "Unknown Ghost";
-				if (window.g_currentPlayerGhost && window.g_ghostdexDB) {
-					var foundGhost = window.g_ghostdexDB.find(function(g) { return g.id === window.g_currentPlayerGhost; });
+				// GetGhostdexEntry (rpg_system.js) aceita o id cru ("001") e o do servidor ("ghost_001").
+				if (window.g_currentPlayerGhost && typeof window.GetGhostdexEntry === 'function') {
+					var foundGhost = window.GetGhostdexEntry(window.g_currentPlayerGhost);
 					if (foundGhost) activeGhostName = foundGhost.nome;
 				}
 				g_ctx.textAlign = "right";
